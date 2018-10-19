@@ -31,10 +31,6 @@ char *itemname[NITEMS] = {
 	"None", "Label", "Print", "Input", "Time", "Note", "Choice", "Flag",
 	"Button", "Summary", "Chart" };
 
-extern int	errno;
-extern char	*progname;		/* argv[0] */
-extern Widget	toplevel;		/* top-level shell for error popups */
-
 
 #ifdef GROK
 /*

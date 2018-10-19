@@ -32,9 +32,6 @@
 static void done_callback (Widget, int, XmToggleButtonCallbackStruct *);
 static void spool_callback(Widget, int, XmToggleButtonCallbackStruct *);
 
-extern Display	*display;	/* everybody uses the same server */
-extern Pixel	color[NCOLS];	/* colors: COL_* */
-extern Widget	toplevel;	/* top-level shell for error popup */
 struct pref	pref;		/* global preferences */
 
 static BOOL	have_shell;	/* message popup exists if TRUE */

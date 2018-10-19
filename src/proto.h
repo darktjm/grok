@@ -99,6 +99,8 @@ void dbase_sort(
 	int		col,		/* column to sort by */
 	int		rev);		/* reverse if nonzero */
 
+extern int	col_sorted_by;		/* dbase is sorted by this column */
+
 /*---------------------------------------- dbfile.c ------------*/
 
 BOOL write_dbase(
@@ -139,6 +141,13 @@ void f_foreach(
 int yylex(void);
 void yyerror(
 	char *msg);
+
+extern int	yylineno;		/* current line # being parsed */
+extern char	*yyret;			/* returned string (see parser.y) */
+extern CARD	*yycard;		/* database for which to evaluate */
+extern char	*switch_name;		/* if switch statement was found, */
+extern char	*switch_expr;		/* .. name to switch to and expr */
+extern BOOL	assigned;		/* did a field assignment */
 
 /*---------------------------------------- evalfunc.c ------------*/
 
@@ -254,6 +263,9 @@ void fillout_formedit_widget_by_code(
 	int		code);
 void readback_formedit(void);
 
+extern int		curr_item;	/* current item, 0..form.nitems-1 */
+extern char		plan_code[];	/* code 0x260..0x26c */
+
 /*---------------------------------------- help.c ------------*/
 
 void destroy_help_popup(void);
@@ -271,10 +283,21 @@ void get_rsrc(
 void set_color(
 	int		col);
 
+extern Display		*display;	/* everybody uses the same server */
+extern GC		gc;		/* everybody uses this context */
+extern GC		xor_gc;		/* XOR gc for rubberbanding */
+extern XtAppContext	app;		/* application handle */
+extern Widget		toplevel;	/* top-level shell for icon name */
+extern char		*progname;	/* argv[0] */
+extern XFontStruct	*font[NFONTS];	/* fonts: FONT_* */
+extern XmFontList	fontlist[NFONTS];
+extern Pixel		color[NCOLS];	/* colors: COL_* */
+extern Pixmap		pixmap[NPICS];	/* common symbols */
+extern BOOL		restricted;	/* restricted mode, no form editor */
+
 /*---------------------------------------- mainwin.c ------------*/
 
-void create_mainwindow(
-	Widget		toplvl);
+void create_mainwindow(void);
 void resize_mainwindow(void);
 void print_info_line(void);
 void remake_dbase_pulldown(void);
@@ -290,6 +313,12 @@ void search_cards(
 	char		*string);
 void do_query(
 	int		qmode);		/* -1=all, or query number */
+
+extern CARD 		*curr_card;	/* card being displayed in main win, */
+extern char		*prev_form;	/* previous form name */
+extern Widget		mainwindow;	/* popup menus hang off main window */
+extern int		last_query;	/* last query pd index, for ReQuery */
+extern Widget		w_summary;	/* form for summary table */
 
 /*---------------------------------------- popup.c ------------*/
 
@@ -309,6 +338,8 @@ void destroy_preference_popup(void);
 void create_preference_popup(void);
 void write_preferences(void);
 void read_preferences(void);
+
+extern struct pref	pref;		/* global preferences */
 
 /*---------------------------------------- print.c ------------*/
 

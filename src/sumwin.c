@@ -22,14 +22,6 @@
 
 static void sum_callback(Widget, XtPointer, XmListCallbackStruct *);
 
-extern Display		*display;	/* everybody uses the same server */
-extern GC		gc;		/* everybody uses this context */
-extern struct pref	pref;		/* global preferences */
-extern CARD 		*curr_card;	/* card being displayed in main win, */
-extern Pixel		color[NCOLS];	/* colors: COL_* */
-extern XFontStruct	*font[NFONTS];	/* fonts: FONT_* */
-extern XmFontList	fontlist[NFONTS];
-
 
 /*
  */
@@ -256,8 +248,6 @@ void make_summary_line(
  * (column) index of grok, but only once, so the form editor can't be used
  * to change the column order.
  */
-
-extern char plan_code[];		/* from formwin.c */
 
 void make_plan_line(
 	CARD		*card,		/* card with query results */

@@ -23,9 +23,6 @@
 static void usage(void), mkdir_callback(void), make_grokdir(void);
 static void init_colors(void), init_fonts(void), init_pixmaps(void);
 
-extern CARD		*curr_card;	/* card switched to if -t */
-extern Widget		w_summary;	/* form for summary table */
-extern Widget		mainwindow;	/* popup menus hang off main window */
 Display			*display;	/* everybody uses the same server */
 GC			gc;		/* everybody uses this context */
 GC			xor_gc;		/* XOR gc for rubberbanding */
@@ -209,7 +206,7 @@ int main(
 	read_preferences();
 	XSetForeground(display, xor_gc, color[COL_CANVBACK]);
 
-	create_mainwindow(toplevel);
+	create_mainwindow();
 	XtRealizeWidget(toplevel);
 
 	make_grokdir();

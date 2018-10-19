@@ -18,11 +18,6 @@
 static void drawrect(Window, ITEM *, int, int, int, int);
 static void drawbox (Window, ITEM *, int, int, int, int);
 
-extern Display		*display;	/* everybody uses the same server */
-extern GC		gc;		/* everybody uses this context */
-extern XFontStruct	*font[NFONTS];	/* fonts: FONT_* */
-extern CARD 		*curr_card;	/* card being displayed in main win */
-
 
 /*
  * adjust x such that it is a multiple of s

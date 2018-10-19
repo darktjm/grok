@@ -35,12 +35,9 @@
 #ifndef GROK
 void clone_chart_component(to, from) CHART *to, *from; {}
 void del_chart_component(item) ITEM *item; {}
-extern ITEM *item_clone(ITEM *);
-extern void item_delete(FORM *, int);
 #endif
 
 static void		set_form_defaults(FORM *);
-extern Widget		toplevel;	/* top-level shell for icon name */
 
 
 /*------------------------------------------------- operations on form ------*/

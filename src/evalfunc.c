@@ -30,9 +30,6 @@
 #include "proto.h"
 #include "y.tab.h"
 
-extern CARD	*yycard;		/* the database to operate on */
-extern Widget	toplevel;		/* top-level shell for error msg */
-
 
 /*
  * convert a string to a number. There is an internal version that doesn't

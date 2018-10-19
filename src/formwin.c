@@ -29,14 +29,6 @@
 static void formedit_callback(Widget, int, XmToggleButtonCallbackStruct *);
 static int readback_item(int);
 
-extern Display		*display;	/* everybody uses the same server */
-extern GC		gc;		/* everybody uses this context */
-extern struct config	config;		/* global configuration data */
-extern CARD 		*curr_card;	/* card being displayed in main win */
-extern Pixel		color[NCOLS];	/* colors: COL_* */
-extern XFontStruct	*font[NFONTS];	/* fonts: FONT_* */
-extern XmFontList	fontlist[NFONTS];
-
 static BOOL		have_shell;	/* message popup exists if TRUE */
 static Widget		shell;		/* popup menu shell */
 static FORM		*form;		/* current form definition */

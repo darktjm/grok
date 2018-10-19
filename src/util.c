@@ -39,14 +39,6 @@
 #include "version.h"
 #include "bm_icon.h"
 
-extern Display		*display;	/* everybody uses the same server */
-extern GC		gc;		/* everybody uses this context */
-extern Widget		toplevel;	/* top-level shell for icon name */
-extern struct config	config;		/* global configuration data */
-extern XFontStruct	*font[NFONTS];	/* fonts: FONT_* */
-extern Pixel		color[NCOLS];	/* colors: COL_* */
-extern char		*progname;	/* argv[0] */
-
 
 
 /*

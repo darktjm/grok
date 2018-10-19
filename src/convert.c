@@ -22,8 +22,6 @@
 #include "form.h"
 #include "proto.h"
 
-extern struct pref	pref;		/* global configuration data */
-
 char *weekday_name[7] =	    { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
 char *alt_weekday_name[7] = { "Mo",  "Di",  "Mi",  "Do",  "Fr",  "Sa",  "So" };
 

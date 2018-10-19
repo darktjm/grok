@@ -37,14 +37,6 @@ static void file_cancel_callback(Widget,int,XmFileSelectionBoxCallbackStruct*);
 static void editfile(char *);
 static void askname(BOOL);
 
-extern Display	*display;	/* everybody uses the same server */
-extern int	errno;
-extern XmFontList fontlist[NFONTS];
-extern Pixel	color[NCOLS];	/* colors: COL_* */
-extern Widget	toplevel;	/* top-level shell for error popup */
-extern struct	pref pref;	/* global preferences */
-extern CARD 	*curr_card;	/* card being displayed in main win */
-
 static BOOL	have_shell;	/* message popup exists if TRUE */
 static Widget	shell;		/* popup menu shell */
 static Widget	list;		/* template list widget */

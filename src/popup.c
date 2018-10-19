@@ -26,11 +26,6 @@
 #define __DATE__ ""
 #endif
 
-extern char		*progname;	/* argv[0] */
-extern Display		*display;	/* everybody uses the same server */
-extern Widget		mainwindow;	/* popup menus hang off main window */
-extern struct		pref pref;	/* global preferences */
-
 
 /*---------------------------------------------------------- about ----------*/
 /*

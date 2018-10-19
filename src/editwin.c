@@ -35,10 +35,6 @@ static void cancel_callback (Widget, int, XmToggleButtonCallbackStruct *);
 static void delete_callback (Widget, int, XmToggleButtonCallbackStruct *);
 static void clear_callback  (Widget, int, XmToggleButtonCallbackStruct *);
 
-extern XmFontList	fontlist[NFONTS];
-extern Pixel		color[NCOLS];	/* colors: COL_* */
-extern Display		*display;	/* everybody uses the same server */
-extern Widget		toplevel;	/* top-level shell for icon name */
 static BOOL		have_shell;	/* message popup exists if TRUE */
 static char		**source;	/* ptr to string ptr of default */
 static char		*sourcefile;	/* if nonzero, file to write back to */

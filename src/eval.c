@@ -12,14 +12,9 @@
 #include "proto.h"
 #include "y.tab.h"
 
-extern int	yyparse(void);
-extern char	*progname;		/* argv[0] */
-extern Widget	toplevel;		/* top-level shell for error msg */
-
-#if defined(bsdi) || defined(linux)
-extern
-#endif
+#if !(defined(bsdi) || defined(linux))
 int		yylineno;		/* current line # being parsed */
+#endif
 static char	*yyexpr;		/* first char read by lexer */
 static char	*yytext;		/* next char to be read by lexer */
 char		*yyret;			/* returned string (see parser.y) */

@@ -32,12 +32,6 @@ static void config_callback	(Widget, int, XmToggleButtonCallbackStruct *);
 static void file_print_callback	(Widget,int,XmFileSelectionBoxCallbackStruct*);
 static void file_cancel_callback(Widget,int,XmFileSelectionBoxCallbackStruct*);
 
-extern Display	*display;	/* everybody uses the same server */
-extern Pixel	color[NCOLS];	/* colors: COL_* */
-extern int	errno;
-extern Widget	toplevel;	/* top-level shell for error popup */
-extern struct	pref pref;	/* global preferences */
-
 static BOOL	have_shell;	/* message popup exists if TRUE */
 static Widget	shell;		/* popup menu shell */
 static BOOL	modified;	/* preferences have changed */

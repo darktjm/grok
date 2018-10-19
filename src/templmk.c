@@ -15,8 +15,6 @@
 #include "form.h"
 #include "proto.h"
 
-extern CARD 	*curr_card;		/* card being displayed in main win */
-
 
 /*
  * given an item, print an expression that will represent the data, using a

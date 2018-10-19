@@ -27,10 +27,6 @@ static void print_head_p(FILE *);
 static void print_tail_p(FILE *);
 static void print_card_p(FILE *, int);
 
-extern Widget	toplevel;	/* top-level shell for error popup */
-extern CARD 	*curr_card;	/* card being displayed in main win */
-extern struct	pref pref;	/* global preferences */
-
 
 /*
  * If the print spooler dies for some reason, print a message. Don't let

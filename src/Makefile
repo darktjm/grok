@@ -244,6 +244,6 @@ tar:
 	cd ../..; rm -rf groktmp xmbase_grok-$(VERS)
 	mkdir -p ../../groktmp/src
 	cd ..; cp -rp README HISTORY demo doc man misc ../groktmp
-	cp -rp Makefile Makefile.auto $(SRC) $(INC) ../../groktmp/src
+	cp -rp Makefile $(SRC) $(INC) ../../groktmp/src
 	cd ../..; mv groktmp xmbase_grok-$(VERS)
 	cd ../..; tar cf - xmbase_grok-$(VERS) | gzip > grok/xmbase_grok-$(VERS).tar.gz

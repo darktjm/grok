@@ -28,14 +28,6 @@ static void canvas_callback(Widget, XButtonEvent *, String *, int);
 static void draw_rubberband(BOOL, int, int, int, int);
 static int  ifont(FONTN);
 
-extern XtAppContext	app;		/* application handle, for actions */
-extern Display		*display;	/* everybody uses the same server */
-extern GC		gc;		/* everybody uses this context */
-extern GC		xor_gc;		/* XOR gc for rubberbanding */
-extern Pixel		color[NCOLS];	/* colors: COL_* */
-extern XFontStruct	*font[NFONTS];	/* fonts: FONT_* */
-extern int		curr_item;	/* current item, 0..form.nitems-1 */
-
 static BOOL		have_shell;	/* week window is being displayed */
 static FORM		*form;		/* current form, registered by create*/
 static Widget		shell;		/* entire window */
@@ -482,7 +474,6 @@ void undraw_canvas_item(
 }
 
 
-extern char *itemname[NITEMS];		/* defined in formfile.c */
 static char *datatext[NITEMS] = {
 	"None", "", "Print", "Input", "Time", "Note", "", "", "", "Card", "" };
 

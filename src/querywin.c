@@ -40,12 +40,6 @@ static void done_callback  (Widget, int, XmToggleButtonCallbackStruct *);
 static void list_callback  (Widget, int, XmToggleButtonCallbackStruct *);
 static void got_text       (Widget, int, XmToggleButtonCallbackStruct *);
 
-extern Display		*display;	/* everybody uses the same server */
-extern GC		gc;		/* everybody uses this context */
-extern Pixel		color[NCOLS];	/* colors: COL_* */
-extern Pixmap		pixmap[NPICS];	/* common symbols */
-extern struct config	config;		/* global configuration data */
-
 static FORM		*form;		/* form whose queries are edited */
 static BOOL		have_shell;	/* message popup exists if TRUE */
 static Widget		shell;		/* popup menu shell */

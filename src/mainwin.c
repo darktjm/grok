@@ -66,21 +66,11 @@ static void new_callback  (Widget, XtPointer, XmToggleButtonCallbackStruct *);
 static void dup_callback  (Widget, XtPointer, XmToggleButtonCallbackStruct *);
 static void del_callback  (Widget, XtPointer, XmToggleButtonCallbackStruct *);
 
-extern Display		*display;	/* everybody uses the same server */
-extern GC		gc;		/* everybody uses this context */
-extern struct config	config;		/* global configuration data */
-extern Pixel		color[NCOLS];	/* colors: COL_* */
-extern Pixmap		pixmap[NPICS];	/* common symbols */
-extern XmFontList	fontlist[NFONTS];
-extern struct pref	pref;		/* global preferences */
-extern BOOL		restricted;	/* restricted mode, no form editor */
-extern int		col_sorted_by;	/* dbase is sorted by this column */
 CARD 			*curr_card;	/* card being displayed in main win, */
 char			*prev_form;	/* previous form name */
 Widget			mainwindow;	/* popup menus hang off main window */
 int			last_query=-1;	/* last query pd index, for ReQuery */
 static Dimension	win_xs, win_ys;	/* size of main window w/o sum+card */
-static Widget		toplevel;	/* need to save this for icon name */
 static Widget		menubar;	/* menu bar in main window */
 static Widget		dbpulldown;	/* dbase pulldown menu widget */
 static Widget		sectpulldown;	/* sectn pulldown menu widget */
@@ -116,8 +106,7 @@ static char		*modename[] = { "All", "In query", "Narrow", "Widen",
  * once during startup, before the first switch_form().
  */
 
-void create_mainwindow(
-	Widget		toplvl)
+void create_mainwindow()
 {
 	XmString	s[20];
 	Widget		fmenu, w, searchform, popup;
@@ -125,7 +114,6 @@ void create_mainwindow(
 	long		n, i, wid;
 	char		buf[10];
 
-	toplevel = toplvl;
 	mainwindow = XtCreateManagedWidget("mainwindow",
 			xmMainWindowWidgetClass, toplevel, NULL, 0);
 

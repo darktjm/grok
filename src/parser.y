@@ -11,15 +11,6 @@
 #include "form.h"
 #include "proto.h"
 
-extern char	*yyret;
-extern CARD	*yycard;	/* current card to evaluate for */
-extern Display	*display;	/* current X screen */
-extern Widget	toplevel;	/* for error popups */
-extern char	*prev_form;	/* previous form loaded, curr is in <card> */
-extern char	*switch_name;	/* if switch statement was found, name to */
-extern char	*switch_expr;	/* .. switch to and search expression */
-extern BOOL	assigned;	/* did a field assignment */
-
 static struct var {		/* variables 0..25 are a..z, cleared when */
 	char	*string;	/* switching databases. 26..51 are A..Z, */
 	double	value;		/* which are never cleared. */

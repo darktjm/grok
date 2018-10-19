@@ -27,7 +27,6 @@
 
 #define CHUNK	32			/* alloc 32 new rows at a time */
 
-extern Widget	toplevel;		/* top-level shell for icon name */
 int		col_sorted_by;		/* dbase is sorted by this column */
 
 

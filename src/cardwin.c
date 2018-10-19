@@ -42,19 +42,6 @@ void card_readback_texts(CARD *, int);
 static BOOL store(CARD *, int, char *);
 
 
-extern Display		*display;	/* everybody uses the same server */
-extern GC		gc;		/* everybody uses this context */
-extern XtAppContext	app;		/* application handle, for actions */
-extern struct pref	pref;		/* global preferences */
-extern CARD 		*curr_card;	/* card being displayed in main win */
-extern Pixel		color[NCOLS];	/* colors: COL_* */
-extern XFontStruct	*font[NFONTS];	/* fonts: FONT_* */
-extern Widget		mainwindow;	/* popup menus hang off main window */
-extern Widget		w_summary;	/* form for summary table */
-extern char		*switch_name;	/* if switch stmt was found, name to */
-extern char		*switch_expr;	/* .. switch to and search expression*/
-
-
 /*
  * Read back any unread text widgets. Next, destroy the card widgets, and
  * the window if there is one (there is one if create_card_menu() was called

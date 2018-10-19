@@ -25,12 +25,6 @@
 #include "form.h"
 #include "proto.h"
 
-extern Display	*display;	/* everybody uses the same server */
-extern Pixel	color[NCOLS];	/* colors: COL_* */
-extern CARD 	*curr_card;	/* card being displayed in main win */
-extern int	errno;
-extern Widget	toplevel;	/* top-level shell for error popup */
-
 static BOOL	have_shell;	/* message popup exists if TRUE */
 static Widget	shell;		/* popup menu shell */
 static Widget	w_name;		/* name entry widget */

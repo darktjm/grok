@@ -38,12 +38,6 @@ static void done_callback    (Widget, int, XmToggleButtonCallbackStruct *);
 static void context_callback (Widget, int, XmToggleButtonCallbackStruct *);
 static char *get_text(char *);
 
-extern Display		*display;	/* everybody uses the same server */
-extern XFontStruct	*font[NFONTS];	/* fonts: FONT_* */
-extern XmFontList	fontlist[NFONTS];
-extern Pixel		color[NCOLS];	/* colors: COL_* */
-extern CARD 		*curr_card;	/* card being displayed in main win */
-
 static BOOL		have_shell;	/* message popup exists if TRUE */
 static Widget		shell;		/* popup menu shell */
 

@@ -30,8 +30,6 @@
 #define R_SEP	'\n'			/* row (card) separator */
 #define ESC	'\\'			/* treat next char literally */
 
-extern char	*progname;		/* argv[0] */
-extern Widget	toplevel;		/* top-level shell for icon name */
 static int	ctimex_next;		/* for generating unique row->ctimex */
 
 

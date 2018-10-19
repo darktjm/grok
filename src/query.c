@@ -29,11 +29,6 @@ static BOOL alloc_query(CARD *, char **);
 static BOOL search_matches_card(CARD *, char *);
 static int expr_matches_card(CARD *, char *);
 
-extern Widget	toplevel;	/* top-level shell for icon name */
-extern int	col_sorted_by;	/* dbase is sorted by this column */
-extern struct	pref pref;	/* global preferences */
-extern int	last_query;	/* last query pd index, for search-in-query */
-
 
 /*
  * make sense out of the string, and return TRUE if the given card matches

@@ -31,7 +31,6 @@
 #define NBUILTINS	3		/* number of builtins (with modes) */
 #define MAXFILES	128		/* max # of user-defined templates */
 
-extern CARD 	*curr_card;		/* card being displayed in main win */
 static int	ntemps;			/* # of valid user-defined templates */
 static char	*templates[MAXFILES];	/* list of user-defd template names */
 
@@ -263,7 +262,6 @@ static struct { enum opcode opcode; char *name; } opcode_list[] = {
 	{ O_EXPR,	0		}
 };
 
-extern CARD 		*curr_card;	/* card being displayed in main win */
 static FILE		*ofp;		/* output file */
 static char		*outname;	/* current output filename, 0=stdout */
 static FILE		*ifp;		/* template file */
