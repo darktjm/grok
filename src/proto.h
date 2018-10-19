@@ -149,6 +149,9 @@ extern char	*switch_name;		/* if switch statement was found, */
 extern char	*switch_expr;		/* .. name to switch to and expr */
 extern BOOL	assigned;		/* did a field assignment */
 
+/*---------------------------------------- parser.y ------------*/
+extern int yyparse(void);
+
 /*---------------------------------------- evalfunc.c ------------*/
 
 void init_variables(void);
