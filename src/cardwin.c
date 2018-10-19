@@ -349,7 +349,7 @@ static void create_item_widgets(
 #else /* APPLICATION_DEFINED bugs:  broken display; probably needs work */
 		XtSetArg(args[n], XmNscrollingPolicy, XmAPPLICATION_DEFINED);	   n++;
 #endif
-#ifdef USE_2WIDGETS
+#if USE_2WIDGETS
 		carditem->w0 = XtCreateManagedWidget("noteSW",
 					xmScrolledWindowWidgetClass, wform,
 					args, n);
@@ -368,8 +368,8 @@ static void create_item_widgets(
 		XtSetArg(args[n], XmNmaxLength,	 item.maxlen);		   n++;
 		XtSetArg(args[n], XmNalignment,	 JUST(item.inputjust));    n++;
 		XtSetArg(args[n], XmNhighlightThickness, 0);		   n++;
+#if USE_2WIDGETS
 		XtSetArg(args[n], XmNshadowThickness, 0);		   n++;
-#ifdef USE_2WIDGETS
 		carditem->w0 = XtCreateWidget("note",
 				xmTextWidgetClass, carditem->w0, args, n);
 #else
@@ -378,7 +378,8 @@ static void create_item_widgets(
 		{
 			/* try to resize outer frame */
 			/* doesn't actually do anything, though */
-			Widget *w = XtParent(carditem->w0);
+			Widget w = XtParent(carditem->w0);
+
 			n = 0;
 			XtSetArg(args[n], XmNwidth,	 item.xs);		   n++;
 			XtSetArg(args[n], XmNheight,	 item.ys - item.ym);	   n++;
