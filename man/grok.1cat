@@ -1,0 +1,264 @@
+
+
+
+GROK(1L)                                                 GROK(1L)
+
+
+NNAAMMEE
+       grok - Desktop Database Manager and GUI Builder
+
+SSYYNNOOPPSSIISS
+       ggrrookk [-h] [-d] [-v] [-t] [-T] [-p] [-f] [_f_o_r_m [_q_u_e_r_y]]
+
+DDEESSCCRRIIPPTTIIOONN
+       ggrrookk  is  a database manager that displays two-dimensional
+       databases using a card file paradigm.  A  GUI  builder  is
+       available  to create user-defined applications. Grok comes
+       with a number of pre-built applications such  as  a  phone
+       directory,  todo lists, and a sample country database. The
+       form to display (_p_h_o_n_e,  _t_o_d_o,  _c_o_u_n_t_r_i_e_s,  etc.)  can  be
+       given  as  the first parameter. This manual page describes
+       the command line options of ggrrookk.  For information on  how
+       to  use  ggrrookk, refer to the on-line help pages, and to the
+       PostScript or TeX manual.
+
+
+   OOPPTTIIOONNSS
+       -h     List available options.
+
+       -d     Print fallback X resources and exit. The output can
+              be  appended  directly to the ~/.Xdefaults file for
+              modification  of  the  geometry,  color,  and  font
+              defaults.
+
+       -v     Print  the program version and patchlevel and exit.
+
+       -t     Requires specification of a form. Without  a  query
+              string, prints all cards to stdout in the same for-
+              mat that is used for the summary window in interac-
+              tive mode. If a query is also specified, print only
+              cards  that  satisfy  the  query  expression   (see
+              below). The form may have a default query built in.
+
+       -T     This option is equivalent  to  -t,  but  omits  the
+              header line.
+
+       -p     This  option  is  equivalent  to -p, but prints the
+              data in a format readable by the _p_l_a_n calendar pro-
+              gram (see www.bitrot.de/plan.html). The format is a
+              colon-separated  list:  date/time,  length,   early
+              warn, late warn, day repeat, end date, color, note,
+              message, script, suspend flag,  no-time  flag,  and
+              no-alarm flag. Colons, newlines, and backslashes in
+              fields are escaped with a backslash.  If  no  query
+              string  is given, the default plan query defined in
+              the form is used.
+
+       -f     Don't fork on startup. This is  useful  for  debug-
+              ging.
+
+       form   Specifies    the   database   to   display.    GGrrookk
+
+
+
+                                                                1
+
+
+
+
+
+GROK(1L)                                                 GROK(1L)
+
+
+              distinguishes forms and databases. Both always come
+              in  pairs.  The  form defines the representation of
+              the cards and the database provides the  raw  data.
+              If  no  form  is  specified,  one  can be chosen in
+              interactive  mode.  The  -t,  -T,  and  -p  options
+              require a form argument.
+
+       query  If  the  form  has  a built-in query, it is used to
+              select which cards in the database to display  ini-
+              tially. If there is no default query, all cards are
+              displayed. The query argument can be used to  over-
+              ride  the default query.  This option should always
+              be quoted with single quotes to keep the shell from
+              interpreting the query string.
+
+       There  are  different  types  of  queries: '*' selects all
+       cards,  '/string'  performs  a   case-insensitive   string
+       search,  '{expr}'  selects  all cards for which the string
+       expression  returns  a  non-null,  non-'f'   string,   and
+       '(expr)' selects all cards for which the numerical expres-
+       sion returns nonzero. The leading '/' in  string  searches
+       is  optional.  For a detailed description of query expres-
+       sions, refer to the "Expression Grammar" item in the  help
+       pulldown, or to the PostScript user's manual.
+
+       In  addition  to  these options, ggrrookk supports the usual X
+       options such as -iconic. The -geometry option  should  not
+       be  used to preset a window size; grok determines and fre-
+       quently adjusts its own size.
+
+EEXXAAMMPPLLEESS
+       ggrrookk
+
+       Start up grok with no form. The Database pulldown  can  be
+       used to choose one.
+
+       ggrrookk pphhoonnee
+
+       Start  up  grok  with  the _p_h_o_n_e form. Perform that form's
+       default query if it has one.
+
+       ggrrookk pphhoonnee ''//tthhoommaass''
+
+       Start up grok with the  _p_h_o_n_e  form.  Ignore  the  default
+       query   and  select  only  cards  that  contain  the  word
+       "thomas". Case is ignored.
+
+       ggrrookk --tt pphhoonnee ''//tthhoommaass''
+
+       Print all cards of the form _p_h_o_n_e to stdout  that  contain
+       the  string  "thomas".  Do  not start the interactive user
+       interface.
+
+       ggrrookk pphhoonnee ''(({{__ggrroouupp ==== ""ff""}} &&&& {{__eemmaaiill !!== """"}}))''
+
+
+
+                                                                2
+
+
+
+
+
+GROK(1L)                                                 GROK(1L)
+
+
+       Start up grok with the  _p_h_o_n_e  form.  Ignore  the  default
+       query  and  select  only  cards that describe friends that
+       have an email address.
+
+FFIILLEESS
+       Below, GBIN and GLIB refer to the installation directories
+       specified  at the beginning of the Imakefile when the pro-
+       grams  were  compiled.   They   are   /usr/local/bin   and
+       /usr/local/lib, respectively, by default.
+
+       *.gf              Files  ending with the extension .gf are
+                         assumed to contain ggrrookk forms.
+
+       *.db              Unless the form specifies otherwise, the
+                         database  that provides the raw data for
+                         a form has the same path and name as the
+                         form, but with the extension .db. Proce-
+                         dural databases have no extension.
+
+       .                 The current directory is searched  first
+                         for form files.
+
+       ./grokdir         The   grokdir   current   directory   is
+                         searched next for form  files.  This  is
+                         done  to  allow  ggrrookk to be started from
+                         the source  distribution  directory  for
+                         evaluation.
+
+       ~/.grok           By  default, all forms and databases are
+                         stored here. By convention, all  private
+                         forms  and  databases  are  stored here.
+                         This directory is searched after  .  and
+                         ./grokdir.
+
+       GLIB/grokdir      This  directory  is searched last. It is
+                         supposed to contain forms visible to all
+                         users  of a system. Only one user should
+                         have write permission.
+
+       ~/.grok/.grokrc   Preferences and the  current  configura-
+                         tion of ggrrookk..
+
+       GBIN/grok         The  ggrrookk  executable. This should be in
+                         the user's search path. Form  files  are
+                         set  up  so  they  can  be "executed" by
+                         feeding themselves to ggrrookk,, as  long  as
+                         ggrrookk is in the search path $PATH.
+
+       GLIB/grok.hlp     All  help  texts  used  by the ggrrookk help
+                         system.
+
+   AAUUTTHHOORR
+       Thomas Driemeyer <thomas@bitrot.de>
+
+
+
+
+                                                                3
+
+
+
+
+
+GROK(1L)                                                 GROK(1L)
+
+
+       Please send all complaints, comments, bug fixes, and port-
+       ing experiences to me. Always include your ggrrookk version as
+       reported by "grok -v" in your mail. New forms  for  inclu-
+       sion  in the distribution are welcome. Make sure that your
+       email address is in the form's  comment  field,  and  that
+       there  is  some help information attached to the form with
+       the Def Help function.
+
+       To be added to the  mailing  list,  send  mail  to  major-
+       domo@bitrot.de with the line "subscribe grok" (without the
+       quotes) in the message body (not the subject).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                4
+
+

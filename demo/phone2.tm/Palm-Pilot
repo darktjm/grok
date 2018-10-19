@@ -1,0 +1,5 @@
+\{FOREACH}
+"\{_last}","\{_first}","\{_position}","\{_company}","\{_work}",
+"\{_home}","\{_fax}","","\{_email}","\{_address}","\{_city}","\{_state}",
+"\{_zip}","\{_country}","","","","","\{_note}","0"
+ \{END}

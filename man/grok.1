@@ -1,0 +1,156 @@
+.TH GROK 1L
+.SH NAME
+grok \- Desktop Database Manager and GUI Builder
+.SH SYNOPSIS
+.B grok
+[-h] [-d] [-v] [-t] [-T] [-p] [-f] [\fIform\fR [\fIquery\fR]]
+.SH DESCRIPTION
+.B grok
+is a database manager that displays two-dimensional databases using a
+card file paradigm. A GUI builder is available to create user-defined
+applications. Grok comes with a number of pre-built applications such
+as a phone directory, todo lists, and a sample country database. The
+form to display (\fIphone\fR, \fItodo\fR, \fIcountries\fR, etc.) can
+be given as the first parameter. This manual page describes the command
+line options of
+.BR grok .
+For information on how to use
+.BR grok ,
+refer to the on-line help pages, and to the PostScript or TeX manual.
+.LP
+.SS OPTIONS
+.IP \-h
+List available options.
+.IP \-d
+Print fallback X resources and exit. The output can be appended directly
+to the ~/.Xdefaults file for modification of the geometry, color, and font
+defaults.
+.IP \-v
+Print the program version and patchlevel and exit.
+.IP \-t
+Requires specification of a form. Without a query string, prints all
+cards to stdout in the same format that is used for the summary window
+in interactive mode. If a query is also specified, print only cards that
+satisfy the query expression (see below). The form may have a default
+query built in.
+.IP \-T
+This option is equivalent to -t, but omits the header line.
+.IP \-p
+This option is equivalent to -p, but prints the data in a format readable
+by the \fIplan\fR calendar program (see www.bitrot.de/plan.html). The
+format is a colon-separated list: date/time, length, early warn, late
+warn, day repeat, end date, color, note, message, script, suspend flag,
+no-time flag, and no-alarm flag. Colons, newlines, and backslashes in
+fields are escaped with a backslash. If no query string is given, the
+default plan query defined in the form is used.
+.IP \-f
+Don't fork on startup. This is useful for debugging.
+.IP form
+Specifies the database to display.
+.B Grok
+distinguishes forms and databases. Both always come in pairs. The form
+defines the representation of the cards and the database provides the raw
+data. If no form is specified, one can be chosen in interactive mode. The
+-t, -T, and -p options require a form argument.
+.IP query
+If the form has a built-in query, it is used to select which cards in the
+database to display initially. If there is no default query, all cards are
+displayed. The query argument can be used to override the default query.
+This option should always be quoted with single quotes to keep the shell
+from interpreting the query string.
+.LP
+There are different types of queries: '*' selects all cards, '/string'
+performs a case-insensitive string search, '{expr}' selects all cards for
+which the string expression returns a non-null, non-'f' string, and '(expr)'
+selects all cards for which the numerical expression returns nonzero. The
+leading '/' in string searches is optional. For a detailed description of
+query expressions, refer to the "Expression Grammar" item in the help
+pulldown, or to the PostScript user's manual.
+.LP
+In addition to these options,
+.B grok
+supports the usual X options such as -iconic. The -geometry option should
+not be used to preset a window size; grok determines and frequently adjusts
+its own size.
+.SH EXAMPLES
+.LP
+\fBgrok\fR
+.LP
+Start up grok with no form. The Database pulldown can be used to choose one.
+.LP
+\fBgrok phone\fR
+.LP
+Start up grok with the \fIphone\fR form. Perform that form's default query
+if it has one.
+.LP
+\fBgrok phone '/thomas'\fR
+.LP
+Start up grok with the \fIphone\fR form. Ignore the default query and
+select only cards that contain the word "thomas". Case is ignored.
+.LP
+\fBgrok -t phone '/thomas'\fR
+.LP
+Print all cards of the form \fIphone\fR to stdout that contain the string
+"thomas". Do not start the interactive user interface.
+.LP
+\fBgrok phone '({_group == "f"} && {_email != ""})'\fR
+.LP
+Start up grok with the \fIphone\fR form. Ignore the default query and
+select only cards that describe friends that have an email address.
+.SH FILES
+.LP
+Below, GBIN and GLIB refer to the installation directories specified at
+the beginning of the Imakefile when the programs were compiled. They are
+/usr/local/bin and /usr/local/lib, respectively, by default.
+.IP *.gf 18
+Files ending with the extension .gf are assumed to contain
+.B grok
+forms.
+.IP *.db 18
+Unless the form specifies otherwise, the database that provides the raw
+data for a form has the same path and name as the form, but with the
+extension .db. Procedural databases have no extension.
+.IP . 18
+The current directory is searched first for form files.
+.IP ./grokdir 18
+The grokdir current directory is searched next for form files. This is
+done to allow
+.B grok
+to be started from the source distribution directory for evaluation.
+.IP ~/.grok 18
+By default, all forms and databases are stored here. By convention, all
+private forms and databases are stored here. This directory is searched
+after . and ./grokdir.
+.IP GLIB/grokdir 18
+This directory is searched last. It is supposed to contain forms visible
+to all users of a system. Only one user should have write permission.
+.IP ~/.grok/.grokrc 18
+Preferences and the current configuration of
+.B grok.
+.IP GBIN/grok
+The
+.B grok
+executable. This should be in the user's search path. Form files are set
+up so they can be "executed" by feeding themselves to
+.B grok,
+as long as
+.B grok
+is in the search path $PATH.
+.IP GLIB/grok.hlp
+All help texts used by the
+.B grok
+help system.
+.SS AUTHOR
+Thomas Driemeyer <thomas@bitrot.de>
+.LP
+Please send all complaints, comments, bug fixes, and porting experiences to
+me. Always include your
+.B grok
+version as reported by "grok -v" in your mail. New forms for inclusion in
+the distribution are welcome. Make sure that your email address is in the
+form's comment field, and that there is some help information attached to
+the form with the Def Help function.
+.LP
+To be added to the mailing list, send mail to majordomo@bitrot.de with the
+line "subscribe grok" (without the quotes) in the message body (not the
+subject).

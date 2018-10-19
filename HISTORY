@@ -1,0 +1,119 @@
+version 1.0, released 31.10.94
+
+version 1.1, released 11.11.94
+
+  *  renamed CONST constant because Ultrix and Sinix had problems with it
+  *  implemented substitute for strcasecmp because Sinix doesn't have one
+  *  summary title string could come up with garbage if grok starts empty
+  *  when creating new forms, database name was used as form file name
+  *  DEC/OSF stdarg had problems with a check for null %s arguments, fixed
+  *  preferences menu can now configure number of lines in summary window
+  *  preferences menu can now scale cards (for people with lowres screens)
+  *  GROK_FORM environment variable replaces "." in form searches
+  *  added help on environment variables and resources
+  *  US dates mm/dd/yy in the database file were misparsed as 12/31/69
+  *  Cancel in the print file dialog didn't work (Igor Metz <metz@glue.ch>)
+  *  help could overrun malloced buffer (Grant McDorman <grant@isgtec.com>)
+  *  FORM keyword evaluated to name.f, not name.gf
+  *  DBASE keyword no longer appends .db extension if database is procedural
+
+version 1.1.1, released
+
+  *  form editor allowed leading blanks in form and dbase names, confusing
+  *  multiple independent sets of choices in a form didn't work
+  *  form editor didn't handle blanks and DELs as field delimiters well
+
+version 1.2, released 16.6.95
+
+  *  conversion to ANSI C
+  *  multiple sections (database can be a directory, contents are sections)
+  *  new chart code that is actually usable
+  *  elimination of duplicate forms in the database pulldown
+  *  database lines beginning with an empty field shifted all fields to left
+  *  print current card always printed second card (kooper@dcs.qmw.ac.uk)
+  *  added qsum, qavg, qdev, qmin, qmax to language (grant@isgtec.com)
+  *  added ssum, savg, sdev, smin, smax, in, section to language
+  *  port to DEC OSF/1 Alpha, by Steven W. Orr <steveo@uniprise.com>
+  *  texts longer than 1024 characters could crash
+  *  new full-color SGI icon
+  *  improved PostScript manual
+
+version 1.3, released 28.4.96
+
+  *  export function, plus
+  *  new biblio database by James C. McPherson <mljmcphe@dingo.cc.uq.oz.au>
+  *  grayed-out data entry fields no longer show garbage data
+  *  no longer necessary to press print mode button twice
+
+version 1.3.1, released 3.5.96
+
+  *  fixed stack array overrun causing crashes on some systems
+
+version 1.3.2, released 10.5.96
+
+  *  fixed stack array overrun causing crashes on some systems
+
+version 1.4, released 5.2.97
+
+  *  new form editor fields for plan calendar interface (needs plan 1.6)
+  *  sort pulldown supports reverse sort
+  *  the database is resorted automatically whenever the database changes
+  *  optional automatic queries whenever the database changes
+  *  summary always shows current database state, even while adding cards
+  *  database and section pulldowns are now sorted
+  *  new system database, by Mike Dotson <dotson@drcpdx.stt3.com>
+  *  new workplan database
+  *  query dialog shows available fields in a scroll window to reduce width
+  *  cards can now be added without selecting a section (if available) first
+  *  exporting to HTML data-only lists no longer crashes or repeats strings
+
+version 1.4.1, released 9.7.97
+
+  *  new date and time string to number conversion functions in the grammar
+  *  new general character-to-string translation operator "tr" in the grammar
+  *  new variables A..Z that are not cleared when switching databases
+  *  new database field assignment functions
+  *  grok sometimes crashed after creating a new form before data is entered
+  *  fixed export expressions, it was difficult to put newlines into templates
+  *  sometimes misinterpreted the time part of date/time fields in data files
+ 
+version 1.4.2, released 29.1.98
+
+  *  SUBST command in templates was ignored (<Sjoerd.Mullender@cwi.nl>)
+  *  minor SGI fixes and usage message (Ariel Faigon <ariel@oz.engr.sgi.com>)
+ 
+version 1.4.3, released 9.9.99
+
+  * SYSTEM command leaked file descriptors (Paul van Slobbe <Paul.vanSlobbe@
+    nym.sc.philips.com>)
+  * now only labels and buttons must have a label, all others can be unlabeled
+  * always write all database data columns, don't omit trailing empty fields
+  * new keyword "disp" returns the number of the currently displayed card
+  * FreeBSD 2.2.7 changes by Stan Norton <norton@northsea.com>
+  * fixed date parser, can now use 00..38 for 2000..2038 and other problems
+  * new phone2 (with PalmPilot export), music, occasion and howto database
+    forms by Steven Hughes <hughes@cerc.wes.army.mil>
+ 
+version 1.5, released 23.5.01
+
+  * there are now six search modes, selectable by a combo popup next to the
+    search string input area: search, in query, narrow query, widen query,
+    and find-and-select. The last one is also accessible with Ctrl-F, and
+    highlights the next card that matches the search in the summary table
+    without creating a new summary table like the others.
+  * the new "requery" button repeats the last query. This is useful to restore
+    the last summary listing after a search.
+  * the HTML export templates were much improved.
+  * all cards now get a unique timestamp and identifier when they are created.
+    It is saved in a separate file "name.ts". Timestamps are displayed in the
+    info line, and will later be used for PDA synchronization. Timestamps can
+    be disabled by unchecking "synchronizable" in the form editor.
+  * added "expand" keyword to allow templates to print the mnemonic value of
+    flag and choice fields.
+  * the printer line length is now configurable in the preferences dialog.
+  * a new command-line option -p prints the database in a form digestible by
+    the (forthcoming) plan calendar 1.9. A default query string can be defined
+    in the form editor to send only a subset of the database to plan.
+  * when procedural databases were written successfully, the modified flags
+    were not reset. Fix by Fredy Paquet <fredy@gilera.opag.ch>
+  * the default year was incorrect, it defaulted to 2000 instead of 2001

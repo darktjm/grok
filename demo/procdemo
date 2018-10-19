@@ -1,0 +1,9 @@
+#!/bin/sh
+echo "$*" >/dev/console
+case ${1:-x} in
+  -r)	cat /etc/passwd
+	;;
+  -w)	cat >/tmp/passwd
+	;;
+esac
+exit 0

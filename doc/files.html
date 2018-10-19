@@ -1,0 +1,56 @@
+<HTML><HEAD><TITLE>grok online manual</TITLE></HEAD>
+<BODY BGCOLOR=#ffffff>
+
+<A NAME="fa">
+<H1>Files and Programs</H1>
+
+<P>This is a complete list of all files and directories required for grok:
+
+<TABLE CELLPADDING=4 BORDER=0 CELLSPACING=4>
+<TR BGCOLOR=#a0a0e0><TH>file<TH>location<TH>contents
+<TR> <TD><TT>grok</TT>      <TD> GBIN              <TD> main executable
+<TR> <TD><TT>grok.hlp</TT>  <TD> GLIB              <TD> ascii help texts
+<TR> <TD><TT>Manual.ps</TT> <TD> GLIB              <TD> this PostScript manual
+<TR> <TD><TT>grokdir</TT>   <TD> GLIB              <TD> demo application directory
+<TR> <TD><TT>.grok</TT>     <TD> <TT>~</TT>        <TD> default form and database directory
+<TR> <TD><TT>.grokrc</TT>   <TD> <TT>~/.grok</TT>  <TD> configuration data for grok
+<TR> <TD><TT>grok.xpm</TT>  <TD> LIBDIR            <TD> X pixmap icon, optional
+<TR> <TD><TT>Grok.icon</TT> <TD> <TT>~/.icons</TT> <TD> full-color icon, SGI systems only
+</TABLE>
+
+<P>``GBIN'' stands for the directory specified in the <TT>GBIN</TT> macro
+in the Imakefile or Makefile.alt, by default /usr/local/bin. ``GLIB'' is
+also in the Imakefile or Makefile.alt, the default is /usr/local/lib.
+``LIBDIR'' is provided by imake and depends on the system, and is
+typically /usr/lib/X11.
+
+<P>Every grok application consists of one ``form'' file and one or more
+``database'' files. The form file describes the card layout and the data
+interpretation; they have the extension <TT>.gf</TT>. The name of the
+form file without the extension is put into the Database pulldown in the
+main window. The default location for form files is the <TT>~/.grok</TT>
+directory.
+
+<P>The form references data files. Normally, they have the same name as
+the form file but with the extension <TT>.db</TT>, and are also stored
+in the <TT>~/.grok</TT> directory. If the resulting path references a
+directory instead of a file, the contents of this directory is searched.
+Every file in this directory also ends in <TT>.db</TT> and becomes a
+section that is put into the Section pulldown. If the directory contains
+subdirectories, they are searched for more <TT>.db</TT> files recursively.
+
+<P>grok searches for form files in four locations, in the following order:
+
+<OL>
+<LI> the current directory,
+<LI> ./grokdir,
+<LI> ~/.grok,
+<LI> GLIB/grokdir
+</OL>
+
+<P>All the form files ending with <TT>.gf</TT> found in these directories
+are put into the Database pulldown. Form files from different directories
+are separated by an etched line. grok attempts to recognize and eliminate
+duplicate form files found over two different paths, but puts duplicate
+form files that it thinks are in different directories into the pulldown
+multiple times. This can be disabled with the preferences menu.

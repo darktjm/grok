@@ -1,0 +1,212 @@
+<HTML><HEAD><TITLE>grok online manual</TITLE></HEAD>
+<BODY BGCOLOR=#ffffff>
+
+<A NAME="ea">
+<H1>Template Exports</H1>
+
+<A NAME="eb">
+<H2>Using the Export Function</H2>
+
+<P>The export function in the File pulldown can be used to generate
+reports from the data stored in the current database in various
+formats. The format is controlled by a <I>template</I>. A template is
+a file containing the static text framework that should appear in the
+exported file, with embedded expressions that are evaluated as part of
+the export process. These expressions are either standard grok expressions
+(see Expression Grammar), or special export expressions that are available
+only in export templates.
+
+<P>If the Export function in the file pulldown is chosen, a dialog
+containing a list of available templates is shown. The list begins with
+builtin templates that are not actually residing in template files on
+disk, but are built in to the grok program itself.  User-defined templates
+reside in files in a directory that has the same path and the same name
+as the form file for the database, except that the extension ``.gf''
+is replaced with the extension ``.tm''.  The directory path can be
+displayed with the Database choice in the Help pulldown. For example,
+if the form file path is ``/usr/people/thomas/.grok/phone.gf'',
+all template files for the phone database are in the directory
+``/usr/people/thomas/.grok/phone.tm''.  The name of every file in that
+directory appears in the list of templates in the export dialog.
+
+<P>New templates can be created from scratch with the Create button under
+the template list. This will ask for the name of the new template and
+start an editor with the empty template file. To write a template that
+is a variation of an existing template, select the existing template,
+press the Dup (duplicate) button, and choose a file name.  This creates
+a copy of the template that can then be edited b y selecting it in the
+template list and pressing the Edit button. This method also works for
+builtin templates.
+
+<P>The template only contains the instructions for creating the output
+file that is the result of the export operation. After selecting a
+template, the full path of the output file must be entered into the text
+field under the template list, or selected using the Browse button. When
+both the template and the output file are defined, the Export button
+performs the export operation and removes the dialog.  Note that it
+is possible to write templates that ignore the output file name in the
+dialog and write to one or more files defined in the template. None of
+the builtin templates do that.
+
+<P>Template exports can also be started from the command line. The command
+
+<PRE>
+     grok -x phone html /415 > phone.html
+</PRE>
+
+<P>creates a file phone.html containing all entries of the database <I>
+phone</I> that satisfy the search expression or search string <I>/415</I>
+(an area code, perhaps) in HTML format.  <I>html</I> is one of the
+built-in template names.  The search expression is optional. Commands
+like this could be run hourly from the crontab to update a HTML web page
+from a grok database.
+
+
+<A NAME="ec">
+<H2>Writing Custom Templates</H2>
+
+<P>The export output file is basically a copy of the template. Normal text
+in the template is copied to the output file unchanged, including all
+white space, tabs, newlines, and other control characters. Expressions
+that are enclosed in <TT>\{</TT> (backslash directly followed by an
+opening brace) and <TT>}</TT> (closing brace) are not copied verbatim
+but are evaluated. The result of the evaluation is copied into the export
+output file. For example, the following text fragment in a template:
+
+<PRE>
+     Six multiplied by eight is n \{(6*8)}, approximately.
+</PRE>
+
+<P>produces the following text in the output file:
+
+<PRE>
+     Six multiplied by eight is 48, approximately.
+</PRE>
+
+<P>Note that the <TT>\{...}</TT> notation puts the expression parser in
+string mode, so inner parentheses had to be used to evaluate a numerical
+expression. There is no n <TT>\(...)</TT> syntax that would permit
+numerical expressions directly. If the export file should contain a
+backslash followed by an opening brace verbatim, the backslash must be
+doubled to prevent the sequence from being interpreted as the beginning
+of an expression. The <TT>switch</TT> statement may not be used with a
+new database specifier (First argument) in a template.
+
+<P>Most templates use more complicated expressions that reference fields
+in the database. For example, suppose an export file is to be generated
+from the <I>phone</I> database that is part of the grok distribution.
+The form for this database contains the fields ``name'' and ``phone''
+whose values can be referenced in expressions by prefixing an underscore
+(again, refer to Expression Grammar for details). A template can be
+written that contains the following text:
+
+<PRE>
+     The phone number of \{_name} is \{_phone=="" ? "unknown" : _phone}.
+</PRE>
+
+<P>This expression substitutes the name of the current card and the
+phone number if it exists (i.e. is not the empty string) or the text
+``unknown'' otherwise. However, this expression is not useful by itself
+because it always references the first card in the database. Template
+expressions are provided that allow looping over all or selected
+cards of the database, excluding parts of the template, or define text
+substitutions for expression results that contain characters not allowed
+in the output file. The <I>phone</I> template above can be made to loop
+over all cards in the current query by rewriting it:
+
+<PRE>
+     Phone directory:
+     
+     \{FOREACH}
+
+     The phone number of \{_name} is \{_phone=="" ? "unknown" : _phone}.
+
+     \{END}
+</PRE>
+
+<P>All template expressions begin with a capitalized command word to
+distinguish them from regular grok expressions. Template expressions
+can be used in template files only; they cause syntax errors elsewhere.
+If a template expression is directly followed by a newline, the newline is
+ignored; this makes templates more legible because commands like FOREACH
+can be put into lines of their own without in troducing unwanted newlines.
+
+<A NAME="ed">
+<H2>Template Expression Summary</H2>
+
+<P>Here is a list of all supported template expressions:
+
+<UL>
+<LI><TT>\{FOREACH</TT> <I>expr</I><TT>}</TT> <I>text</I> <TT>\{END}</TT><BR>
+	The text between the <TT>FOREACH</TT> and <TT>END</TT> commands
+	is executed once for every card for which the query expression
+	<I>expr</I> is true.  Every card is considered in the order of
+	the most recent sort, and the query expression is executed. If
+	it returns false (numerical value 0 or empty string or string
+	beginning with "f") the parser skips to the matching END without
+	evaluating <I>text</I> and considers the next card until the last
+	card has been executed. The <I>text</I> can contain expressions
+	and template expressions.  <TT>FOREACH</TT> loops can be nested
+	10 levels deep.
+
+	<P>The query expression <I>expr</I> is optional; if it is missing
+	the most recent query from the enclosing <TT>FOREACH</TT> loop is
+	used, or if there is none, the last query from the command line
+	or from the Query pulldown or from a text search in the main
+	menu is used. It is recommended to not use query expressions
+	because they make the -x command-line option less useful.<P>
+
+<LI><TT>\{IF</TT> <I>expr</I><TT>}</TT> <I>text</I> <TT>\{ENDIF}</TT><BR>
+	Conditional expressions evaluate text only if the expression
+	<I>expr</I> is true. Otherwise <I>text</I> is ignored. The
+	<I>text</I> may contain expressions and template expressions,
+	including <TT>FOREACH</TT> loops and other conditionals.
+	IF statements can be nested arbitrarily.<P>
+
+<LI><TT>\{SUBST</TT> <I>c</I><TT>=</TT><I>string c</I><TT>=</TT><I>string</I> ... <TT>}</TT><BR>
+	Some characters are unwanted in output files. For example,
+	angle brackets ``<TT>&lt;&nbsp;&gt;</TT>'' have a special
+	meaning in HTML files, so the result of an expression that
+	is placed in the output file must be adjusted to avoid these
+	characters. This is done by providing substitutions for these
+	special characters. The <TT>SUBST</TT> statement assigns an
+	arbitrary string <I>string</I> to a character <I>c</I> that is
+	substituted for every occurrence of <I>c</I> in the result of
+	an expression. Both <I>c</I> and <I>string</I> may contain a
+	backslash followed by an octal number, or ``<TT>t</TT>'' for a
+	tab, or ``<TT>n</TT>'' for a newline. Blanks in <I>string</I>
+	must be given as ``<TT>\040</TT>''.  For example, a
+	template creating an HTML file may contain the substitutions
+	``<TT>&lt;=&amp;lt;</TT>'' and ``<TT>\n=&lt;BR&gt;</TT>''. Later
+	substitutions of the same <I>c</I> override earlier ones.<P>
+
+<LI><TT>\{SUBST HTML}</TT><BR>
+	This is a shorthand for substitutions required in HTML
+	documents. It substitutes angle brackets, ampersands, and
+	newlines.  If newlines should not be preserved, follow this
+	expression with a substitution like ``\n=\n''.<P>
+
+<LI><TT>\{FILE</TT> <I>expr</I><TT>}</TT><BR>
+	The expression <I>expr</I> can either be a simple string or a
+	string expression enclosed in braces. The result becomes the
+	new output file name, and the previous file name specified in
+	the export dialog (or stdout if the <TT>-x</TT> command-line
+	option is used) is closed. The export function creates a file
+	only when the first character is written to it, not when the
+	filename is specified.<P>
+
+	<P>The <TT>FILE</TT> command can be used in a template that
+	creates form letters. Such a template would begin with a
+	<TT>FOREACH</TT> statement followed by a <TT>FILE</TT> statement
+	that creates a file whose name is derived from a database field
+	or from a counter implemented with a variable.<P>
+
+<LI><TT>\{QUIT}</TT><BR>
+	This command aborts template evaluation.  It is executed
+	automatically when the end of the template file is
+	reached. Normally <TT>QUIT</TT> would be given in a conditional
+	statement.<P>
+
+</UL>
+
+</BODY></HTML>

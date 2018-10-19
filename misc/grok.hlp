@@ -1,0 +1,1495 @@
+%% intro
+	INTRODUCTION
+
+	Grok is a program to present unstructured data in a row/column format
+	using an index card paradigm. Each database row (line) is a card; each
+	database column (field) is an item in the card. Items can be presented
+	in the card as various types and shapes. The presentation of a database
+	is determined by a "form".
+
+	The concepts of "forms" and "databases" are separate. Forms are created
+	once, and determine the layout and presentation of the unstructured
+	data in the database. Each form references a database. A database may
+	be referenced by more than one form. To select a database for display
+	and editing, use the Database pulldown (actually, the database pulldown
+	lists forms, which reference the databases; the name "form" in the menu
+	bar may be too non-obvious for users not concerned with the man behind
+	the curtain).
+
+	Creating or changing a form is a more involved process that needs to be
+	done only when a new type of database is created. Normally, users only
+	work with existing forms, using them to edit data in databases. For
+	more information on creating or changing forms, refer to the User's
+	Manual.
+
+	Assuming that the form already exists, the first step is choosing a
+	form (database) to display and edit. This can be done with the Database
+	pulldown, or by naming the form (database) on the command line, as in
+
+	    grok phone
+
+	The window will resize itself to accomodate the card, and all cards
+	in the database will be listed in the summary area (unless the form
+	designer has specified a default query). The first card will also be
+	displayed in the card area at the bottom of the window. The selection
+	of cards displayed in the summary can be changed with the Search button
+	or the Query pulldown. A different card can be displayed in the card
+	area by pressing the left mouse button on a line in the summary, or by
+	using the next/previous arrows at the bottom left of the window.
+
+	To edit a card, simply press on the inset button or green radio/flag
+	button to be changed. Editable text buttons are pink, read-only text
+	buttons are gray (as an exception, large "note" text entry areas are
+	always gray). Shaded (grayed-out) buttons cannot be accessed because
+	some condition specified by the form designer is not met. After changing
+	a card, it must be written back to disk by choosing Save or Quit in the
+	File pulldown. Choosing another database from the Database pulldown
+	also writes back. A blank card can be added to the database by pressing
+	the New button; the Delete button (irreversibly) deletes a card.
+
+	The actual meaning of buttons and items in the card area is completely
+	up to the form designer.
+%% trouble
+	TROUBLESHOOTING
+
+	*  If windows come up with wrong size, very wide or very tall, check
+	    your X resources (~/.Xdefaults etc) and remove *allowShellResize:
+	    true.
+
+	*  On SGI systems, if the icon doesn't show a picture, copy the icon
+	    picture Grok.icon into your ~/.icons directory. If you don't have
+	    one and don't want one, set the grok*noIcon resource to False in
+	    your ~/.Xdefaults file. It may be necessary to restart 4Dwm to
+	    register the icon after copying it to ~/.icons.
+
+	*  The grok program uses quite a few colormap entries. Although there
+	    is a black&white fallback mode, you may have problems starting other
+	    programs that also need many colormap entries. The only workaround
+	    is to kill grok when you don't need it.
+
+	*  If you have a Linux SuSE 4.4 distribution, remove "grok*ColSheet:
+	    black" from the default /etc/skel/.Xresources file created by SuSE.
+
+	*  If radio and toggle buttons appear gray regardless of the colToggle
+	    resource, make sure that the sgiMode resource is False.
+
+	If you have problems you can't resolve, or if you have suggestions
+	for new features, or porting instructions for new platforms, send mail
+	to me at thomas@bitrot.de. Also check my homepage for new releases:
+	http://www.bitrot.de/grok.html.
+
+	IF YOU MAIL, DO NOT FORGET TO INCLUDE YOUR VERSION NUMBER
+	AS REPORTED BY "grok -v". If you ask me for patches or files, also tell
+	me whether you have the gzip compression program.
+
+	Mail to grok-request@bitrot.de to subscribe to the mailing list.
+	Mail to thomas@bitrot.de if you have questions, comments, or forms
+	to contribute.
+%% files
+	FILES AND PROGRAMS
+
+	Grok searches for forms and databases in four places and presents them
+	in the Database pulldown in the order they are found: the current
+	directory, ./grokdir, ~/.grok, and GLIB/grokdir (GLIB stands for the
+	GLIB path set in the Imakefile or Makefile.alt when grok was compiled;
+	the default is /usr/local/lib). The path the current database was read
+	from can be displayed with Help->Database.
+
+	Grok stores all forms in the ~/.grok directory, unless a full path is
+	given in the top two lines of the form editor. Forms determine the
+	presentation of data in cards. Form files have a .gf extension. By
+	default, the databases themselves are stored in the path defined by
+	the form if it begins with / or ~. If it doesn't, the database is searched
+	for in the directory the form was read from. Databases have a .db
+	extension. Multiple forms may reference the same database. Forms
+	may also reference databases elsewhere, or no databases at all in the
+	case of procedural databases. The ~/.grok directory also contains the
+	.grokrc file, which stores preferences.
+
+	Form files and the preferences file are strictly Ascii. Databases are
+	usually also Ascii, but need not be. When editing Databases with a text
+	editor, make sure to properly escape field and line delimiters with
+	backslashes, or great chaos will result.
+
+	The grok executable itself is stored in the GBIN directory; the grok.hlp
+	file and the public grokdir directory (see above) are stored in the GLIB
+	directory. Both GBIN and GLIB are defined in the Imakefile or Makefile.alt.
+	The defaults are /usr/local/bin and /usr/local/lib, respectively.
+
+	The distribution contains a color icon image file Grok.icon in SGI RGB
+	format. It should be copied to ~/.icons. This only works on SGI systems.
+	There is also a Grok.fti file that is an SGI-conforming desktop icon.
+%% help
+	GETTING HELP
+
+	To get general help on a popup menu, press the Help button in that
+	popup menu.
+
+	To get help on a pulldown menu in the main window, install the pulldown
+	menu by pressing and releasing the left mouse button on the menubar
+	button, then press the HELP or F1 keyboard key. The Database, Sort, and
+	Query pulldowns are determined by the author of the form which describes
+	the database, they are not grok features. Grok only adds some default
+	entries: "All", "New", "Reverse sort", and "Auto query".
+
+	Help on most buttons is available by choosing "On Context" in the Help
+	pulldown, and then pressing on a button or field. Every help window
+	contains a Context button that does the same thing as "On Context".
+%% resources
+	VARIABLES AND X RESOURCES
+
+	grok uses the following environment variables:
+
+	   GROK_FORM defines a directory that is searched for *.gf form files to
+	   be put into the database pulldown. This directory is searched first.
+	   It replaces the default directory ".".
+
+	   GROK_PATH is another directory to find files such as grok.hlp.
+
+	   PATH is searched next if a file is not found in $GROK_PATH.
+
+	   HOME is substituted for "~" in paths.
+
+	   USER is used if the "user" keyword is used in an expression.
+
+	To get a list of default X resources of the "grok" program, run it with
+	the -d option. The output can be directly appended to the .Xdefaults
+	file in your home directory or saved into a file "Grok" in your
+	app-defaults directory. If you install a system wide app-default file
+	make sure that lines do not start with "grok"; otherwise users might
+	not be able to override the setup. Omit the application name or use
+	the application class name "Grok".
+
+	    noIcon: don't draw anything into the icon. This should be used on
+		SGI systems so that 4Dwm uses the color picture as an icon.
+		The color icon should be moved to ~/.icons/Plan.icon .
+	    background: background color for all menus
+	    colStd: foreground color for text
+	    colSheet: background color for help and print-window windows
+	    colBack: gray background color for uneditable text, and charts
+	    colTextBack: pink background color for editable texts
+	    colToggle: color of toggle and flag buttons
+	    colCanvBack: background of card canvas in form editor
+	    colCanvFrame: color of item frames in card canvas in form editor
+	    colCanvBox: blue item box color in card canvas in form editor
+	    colCanvSel: yellow for selected items in card canvas in form editor
+	    colCanvText: color of text in items in card canvas in form editor
+	    colChartAxis: color of X/Y axis and axis labels of charts
+	    colChartGrid: color of grid lines subdividing charts
+	    colChartBox: color of outline of bars in charts
+	    colChart0..7: available colors of chart bars
+	    sgiMode: if False on IRIX 5.x systems, do not use the desktop look
+	    useSchemes: on IRIX 5.x systems, Lascaux or some other color scheme
+	    menubar*fontList: font for menubar and pulldowns
+	    fontList: default font for buttons and titles
+	    helpFont: small font used for help windows
+	    helvFont: "Helv" font used in cards if selected in form editor
+	    helvObliqueFont: "HelvO" font used in cards if selected in form editor
+	    helvSmallFont: "HelvS" font used in cards if selected in form editor
+	    helvLargeFont: "HelvB" font used in cards if selected in form editor
+	    courierFont: "Courier" font used in cards if selected in form editor,
+		must be fixed-width, is also used in the summary
+	    labelFont: font used for charts
+%% help_ctx
+	CONTEXT
+
+	To get help for a button, press the Context button, and then the
+	button you need help for. This button is equivalent to the On Context
+	item in the help pulldown.
+%% help_done
+	DONE
+
+	Remove the help popup.
+%% pd_file
+	FILE PULLDOWN
+
+	Find & Select:
+	     Select the next card in the summary table that contains the text
+	     in the search text field. This is equivalent to selecting the
+	     search mode "Find & select" and pressing the Search button. It's
+	     here primarily to allow the Ctrl-F shortcut.
+
+	Print:
+	     Print selected cards to a printer, to a file, or to a window.
+
+	Preferences:
+	     Pops up a window that allows changing the global configuration.
+
+	Form Editor:
+	     Edit current form:
+	        Start the form editor on the current database. Editing forms
+	        means to change the representation of the data in a card, the
+	        layout and types of card items and the summary format can be
+	        changed. The "form" is the description of the representation
+	        of data, while the "database" is a file containing unstructured
+	        data. Note that editing forms is a rather complicated procedure,
+	        compared to using the main menu.
+
+	     Create new form from scratch:
+	        Clear the main menu and start the form editor with no preset
+	        form. This is used to start a new form that is different from
+	        all existing forms. The new form will be put into the Database
+	        pulldown when it is finished.
+
+	     Create, use current as template:
+	        Start the form editor. The current form as selected from the
+	        Database pulldown provides the defaults. A new form name must
+	        be entered. This is used to start a new form that is more or
+	        less similar to an existing form.
+
+	About:
+	     Pops up a window displaying the program version and an address
+	     to complain to if something doesn't work.
+
+	Save:
+	     Save the current database unconditionally, whether it was modified
+	     or not. If it was modified, the fact is noted under the Search line. The
+	     database is also saved if it was modified when Quit is chosen, or if
+	     a new database is selected from the Database pulldown, or if a form
+	     editor is started.
+
+	Quit:
+	     Save the current database if it was modified, and exit. This is equivalent
+	     to double-clicking the mwm corner button. Warning - if grok runs
+	     under twm, window manager kills will NOT save, and exit without
+	     warning.
+
+	Rambo Quit:
+	     Quit without saving. Changes made to cards after the last Save
+	     will be lost. You will be asked to confirm if changes were made.
+%% rambo
+	RAMBO QUIT
+
+	You have made changes to the current database that have not been
+	saved to disk. If you want to discard these changes, press OK. If
+	you want to save the changes, press Cancel, and choose Quit from
+	the File pulldown.
+%% pd_dbase
+	DATABASE PULLDOWN
+
+	Strictly speaking, the pulldown name is a misnomer. Databases are
+	unstructured data that need a "form" for defining the presentation
+	in a card. The Database pulldown selects a form, which in turn
+	references the database itself. For the casual user, this distinction
+	is of no consequence, and "Database" seemed to be a more obvious
+	name.
+
+	Grok searches for databases in four places and presents them in the
+	Database pulldown in the order they are found: the current directory,
+	./grokdir, ~/.grok, and GLIB/grokdir (GLIB stands for the GLIB path set
+	in the Imakefile or Makefile.alt when grok was compiled; the default
+	is /usr/local/lib). Help->Database can be used to show the actual path
+	the database was read from, and will be saved to if it is modified.
+
+	All files ending in .gf will be put into the database pulldown, with
+	the .gf removed. Choosing an item will load the new form and the
+	database it references. The window will resize to fit the new card.
+
+	If the current database was modified when a new database is loaded,
+	it is written back to disk first, as if File->Save had been used.
+
+	If the form specifies a default query (added with the Queries button in
+	the form editor), only a subset of available cards may be displayed in
+	the summary initially. Use Query->All to show all cards.
+%% pd_section
+	SECTION PULLDOWN
+
+	Databases can be divided into sections. If the database file is a
+	directory, every file in it or its subdirectories becomes a section.
+	When a database is read, all its section files are read. The section
+	pulldown can be used to select one or all sections for display in the
+	summary list in the main window.
+
+	If the database has sections, it is necessary to select a section
+	before adding a card. The new card will be put into the current
+	section. The card can be moved to another section later with the
+	section popup button to the right of the "Delete" button at the
+	bottom of the main window (this button only appears if grok is
+	compiled with Motif library version 1.2 or greater).
+%% pd_sort
+	SORT PULLDOWN
+
+	Sorts the database by a named database item. The database has no
+	inherent order; new cards are simply appended to the end, and a
+	database saved (File->Save) after sorting will come up in the same
+	order is had when it is reloaded unless the form has a built-in default
+	sort (defined with the form editor).
+
+	When sorting, leading white space is skipped. If both strings to
+	compare are numeric (begin with a digit or a period), they are
+	compared numerically. Otherwise, they are compared lexicographically.
+	Note that columns of type Date, subtype Time contain both date and
+	time, although only the time is shown. The date does figure in the
+	sort order.
+
+	Most databases have a default sort order that was specified when the
+	form was created. When sorting by another column, the default column
+	becomes the secondary sort criterium. That is, if a rolodex normally
+	sorted by name is re-sorted by group, each group will be sorted by
+	name internally. If there is a default sort order, or after the sort
+	pulldown has been used once, grok will automatically re-sort whenever
+	the database changes.
+
+	The "Reverse sort" mode at the top of the pulldown reverses the sort
+	order.
+%% pd_query
+	QUERY PULLDOWN
+
+	The items of this pulldown determine which cards are shown in the
+	summary. The list always begins with All, which puts all available
+	cards into the summary. All other items were defined by the designer
+	of the form. Except for the "All" query, queries either search all
+	cards for matches, or only those already in the summary (if incremen-
+	tal searches are enabled in the File->Preferences menu).
+
+	The Autoquery mode at the top of the pulldown, if enabled, tells grok
+	to repeat the query whenever the database changes in any way. In this
+	mode the current query in the pulldown is marked. This is useful when
+	searching for data, but it can be dangerous when changing a card - if
+	the change causes the card to be missed by the query, it disappears
+	from the summary. If this happens, turn Autoquery off and search for
+	the card.
+
+	To change, add, or delete queries, choose File->Form editor->Edit
+	current form, and press the Queries button. That menu also allows you
+	to choose a query that is done automatically when the database is
+	loaded. Choose Help->Expression grammar for an explanation of query
+	expressions.
+
+	The search button near the top of the main window offers an alternative
+	way of selecting a set of cards to display in the summary. Optionally,
+	queries from the Query pulldown can be shown as search strings. Choose
+	File->Preferences and press Help for details.
+%% search
+	SEARCH
+
+	Enter a search string and press Return to select a subset of cards to
+	be displayed in the summary below the search button. After searching,
+	any card can be chosen from the summary by pressing on a line. All
+	items of a card are searched that permit searching (this was defined
+	when the form that controls the presentation of the card was created).
+	Searching is a simple string search. All cards in the database are
+	searched for matches, unless incremental searches are enabled in the
+	File->Preferences menu, in which case only those cards already in the
+	summary are searched.
+
+	There are seven search modes. The first six put a new set of cards
+	into the summary table, and the last just moves the selection bar.
+
+	  All               search all cards
+	  In query          search all cards selected by the last query
+	  Narrow            search only cards already in the summary
+	  Widen             search all cards and add them to the summary
+	  Widen in query    search the last query and add to the summary
+	  Find & select     do not change summary, just select next match
+
+	The last 20 searches are remembered and can be retrieved using the
+	previous/next arrow buttons. The Search button is equivalent to
+	pressing the Return key in the search string area. Optionally, queries
+	from the Query pulldown can be shown as search strings, see the
+	File->Preferences popup.
+
+	The Clear button clears the search input area and selects it. The 20
+	remembered searches are not affected.
+
+	The Requery button repeats the last query performed with the Query
+	pulldown menu in the menu bar. If no query was done, the default query
+	of the database is done, if there is one defined (see Form Editor).
+
+	If the search string begins with an opening parenthesis or an opening
+	brace, text searching is replaced by an expression search. All cards
+	for which the expression does not return an empty string or a string
+	beginning with 'f' (if the expression begins with '{') or a numeric value
+	0 (if the expression begins with '('). For an explanation of expressions
+	and the difference between '{' and '(', choose the Expression Grammar
+	item in the Help pulldown.
+
+	If the search string is "*", all cards are put into the summary. This
+	is equivalent to selecting "All" from the Query pulldown, regardless of
+	the search mode.
+
+	All other strings are searched for. Case is not significant.
+%% addsect
+	ADD SECTION
+
+	Databases can have multiple sections, each containing zero or more
+	cards. Each section is written to a separate file in a directory
+	~/.grok/databasename. When a section is added, a new empty file is
+	created in this directory, with the name of the section followed by
+	the extension ".db". If the database did not have sections, the
+	directory is created and all cards are moved into the new section;
+	otherwise the new section is empty. No sections can be added to a
+	procedural database.
+
+	Press the Add button to add the new section, or Cancel to abort.
+%% info
+	INFO LINE
+
+	Displays the form (database) name, the number of cards in the summary,
+	and the total number of cards. If the database has been modified since
+	it was loaded, "(modified)" is displayed. If the database cannot be modified
+	because either the database file has no write permission or because the
+	form designer specified that the database is read-only (near the top of the
+	form editor window), "(read-only)" is displayed.
+
+	On the right side, the date and time when the current card was created
+	and when it was last changed is displayed, if known.
+
+	For more information about the current form and database, choose the
+	Database item from the Help pulldown. For an explanation of the
+	difference between forms and databases, choose Help->Introduction.
+%% pos
+	NEXT/PREV
+
+	Switch to the next or previous card, by scrolling the highlight in
+	the summary up or down. Cards not shown in the summary will be
+	skipped. To display all cards in the summary, choose All in the
+	Query pulldown.
+%% new
+	NEW
+
+	Create a new blank card. The card then appears at the top of the
+	database. Using the New button while the Autoquery mode in the Query
+	pulldown is enabled is dangerous because subsequent changes can easily
+	cause the next autoquery to decide that this card should not be in the
+	summary, and it disappears.
+
+	For this reason, the New button disables Autoquery.
+%% del
+	DELETE
+
+	Delete the current card.
+%% dup
+	DUP
+
+	Create a copy of the current card, append it to the end of the
+	database, and display it in the card window for editing. This does
+	not disable Autoquery in the Query pulldown because if the current
+	card matched the query then so will the copy, but care should be
+	taken when making changes that would remove the card from the query.
+%% sect
+	SECTION
+
+	The button displays the section the current card belongs to, if
+	there are sections. Press to get a list of defined sections; drag
+	the mouse and release to select a section. The card will be moved
+	to that new section. If there are no sections, this button stays
+	blank. Sections that came from files without write permission are
+	grayed out in the popup.
+%% summary
+	SUMMARY
+
+	The summary shows one line for each card that satisfies the selection
+	done with the Search button or the Query pulldown. The layout is
+	determined by the form, which can be changed with File->Edit Form.
+%% letters
+	LETTERS
+
+	These buttons select all cards whose sorted column begins with the
+	respective character. The sorted column is the column the database was
+	last sorted by, using the Sort pulldown. Most databases get default-
+	sorted when loaded. The search ignores all whitespace and punctuation
+	characters except underscores. The letters row can be turned off with
+	the File->Preferences menu.
+
+	If the `Letter search checks all words' flag in the Preferences menu
+	is on, the letter search is modified such that the first letter of all
+	words, instead of just the first word, in the sorted column is checked.
+	This is useful for people's names to search for first and last initial.
+
+	The "misc" button selects all empty columns or words that begin
+	with underscores or digits.
+%% card
+	CARD
+
+	The card shows a single line of the database chosen with the Database
+	pulldown. First, select a set of cards, using the Search button or the
+	Query pulldown. Choose a card from the resulting summary listing by
+	selecting it, or use the next/previous arrows to scroll. The New button
+	adds an empty card to the database. After editing the card, write the
+	database back to disk using the File->Save or File->Quit buttons, or
+	by selecting another database from the Database pulldown. For more
+	details, choose Introduction from the Help pulldown in the top right corner.
+%% print
+	PRINT
+
+	The print menu prints selected cards of the current database. Databases
+	can be selected with the Database pulldown. The order of the cards printed
+	is the same as in the summary list. The data is printed by writing to stdin
+	of the spooler commands as defined with the Preferences menu, or to a
+	file, or to a window.
+
+	Cards to print: selects which cards should be printed. Current only
+	    prints only the card currently displayed in the lower half of the
+	    main menu. Search or query prints all cards displayed in the
+	    summary window in the upper half of the main menu, and All
+	    prints all cards.
+
+	Output format: specifies which information to include in the printout.
+	    Summary generates a simple hardcopy of the summary list in the
+	    main menu. Summary with notes prints all note fields in addition
+	    to the summary line, as text blocks below the respective summary
+	    line. Cards prints all printable data fields in a two-column list.
+
+	Output quality: ASCII prints straight ascii text; overstrike ASCII is
+	    equivalent but uses backspacing to achieve boldface and underlines;
+	    and PostScript attempts to improve readability by using different fonts
+	    and lines. Overstrike output is understood by programs such as more
+	    or less. This setting determines whether the PostScript print spooler
+	    or the ASCII print spooler, as defined in the Preferences menu, is used.
+
+	Output device: Printer sends the data to the spooler as defined in the
+	    Preferences menu. File writes to a file, and Window creates a
+	    window and displays the data.
+
+	The Print button starts the operation; the Cancel button removes the
+	Print popup without generating output. Changed settings in the menu
+	are remembered either way.
+%% editprint
+	PRINT WINDOW
+
+	This window was created with the File->Print function. In the print
+	panel, the output device was set to Window. Other choices are Printer
+	or File. This window is supposed to be a preview. Only plain ASCII
+	can be displayed. The contents reflect the selection in Cards to
+	print in the print panel. Once installed, the window does not change.
+%% msg_clear
+	CLEAR
+
+	Delete all contents of the editor window. If a file is being displayed,
+	it is not deleted; if Clear is pressed by accident use Cancel.
+%% msg_delete
+	DELETE
+
+	Delete all contents of the editor window, and terminate the editor.
+	If a file was being displayed in the window, it is deleted on disk.
+%% msg_cancel
+	CANCEL
+
+	Discard all changes to the text and exit the editor without saving.
+%% msg_done
+	DONE / SAVE
+
+	This button is labelled "Save" if the text is editable, and "Done"
+	if not. "Save" writes the changes back and terminates the editor.
+	"Done" dismisses the window without saving.
+
+	This is equivalent to double-clicking the window manager button in
+	the top left corner of the window decoration.
+%% pref
+	PREFERENCES
+
+	The preferences menu changes global configuration. The configuration
+	data is written to the ~/.grok/.grokrc file when the Done button is
+	pressed.
+
+	12-hour mode toggles the format of Date items in the card to either
+	    12-hour am/pm format, or to 24-hour format.
+
+	Month/day/year mode toggles the format of Date items in the card to
+	    either mm/dd/yy format, or to dd.mm.yy format. It also provides
+	    the default interpretation of input or file dates that contain neither
+	    slashes nor dots.
+
+	Show query search expression, if turned on, will display the search
+	    expression used by a query when an item from the Query pulldown
+	    (other than All) is selected. The query expression can then be
+	    modified manually and re-applied using the Search button.
+
+	Enable search by initial letter, if enabled, inserts a row of buttons
+	    A..Z, `misc', and `all' below the summary that select all cards
+	    whose sorted column begins with the respective character. The
+	    sorted column is the column the database was last sorted by, using
+	    the Sort pulldown. Most databases get default-sorted when loaded.
+	    The search ignores all whitespace and punctuation characters
+	    except underscores.
+	    NOTE: changing this mode takes effect only when grok is restarted.
+
+	Incremental searches and queries, if enabled, base every new search,
+	    query, and letter search on the results of the previous. Instead
+	    of searching all cards, only those displayed in the summary are
+	    searched. This does not apply to the "All" search; it always puts
+	    all cards into the summary.
+
+	Letter search checks all words: this flag modifies the letter search,
+	    if enabled, such that the first letter of all words in the sorted
+	    column is checked. This is useful for people's names to search for
+	    first and last initial.
+
+	Print spoolers: the system command that is used to print PostScript or
+	    ASCII, respectively. The print mode depends on the Print Quality
+	    setting in the Print menu. Typical settings are lp (System V) or
+	    lpr (BSD). ASCII and PostScript spoolers can be set independently
+	    in case special PostScript options or lptops scripts need to be
+	    run. Full shell syntax (using the shell in $SHELL) is supported,
+	    including pipes and redirections. NOTE: rpinting PostScript is
+	    not currently supported.
+
+	Summary lines: the number of lines displayed in the summary window below
+	    the search area. This choice takes effect only when grok is restarted.
+
+	Printer line length: the number of characters after which lines are
+	    truncated when printing with File->Print (any device). The default
+	    is 79, but some printers allow more without wrapping.
+
+	Card scaling factor: if the screen resolution is very low, it may be
+	    necessary to enter a number less than 1 to reduce the sizes of items
+	    in the card at the bottom of the screen. 0.75 or 0.5 are recommended.
+	    This takes effect only when the next database is loaded.
+%% pref_done
+	DONE
+
+	Remove the preferences menu, and write the changes back to
+	the ~/.grok/.grokrc file.
+%% queries
+	DEFAULT QUERIES
+
+	There are four columns of buttons:
+
+	- If the button in the first column is off, the query is disabled. The
+	  query will stay in the Default Query popup, but will not appear in
+	  the Query pulldown in the main window.
+
+	- Only one button can be on in the second column. The column with
+	  this button on, if any, selects the query that is executed when the
+	  database is read from disk. If no button in the second column is on,
+	  no query is done on startup and all cards are shown in the summary
+	  (unless a query was specified on the command line). The button in
+	  the first column need not be on for a default query.
+
+	- The Name column specifies the string that will be displayed in the
+	  Query pulldown in the main window.
+
+	- The Query Expression column specifies an expression that determines
+	  which cards to display in the summary when <Name> is selected in the
+	  Query pulldown in the main window. The expression is applied to all
+	  cards in the database in turn, and all cards that match are put into
+	  the summary. An expression is said to match if it begins with a '{'
+	  and returns a non-null string that does not begin with 'f' after stripping
+	  leading white space; or if it begins with '(' and returns a string that is
+	  not numerically equal to zero.
+
+	For a description of legal search expression, choose Help->Grammar, or
+	refer to the User's Manual.
+%% dq_delete
+	DELETE
+
+	To delete a query, press on its Name or Query Expression button, and
+	press the Delete button. Pressing Delete again will delete the next
+	query which took the previously deleted query's place. Delete cannot
+	be undone.
+%% dq_dupl
+	DUPLICATE
+
+	To duplicate a query, press on its Name or Query Expression button, and
+	press the Duplicate button. The new query will be inserted just below
+	the duplicated query. After duplicating, edit the Name and Expression.
+%% dq_done
+	DONE
+
+	Remove the Default Query popup. The queries will be written into the
+	form file in when the Done button is pressed in the Form Editor window
+	(which contains the Queries button that installed the Default Query
+	popup).
+%% edit
+	FORM EDITOR
+
+	A form is a description of a card, which presents the contents of a
+	database. A database is just an anonymous two-dimensional array of
+	strings. The first step when creating a form is naming the form and
+	the database it presents. The form name is the name that appears in
+	the Database pulldown in the main menu (it's called the Database
+	pulldown because users need not be aware of the distinction between
+	forms and databases). The database is named separately.
+
+	Both the form name and database names are also the file names the
+	form and the database will be stored in. The form name gets the
+	extension ".gf", and non-procedural databases get the extension ".db"
+	tacked on if the names are not fully qualified (i.e., do not begin with
+	/ or ~). The default directory for forms is ~/.grok and the default
+	directory for databases is the directory the form was read from. See
+	the Help->Database popup to see which paths are actually used.
+
+	The next step is specifying the field delimiter. Databases are two-
+	dimensional arrays of strings. Rows are separated by newlines and
+	columns are separated by the field delimiter. Default is a colon.
+	The /etc/passwd file, for example, is an example of a database with a
+	colon as the field separator. The \t and \123 notations are supported.
+
+	A read-only database does not permit the user to use the Save item
+	in the File pulldown; it will not be possible to change the database.
+	Procedural databases are not read from a file but from a program; the
+	database string is a shell string that grok will call with a first argument
+	"-r" (when reading the database) or "-w" (when saving the database),
+	and the form name as entered in the top line as second argument.
+
+	The comment should contain the author of the form and its version.
+
+
+
+	CANVAS
+
+	After specifying the general form parameters, fields can be added to
+	the form canvas, or existing fields can be clicked in the canvas and
+	modified or deleted. The canvas is a separate window that contains
+	a simplified representation of the card as it will appear in the main
+	menu when loaded. Changing the size of the canvas window will change
+	the size of the card. It is often a good idea to start with a window
+	size that is too large and shrink it as the last step.
+
+	The canvas has two sections, the "static" part at the top and the
+	"card" part at the bottom. Both are separated by a divider that can be
+	dragged vertically by clicking and dragging the small square sash near
+	the right end of the divider line, which is at the top edge of the
+	canvas by default. Fields placed above the divider go into the static
+	part; fields placed below the divider go into the card part. The static
+	part stays active and sensitive independently of the card being
+	displayed; general statistics and card-independent buttons are normally
+	placed here. The card part changes with every new card that is selected,
+	fields that display data from the card must be in this part.
+
+	The static and card part are very similar. Generally, fields of type
+	Input, Time, Note, Choice, Flag, and everything else (such as Print)
+	that refers fields in the current card (using expression terms such as
+	"_fieldname") must go into the card part so it can be desensitized if
+	no card is selected. Putting such fields in the static part would allow
+	the user to enter data into nonexisting cards because the field would
+	not get desensitized when no card is displayed. This is not enforced.
+
+
+
+	FIELDS
+
+	Fields are either choice or toggle buttons or text entry buttons that
+	represent a string in the database, or decorative fields such as
+	labels, or text strings that compute values based on strings in the
+	database (any string, not just one in the current card). There are
+	various options for fields that can be specified in the inset control
+	area in the lower section of the form editor. Note that the Choice
+	type is the only one that is not autonomous; Choice fields are linked
+	with other Choice fields such that only one of the Choice fields with
+	identical names can be active at any time. In all other cases, no two
+	fields can have the same name.
+
+	For a detailed description of the different types of fields, and for a
+	description of the grammar of the simple query language that can be
+	used for defaults or queries, see the programmer's manual that is
+	distributed as a PostScript document as part of the release. The
+	Help->Grammar popup in the main window gives a quick reference.
+
+
+
+	BUTTONS
+
+	A preview function is available for viewing the card as it will appear
+	in the main window. The Done button saves the form and exits the form
+	editor. Before saving, the form will be checked; a window with error
+	messages will appear and the form editor will refuse to save if the
+	form contains errors. The form can also be checked with the Debug
+	button; no window will appear if no errors are found. The Cancel button
+	will discard the edited form and exit the form editor without saving.
+
+	The Queries button allows entry of the queries that appear in the
+	Queries pulldown in the main menu. Queries are search expressions
+	that select a certain subset of available cards, and put the cards
+	that satisfied the expression in the summary for the user to select.
+
+	The Def Help button attaches a help text to the form. An editor is
+	started that allows entering a text describing the current form, and
+	how to use the fields and buttons. This help text will be displayed
+	when the user presses the Help button in the lower right corner of
+	the main window, in addition to some general text that grok adds.
+%% form_cancel
+	CANCEL
+
+	Press OK to exit the form editor without writing changes to disk,
+	if you made any. (The confirmation popup will appear even if the
+	form did not change.)
+%% procdbedit
+	PROCEDURAL DATABASE
+
+	If the Edit button in the form editor is pressed, the `procedural' flag
+	is turned on. The form's data will then read the database by executing
+	a script rather than by opening a file. This editor window lets you
+	edit this script.
+
+	Scripts should always begin with a line containing
+	
+	  #!/bin/sh 
+	
+	or something similar. The script gets two arguments when executed:
+	$1 is either "-r" or "-w". If $1 is "-r", the script is supposed to print
+	the generated database data to stdout, using echo or something
+	similar, one card per line consisting of fields separated by the form's
+	field delimiter character (a colon `:' by default). Trailing blank fields
+	and trailing field delimiters can be omitted. If $1 is "-w", grok will print
+	the database in the same format to stdin of the script, without trailing
+	blank fields or colons. The second argument, $2, is the name of the
+	form as entered in the top button in the form editor window, without
+	path and without ".gf" extension.
+
+	The permissions of the file will be changed to 700 (read, write,
+	execute for the owner only) when it is written back.
+
+	There is no way to return error conditions.
+%% fe_form
+	FORM AND DATABASE NAME
+
+	The form name is the name that appears in the Database pulldown
+	in the main menu (it's called the Database pulldown because users
+	need not be aware of the distinction between forms and databases).
+	A database is always referenced by the name of the form that
+	describes its layout. When a new form or database is created, a
+	new unique name must be chosen.
+
+	Both the form name and database names are also the file names the
+	form and the database will be stored in. The form name gets the
+	extension ".gf", and non-procedural databases get the extension ".db"
+	tacked on if the names are not fully qualified (i.e., do not begin with
+	/ or ~). If the database is procedural, the database file is a script, and
+	has no .db or any other extension. This script is executed to read or
+	write data. See help on the Edit button for details.
+
+	When a database or form is read, the path it was read from is stored;
+	when the database or form is changed, it is written back to that path.
+	When a new database is created, and its name does not begin with /
+	or ~ as defined in the second line of the form editor, it is stored in
+	the same directory as its form file. The default is always ~/.grok.
+	See the Help->Database popup to see which paths are actually used.
+%% fe_delim
+	DATABASE FIELD DELIMITER
+
+	Databases are two-dimensional arrays of strings; rows are separated
+	by newlines and columns are separated by the field delimiter. Default
+	is a colon. The /etc/passwd file, for example, is an example of a
+	database with a colon as the field separator. \t and \123 notations are
+	accepted. \0 and \n cannot be used as field delimiters.
+%% fe_rdonly
+	READ ONLY
+
+	If set, the database is read-only and cannot be written back using the
+	File->Save function. The effect is similar to what happens if the user
+	has no write permission for the database file.
+%% fe_sync
+	TIMESTAMPS/SYNCHRONIZABLE
+
+	If set, grok will keep an additional timestamp file for each data file.
+	Data files end with .db; timestamp files end with .ts. Timestamps allow
+	synchronization with mobile and other grok programs - you can copy the
+	database to your notebook and another computer, and edit both copies.
+	At a later time you can merge both databases because grok will know at
+	what time each entry was created, and will choose the newer one.
+
+	If this flag is not set, the timestamp files, if they exist, will be
+	deleted the next time the database is saved (File->Save, File->Quit, or
+	File->Form editor in the main menu). NEVER TURN THIS OFF if there are
+	offline copies that you want to synchronize with later, because grok
+	will lose the ability to merge, and end up duplicating all cards!
+
+	You may want to set this flag even if you never plan to synchronize
+	because it gives you "card created" and "last change" dates in the main
+	window.
+
+	Merging is not yet implemented in version 1.5. Only turn this off if
+	you really can't afford the extra disk space for the .ts files.
+%% fe_proc
+	PROCEDURAL, EDIT
+
+	Procedural databases are not read from a file but from a program; the
+	database string is a shell string that grok will append "-r" (when
+	reading the database) or "-w" (when saving the database) to, followed
+	by the form name. That is, when the database "x" (as specified in the
+	"Referenced database" field) is read and "procedural" is on, grok will
+	execute "x -r formname", and expect "x" to echo a delimiter-separated
+	list of strings to stdout. Unless the database is read-only, the script
+	must accept data on stdin if it is run as "x -w formname".
+
+	An executable can be used in place of a script, but then the Edit
+	button cannot and should not be used.
+%% fe_query
+	QUERIES
+
+	The Queries button allows entry of the queries that appear in the
+	Queries pulldown in the main menu. Queries are search expressions
+	that select a certain subset of available cards, and put the cards
+	that satisfied the expression in the summary for the user to select.
+%% fe_help
+	DEF HELP
+
+	The Def Help button attaches a help text to the form. An editor is
+	started that allows entering a text describing the current form, and
+	how to use the fields and buttons. This help text will be displayed
+	when the user presses the Help button in the lower right corner of
+	the main window.
+%% fe_debug
+	DEBUG
+
+	Check the form for inconsistencies, and display an error and warning
+	popup if problems are found. No popup will appear if the form is free
+	of errors. The Done button will do the same checks, and will refuse
+	to exit the for editor if problems are found.
+%% fe_preview
+	PREVIEW
+
+	Display a menu with a card as it will appear in the main window. The
+	card is not interactive and does not display valid database contents,
+	but will show labels with the correct dimensions. This is useful to
+	determine whether all labels fit into their allocated size; the canvas
+	is not always a good indicator for this.
+
+	The preview window will remain on the screen, unchanged, until the
+	window manager button in the top left corner of the decoration is
+	double-clicked.
+%% fe_cancel
+	CANCEL
+
+	Terminate the form editor without writing back changes. All changes
+	that have been made since the form editor was installed are discarded.
+	To avoid accidentally losing the changes, a confirmation popup is
+	installed; this popup is installed even if no changes have been made.
+%% fe_done
+	DONE
+
+	Check the form. If no errors are found, write the form back to disk
+	and terminate the form editor. If errors are found, an error popup lists
+	the problems, and the form editor is not terminated. The form editor
+	can be terminated without writing back with the Cancel button.
+%% fe_add
+	ADD
+
+	Add a field to the form. The currently selected field, if any (high-
+	lighted yellow on the canvas), is duplicated, and reasonable defaults
+	are filled in. The new field is put below the bottom field in the
+	canvas. If the canvas is too small, it may be positioned off-window
+	where it cannot be seen; make the canvas larger in this case.
+
+	After adding, the new field is selected, and the buttons below the Add
+	button can be used to specify type and attributes of the new field.
+%% fe_delete
+	DELETE
+
+	Delete the currently selected field. The selected field is highlighted
+	yellow on the canvas.
+%% fe_type
+	FIELD TYPE
+
+	The type of the field. The type determines the appearance of the field
+	as well as its behavior and connection to the database. Some fields
+	are connected directly to database fields, others are derived or purely
+	decorative. The types are:
+
+	Input:  this field allows direct display of database strings. User
+	        input into this field is copied directly into the database.
+
+	Time:   this type is equivalent to Input fields, except that only
+	        date, time, and duration are displayed and can be entered.
+	        Four different formats can be selected with Time format.
+
+	Note:   this type is also equivalent to Input fields, but supports
+	        multi-line text. Scrollbars will be displayed if the text
+	        does not fit into the defined space.
+
+	Label:  labels are purely decorative. They are static, no expressions
+	        can be used for dynamically changing the text. Many other field
+	        types, such as Input, come with built-in labels.
+
+	Print:  print fields look like Input fields, but display the result of
+	        evaluating an expression. No data can be entered into Print
+	        fields, they are always read-only.
+
+	Choice: all Choice fields that have the same internal field name are
+	        implicitly connected to the same database string. Only one of
+	        them can be on. The choice/flag code of the Choice item that
+	        is on is stored in the database.
+
+	Flag:   flag fields are similar to Choice fields, but they are not
+	        connected to other Flag fields, and must have a unique internal
+	        name. Their choice/flag code is stored in the database if the
+	        flag is on. The database string is empty if the flag is off.
+
+	Button: buttons execute an expression when pressed.
+
+	Chart:  chart fields display statistics in a bar chart. No input is
+	        possible.
+
+	When the type of an existing field is changed, attributes not
+	applicable to the new field type will disappear from the menu but
+	will be remembered internally, and will be restored when the type is
+	changed back, until another form or database is loaded.
+%% fe_flags
+	FLAGS
+
+	Searchable:   all fields marked searchable will be searched when a
+	              search string is used in the main menu. Searching means
+	              that the referenced database field will be searched, and
+	              the card will be put into the summary if a match is found.
+
+	Read only:    if set, no data can be entered. Read-only input or time
+	              fields are displayed with a gray background.
+
+	Not sortable: fields that are not sortable will not appear in the Sort
+	              pulldown in the main menu.
+
+	Default sort: only one field can have the default sort flag set. This
+	              field is the field the database will be sorted by when
+	              the database is loaded from disk. It is also the secondary
+	              sort criterium if the user re-sorts the database with the
+	              Sort pulldown.
+
+	If a flag of a Choice item is changed, the same flag of all Choice
+	items with the same internal field name is also changed.
+%% fe_int
+	INTERNAL FIELD NAME
+
+	The internal field name is a unique identifier for a field. Fields that
+	reference a database column, such as Input or Flag fields, implicitly
+	name the database column. For example, if database column 3 is shown
+	in an Input field named "three", then the database column 3 can be
+	referenced in expressions as either "_3" or "_three". The first database
+	column is number 0.
+
+	Choice fields are an exception to the uniqueness rule. Multiple Choice
+	fields can share an internal field name. All choice fields with the same
+	field name write into the same database column (which means that
+	their Database column number must also agree). Grok makes sure that
+	only one of the choice fields with matching field names is on at any
+	time. When changing attributes such as flags or input defaults of a
+	Choice item, all other choice items with the same name also change.
+
+	The field name is a constant. No expression is allowed.
+%% fe_column
+	DATABASE COLUMN
+
+	Fields that reference a database column must specify which column.
+	Columns are numbered from 0. No two fields can reference the same
+	column, with the exception of choice fields (only one of which can
+	be on at any time), because that would have the side effect of giving
+	more than one name to a database column. See Internal field name.
+
+	It is usually a good idea to number database columns consecutively,
+	and not omit any column number unless a database column exists but
+	is not used by the form.
+
+	If the database column of a Choice item is changed, the column of all
+	Choice items with the same internal field name is also changed.
+
+	The database column is a constant. No expression is allowed.
+%% fe_sum
+	SUMMARY COLUMN, WIDTH
+
+	If the width is nonzero, the field is put into the summary in the main
+	window. The width is the number of characters that go into the list.
+	Grok separates columns by two spaces. The sum of all widths should
+	not exceed 79 because they would get truncated to 79 characters
+	when printed (File->Print can print summaries).
+
+	The summary column specifies the order of fields with nonzero summary
+	widths in the summary. The fields with the lowest summary column number
+	appears in the leftmost column. It is not necessary to choose column
+	numbers consecutively, they define the sort order and not absolute
+	column numbers. No two fields (except choice fields that also also
+	share the internal field name) may have the same summary column
+	number if they have a nonzero width.
+
+	If the summary column or width of a Choice item is changed, the column
+	and width of all Choice items with the same internal field name are
+	also changed.
+
+	The summary column and width are constants. No expressions are
+	allowed.
+%% fe_flag
+	CHOICE/FLAG CODE
+
+	Choice and Flag codes specify the string that gets put into the
+	database if the choice or flag field is "on". This code is a static string.
+	All choice codes for one database column should all be different, and
+	care should be taken that all possible codes that can appear in the
+	database have a Choice field with a matching code.
+
+	If the flag code matches the database string, the string specified in
+	the "shown in summary as" button is put into the summary if the
+	Summary width number is greater than 0. The flag codes themselves
+	are usually too unmnemonic for the summary. Note that if the database
+	is sorted by this column, it is sorted by the database string and not
+	the string in the summary.
+%% fe_plan
+	PLAN INTERFACE
+
+	This mode controls the interface to the calendar program "plan", which
+	is available in the same places as grok. Check the FTP server listings
+	in http://www.bitrot.de/index.html. This requires plan version 1.6 or
+	higher. The "show in calendar if" option requires plan version 1.8.5 or
+	higher.
+
+	The interface specifies whether and how the field will be interpreted
+	by plan. "Show in calendar if" is an expression that enables display of
+	a card in the calendar if true. It exists only for the Date+time item.
+	If it is left blank it defaults to true (always show). "Calendar
+	interface" determines how plan interprets the field. At least one field
+	must be tagged "Date+time", and at least one field should be tagged
+	"Note". Specifically, the available tags are:
+
+	Date+time: the date and time of the appointment. This should be set
+	         on a field that itself has type Date+Time or Date. There is
+	         no default.
+
+	Length: the length of the appointment. This should be set on a field
+	         that has type Duration. The default is 0.
+
+	Early warn: a duration subtracted from the Date+Time to mark an earlier
+	         time at which plan should warn that an appointment will soon
+	         trigger. This should be set on a field that has type Duration.
+	         The default is 0.
+
+	Late warn: a second warning time. If the late warning duration is
+	         greater than the early warn duration, plan will automatically
+	         swap both warn times. The default is 0.
+
+	Day repeat: if nonzero, specifies that the appointment should repeat
+	         every n days, with n being the value of the field. The default
+	         is 0. If there is an end date, the default is 1 (daily).
+
+	End date: the last day of multiday appointments. This should be set on
+	         on a field that has type Date+Time or Date. There is no default.
+
+	Color: the color of the appointment text in the calendar. This should
+	         be a number between 0 and 7. Other numbers are taken modulo 8.
+
+	Note: the text of the appointment that identifies the appointment in
+	         the calendar views. If there is no note text, plan shows the
+	         Message text instead; if that is missing too only the time is
+	         shown. This should be set on a field that has type Input. Only
+	         short texts, a few words, can be shown in the calendar.
+
+	Message: like Note, but intended for long multiline texts.
+
+	Script: like Message, but the text is not shown but executed when the
+	         appointment triggers. Shell script texts should begin with a
+	         #!/bin/sh line or something similar.
+
+	Suspended: if nonzero, the appointment is grayed out in the calendar
+	         and never triggers alarms.
+
+	No time: if nonzero, the appointment is assumed to have no inherent
+	         time-of-day, such as vacations.
+
+	No alarm: if nonzero, the appointment does not trigger an alarm when
+	         the appointment time is reached. When an alarm triggers, plan
+	         shows a brightly colored popup window, executes the script if
+	         the appointment has one, and optionally sends mail.
+
+	This interface is likely to change or be expanded in future versions
+	of plan and grok, for example to allow default settings.
+%% fe_time
+	TIME FORMAT
+
+	Time fields can have one of four display formats:
+
+	Date:      A date in day.month.year or month/day/year format, depending
+	           on the setting in the File->Preferences menu. The date may
+	           have a time part that is not displayed.
+
+	Time:      A time in hour:minute [ap] format. US format is enabled with
+	           the File->Preferences menu. The time may have a date part
+	           that is not displayed.
+
+	Date+time: Both the date and the time are displayed, date first.
+
+	Duration:  The number is interpreted as a number of seconds, and is
+	           displayed in hour:minute (no a/p) format.
+	
+	Note that internal calculations are always done in seconds. If the
+	result is not in the range used by the time format (such as numbers
+	greater than 24*60*60 for Time, or numbers not dividable by 24*60*60
+	without remainder for Date) are displayed by ignoring the undisplayed
+	part. This may give unexpected results when sorting.
+%% fe_ljust
+	LABEL JUSTIFICATION
+
+	The label may be left-justified, centered, or right-justified in the
+	space allocated for it on the canvas. This not only applies to Label
+	fields, but also to the label part (left or top part) of Input, Time,
+	Note, Flag, and Choice fields. Use the Preview button to see the effect.
+%% fe_lfont
+	LABEL FONT
+
+	The label can be displayed as Helvetica, Helvetica Oblique (slanted),
+	Helvetica Narrow, Helvetica Bold (large), or Courier. The Helvetica
+	fonts are proportionally-spaced; the Courier font is fixed size (all
+	characters have the same width).
+
+	It is recommended that Helvetica is used for labels, and Courier is
+	used as input font for Input, Time, and Note fields. It is highly
+	recommended to use Courier as input font for Note fields because
+	printing functions (File->Print) print notes using a fixed-size font.
+%% fe_ltxt
+	LABEL TEXT
+
+	Most fields have a label part that display a static text as entered
+	as label text. No expressions are allowed. Use the Preview button to
+	display the result to make sure that the text fits into the allocated
+	space.
+%% fe_ijust
+	INPUT JUSTIFICATION
+
+	The input may be left-justified, centered, or right-justified in the
+	space allocated for it on the canvas. Fields that allow text input
+	include Input, Time, and Note fields. Left justification is recommended.
+%% fe_ifont
+	INPUT FONT
+
+	The input can be displayed as Helvetica, Helvetica Oblique (slanted),
+	Helvetica Narrow, Helvetica Bold (large), or Courier. The Helvetica
+	fonts are proportionally-spaced; the Courier font is fixed size (all
+	characters have the same width). Fields that allow text input include
+	Input, Time, and Note fields.
+
+	It is recommended that Helvetica is used for labels, and Courier is
+	used as input font for Input, Time, and Note fields. It is highly
+	recommended to use Courier as input font for Note fields because
+	printing functions (File->Print) print notes using a fixed-size font.
+%% fe_range
+	MAX INPUT LENGTH
+
+	The maximum input length determines the maximum number of characters
+	that can be entered into Input, Time, and Note fields. The default is
+	100 for Input and Time fields, and 10000 for Note fields. When the
+	maximum is reached, the field will stop accepting keyboard input. It
+	is a common and annoying error to use a number that is too small for
+	Note fields. There is no space saving in the database, and little
+	space saving overall, in using low numbers. The maximum input length
+	is a constant, no expression may be used.
+%% fe_def
+	INPUT DEFAULT
+
+	For fields that can be used to change the database, such as Input
+	fields, this string specifies the default value when a new card is
+	created using the New button at the bottom of the main window. This
+	string can be an expression.
+
+	If the input default of a Choice item is changed, the default of all
+	Choice items with the same internal field name is also changed. The
+	default for a choice item should evaluate to one of the flag/choice
+	codes of the Choice items, or new cards will be created with none
+	of the alternatives set.
+
+	NOTE -- if the field has type Time, the input default expression
+	should evaluate to a number of seconds, not to a string containing
+	a date. For example, to make the Time field default to today, use
+	(date), not {date}.
+%% fe_pattern
+	INPUT PATTERN
+
+	This string is a mask that user input must satisfy to be accepted as
+	input and stored into the database. It can be an expression.
+%% fe_gray
+	GRAYED OUT IF
+
+	If the expression evaluates to true, the field is grayed out and can
+	not be manipulated by the user. The expression is re-evaluated when
+	the user changes another field. This can be used to disallow entry
+	into fields under certain conditions. See also the help text on the
+	skip-if expression button.
+%% fe_inv
+	INVISIBLE IF
+
+	If the expression evaluates to true after the database has been read
+	in, the field will not be displayed in the card, leaving empty space.
+	Unlike Grayed-out-if, it is evaluated only once when the database is
+	read. This can be used, for example, to hide database fields when the
+	wrong user accesses the database by using an expression using the
+	"user" or "uid" keywords.
+%% fe_ro
+	READ-ONLY IF
+
+	If the expression evaluates to true after the database has been read
+	in, the field will not allow input into the database, as if the
+	Read-only flag had been set in the form editor. Like Invisible-if, it
+	is evaluated only once when the database is read. This can be used,
+	for example, to disallow other users from changing certain database
+	fields by using an expression using the "user" or "uid" keywords.
+%% fe_skip
+	SKIP IF
+
+	When the user enters data and presses the Return key on an Input
+	or Time field, grok puts the cursor into the next field automatically.
+	The next field is the next field to the right if there is one in the
+	same row, or the next one below otherwise. The next field is skipped
+	if its skip-if expression evaluates to TRUE at the time of the search,
+	and the search continues with the next field after that.
+
+	This can be used to lead the user to the next field applicable to
+	entries done earlier; for example, the ``maiden name'' field in a
+	rolodex application could be skipped if an earlier Choice button
+	indicates that the person is male.
+
+	Skip-if does not prevent users from pressing on the skipped button
+	explicitly. Use `grayed-out-if' to prevent that.
+%% fe_press
+	ACTION WHEN PRESSED
+
+	If the type of the field is Button, this expression is evaluated when
+	the user presses the button. This will generally be an expression with
+	a side effect, such as an assignment to a variable, or a `switch' or a
+	`system' function. The latter calls a Unix system function.
+%% fe_result
+%% fe_query
+%% grammar
+	GRAMMAR
+
+	This is a quick reference only. For details, refer to the manual. n
+	stands for numerical expressions, and s stands for string expressions.
+	In general, numerical expressions are enclosed in (), and string
+	expressions are enclosed in {}. Booleans use 0 or "0" for false and 1
+	or "1" for true. Note that short-circuiting with ?: && || does not work.
+
+	Numerical Operations: arithmetic operators use standard C precedences.
+
+	  (n)             number
+	  {s}             in number context, convert string to a number
+	  n ? n : n    select n2 if n1 is nonzero, n3 if zero
+	  n , n          evaluate both numbers, return second
+	  -n            sign change
+	  !n              boolean NOT
+	  ~n             bitwise NOT
+	  n + n         add
+	  n - n         subtract
+	  n * n         multiply
+	  n / n          divide, n/0 is 1
+	  n % n        modulus, n%0 is 1
+	  n & n        bitwise AND
+	  n && n      boolean AND
+	  n | n          bitwise OR
+	  n || n         boolean OR
+	  n ^ n         bitwise XOR
+	  n << n       bitwise left shift
+	  n >> n       bitwise right shift
+	  n == n       equal
+	  n != n        not equal
+	  n < n         less than
+	  n > n         greater than
+	  n <= n       less than or equal
+	  n >= n       greater than or equal
+	  sqrt (n)      square root
+	  exp (n)       exponential
+	  log (n)        logarithm to base 10
+	  ln (n)          logarithm to base e
+	  pow(n, n)    n1 raised to n2
+	  sin (n)        sine
+	  cos (n)       cosine
+	  tan (n)        tangent
+	  asin (n)      arc sine
+	  acos (n)     arc cosine
+	  atan (n)      arctangent
+	  atan2(n,n)  quadrant-aligned arctangent
+	  len (s)        string length
+	  bound(n,n,n)   n1 bounded by n2 and n3
+
+
+	String Operations: note that string comparisons return strings, and
+	must be enclosed in braces {} if && or || or other numerical operators
+	are used on the result. Printf arguments generally need to be
+	parenthesized also.
+
+	  "string"      literal string
+	  {s}             string
+	  (n)             in string context, convert number to string
+	  s ; s           evaluate both strings, return second
+	  s . s           concatenate strings
+	  s ? s : s     select s2 if s1 evaluates nz, s3 if zero
+	  s == s       strings are equal
+	  s != s         strings are not equal
+	  s < s          lexicographically less than
+	  s > s          lexicographically greater than
+	  s <= s        lexicographically less than or equal
+	  s >= s        lexicographically greater than or equal
+	  s in s        first string is contained in second string
+	  chop(s)      s without trailing newline
+	  substr(s,n,n)  substring of the s1; n1 is start index and n2 is length
+	  printf (args)   formatted string, args is comma-separated expr list
+
+
+	Variables: variables are letters a through z that can hold strings or
+	numbers. When a variable is assigned to, the result of the assignment
+	is returned. All variables are reset to the empty string (or 0) when a
+	database is loaded from disk.
+
+	  var              value of variable
+	  var = s        assign string to variable
+	  var = n        assign number to variable
+	  var .= s        append string to variable
+	  var += n      add number to variable
+	  var -= n      subtract number from variable
+	  var *= n      multiply variable by number
+	  var /= n       divide variable by number
+	  var %= n     assign modulo with number to variable
+	  var &= n      logical AND with variable
+	  var |= n        logical OR with variable
+	  var++          post-increment
+	  var--          post-decrement
+	  ++var          pre-increment
+	  --var          pre-decrement
+
+
+	Database Access
+
+	  _field             database field of current card, field is number or name
+	  _field [n]        database field from any card
+	  this                number of current card, 0 is first
+	  last                number of last card
+	  avg (_field)    average of field in all cards
+	  qavg (_field)   average of field in current query result
+	  dev (_field)    standard deviation of field in all cards
+	  qdev (_field)   standard deviation of field in current query result
+	  min (_field)    minimum value of field in all cards
+	  qmin (_field)   minimum value of field in current query result
+	  max (_field)   maximum value of field in all cards
+	  qmax (_field)  maximum value of field in current query result
+	  sum (_field)   sum of field in all cards
+	  qsum (_field)  sum of field in current query result
+	  dbase            name of current database file
+	  form              name of the current file
+	  prevform       name of the previous form file
+	  expand (_field)  returns the mnemonic value of choice and flag fields
+	  expand (_field[n]) same for card n
+
+	  search("", "")              do nothing
+	  search("", "*")            put all cards in summary
+	  search("", "{expr}")    all cards for which {expr} is not "0" or empty
+	  search("", "(expr)")    all cards for which (expr) is not 0
+	  search("", "string")     all cards that contain search string
+	  search("name", "x")   switch to form "name", then do query "x"
+
+
+	Operating System Access
+
+	  system (s)      execute shell command and return stdout
+	  $envvar         environment variable
+	  host               local host name
+	  user               user's login name
+	  uid                 user's numeric user ID
+	  gid                 user's numeric group ID
+	  access(s,n)   1 if any/r/w/x permission for file s for n=0/1/2/4
+	  beep              ring terminal bell, return ""
+	  error (args)    like printf but into a window, return ""
+
+
+	Time Conversion: dates and times are stored as number of seconds since
+	January 1, 1970. Durations are stored as number of seconds. Note that
+	this means that a time is a significantly larger number than a duration,
+	even if both have the same hh:mm string representation.
+
+	  time               current time as hh:mm or hh:mm[ap]
+	  time (n)          number as hh:mm or hh:mm[ap]
+	  date               today's date as dd.mm.yy or mm/dd/yy
+	  date (n)         number as dd.mm.yy or mm/dd/yy
+	  duration(n)    number of seconds as hh:mm
+	  date              seconds since January 1, 1970
+	  year (n)         n as four-digit year
+	  month (n)      n as month 1..12
+	  day (n)          n as day 1..31
+	  hour (n)         n as hour 0..23
+	  minute (n)      n as minute 0..59
+	  second (n)     n as second 0..59
+	  julian (n)        n as julian date 0..365
+	  leap (n)         1 if the time n is in a leap year, 0 otherwise

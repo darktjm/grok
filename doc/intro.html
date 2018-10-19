@@ -1,0 +1,271 @@
+<HTML><HEAD><TITLE>grok online manual</TITLE></HEAD>
+<BODY BGCOLOR=#ffffff>
+
+<A NAME="ia">
+<H1>Introduction</H1>
+
+<P>xmbase-grok was born as ``grok'', but the name was changed later
+to this more descriptive variation. It is a simple desktop database
+manager, intended to manage small databases such as phone lists,
+diaries, todo lists, URL lists, etc. A user interface builder is
+integrated in grok to allow customization of the presentation of the
+data in the main window. A variety of user interface elements such as
+text entry fields, checkbuttons, function buttons, and bar charts ca be
+placed in the database-dependent part of the main window, called the <I>
+card</I>. grok comes with a selection of pre-built applications.
+
+<P>The database itself is organized in a table with rows and columns of
+strings. A <I>card</I> presents one row of the database. For example,
+the phone list stores one person per row, with various columns for name,
+address, phone number, and so on.
+
+<P>In addition top the card, the main window also displays a scrollable
+<I>summary</I> listing containing one line per card, allowing fast lookup
+of cards. Pressing on a line in the summary puts the corresponding row
+into the card part of the window. The main window also contains controls
+for searching of cards, and for adding and deleting cards. There are
+several methods for searching: by keyword, using the built-in query
+language, or using customizable standard queries.
+
+<P>This chapter is intended as a user manual. For details on the
+implementation of databases, and for advanced operations such as building
+new applications with grok, refer to the chapter ``Creating and Editing
+Forms''.
+
+
+<A NAME="ib">
+<H2>Starting grok</H2>
+
+<P>From the command line, grok can be started as <TT>grok</TT> with no
+arguments. This will bring up an empty card; a database must then be
+chosen from the <I>Database</I> pulldown. The database to load can be
+specified on the command line, such as <TT>grok&nbsp;phone</TT>.
+
+<P>The <TT>-t</TT>, <TT>-T</TT>, and <TT>-p</TT> options allow queries
+printed to stdout, without starting the interactive graphical user
+interface. Queries may use simple keyword lookups, or may use the query
+language:
+
+<PRE>
+     grok -t phone thomas
+     grok -t todo '({_status == "t"} &amp;&amp; {_assigned == user})'
+</PRE>
+
+<P>For details on the query language used in the second example, refer to
+the ``Expression Grammar'' chapter. The first example looks for the given
+keyword; case distinctions are ignored. The author of the application
+controls which columns of the database are searched for keywords. Note
+the single quotes enclosing the query to protect blanks, parentheses,
+and double quotes from the shell.
+
+<P>grok supports the following command-line options:
+
+<TT>grok</TT> [<I>options</I>] [<I>database</I> ['<I>query</I>']]
+
+<UL>
+<LI><TT>-h</TT><BR>
+	print a short usage message listing the available options.<P>
+
+<LI><TT>-d</TT><BR>
+	print the default X resources to stdout and exit. The output
+	can be appended to the local <TT>~/.Xdefaults</TT> file or other
+	resource files, after changes to customize grok's behavior.<P>
+
+<LI><TT>-v</TT><BR><BR>
+	print the version number of grok.<P>
+
+<LI><TT>-t</TT><BR>
+	Perform <I>query</I> and print the matching cards to stdout. If
+	<I>query</I> is missing, print all cards. The <I>database</I>
+	argument is mandatory for <TT>-t</TT> and <TT>-T</TT>.<P>
+
+<LI><TT>-T</TT><BR>
+	Same as <TT>-t</TT>, but omit the header line. This is useful
+	when the result is piped to other Unix utilities.<P>
+
+<LI><TT>-p</TT><BR>
+	Perform <I>query</I> and print the matching cards to stdout,
+	in a format understood by the <I>plan</I> calendar program,
+	version 1.9 or higher. If <I>query</I> is missing, use the
+	<I>Shown in calendar if</I> expression defined by the database's
+	form editor. If that expression is undefined too, print all
+	cards. The <I>database</I> argument is mandatory for <TT>-p</TT>.
+
+<LI><TT>-f</TT><BR>
+	Do not fork on startup. This is mainly a debugging tool; it
+	prevents grok from putting itself into the background.<P>
+
+<LI><TT>-r</TT><BR>
+	Restricted <TT>grok</TT>. The form editor is disabled to
+	prevent inexperienced users from inadvertently starting the user
+	interface builder (called the ``form editor'') and modifying
+	the current database format. The same effect can be achieved by
+	linking <TT>grok</TT> to <TT>rgrok</TT>; running <TT>rgrok</TT>
+	has the same effect as running <TT>grok&nbsp;-r</TT>.<P>
+
+</UL>
+
+
+<A NAME="ic">
+<H2>The Main Window</H2>
+
+<P>When grok is started, it presents a four-part window: a search area
+for entering keywords and query expressions, the summary, the card, and
+a row of buttons for creating, deleting, and modifying cards. There is
+also a menu bar with pulldown menus.
+
+<P>When grok is started up without arguments, it is first necessary to
+choose the database to display from the <TT>Database</TT> pulldown.
+This pulldown presents all files in the <TT>~/.grok</TT> directory
+that end with the extension <TT>.gf</TT>, with the extension removed.
+(If a new database is created, it is not necessary to choose a database,
+see next chapter.) Sometimes, the Database pulldown shows some databases
+more than once. The reason is usually that the database is found in
+two different places or using different paths; the duplicates can be
+eliminated by enabling the ``Don't show duplicate databases'' in the
+preferences menu available under the ``File'' pulldown.
+
+<P>The next step is choosing a <I>section</I> of the database. Not
+all databases have section; if the <TT>Section</TT> pulldown in the
+menu bar is grayed out, this step can be omitted. grok normally loads
+its string table containing the cards from a file ending with the
+extension <TT>.db</TT>, usually with the same directory and root name
+as the <TT>.gf</TT> file. If this <TT>.db</TT> file is a directory, grok
+recursively loads all files ending with <TT>.db</TT> in this directory,
+and combines them into one database in memory. Each file becomes a
+<I>section</I>. By default, all sections are displayed after loading
+a database, but the Section pulldown allows restricting the summary
+listing to a single section (file). To create a new section, choose
+``New...'' in the Section pulldown; if the database did not have sections
+until now all its cards are put into the new section. Otherwise, the new
+section is created empty. There is no way to delete sections, other than
+using a shell to delete the file named <I>sectionname</I><TT>.db</TT>
+in the database directory.
+
+<P>The main window now displays all cards in the chosen database, or
+section of the database if chosen, in the summary listing. To display any
+card listed in the summary, press on this line. The card appears in the
+bottom part of the window and can now be edited (unless the database
+file was read-only, or the application author has restricted write
+access). Text entry fields normally have a pink background; read-only
+text fields have a gray background.
+
+<P>There is a special multi-line version of text entry field called a
+<I>note</I>, which always has a gray background regardless of its writable
+status. On some systems it is necessary to press in the upper left corner
+of the inset area, or on already existing text to get a cursor.
+
+<P>Below the card, there are buttons to skip to the next or previous
+card, to create a new card (<I>New</I>), to duplicate the currently
+displayed card, or to delete the currently displayed card. New cards
+may be created with defaults specified by the application designer. If
+the database has sections, there is an additional buttons that moves
+the card into a different section.
+
+<P>grok can optionally display a row of letter buttons below the summary
+area that restrict the summary to display only cards whose first text
+field begins with the selected letter. Case is not distinguished; leading
+white space and punctuation is ignored.  The row of letter buttons can
+be enabled or disabled with the ``Enable search by initial letter''
+mode in the preferences menu that can be called with the ``Preferences''
+choice in the ``File'' pulldown. The ``Letter search checks all words''
+mode in the same menu extends the letter search to check all words in
+the first text field of each card, instead of just the first.
+
+
+<A NAME="id">
+<H2>Searches and Queries</H2>
+
+<P>The Search text entry field near the top of the window allows entry of
+a search string. Case is not significant. The entire string is searched
+for; the number of blanks and punctuation is significant.  The search
+string is <I>not</I> a sequence of keywords. This type of search is
+equivalent to what the Unix command <TT>fgrep&nbsp;-i</TT> does.
+
+<P>More sophisticated queries can be performed by entering a query
+expression beginning with <TT>(</TT> or <TT>{</TT>. For a description
+of the syntax and the difference between parenthesized and braced
+expressions, the the ``Expression Grammar'' chapter. To get a feel for
+expressions, enable ``Show query search expressions'' in the preferences
+menu and choose a canned query from the ``Query'' pulldown. The query
+expression will be shown in the Search text field and can then be
+edited there.
+
+<P>The Query pulldown always begins with the ``All'' choice that puts
+all cards in the database, or all cards in the current section if one
+was selected with the Section pulldown, into the summary listing.
+The application designer may predefine canned queries (using the
+``Queries'' button in the form editor) that appear in the Query pulldown.
+
+<P>If the ``Incremental searches and queries'' mode in the preferences
+menu is enabled, each new search or query only checks the cards already
+in the summary, thus narrowing the previous search or query.  To return
+to a complete listing, choose ``All'' in the Query pulldown.  If the
+incremental mode is disabled, all cards are checked.
+
+
+<A NAME="ie">
+<H2>Printing</H2>
+
+<P>The File pulldown has a ``Print...'' choice that pops up the
+printing menu. It allows selecting the cards to print, the output
+format, the output quality, and the output device. Medium quality uses
+overstrike Ascii to simulate boldfacing and underlining as supported
+by many programs such as <I>more</I> and most printer drivers. It uses
+character-backspace-character or underbar-backspace-character sequences
+to highlight field names and header lines.
+
+<P>If ``Printer'' is chosen as output device, the printout is sent
+to the Unix command line specified in the preferences menu. Typical
+print spooler strings are ``lp'' (on System V) or ``lpr'' (on
+BSD systems). It is also possible to enter shell commands such as
+``cat&nbsp;&gt;&nbsp;/dev/tty''. The PostScript printer is specified
+separately because a RIP program or special lp options may have to
+be specified; this is currently not used because the ``PostScript''
+quality choice in the print menu is not yet implemented.
+
+
+<A NAME="if">
+<H2>Exporting</H2>
+
+<P>The File pulldown also has an ``Export...'' choice that pops up the
+Export menu. Exporting means creating one or more files that contain the
+data in the current database, or a subset of this data, in a particular
+format controlled by a <I>template</I>. There are built-in templates
+that create HTML (world-wide web) pages from the database.  It is
+also possible to write custom templates. For details, see the chapter
+``Template Exports''.
+
+
+<A NAME="ig">
+<H2>Miscellaneous</H2>
+
+<P>When a database is changed, the changes are not immediately written
+to the database file (with the <TT>.db</TT> extension). It is written
+when ``Save'' or ``Quit'' in the File pulldown is chosen, or when a
+new database is chosen from the Database pulldown. Under mwm-based
+window managers, double-clicking the top left corner button in the
+window decoration also saves, but there may be window managers that do
+not support the necessary WM protocols for this. The status line below
+the search text field displays ``(modified)'' if the database has been
+changed but not written back.
+
+<P>Note that grok does not attempt to sequence database accesses. It does
+not protect databases against simultaneous accesses. Although standard
+file locking is used during read and write operations (which may or may
+not work across NFS), nobody stops two users from reading the same file,
+then both modifying it, and writing it back; one of the two changes will
+be lost.
+
+<P>A useful feature is the ``Current database'' choice in the Help
+pulldown. It lists all known information about the current database,
+including the names and paths of all loaded files and their sizes.
+
+<P>In case of trouble, it is <B>strongly</B> recommended to read the
+other help texts available under the Help pulldown, especially the
+``Troubleshooting'' section. The Help pulldown will only work if the
+<TT>grok.hlp</TT> file is installed in the directory specified in the
+GLIB macro in the Makefile (Imakefile, or Makefile.alt), by default
+/usr/local/lib.
+
+</BODY></HTML>

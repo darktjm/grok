@@ -1,0 +1,543 @@
+<HTML><HEAD><TITLE>grok online manual</TITLE></HEAD>
+<BODY BGCOLOR=#ffffff>
+
+<A NAME="ma">
+<H1>Creating and Editing Forms</H1>
+
+<P>grok distinguishes databases and forms. A database is an array of
+unformatted data, while the form specifies the structure of the data
+and describes how to display it in a card. The standard user interface
+that comes up when grok is started deals with database presentation and
+modification; to edit the presentation, or to create a new database,
+start the form editor from the File pulldown in the main window.
+
+<P>The form editor is a separate window that is rather more complicated
+than the standard database user interface. It is basically a simple UI
+builder that allows the user to create and position UI elements in a card.
+
+<A NAME="mb">
+<H2>General Setup</H2>
+
+<P>The first step when creating a new database is choosing a form name.
+This is the name that will appear in the Database pulldown in the main
+window (actually, the pulldown should be called Form, but I fear that
+would confuse casual users). Every form references a database whose
+contents it presents; this name must also be chosen. Typically, both
+names are the same.
+
+<P>Both the form name and database names are also the file names the form
+and the database will be stored in. The form name gets the extension
+``.gf'', and non-procedural databases get the extension ``.db'' tacked
+on if the names are not fully qualified (i.e., do not begin with ``/''
+or ``~''). If the database is procedural, the database file is a script,
+and has no .db or any other extension. This script is executed to read
+or write data.
+
+<P>When a database or form is read, the path it was read from is stored;
+when the database or form is changed, it is written back to that path.
+When a new database is created, and its name does not begin with ``/''
+or ``~''  as defined in the second line of the form editor, it is stored
+in the same directory as its form file. The default is always ~/.grok.
+The Help-&gt;Database popup shows which paths are actually used.
+
+<P>The database is a two-dimensional array of strings. The rows are called
+<I>cards</I>, and the columns are called <I>fields</I>. Rows are separated
+by newlines, and columns are separated by the field delimiter. The field
+delimiter is a colon by default, but can be changed to any character.
+The button accepts characters, octal constants <I>\nnn</I>, and the tab
+character <TT>\t</TT>. Any character other than <I>\0</I> and newline
+can be chosen; grok will properly escape the character when it appears
+in a database string. Severe chaos may result if the delimiter character
+is changed when the database already contains data.
+
+<P>Databases can be marked read-only. A user accessing a database through
+a form that is has the read-only flag set will not be able to change
+any cards, and will not be able to write back.
+
+<P>A procedural database does not read a file, but calls a script that
+provides the data in the same format that the file would contain. If
+the <TT>procedural</TT> button is turned on, the referenced database
+name is the name of the script, not of any database file. It may contain
+options. When the database is read, grok appends the option <TT>"-r"</TT>
+(read) and the form name as shown in the <TT>Form name</TT> button
+(without prepending a path or appending an extension). When writing,
+<TT>-w</TT> is appended instead of <TT>-r</TT>. The script must print
+the data to stdout if <TT>-r</TT> is specified, or must accept the data
+from stdin if <TT>-w</TT> is specified, separating columns with the field
+delimiter character and separating rows with newlines. If the delimiter
+or newlines appear in as part of a data string, it must be escaped with
+a backslash.
+
+<P>A comment can be specified that should give the name of the author
+of the form, or special caveats. The comment is displayed only in the
+form editor window.
+
+<A NAME="mc">
+<H2>Creating a Card</H2>
+
+<P>After the general setup is done, fields can be arranged on a card
+``canvas'', which has the same size and layout as the final card will
+have, but doesn't look as nice and shows extra information. Fields appear
+as blue rectangular boxes, some of which are divided in the middle
+(depending on the field type). The current field, whose specification
+is displayed in the form editor window. A field can be moved by
+left-clicking somewhere inside the field (but not too close to an edge)
+and dragging. The size can be changed by dragging one of the four edges,
+and the divider can also be dragged. Fields should not overlap. The card
+canvas can be resized; fields should not overlap the canvas window edges.
+
+<P>The canvas is divided in two parts by a horizontal fat line. The
+divider can be moved vertically by dragging the little square that
+initially appears near the top right corner of the canvas. Everything
+above the divider is the <I>static part</I>; everything below the divider
+is the <I>card part</I>. The card part displays one row of the database
+if one is selected; this information changes frequently whenever a search
+is performed or a row is chosen from the summary.
+
+<P>The static part does not normally change, it is intended for static
+data such as the average of all fields, a chart displaying statistics,
+or buttons. This part is not entirely static because entering new cards
+or resorting the database may change data, but it is not bound to a
+particular card, and it remains accessible if no card is chosen. This
+makes it a good place to place form switch buttons that would otherwise
+become unavailable when no card is displayed.
+
+<P>There are several types of fields. Not all of them store data in the
+database; some are decorative or display computed information.
+
+<UL>
+<LI><B>Input</B><BR>
+	This is the main type of field. It displays an editable (unless
+	turned off) string in the database, along with a label.  Input
+	fields should not be put into the static part of the canvas.<P>
+
+<LI><B>Time</B><BR>
+	A variation of the Input field. The database representation is
+	a number of seconds. It is displayed as a date, as a time, as
+	both date and time, and as a duration. The first three assume
+	the database string to be a number of seconds since January 1,
+	1970; the last simply assumes a number of seconds up to 86399
+	(one day minus 1 second). When a string is entered into a Time
+	field, it is converted to the numeric representation, reformatted,
+	and reprinted. Time fields are useful because they can be used in
+	expressions for calculation; expressions always see the numeric
+	database string.  Time fields should not be put into the static
+	part of the canvas.<P>
+
+<LI><B>Note</B><BR>
+	A note is a multi-line Input field. It should be used only
+	for multiline text input because it cannot be tabbed over, and
+	because pressing Return when entering data into the card into
+	a Note actually inserts a newline, rather than skipping to the
+	next field as an Input-type field would.  Note fields should
+	not be put into the static part of the canvas.<P>
+
+<LI><B>Choice</B><BR>
+	Unlike all other types, many choice fields reference the same
+	database string. They all must have the same summary column, the
+	same database column, and the same internal field name (these
+	three are buttons in the form editor). They differ only in the
+	Choice/flag code. grok always makes sure that only one of the
+	choice fields with identical internal field names can be active
+	at any time; the database string then matches the Choice/flag
+	code of that field. Most attributes of a <TT>Choice</TT> item,
+	when changed, are copied to all other <TT>Choice</TT> items that
+	have the same internal name.  Choice fields should not be put
+	into the static part of the canvas.<P>
+
+<LI><B>Label</B><BR>
+	Labels are purely decorative. They print an arbitrary one-line
+	string at a position in the card. There is no associated database
+	string. Labels are rarely needed because most of the other types
+	come with their own built-in label parts. The label is static,
+	expressions cannot be used.<P>
+
+<LI><B>Print</B><BR>
+	Print fields are like Input fields, but no text can be
+	entered. Unlike labels, they can display an expression specified
+	in the Input Default button of the form editor. This can be
+	used to display a running average or sum in cards, or display
+	other computed information. There is no associated database
+	string. Print fields are useful in both the static and card
+	parts of the canvas.<P>
+
+<LI><B>Flag</B><BR>
+	Flags are boolean database strings: the string either
+	matches the predefined string (<I>true</I>), or it is empty
+	(<I>false</I>). (In fact, a string that doesn't match is also
+	considered <I>false</I>, but this is not part of the normal
+	operation.) The string that constitutes <I>true</I> is specified
+	with the Choice/flag code button in the form editor.<P>
+
+<LI><B>Button</B><BR>
+	Buttons have an associated action expression that is executed when
+	the button is pressed. This action could start a shell script,
+	for example.  Buttons are not associated with any database string,
+	but the expression can access one. For example, a database of demo
+	programs can have a button that executes the program. The returned
+	string is executed, there is no need to use the <TT>system</TT>
+	keyword unless nesting is desired. Note that the action expression
+	is the only type of expression that may contain <TT>switch</TT>
+	statements; see the Expression Grammar chapter for details. It
+	is often a good idea to put buttons in the static part of the
+	canvas.<P>
+
+<LI><B>Chart</B><BR>
+	Charts display data as bar or line charts. The X axis is divided
+	into one slot per row in the database; the Y axis depends on the
+	values computed from those rows (X and Y may be exchanged). Each
+	chart contains one or more <I>components</I>. A component computes
+	values that is plotted in the chart; a chart may display more
+	than one value. For example, an expense account chart may display
+	a stacked bar chart consisting of different color-coded types of
+	costs, each described by a component.  There are many variations
+	for configuring charts and their components.  Charts should be
+	put into the static part of the canvas.<P>
+
+</UL>
+
+<P>Each field has a number of parameters that depend on the type. The most
+important is the internal field name. It must be unique, except for choice
+fields which are grouped by assigning common internal field names. If the
+field references a database string, the internal field name also names
+the database string. The internal field name can be used in expressions
+to read the database string. For example, suppose you have a database
+of backup tapes, you may have an <TT>Input</TT> field with an internal
+field name <I>capacity</I>, and another <TT>Input</TT> field named
+<I>used</I>. You could then add a <TT>Print</TT> field whose Input Default
+expression is <TT>(_capacity&nbsp;-&nbsp;_used)</TT>. The <TT>Print</TT>
+field then displays the remaining free space on each tape, even though
+the database only contains total capacity and used capacity. Another
+<TT>Print</TT> label may have an expression <TT>(sum(_used))</TT>,
+which displays a running total of all tapes' contents. <TT>sum</TT>
+is one of a group of functions that loop over all cards rather than
+just referencing the current card; see the Expression Grammar chapter
+for details. It is also possible to reference a database field for which
+there is no field description in an expression; in this case, the field is
+referenced by number. Fields in the database are numbered left to right,
+beginning with 0.
+
+<P>The next button in the form editor is the database column. It needs
+to be specified only for field types that display the column and allow
+entry into the column. These fields are ``windows'' into the database;
+there is normally one field for each database column. All fields that
+do not reference a database column are merely decoration, no change
+of the database is possible through such a decorative field (although
+the decorative field may read the database, as <TT>Print</TT> fields
+do). This relation between fields and database columns also serves to give
+a symbolic name to database columns; these symbolic names can be used in
+expressions by prefixing them with an underscore. (It is also possible
+to use the column number in expressions, but that is less convenient).
+
+<P>The main window has three parts, a summary, the static area, and the
+card.  The summary contains one line per card, while the card contains
+the entire card's information as defined with the form editor and the card
+canvas. The static part is optional and programmed in the same way as the
+card. The Summary column and Width in summary buttons in the form editor
+determine which fields also appear in the summary; this is a subset of
+the fields that reference a database column (decoration fields can not
+be put into the summary).  The two buttons specify the order in database
+column and the width in characters. Two blanks are inserted between
+fields in the summary automatically. The summary has a title; it can
+not be specified directly but is taken from the Label text of the field.
+
+<P>Here is a brief summary of all buttons in the form editor that specify
+a field in the card:
+
+<UL>
+<LI><B>Field type</B><BR>
+	The type of a field is entered here. See above for a list of
+	available types and what they do.<P>
+
+<LI><B>Searchable</B><BR>
+	The main window contains a Search input button. It searches
+	through all cards and puts all cards containing the search string
+	into the summary.  Fields that are not searchable are excluded
+	from the search.<P>
+
+<LI><B>Read only</B><BR>
+	The user cannot change the database string referenced by a
+	field that is read-only. This is useful if there are two forms
+	referencing the same database, one for you and one for the
+	unwashed masses with lots of read-only flags set. The read-only
+	flag can also be set for the entire database with the button near
+	the top of the form editor window; setting that flag overrides
+	all field read-only flags.<P>
+
+<LI><B>Not sortable</B><BR>
+	The field will be omitted from the Sort pulldown in the main
+	menu.<P>
+
+<LI><B>Default sort</B><BR>
+	When the file is read in from disk, it is sorted by the field
+	that has this flag on. Setting it in any field will clear the
+	Default sort flag in all other items automatically. If no field
+	has the Default sort flag, the file will not be sorted when it is
+	read. It is possible but not recommended to have both the Default
+	sort flag and the Not sortable flag on in the same field.<P>
+
+<LI><B>Internal field name</B><BR>
+	All fields have an unique name. Choice names are not unique,
+	choice fields are grouped by a common name. If the field
+	references a database string, the internal field name also names
+	the database column, which can then be accessed in expressions
+	symbolically.<P>
+
+<LI><B>Database column</B><BR>
+	If the field references a database column, this button says
+	which one, 0 being the first column. If not, this button is
+	grayed out. The column number must be unique, except for choice
+	fields which are grouped by a common database column (and a
+	common internal field name, too).<P>
+
+<LI><B>Width in summary</B><BR>
+	If the width is nonzero, the database string referenced by the
+	field will appear in the summary, with as many characters as
+	specified. Two blanks are appended. The summary always uses
+	monospaced Courier to make columns line up vertically.<P>
+
+<LI><B>Summary column</B><BR>
+	If the width is nonzero, this value specifies the order of fields
+	in summary lines. No two fields may have the same summary column
+	number, but there may be gaps.<P>
+
+<LI><B>Choice/flag code</B><BR>
+	The string that Flag and Choice fields store in the database,
+	if active.  No two Choice fields with the same internal name
+	may have the same code.<P>
+
+<LI><B>Shown as</B><BR>
+	If this string is set, it will be displayed in the summary in
+	place of the choice/flag code. Basically, it is a mnemonic name
+	for the choice/flag code that a user can understand.<P>
+
+<LI><B>Time format</B><BR>
+	Time fields have four different formats, as described above. The
+	format controls what gets printed into the card, and how user
+	input is interpreted.<P>
+
+<LI><B>Label text</B><BR>
+	All field types come with some kind of text string that is
+	printed into the field in the card. This string is always literal,
+	it cannot be an expression.<P>
+
+<LI><B>Label justification</B><BR>
+	Labels can be centered, left-aligned, or right-aligned. This is
+	not shown in the card canvas, press the Preview button to see
+	the effect.<P>
+
+<LI><B>Label font</B><BR>
+	The font used for the label. Five fonts are available.<P>
+
+<LI><B>Max input length</B><BR>
+	The maximum number of characters than can be entered into an
+	Input, Time, or Note field. The default is 100 for Input and
+	Time fields, and 10000 for Note fields. Always make sure that
+	note fields have a sufficient maximum length. This number is
+	passed to the Motif widget to limit input length, but does not
+	lead to increased memory usage for the database.<P>
+
+<LI><B>Input default</B><BR>
+	For Input, Time, Flag, and Choice fields, this field provides the
+	defaults when a new card is added to the database. It can be an
+	expression. For Print fields, the Input default specifies what
+	gets printed into the inset area of the field; input default is
+	actually a misnomer because Print field texts cannot be input
+	and are evaluated whenever the database changes, not just when
+	a new card is added. In general, Choice fields should always
+	have a default. If the field has type Time, the input default
+	expression should evaluate to a number of seconds, not to a
+	string containing a date. For example, to make the Time field
+	default to today, use (date), not {date}.<P>
+
+<LI><B>Input justification</B><BR>
+	Input can be centered, left-aligned, or right-aligned. This is
+	not shown in the card canvas, press the Preview button to see
+	the effect.<P>
+
+<LI><B>Input font</B><BR>
+	The font used for the input area. Five fonts are available. It is
+	recommended to use Courier for Note fields (and, by extension,
+	for Input and Time fields) because printing functions print
+	notes using a fixed-width font.<P>
+
+<LI><B>Calendar interface</B><BR>
+	If the <I>plan</I> calendar program (see below) reads a grok
+	database, it starts <I>grok</I> with the -p option, which uses
+	the calendar interface settings to interpret the fields of
+	the database. At least one field must be marked <TT>Date</TT>
+	or <TT>Date+time"</TT>; <I>plan</I> will use the value in that
+	field to display the card in the calendar at the given date. There
+	should also be a field marked <TT>Note</TT> or <TT>Message</TT>;
+	this will become tha label of the calendar item that is shown
+	along with the date. For the interpretation of the other interface
+	modes, refer to the online help of the <I>plan</I> program.<P>
+
+<LI><B>Shown in calendar if</B><BR>
+	If defined, <I>plan</I> will only display cards that match the
+	expression entered here. The expression is shared by all fields.
+	<I>plan</I> may override this expression by specifying a <TT>-p
+	</TT> query expression on the command line. This requires <I>
+	plan</I>version 1.9 or higher.
+
+<LI><B>Grayed out if</B><BR>
+	If the named expression evaluates to <I>true</I>, the field
+	is grayed out and cannot be used to alter the database. The
+	expression is evaluated every time the database changes.<P>
+
+<LI><B>Invisible if</B><BR>
+	If the named expression evaluates to <I>true</I>, the field is
+	excluded from the card. The expression is evaluated only once,
+	when the database is read from disk. This can be used to hide
+	entries if the wrong user has read the database. Invisibility
+	does not affect the summary.<P>
+
+<LI><B>Read-only if</B><BR>
+	If the named expression evaluates to <I>true</I>, the field
+	is read-only.  The expression is evaluated only once, when the
+	database is read from disk.<P>
+
+<LI><B>Skip if</B><BR>
+	Normally, pressing Return in an Input or Time field advances
+	the cursor to the next field (fields are ordered by their bottom
+	left corner, in Y-major order). If the named expression of the
+	next field evaluates to <I>true</I>, the field is skipped and the
+	cursor is put elsewhere. This expression is evaluated every time
+	return is pressed in the previous field.  A constant expression
+	such as <TT>true</TT> is also useful.<P>
+
+<LI><B>Action when pressed</B><BR>
+	If the button is pressed, this expression is evaluated. The
+	result is ignored. Typically, the expression is the name of
+	a shell script. The expression may use the <TT>switch</TT>
+	statement, which switches to another database and/or performs
+	a query on all cards.<P>
+
+<LI><B>Chart flags</B><BR>
+	Not documented yet. This part of the menu is still under
+	development.<P>
+
+</UL>
+
+<P>Some of the above accept expressions. An expression begins with a
+parenthesis, a brace, or a dollar sign. Everything else is a literal
+string. Parentheses and braces are numeric and string expressions,
+respectively; a dollar sign followed by an environment variable is a
+shortcut for the same sequence enclosed in braces. The <TT>system</TT>
+statement should be used sparingly, because some expressions (such as the
+grayed-out-if expression) are evaluated frequently. See the Expression
+Grammar section for details.
+
+<A NAME="md">
+<H2>Buttons</H2>
+
+<P>There is a row of buttons in the form editor for various operations:
+
+<UL>
+<LI><B>Queries</B><BR>
+	Starts up a window that allows entry of standard queries,
+	as name/expression pairs. The name is what will appear in the
+	Query pulldown in the main menu; the expression is what gets
+	executed if the name is selected in the pulldown.  When a name
+	is selected, the expression is applied to all cards in the
+	database, and those that return <I>true</I> are put into the
+	summary. For example, assuming your database has an Input field
+	with the internal name <TT>value</TT>, the query expression
+	<TT>(_value&nbsp;&gt;&nbsp;avg(_value))</TT> will select all
+	cards whose value is above average.One of the queries can be
+	selected as the default query that will be performed when the
+	database is read from disk.<P>
+
+<LI><B>Def Help</B><BR>
+	The main window has a help button in the lower left corner. This
+	button pops up a help window with some generic info about
+	grok. With the Def Help button, more text can be entered that
+	will be appended to the generic help text. The text should
+	explain the card, how to use it, and what the fields mean.<P>
+
+<LI><B>Debug</B><BR>
+	This button checks the consistency of all fields, and reports
+	conflicts such as non-unique internal names or redundant choice
+	flags. At this time, expressions are not checked. If the Debug
+	button reportrs nothing, the no problems were found. The Done
+	button always does a debugging run first, and refuses to exit
+	if errors were found.<P>
+
+<LI><B>Preview</B><BR>
+	The card canvas shows the layout of fields in the card, as boxes
+	that show additional information such as type, database column,
+	flag/choice code, and summary column. This does not reflect
+	the final card that the user will see very well; in particular,
+	whether a label string fits into the field on the card canvas does
+	not mean that the same label will fit into the final card. Preview
+	shows precisely what the card will look like.<P>
+
+<LI><B>Help</B><BR>
+	Print general help information.<P>
+
+<LI><B>Cancel</B><BR>
+	Discards all operations done with the form editor since it was
+	installed, and removes the form editor window after asking for
+	confirmation.<P>
+
+<LI><B>Done</B><BR>
+	Check all fields for consistency. If no problems are found, the
+	form file is written. The file name is taken from the Form name
+	button at the top of the form, with <TT>~/.grok</TT> prepended
+	and <TT>.gf</TT> appended if appropriate.<P>
+
+<LI><B>Add</B><BR>
+	Adds a new field to the card. Its type, parameters, and position
+	on the card canvas are chosen based on the currently selected
+	card, so it's a good idea to select a field that is similar to the
+	new one before pressing Add. If the card canvas has no free space
+	below the bottom field, the new field may be placed under the
+	bottom field where it can't be seen; it is generally a good idea
+	to start with a card canvas that is too large and resize it to the
+	correct size after all fields have been added and positioned.<P>
+
+<LI><B>Delete</B><BR>
+	Delete the currently selected field. There is no Undo function
+	to get it back.<P>
+
+</UL>
+
+
+<A NAME="me">
+<H2><I>plan</I> Interface</H2>
+
+<P>grok cooperates with the calendar manager <I>plan</I>,
+which is another freeware package by the same author. See <A
+HREF="http://www.bitrot.de"</A>http://www.bitrot.de</A> for more
+information about <I>plan</I>. The standard FTP archive site is
+<A HREF="ftp://ftp.fu-berlin.de/pub/unix/graphics/plan">
+ftp://ftp.fu-berlin.de/pub/unix/graphics/plan</A>.
+
+<P>Version 1.6 of <I>plan</I> and version 1.4 of grok support a simple
+mode of cooperation. <I>plan</I> can read databases created with grok and
+displays the information in various way in its calendar views. Version 1.9
+of <I>plan</I> uses the new <TT>-p</TT> option of <I>grok</I> to read
+databases, which permits the use of the <I>Shown in calendar if</I> mode
+in the form editor, which can be used to show only active and unfinished
+todo items from a workplan database, for example. Previous versions always
+show all cards.
+
+<P>This is useful only for databases that are time-based, which means
+that they have at least one field of type <I>Time</I> with a subtype
+<TT>Date+time</TT> or <TT>Date</TT>. Currently, <I>plan</I>'s IP server
+options are not available for grok; this will change in a future version.
+At this time, <I>plan</I> can only display but not modify grok data.
+
+<P><I>plan</I> needs information about a grok database to know how to
+interpret the data. For this purpose, the calendar interface mode was
+introduced in the form editor. It allows the user to specify for each
+field of the database how <I>plan</I> should interpret it. One field must
+be marked <TT>Date+time</TT> or <TT>Date</TT>, and one field should be
+marked <TT>Note</TT> or <TT>Message</TT> so the entry can meaningfully
+be displayed in a calendar view.
+
+<P>The standard <I>workplan</I> application that comes bundled with
+grok is set up to display the finish dates of jobs in calendar views,
+along with the job title.
+
+</BODY></HTML>

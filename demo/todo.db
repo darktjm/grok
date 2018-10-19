@@ -1,0 +1,23 @@
+grok:1:2:thomas:thomas:12.10.94:30.10.94:::w:PostScript printing not supported yet:The PostScript button in the Print menu has no code behind it.
+grok:2:3:thomas:thomas:14.10.94:30.10.94:::w:regular expression searches:Preferences menu should offer regular expression search, case-insensitive\
+(default), case-sensitive. Perhaps ~= operator for expressions.
+grok:3:3:thomas:thomas:14.10.94:30.10.94:::w:picture support:Need to have a picture data type. String contains image file name,\
+image is displayed in the card.
+grok:4:2:thomas:thomas:17.10.94:30.10.94:::w:resizable summary:When the window is resized, the summary should change size. This seems\
+to be more difficult than anticipated.
+grok:5:3:thomas:thomas:17.10.94:30.10.94:::w:charts:There are lots of interesting things to do with charts\: axis labels,\
+grids, scrollbars...
+grok:6:3:thomas:thomas:17.10.94:30.10.94:::w:automatic backups:when a form or database is changed, make a backup of the old one.
+grok:7:2:thomas:thomas:24.10.94:30.10.94:::w:file locking:Need some sort of file locking that would allow multiple users writing\
+to the same file. Need separate open-for-write, first user gets it and\
+all others get the database read-only? Inconvenient.
+grok:8:3:thomas:thomas:30.10.94:30.10.94:::w:connection to the plan program:There should be some connection to the "plan" day planner program,\
+for example for phone log ticklers. Maybe a calendar item type, and\
+an appointment-adding statement in the expression language. BTW, if\
+you don't know plan and need a calendar and day planner, check it\
+out on ftp.fu-berlin.de (file /pub/unix/graphics/plan/plan-1.3.tar.gz).
+grok:9:3:thomas:thomas:31.10.94:31.10.94:::w:let one form control multiple databases:Perhaps create a pullright cascade menu in the Database pulldown if\
+there is a <formname>.db directory? Can't look at the form contents.
+grok:10:3:thomas:thomas:31.10.94:31.10.94:::w:better variables:add submenu in form editor that lets form designer specify the default\
+for each variable a..z, -or- specify which variable is read from a\
+<databasename>.var file.
