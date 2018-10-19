@@ -218,7 +218,7 @@ static void create_item_widgets(
 	static int	did_register;	/* drawing area action registered? */
 	static BOOL	have_fonts;
 	static XmFontList ftlist[F_NFONTS];
-	Arg		args[15];
+	Arg		args[20];
 	int		n, i;
 	XmString	label, blank;
 	BOOL		editable;
@@ -333,34 +333,56 @@ static void create_item_widgets(
 		XtSetArg(args[n], XmNhighlightThickness, 0);		   n++;
 		carditem->w1 = XtCreateManagedWidget("label",
 					xmLabelWidgetClass, wform, args, n);
-		/* A single XmCreateScrolledText should work here */
-		/*  but it's broken:  the size sets the text area size */
-		/*  rather than the widget size, and there doesn't seem */
-		/*  to be a way to fix it */
-#define USE_2WIDGETS 1
+		/* Scrolling policy can be AUTOMATIC or APPLICATION_DEFINED */
+		/* AUTOMATIC is broken in that scrolling doesn't follow
+		 * keyboard cursor movement.  Also, if the initial text
+		 * area isn't set to the same size, clicking on non-text
+		 * doesn't work as expected.  Also, if the shadow width is
+		 * not zero when text & scroll area are same size, scroll bars
+		 * will always appear and it will look like there is more
+		 * text than there actually is.  Also, the first time it
+		 * appears it often decides only to show the initial clipping
+		 * region; scrolling scrolls to blank areas, and when the
+		 * size hack isn't done, the smaller region is obvious because
+		 * everything else is clipped.  Moving back and forth to
+		 * several records seems to fix this.
+		 */
+		/* APPLICATION_DEFINED is broken in that the size passed in
+		 * is applied to the text area, rather than the entire
+		 * widget.  Thus, the scroll bars make the widget larger
+		 * than it should be by an amount that an app probably
+		 * can't portable calculate.  I imagine automatic scrollbar
+		 * hiding doesn't work at all, either.
+		 */
+		/* I have looked at the motif source code and still have
+		 * no idea why cursor tracking doesn't work.  I haven't
+		 * bothered looking into why sizing or initial clip don't work.
+		 * Note that XmNautoShowCursorPosition defaults to TRUE,
+		 * and doesn't affect the cursor tracking issue.
+		 */
+		/* A single XmCreateScrolledText should work here
+		 *  but it forces APPLICATION_DEFINED, which is more broken
+		 *  in this case
+		 */
+#define USE_AUTO 1
 		n = 0;
 		XtSetArg(args[n], XmNx,		 item.x);		   n++;
 		XtSetArg(args[n], XmNy,		 item.y + item.ym);	   n++;
 		XtSetArg(args[n], XmNwidth,	 item.xs);		   n++;
 		XtSetArg(args[n], XmNheight,	 item.ys - item.ym);	   n++;
 		XtSetArg(args[n], XmNhighlightThickness, 1);		   n++;
-#if 1 /* AUTOMATIC bugs:  scroll doesn't follow cursor */
+#if USE_AUTO
 		XtSetArg(args[n], XmNscrollingPolicy, XmAUTOMATIC);	   n++;
-#else /* APPLICATION_DEFINED bugs:  broken display; probably needs work */
-		XtSetArg(args[n], XmNscrollingPolicy, XmAPPLICATION_DEFINED);	   n++;
-#endif
-#if USE_2WIDGETS
+		XtSetArg(args[n], XmNshadowThickness, 1);		   n++;
 		carditem->w0 = XtCreateManagedWidget("noteSW",
 					xmScrolledWindowWidgetClass, wform,
 					args, n);
 		n = 0;
-#if 1
+
 		/* doing this fixes the "initial box is too cropped" issue */
-		/* at the expense of always displaying scrollbars */
-		/* and making the widget bigger than it should be. */
-		XtSetArg(args[n], XmNwidth,	 item.xs);		   n++;
-		XtSetArg(args[n], XmNheight,	 item.ys - item.ym);	   n++;
-#endif
+		/* - 2 is to adjust for shadow thickness */
+		XtSetArg(args[n], XmNwidth,	 item.xs - 2);		   n++;
+		XtSetArg(args[n], XmNheight,	 item.ys - item.ym - 2);	   n++;
 #endif
 		XtSetArg(args[n], XmNfontList,	 ftlist[item.inputfont]);  n++;
 		XtSetArg(args[n], XmNeditMode,	 XmMULTI_LINE_EDIT);	   n++;
@@ -368,7 +390,7 @@ static void create_item_widgets(
 		XtSetArg(args[n], XmNmaxLength,	 item.maxlen);		   n++;
 		XtSetArg(args[n], XmNalignment,	 JUST(item.inputjust));    n++;
 		XtSetArg(args[n], XmNhighlightThickness, 0);		   n++;
-#if USE_2WIDGETS
+#if USE_AUTO
 		XtSetArg(args[n], XmNshadowThickness, 0);		   n++;
 		carditem->w0 = XtCreateWidget("note",
 				xmTextWidgetClass, carditem->w0, args, n);
