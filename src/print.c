@@ -7,6 +7,7 @@
 #include "config.h"
 #include <X11/Xos.h>
 #include <stdio.h>
+#include <errno.h>
 #include <signal.h>
 #include <Xm/Xm.h>
 #include "grok.h"
@@ -26,7 +27,6 @@ static void print_head_p(FILE *);
 static void print_tail_p(FILE *);
 static void print_card_p(FILE *, int);
 
-extern int	errno;
 extern Widget	toplevel;	/* top-level shell for error popup */
 extern CARD 	*curr_card;	/* card being displayed in main win */
 extern struct	pref pref;	/* global preferences */

@@ -22,6 +22,7 @@
 #include <X11/Xos.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <math.h>
 #include <Xm/Xm.h>
 #include "grok.h"
@@ -31,7 +32,6 @@
 
 extern CARD	*yycard;		/* the database to operate on */
 extern Widget	toplevel;		/* top-level shell for error msg */
-extern int	errno;
 
 
 /*

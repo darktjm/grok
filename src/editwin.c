@@ -13,6 +13,7 @@
 #include <X11/Xos.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <Xm/Xm.h>
@@ -34,7 +35,6 @@ static void cancel_callback (Widget, int, XmToggleButtonCallbackStruct *);
 static void delete_callback (Widget, int, XmToggleButtonCallbackStruct *);
 static void clear_callback  (Widget, int, XmToggleButtonCallbackStruct *);
 
-extern int		errno;
 extern XmFontList	fontlist[NFONTS];
 extern Pixel		color[NCOLS];	/* colors: COL_* */
 extern Display		*display;	/* everybody uses the same server */

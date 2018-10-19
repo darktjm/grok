@@ -547,7 +547,7 @@ static void card_callback(
 			if (switch_expr)
 				search_cards(SM_SEARCH, card, switch_expr);
 			if (n && *n)
-				system(n);
+				(void)system(n);
 			if (switch_name) free(switch_name); switch_name = 0;
 			if (switch_expr) free(switch_expr); switch_expr = 0;
 		}
@@ -621,7 +621,7 @@ void card_readback_texts(
 				  case T_DATETIME:
 					time = parse_datetimestring(data);
 				}
-				sprintf(buf, "%d", time);
+				sprintf(buf, "%ld", (long)time);
 			}
 			(void)store(card, nitem, buf);
 			if (which >= 0)

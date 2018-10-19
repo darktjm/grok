@@ -12,6 +12,7 @@
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <X11/Xos.h>
 #include <Xm/Xm.h>
 #include <Xm/DialogS.h>
@@ -33,7 +34,6 @@ static void spool_callback(Widget, int, XmToggleButtonCallbackStruct *);
 
 extern Display	*display;	/* everybody uses the same server */
 extern Pixel	color[NCOLS];	/* colors: COL_* */
-extern int	errno;
 extern Widget	toplevel;	/* top-level shell for error popup */
 struct pref	pref;		/* global preferences */
 

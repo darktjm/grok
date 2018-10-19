@@ -43,7 +43,7 @@ void yyerror(
 	if (!*errormsg) {
 		sprintf(errormsg,
 "Problem with search expression\n%s:\n%.80s in column %d near '%.4s'\n%s",
-				yyexpr, msg, yytext - yyexpr, yytext, extramsg);
+				yyexpr, msg, (int)(yytext - yyexpr), yytext, extramsg);
 		fprintf(stderr, "%s: %s\n", progname, errormsg);
 	}
 }

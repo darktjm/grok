@@ -538,7 +538,7 @@ BOOL item_create(
 					}
 				}
 		}
-		sprintf(buf, "item%d", item->column);
+		sprintf(buf, "item%ld", item->column);
 		item->name = mystrdup(buf);
 	}
 	return(TRUE);

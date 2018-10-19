@@ -10,6 +10,7 @@
 #include "config.h"
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <X11/Xos.h>
 #include <errno.h>
@@ -73,10 +74,6 @@ void create_about_popup(void)
  * away. The widget is some window that the popup goes on top of.
  */
 
-#if !defined(linux) && !defined(__FreeBSD__)
-extern char *sys_errlist[];	/* hpux9.01 errno.h is broken! */
-#endif
-
 /*VARARGS*/
 void create_error_popup(Widget widget, int error, char *fmt, ...)
 {
@@ -92,7 +89,7 @@ void create_error_popup(Widget widget, int error, char *fmt, ...)
 	va_end(parm);
 	if (error) {
 		strcat(msg, "\n");
-		strcat(msg, sys_errlist[error]);
+		strcat(msg, strerror(error));
 	}
 	if (!widget) {
 		fprintf(stderr, "%s: %s\n", progname, msg);

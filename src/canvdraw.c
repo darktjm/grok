@@ -540,7 +540,7 @@ void redraw_canvas_item(
 	*buf = 0;
 	sprintf(sumcol, item->sumwidth ? ",%d" : "", item->sumcol);
 	if (item->type == IT_CHOICE || item->type == IT_FLAG)
-		sprintf(buf, "[%d=%s%s] ", item->column,
+		sprintf(buf, "[%ld=%s%s] ", item->column,
 				item->flagcode ? item->flagcode : "?", sumcol);
 	strcat(buf, item->label ? item->label : "label");
 	nfont = ifont(item->labelfont);
@@ -553,7 +553,7 @@ void redraw_canvas_item(
 
 	*buf = 0;
 	if (IN_DBASE(item->type))
-		sprintf(buf, "[%d%s] ", item->column, sumcol);
+		sprintf(buf, "[%ld%s] ", item->column, sumcol);
 	strcat(buf, datatext[item->type]);
 	if (xm > 0 && xm < item->xs) {
 		nfont = ifont(item->inputfont);

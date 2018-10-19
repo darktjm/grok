@@ -13,7 +13,9 @@
 
 #include "config.h"
 #include <X11/Xos.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #ifdef DIRECT
 #include <sys/dir.h>
 #define  dirent direct
@@ -73,7 +75,6 @@ extern XmFontList	fontlist[NFONTS];
 extern struct pref	pref;		/* global preferences */
 extern BOOL		restricted;	/* restricted mode, no form editor */
 extern int		col_sorted_by;	/* dbase is sorted by this column */
-extern int		errno;
 CARD 			*curr_card;	/* card being displayed in main win, */
 char			*prev_form;	/* previous form name */
 Widget			mainwindow;	/* popup menus hang off main window */
@@ -145,7 +146,7 @@ void create_mainwindow(
 			XmVaCASCADEBUTTON, s[5], 'H',
 			NULL);
 	if (w = XtNameToWidget(menubar, "button_5"))
-		XtVaSetValues(menubar, XmNmenuHelpWidget, w, 0);
+		XtVaSetValues(menubar, XmNmenuHelpWidget, w, NULL);
 	sectpdcall = XtNameToWidget(menubar, "button_2");
 	for (n=0; n < 5; n++)
 		XmStringFree(s[n]);
@@ -187,7 +188,7 @@ void create_mainwindow(
 		XmStringFree(s[n]);
 
 	if (restricted && (w = XtNameToWidget(fmenu, "button_4")))
-		XtVaSetValues(w, XmNsensitive, FALSE, 0);
+		XtVaSetValues(w, XmNsensitive, FALSE, NULL);
 
 	s[0] = XmStringCreateSimple("Edit current form...");
 	s[1] = XmStringCreateSimple("Create new form from scratch...");
@@ -570,7 +571,7 @@ void create_mainwindow(
 
 	 for (i=0; i < 28; i++) {
 	  wid = strlen_in_pixels("W", FONT_STD);
-	  sprintf(buf, i < 26 ? "%c" : i==26 ? "misc" : "all", i+'A');
+	  sprintf(buf, i < 26 ? "%c" : i==26 ? "misc" : "all", (int)i+'A');
 	  n = 0;
 	  if (i == 0) {
 	   XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
@@ -792,7 +793,7 @@ static void make_dbase_pulldown(
 			db[i].widget = XtCreateManagedWidget(db[i].name+1,
 				xmPushButtonGadgetClass, dbpulldown, NULL, 0);
 			XtAddCallback(db[i].widget, XmNactivateCallback,
-				(XtCallbackProc)dbase_pulldown, (XtPointer)i);
+				(XtCallbackProc)dbase_pulldown, (XtPointer)(unsigned long)i);
 		}
 	}
 }
@@ -859,7 +860,7 @@ void remake_section_pulldown(void)
 		scwidget[n] = 0;
 	}
 	if (!curr_card || !curr_card->dbase || curr_card->form->proc) {
-		XtVaSetValues(sectpdcall, XmNsensitive, FALSE, 0);
+		XtVaSetValues(sectpdcall, XmNsensitive, FALSE, NULL);
 		return;
 	}
 	maxn = curr_card->dbase->havesects ? curr_card->dbase->nsects + 2 : 1;
@@ -877,7 +878,7 @@ void remake_section_pulldown(void)
 				(XtCallbackProc)section_pulldown,(XtPointer)n);
 		free(name[n]);
 	}
-	XtVaSetValues(sectpdcall, XmNsensitive, TRUE, 0);
+	XtVaSetValues(sectpdcall, XmNsensitive, TRUE, NULL);
 #ifdef XmNtearOffModel
 	XtVaSetValues(sectpulldown, XmNtearOffModel, XmTEAR_OFF_ENABLED, NULL);
 #endif
@@ -1043,7 +1044,7 @@ static void remake_popup(void)
 				section_name(curr_card->dbase, i),
 				xmPushButtonGadgetClass, popup, NULL, 0);
 		XtAddCallback(pwidgets[i], XmNactivateCallback,
-				(XtCallbackProc)sect_callback, (XtPointer)i);
+				(XtCallbackProc)sect_callback, (XtPointer)(unsigned long)i);
 	}
 	XtManageChild(w_sect);
 #endif

@@ -683,7 +683,7 @@ static void fillout_formedit_widget(
 	  case 0x114: set_toggle(w, form->syncable);			break;
 	  case 0x105: set_toggle(w, form->proc);
 		      fillout_formedit_widget_by_code(0x106);		break;
-	  case 0x106: XtVaSetValues(w, XmNsensitive, form->proc, 0);	break;
+	  case 0x106: XtVaSetValues(w, XmNsensitive, form->proc, NULL);	break;
 
 	  case IT_LABEL:
 	  case IT_PRINT:

@@ -108,7 +108,7 @@ BOOL write_form(
 		fprintf(fp, "mid        %d %d\n",	item->xm, item->ym);
 		fprintf(fp, "sumwid     %d\n",		item->sumwidth);
 		fprintf(fp, "sumcol     %d\n",		item->sumcol);
-		fprintf(fp, "column     %d\n",		item->column);
+		fprintf(fp, "column     %ld\n",		item->column);
 		fprintf(fp, "search     %d\n",		item->search);
 		fprintf(fp, "rdonly     %d\n",		item->rdonly);
 		fprintf(fp, "nosort     %d\n",		item->nosort);

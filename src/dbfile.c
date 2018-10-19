@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <errno.h>
 #include <assert.h>
 #include <signal.h>
 #ifdef DIRECT
@@ -29,7 +30,6 @@
 #define R_SEP	'\n'			/* row (card) separator */
 #define ESC	'\\'			/* treat next char literally */
 
-extern int	errno;
 extern char	*progname;		/* argv[0] */
 extern Widget	toplevel;		/* top-level shell for icon name */
 static int	ctimex_next;		/* for generating unique row->ctimex */
@@ -395,20 +395,20 @@ static BOOL read_file(
 			if (i >= 0 && item->type == IT_TIME)	/* .. -> int */
 				switch(item->timefmt) {
 				  case T_DATE:
-					sprintf(buf, "%d",
-						parse_datestring(buf));
+					sprintf(buf, "%ld",
+						(long)parse_datestring(buf));
 					break;
 				  case T_TIME:
-					sprintf(buf, "%d",
-						parse_timestring(buf, FALSE));
+					sprintf(buf, "%ld",
+						(long)parse_timestring(buf, FALSE));
 					break;
 				  case T_DATETIME:
-					sprintf(buf, "%d",
-						parse_datetimestring(buf));
+					sprintf(buf, "%ld",
+						(long)parse_datetimestring(buf));
 					break;
 				  case T_DURATION:
-					sprintf(buf, "%d",
-						parse_timestring(buf, TRUE));
+					sprintf(buf, "%ld",
+						(long)parse_timestring(buf, TRUE));
 				}
 								/* store str */
 			if (row < 0)
@@ -494,9 +494,9 @@ static BOOL write_tfile(
 	}
 	for (r=0; r < dbase->nrows; r++)
 		if (nsect == dbase->row[r]->section)
-			fprintf(fp, "%d %d %d\n", dbase->row[r]->mtime,
-						  dbase->row[r]->ctime,
-						  dbase->row[r]->ctimex);
+			fprintf(fp, "%ld %ld %ld\n", (long)dbase->row[r]->mtime,
+						     (long)dbase->row[r]->ctime,
+						     (long)dbase->row[r]->ctimex);
 	fclose(fp);
 	return(TRUE);
 }
@@ -533,11 +533,13 @@ static BOOL read_tfile(
 	sect = &dbase->sect[dbase->currsect];
 	for (r=0; r < dbase->nrows; r++)
 		if (dbase->currsect == dbase->row[r]->section) {
+			long mt, ct, ctx;
 			if (!fgets(line, sizeof(line), fp))
 				break;
-			sscanf(line, "%d %d %d", &dbase->row[r]->mtime,
-						 &dbase->row[r]->ctime,
-						 &dbase->row[r]->ctimex);
+			sscanf(line, "%ld %ld %ld", &mt, &ct, &ctx);
+			dbase->row[r]->mtime = mt;
+			dbase->row[r]->ctime = ct;
+			dbase->row[r]->ctimex = ctx;
 		}
 	fgetc(fp);
 	if (!feof(fp) || r != dbase->nrows) {

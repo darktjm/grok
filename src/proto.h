@@ -137,6 +137,8 @@ void f_foreach(
 	char		*cond,
 	char		*expr);
 int yylex(void);
+void yyerror(
+	char *msg);
 
 /*---------------------------------------- evalfunc.c ------------*/
 
