@@ -23,8 +23,8 @@ int		yylineno;		/* current line # being parsed */
 static char	*yyexpr;		/* first char read by lexer */
 static char	*yytext;		/* next char to be read by lexer */
 char		*yyret;			/* returned string (see parser.y) */
-static char	errormsg[200];		/* error message if any, or "" */
-static char	extramsg[100];		/* extra error message details */
+static char	errormsg[2000];		/* error message if any, or "" */
+static char	extramsg[1000];		/* extra error message details */
 CARD		*yycard;		/* database for which to evaluate */
 char		*switch_name;		/* if switch statement was found, */
 char		*switch_expr;		/* .. name to switch to and expr */

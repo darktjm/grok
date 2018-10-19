@@ -516,6 +516,8 @@ static char *eval_command(
 		strcat(p, "}");
 		q = evaluate(curr_card, p);
 		cmd[1] = 0;
+		if(!q)
+			return "error in expression";
 		while (cmd[0] = *q++)
 			if (p = putstring(subst[cmd[0]] ? subst[cmd[0]] : cmd))
 				return(p);
@@ -540,6 +542,7 @@ char *substitute_setup(
 	
 	backslash_subst(cmd);
 	while (*cmd) {
+	        char endc;
 		if (*cmd == '=' && cmd[1] != '=')
 			cmd--;
 		i = *cmd++;
@@ -547,12 +550,16 @@ char *substitute_setup(
 			return("malformed substition, expected"
 				      " <char>=<string> list");
 		for (q=cmd; q < cmd+255 && *q && !ISSPACE(*q); q++);
+		endc = *q;
 		*q = 0;
 		if (array[i])
 			free(subst[i]);
 		array[i] = *cmd ? mystrdup(cmd) : 0;
-		cmd = q+1;
-		while (ISSPACE(*cmd)) cmd++;
+		if(endc) {
+			cmd = q+1;
+			while (ISSPACE(*cmd)) cmd++;
+		} else
+		    cmd = q;
 	}
 	return(0);
 }

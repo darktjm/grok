@@ -361,7 +361,7 @@ void create_print_popup(void);
 
 /*---------------------------------------- query.c ------------*/
 
-BOOL match_card(
+int match_card(
 	CARD		*card,		/* database and form */
 	char		*string);	/* query string */
 void query_any(

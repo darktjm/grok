@@ -334,7 +334,7 @@ void edit_file(
 {
 	FILE		*fp;		/* file to read */
 	long		size;		/* file size */
-	char		*text;		/* text read from file */
+	char		*text = NULL;	/* text read from file */
 	BOOL		writable;	/* have write permission for file? */
 
 	name = resolve_tilde(name, 0);

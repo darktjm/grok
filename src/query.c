@@ -27,7 +27,7 @@
 
 static BOOL alloc_query(CARD *, char **);
 static BOOL search_matches_card(CARD *, char *);
-static BOOL expr_matches_card(CARD *, char *);
+static int expr_matches_card(CARD *, char *);
 
 extern Widget	toplevel;	/* top-level shell for icon name */
 extern int	col_sorted_by;	/* dbase is sorted by this column */
@@ -38,9 +38,10 @@ extern int	last_query;	/* last query pd index, for search-in-query */
 /*
  * make sense out of the string, and return TRUE if the given card matches
  * the given search or expression string.
+ * returns -1 if expr had an error; otherwise 0/1 (FALSE/TRUE)
  */
 
-BOOL match_card(
+int match_card(
 	CARD		*card,		/* database and form */
 	char		*string)	/* query string */
 {
@@ -145,9 +146,14 @@ void query_search(
 		switch(mode) {
 		  case SM_INQUERY:
 		  case SM_WIDEN_INQUERY:
-			if (last_query >= 0 && !expr_matches_card(card,
-					card->form->query[last_query].query))
-				continue;
+			if (last_query >= 0) {
+				int res = expr_matches_card(card,
+					card->form->query[last_query].query);
+				if(res < 0)
+					break;
+				else if(!res)
+					continue;
+			}
 			if (mode == SM_INQUERY)
 				break;
 		  case SM_WIDEN:
@@ -232,6 +238,7 @@ void query_eval(
 	char		*expr)		/* expression to apply to dbase */
 {
 	char		*mask;		/* for skipping unselected cards */
+	int		match;		/* to detect/skip errors */
 
 	if (!alloc_query(card, &mask))
 		return;
@@ -242,9 +249,14 @@ void query_eval(
 			continue;
 		switch(mode) {
 		  case SM_INQUERY:
-			if (last_query >= 0 && !expr_matches_card(card,
-					card->form->query[last_query].query))
-				continue;
+			if (last_query >= 0) {
+				match = expr_matches_card(card,
+					card->form->query[last_query].query);
+				if(match < 0)
+					break;
+				else if(!match)
+					continue;
+			}
 			break;
 		  case SM_NARROW:
 			if (!mask || !mask[card->row])
@@ -256,7 +268,10 @@ void query_eval(
 				continue;
 			}
 		}
-		if (expr_matches_card(card, expr))
+		match = expr_matches_card(card, expr);
+		if (match < 0)
+			break;
+		if (match)
 			card->query[card->nquery++] = card->row;
 	}
 	if (mask)
@@ -340,16 +355,17 @@ static BOOL search_matches_card(
  * return TRUE if the given card matches the given expression. This is also
  * used by eval_search above, and by the find-and-select function in the File
  * pulldown (also Ctrl-F and a search mode).
+ * returns -1 if expr had an error; otherwise 0/1 (FALSE/TRUE)
  */
 
-static BOOL expr_matches_card(
+static int expr_matches_card(
 	CARD		*card,		/* database and form */
 	char		*expr)		/* expression to test */
 {
 	char		*val;		/* return from expression eval */
 
 	if (!(val = evaluate(card, expr)))
-		return(FALSE);
+		return(-1);
 	while (*val == ' ' || *val == '\t') val++; \
 	return(*val && *val != '0' && *val != 'f' && *val != 'F');
 }
