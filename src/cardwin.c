@@ -333,25 +333,58 @@ static void create_item_widgets(
 		XtSetArg(args[n], XmNhighlightThickness, 0);		   n++;
 		carditem->w1 = XtCreateManagedWidget("label",
 					xmLabelWidgetClass, wform, args, n);
+		/* A single XmCreateScrolledText should work here */
+		/*  but it's broken:  the size sets the text area size */
+		/*  rather than the widget size, and there doesn't seem */
+		/*  to be a way to fix it */
+#define USE_2WIDGETS 1
 		n = 0;
 		XtSetArg(args[n], XmNx,		 item.x);		   n++;
 		XtSetArg(args[n], XmNy,		 item.y + item.ym);	   n++;
 		XtSetArg(args[n], XmNwidth,	 item.xs);		   n++;
 		XtSetArg(args[n], XmNheight,	 item.ys - item.ym);	   n++;
 		XtSetArg(args[n], XmNhighlightThickness, 1);		   n++;
+#if 1 /* AUTOMATIC bugs:  scroll doesn't follow cursor */
 		XtSetArg(args[n], XmNscrollingPolicy, XmAUTOMATIC);	   n++;
+#else /* APPLICATION_DEFINED bugs:  broken display; probably needs work */
+		XtSetArg(args[n], XmNscrollingPolicy, XmAPPLICATION_DEFINED);	   n++;
+#endif
+#ifdef USE_2WIDGETS
 		carditem->w0 = XtCreateManagedWidget("noteSW",
 					xmScrolledWindowWidgetClass, wform,
 					args, n);
 		n = 0;
+#if 1
+		/* doing this fixes the "initial box is too cropped" issue */
+		/* at the expense of always displaying scrollbars */
+		/* and making the widget bigger than it should be. */
+		XtSetArg(args[n], XmNwidth,	 item.xs);		   n++;
+		XtSetArg(args[n], XmNheight,	 item.ys - item.ym);	   n++;
+#endif
+#endif
 		XtSetArg(args[n], XmNfontList,	 ftlist[item.inputfont]);  n++;
 		XtSetArg(args[n], XmNeditMode,	 XmMULTI_LINE_EDIT);	   n++;
+		XtSetArg(args[n], XmNeditable,   editable);		   n++;
 		XtSetArg(args[n], XmNmaxLength,	 item.maxlen);		   n++;
 		XtSetArg(args[n], XmNalignment,	 JUST(item.inputjust));    n++;
 		XtSetArg(args[n], XmNhighlightThickness, 0);		   n++;
 		XtSetArg(args[n], XmNshadowThickness, 0);		   n++;
+#ifdef USE_2WIDGETS
 		carditem->w0 = XtCreateWidget("note",
 				xmTextWidgetClass, carditem->w0, args, n);
+#else
+		carditem->w0 = XmCreateScrolledText(wform, "note",
+					args, n);
+		{
+			/* try to resize outer frame */
+			/* doesn't actually do anything, though */
+			Widget *w = XtParent(carditem->w0);
+			n = 0;
+			XtSetArg(args[n], XmNwidth,	 item.xs);		   n++;
+			XtSetArg(args[n], XmNheight,	 item.ys - item.ym);	   n++;
+			XtSetValues(w, args, n);
+		}
+#endif
 		if (editable)
 			XtAddCallback(carditem->w0, XmNactivateCallback,
 				(XtCallbackProc)card_callback,(XtPointer)card);
