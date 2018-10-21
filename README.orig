@@ -96,3 +96,9 @@ allows it and you want to. (Not obligatory, I just collect trophies.)
 There are no implied or expressed warranties for grok. I do not claim it
 is good for anything whatsoever, and if you lose your precious data or
 your cat dies this is entirely your problem.
+
+Note:  as per the license, I hereby notify all who read this that I,
+Thomas J. Moore, have made changes to this distribution, in the form
+of minor bug fixes.  I don't really feel like trying to report them
+upstream, given that the author's primary web site has no mention of
+grok any more.

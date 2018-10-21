@@ -11,7 +11,7 @@ addressed a few bugs I found adequately (but not fully).  That's what
 this repository is: xmbase_grok 1.5 from
 ftp://ftp.fu-berlin.de/pub/unix/graphics/grok/xmbase_grok-1.5.tar.gz
 with a few extra fixes (I have taken the liberty to update the version
-to 1.5.1).  See README.orig for information on the original and ita
+to 1.5.1).  See README.orig for information on the original and its
 author (who no longer acknowledges its existence on his own site); I
 take no credit for this application.  I am working on a similar
 application that works a little differently, but I thought I'd release

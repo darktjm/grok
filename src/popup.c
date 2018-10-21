@@ -38,7 +38,8 @@ static char about_message[] = "\
 Graphical Resource Organizer Kit\n\
 Version %s\n\
 Compiled %s\n\n\
-Author: Thomas Driemeyer <thomas@bitrot.de>\n\n\
+Author: Thomas Driemeyer <thomas@bitrot.de>\n
+With minor fixes by Thomas J. Moore\n\n\
 Homepage: http://www.bitrot.de/grok.html\n";
 
 void create_about_popup(void)
