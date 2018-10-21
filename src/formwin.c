@@ -29,7 +29,7 @@
 static void formedit_callback(Widget, int, XmToggleButtonCallbackStruct *);
 static int readback_item(int);
 
-static BOOL		have_shell;	/* message popup exists if TRUE */
+static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
 static Widget		shell;		/* popup menu shell */
 static FORM		*form;		/* current form definition */
 int			curr_item;	/* current item, 0..form.nitems-1 */

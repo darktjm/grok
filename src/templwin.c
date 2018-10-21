@@ -37,7 +37,7 @@ static void file_cancel_callback(Widget,int,XmFileSelectionBoxCallbackStruct*);
 static void editfile(char *);
 static void askname(BOOL);
 
-static BOOL	have_shell;	/* message popup exists if TRUE */
+static BOOL	have_shell = FALSE;	/* message popup exists if TRUE */
 static Widget	shell;		/* popup menu shell */
 static Widget	list;		/* template list widget */
 static int	list_nlines;	/* # of lines displayed in scroll list */
@@ -352,7 +352,7 @@ static void file_cancel_callback(
 static void text_callback	(Widget, int, XmToggleButtonCallbackStruct *);
 static void textcancel_callback	(Widget, int, XmToggleButtonCallbackStruct *);
 
-static BOOL		have_askshell;	/* text popup exists if TRUE */
+static BOOL		have_askshell = FALSE;	/* text popup exists if TRUE */
 static Widget		askshell;	/* popup menu shell */
 static Widget		text;		/* template name string */
 static BOOL		duplicate;	/* dup file before editing */

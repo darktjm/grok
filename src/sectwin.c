@@ -25,7 +25,7 @@
 #include "form.h"
 #include "proto.h"
 
-static BOOL	have_shell;	/* message popup exists if TRUE */
+static BOOL	have_shell = FALSE;	/* message popup exists if TRUE */
 static Widget	shell;		/* popup menu shell */
 static Widget	w_name;		/* name entry widget */
 

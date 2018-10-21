@@ -38,7 +38,7 @@ static void done_callback    (Widget, int, XmToggleButtonCallbackStruct *);
 static void context_callback (Widget, int, XmToggleButtonCallbackStruct *);
 static char *get_text(char *);
 
-static BOOL		have_shell;	/* message popup exists if TRUE */
+static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
 static Widget		shell;		/* popup menu shell */
 
 
@@ -66,7 +66,7 @@ void help_callback(
 	Widget			parent,
 	char			*topic)
 {
-	static BOOL		have_fontlist;
+	static BOOL		have_fontlist = FALSE;
 	static XmFontList	fontlist;
 	static Widget		text_w;
 	Widget			form, w;

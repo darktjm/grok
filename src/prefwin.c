@@ -34,7 +34,7 @@ static void spool_callback(Widget, int, XmToggleButtonCallbackStruct *);
 
 struct pref	pref;		/* global preferences */
 
-static BOOL	have_shell;	/* message popup exists if TRUE */
+static BOOL	have_shell = FALSE;	/* message popup exists if TRUE */
 static Widget	shell;		/* popup menu shell */
 static Widget	w_spoola;	/* ascii spool text */
 static Widget	w_spoolp;	/* ascii spool text */

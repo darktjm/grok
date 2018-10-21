@@ -32,7 +32,7 @@ static void config_callback	(Widget, int, XmToggleButtonCallbackStruct *);
 static void file_print_callback	(Widget,int,XmFileSelectionBoxCallbackStruct*);
 static void file_cancel_callback(Widget,int,XmFileSelectionBoxCallbackStruct*);
 
-static BOOL	have_shell;	/* message popup exists if TRUE */
+static BOOL	have_shell = FALSE;	/* message popup exists if TRUE */
 static Widget	shell;		/* popup menu shell */
 static BOOL	modified;	/* preferences have changed */
 

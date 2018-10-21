@@ -35,7 +35,7 @@ static void cancel_callback (Widget, int, XmToggleButtonCallbackStruct *);
 static void delete_callback (Widget, int, XmToggleButtonCallbackStruct *);
 static void clear_callback  (Widget, int, XmToggleButtonCallbackStruct *);
 
-static BOOL		have_shell;	/* message popup exists if TRUE */
+static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
 static char		**source;	/* ptr to string ptr of default */
 static char		*sourcefile;	/* if nonzero, file to write back to */
 static Widget		shell;		/* popup menu shell */

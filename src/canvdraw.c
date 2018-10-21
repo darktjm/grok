@@ -28,7 +28,7 @@ static void canvas_callback(Widget, XButtonEvent *, String *, int);
 static void draw_rubberband(BOOL, int, int, int, int);
 static int  ifont(FONTN);
 
-static BOOL		have_shell;	/* week window is being displayed */
+static BOOL		have_shell = FALSE;	/* week window is being displayed */
 static FORM		*form;		/* current form, registered by create*/
 static Widget		shell;		/* entire window */
 static Widget		canvas;		/* drawing area */
@@ -204,7 +204,7 @@ static void canvas_callback(
 	static MOUSE	mode;		/* what's being moved: M_* */
 	static int	down_x, down_y;	/* pos where pen was pressed down */
 	static int	state;		/* button/modkey mask when pressed */
-	static BOOL	moving;		/* this is not a selection, move box */
+	static BOOL	moving = FALSE;		/* this is not a selection, move box */
 	ITEM		*item;		/* item being selected or moved */
 	int		x, y, xs, ys;	/* new item start and size */
 	int		xm, ym;		/* new item midpoint division */
@@ -416,7 +416,7 @@ static void draw_rubberband(
 	int		xs,		/* size of box */
 	int		ys)
 {
-	static BOOL	is_drawn;	/* TRUE if rubber band exists */
+	static BOOL	is_drawn = FALSE;	/* TRUE if rubber band exists */
 	static int	lx,ly,lxs,lys;	/* drawn rubberband */
 
 	if (is_drawn) {

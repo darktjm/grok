@@ -323,7 +323,7 @@ void chart_action_callback(
 	static int	row, comp;	/* row and column of dragged bar */
 	static int	down_x, down_y;	/* pos where pen was pressed down */
 	static double	x_val, y_val;	/* previous values of fields */
-	static BOOL	moving;		/* this is not a selection, move box */
+	static BOOL	moving = FALSE;		/* this is not a selection, move box */
 	ITEM		*item;		/* item being selected or moved */
 	CHART		*chart;		/* chart component being dragged */
 	struct value	*xval, *yval;	/* chart component value (x,y,xs,ys) */

@@ -41,7 +41,7 @@ static void list_callback  (Widget, int, XmToggleButtonCallbackStruct *);
 static void got_text       (Widget, int, XmToggleButtonCallbackStruct *);
 
 static FORM		*form;		/* form whose queries are edited */
-static BOOL		have_shell;	/* message popup exists if TRUE */
+static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
 static Widget		shell;		/* popup menu shell */
 static Widget		delete, dupl;	/* buttons, for desensitizing */
 static Widget		info;		/* info line for error messages */

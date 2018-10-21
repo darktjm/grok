@@ -141,6 +141,8 @@ void f_foreach(
 int yylex(void);
 void yyerror(
 	char *msg);
+int yywrap(void);
+
 
 extern int	yylineno;		/* current line # being parsed */
 extern char	*yyret;			/* returned string (see parser.y) */
