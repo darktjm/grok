@@ -66,7 +66,7 @@ static struct menu {
 	long	code;		/* unique identifier, 0=none */
 	char	*ptr;		/* location in pref where value is stored */
 	char	value;		/* value stored in pref for each mode */
-	char	*text;
+	const char *text;
 	Widget	widget;
 } menu[] = {
 	{ 'L',	0,	0,		  0,	"Cards to print:"	   },
@@ -96,7 +96,7 @@ static struct menu {
 void create_print_popup(void)
 {
 	struct menu	*mp;			/* current menu[] entry */
-	WidgetClass	class;			/* label, radio, or button */
+	WidgetClass	wclass;			/* label, radio, or button */
 	String		cback;			/* activale or valueChanged */
 	Widget		form, w=0, rowcol=0, sep;
 	Arg		args[20];
@@ -117,7 +117,7 @@ void create_print_popup(void)
 			(XtCallbackProc)help_callback, (XtPointer)"print");
 
 	for (mp=menu; mp->type; mp++) {
-	    class = xmLabelWidgetClass;
+	    wclass = xmLabelWidgetClass;
 	    cback = 0;
 	    n = 0;
 	    if (mp->type == 'L')
@@ -133,7 +133,7 @@ void create_print_popup(void)
 		XtSetArg(args[n], XmNradioAlwaysOne, True);		n++;
 		XtSetArg(args[n], XmNleftAttachment, XmATTACH_FORM);	n++;
 		XtSetArg(args[n], XmNleftOffset,     32);		n++;
-		class = xmRowColumnWidgetClass;
+		wclass = xmRowColumnWidgetClass;
 	    } else {
 		XtSetArg(args[n], XmNleftAttachment, XmATTACH_FORM);	n++;
 		XtSetArg(args[n], XmNtopOffset,	     8);		n++;
@@ -143,14 +143,14 @@ void create_print_popup(void)
 		XtSetArg(args[n], XmNset,	  *mp->ptr==mp->value);	n++;
 		XtSetArg(args[n], XmNfillOnSelect,   True);		n++;
 		XtSetArg(args[n], XmNselectColor,    color[COL_TOGGLE]);n++;
-		class = xmToggleButtonWidgetClass;
+		wclass = xmToggleButtonWidgetClass;
 		cback = XmNvalueChangedCallback;
 	    }
 	    if (mp->code == 0x32) { /*<<<*/
 		XtSetArg(args[n], XmNsensitive,	     FALSE);		n++;
 	    }
 	    XtSetArg(args[n], XmNhighlightThickness, 0);		n++;
-	    w = mp->widget = XtCreateManagedWidget(mp->text, class,
+	    w = mp->widget = XtCreateManagedWidget(mp->text, wclass,
 	   			 mp->type == 'C' ? rowcol : form, args, n);
 	    if (cback)
 		XtAddCallback(w, cback,
@@ -213,7 +213,7 @@ void create_print_popup(void)
 			(XtCallbackProc)help_callback, (XtPointer)"print");
 
 	XtPopup(shell, XtGrabNone);
-	closewindow = XmInternAtom(display, "WM_DELETE_WINDOW", False);
+	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
 	XmAddWMProtocolCallback(shell, closewindow,
 			(XtCallbackProc)cancel_callback, NULL);
 	have_shell = TRUE;
@@ -250,7 +250,7 @@ static void print_callback(
 		/*
 		XtSetArg(args[n], XmNtopAttachment, XmATTACH_WIDGET); n++;
 		*/
-		w = XmCreateFileSelectionDialog(shell, "pfile", args, n);
+		w = XmCreateFileSelectionDialog(shell, (char *)"pfile", args, n);
 		XtAddCallback(w, XmNokCallback,
 				(XtCallbackProc)file_print_callback, 0);
 		XtAddCallback(w, XmNcancelCallback,

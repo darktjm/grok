@@ -46,7 +46,7 @@
  * and common substrings.
  */
 
-char *section_name(
+const char *section_name(
 	register DBASE	 *dbase,		/* contains section array */
 	int		 n)			/* 0 .. dbase->nsects-1 */
 {
@@ -76,7 +76,7 @@ char *section_name(
 	else if (*trunc == '/')
 		trunc++;
 	i = strlen(trunc);
-	if (i > sizeof(name)-1)
+	if (i > (int)sizeof(name)-1)
 		sprintf(name, "...%s", trunc + i - (sizeof(name)-4));
 	else
 		strcpy(name, trunc);
@@ -97,13 +97,13 @@ char *section_name(
 
 char *resolve_tilde(
 	char		*path,			/* path with ~ */
-	char		*ext)			/* append extension unless 0 */
+	const char	*ext)			/* append extension unless 0 */
 {
 	struct passwd	*pw;			/* for searching home dirs */
 	static char	pathbuf[1024];		/* path with ~ expanded */
 	char		buf[1024];		/* buf for prepending GROKDIR*/
 	char		*p, *q;			/* username copy pointers */
-	char		*home = 0;		/* home dir (if ~ in path) */
+	const char	*home = 0;		/* home dir (if ~ in path) */
 	int		i;			/* strip trailing / and /. */
 
 	if (*path != '~' && *path != '/' && (*path != '.' || path[1] != '/')) {
@@ -162,20 +162,21 @@ char *resolve_tilde(
 
 BOOL find_file(
 	char			*buf,		/* buffer for returned path */
-	char			*name,		/* file name to locate */
+	const char		*name,		/* file name to locate */
 	BOOL			exec)		/* must be executable? */
 {
 	int			method;		/* search path counter */
-	char			*path;		/* $PATH or DEFAULTPATH */
+	const char		*path;		/* $PATH or DEFAULTPATH */
 	int			namelen;	/* len of tail of name */
-	register char		*p, *q;		/* string copy pointers */
+	register const char	*p;		/* string copy pointers */
+	register char		*q;		/* string copy pointers */
 
 	if (*name == '/') {				/* begins with / */
 		strcpy(buf, name);
 		return(TRUE);
 	}
 	if (*name == '~') { 				/* begins with ~ */
-		strcpy(buf, resolve_tilde(name, 0));
+		strcpy(buf, resolve_tilde((char *)name, 0)); /* file; better not have trailing / */
 		return(TRUE);
 	}
 	namelen = strlen(name);
@@ -212,7 +213,7 @@ BOOL find_file(
  */
 
 /*VARARGS*/
-void fatal(char *fmt, ...)
+void fatal(const char *fmt, ...)
 {
 	va_list			parm;
 
@@ -230,7 +231,7 @@ void fatal(char *fmt, ...)
  */
 
 char *mystrdup(
-	register char *s)
+	const char *s)
 {
 	register char *p = NULL;
 
@@ -240,51 +241,13 @@ char *mystrdup(
 }
 
 
-/*
- * some systems use mybzero (BSD), others memset (SysV), I'll roll my own...
- */
-
-void mybzero(
-	void		*p,
-	register int	n)
-{
-	register char	*q = p;
-	while (n--) *q++ = 0;
-}
-
-
-/*
- * Sinix doesn't have strcasecmp, so here is my own. Not as efficient as
- * the canonical implementation, but short, and it's not time-critical.
- */
-
-int mystrcasecmp(
-	register char *a,
-	register char *b)
-{
-	register char ac, bc;
-
-	for (;;) {
-		ac = *a++;
-		bc = *b++;
-		if (!ac || !bc)
-			break;
-		if (ac <= 'Z' && ac >= 'A')	ac += 'a' - 'A';
-		if (bc <= 'Z' && bc >= 'A')	bc += 'a' - 'A';
-		if (ac != bc)
-			break;
-	}
-	return(ac - bc);
-}
-
-
 /*---------------------------------------------------------------------------*/
 /*
  * draw some text into a button. This is here because it's used by many
  * routines.
  */
 
-void print_button(Widget w, char *fmt, ...)
+void print_button(Widget w, const char *fmt, ...)
 {
 	va_list			parm;
 	Arg			args;
@@ -303,7 +266,7 @@ void print_button(Widget w, char *fmt, ...)
 	}
 }
 
-void print_text_button(Widget w, char *fmt, ...)
+void print_text_button(Widget w, const char *fmt, ...)
 {
 	va_list			parm;
 	XmString		string;
@@ -321,7 +284,7 @@ void print_text_button(Widget w, char *fmt, ...)
 	}
 }
 
-void print_text_button_s(Widget w, char *str)
+void print_text_button_s(Widget w, const char *str)
 {
 	XmString		string;
 
@@ -329,8 +292,8 @@ void print_text_button_s(Widget w, char *str)
 		return;
 	if (!str)
 		str = "";
-	string = XmStringCreateSimple(str);
-	XmTextSetString(w, str);
+	string = XmStringCreateSimple((char *)str);
+	XmTextSetString(w, (char *)str);
 	XmTextSetInsertionPosition(w, strlen(str));
 	XmStringFree(string);
 }
@@ -388,7 +351,7 @@ static char *readbutton(
 
 		if (size > bufsize) {
 			if (buf) free(buf);
-			if (!(buf = malloc(bufsize = size)))
+			if (!(buf = (char *)malloc(bufsize = size)))
 				return(0);
 		}
 		strcpy(buf, s);
@@ -480,7 +443,7 @@ void truncate_string(
  */
 
 int strlen_in_pixels(
-	register char	*string,	/* string to truncate */
+	const char	*string,	/* string to truncate */
 	int		sfont)		/* font of string */
 {
 	register int	len = 0;	/* max len in pixels */
@@ -499,7 +462,7 @@ int strlen_in_pixels(
  * a few input buttons in the form editor window that accept single chars.
  */
 
-char *to_octal(
+const char *to_octal(
 	int		n)		/* ascii to convert to string */
 {
 	static char	buf[8];

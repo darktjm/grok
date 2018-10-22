@@ -33,7 +33,7 @@ BOOL		assigned;		/* did a field assignment */
 int yywrap(void) { return(1); }
 
 void yyerror(
-	char *msg)
+	const char *msg)
 {
 	if (!*errormsg) {
 		sprintf(errormsg,
@@ -50,9 +50,9 @@ void yyerror(
  * when the next expression is evaluated. It's up to 10 times faster this way.
  */
 
-char *evaluate(
+const char *evaluate(
 	CARD		*card,
-	char		*exp)
+	const char	*exp)
 {
 	if (!exp)
 		return(0);
@@ -80,7 +80,7 @@ char *evaluate(
 
 BOOL evalbool(
 	CARD		*card,
-	char		*exp)
+	const char	*exp)
 {
 	if (!(exp = evaluate(card, exp)))
 		return(FALSE);
@@ -97,8 +97,8 @@ BOOL evalbool(
  */
 
 void f_foreach(
-	char		*cond,
-	char		*expr)
+	char	*cond,
+	char	*expr)
 {
 	register DBASE	*dbase	    = yycard->dbase;
 	int		saved_row   = yycard->row;
@@ -131,12 +131,12 @@ void f_foreach(
 #define ISSYM_B(c) ((c)>='a' && (c)<='z' || (c)>='A' && (c)<='Z')
 #define ISSYM(c)   ((c)>='0' && (c)<='9' || (c)=='_' || ISSYM_B(c))
 
-static char *pair_l  = "=!<><>&|+/-*%|&.+-";
-static char *pair_r  = "====<>&|========+-";
-static short value[] = { EQ, NEQ, LE, GE, SHL, SHR, AND, OR,
+static const char *pair_l  = "=!<><>&|+/-*%|&.+-";
+static const char *pair_r  = "====<>&|========+-";
+static const short value[] = { EQ, NEQ, LE, GE, SHL, SHR, AND, OR,
 			 PLA, DVA, MIA, MUA, MOA, ORA, ANA, APP, INC, DEC_ };
 
-static struct symtab { char *name; int token; } symtab[] = {
+static const struct symtab { const char *name; int token; } symtab[] = {
 			{ "this",	THIS	},
 			{ "last",	LAST	},
 			{ "avg",	AVG	},
@@ -234,7 +234,7 @@ int Xyylex(void)
 #endif
 {
 	int		i;
-	register struct symtab *sym;
+	register const struct symtab *sym;
 	register ITEM	**item;
 	char		msg[100], token[100], *tp=token;
 

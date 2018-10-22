@@ -163,7 +163,7 @@ void create_newsect_popup(void)
 			(XtCallbackProc)help_callback, (XtPointer)"addsect");
 
 	XtPopup(shell, XtGrabNone);
-	closewindow = XmInternAtom(display, "WM_DELETE_WINDOW", False);
+	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
 	XmAddWMProtocolCallback(shell, closewindow,
 			(XtCallbackProc)can_callback, (XtPointer)0);
 	have_shell = TRUE;
@@ -185,7 +185,7 @@ static void add_callback(
 	register SECTION		*sect;
 	register char			*name, *p;
 	register int			i, s, fd;
-	char				*path, old[1024], new[1024], dir[1024];
+	char				*path, oldp[1024], newp[1024], dir[1024];
 	BOOL				nofile = FALSE;
 
 	if (!curr_card || !(dbase = curr_card->dbase)) {
@@ -207,21 +207,21 @@ static void add_callback(
 			return;
 		}
 	path = resolve_tilde(curr_card->form->dbase, 0);
-	sprintf(old, "%s.old", path);
+	sprintf(oldp, "%s.old", path);
 	sprintf(dir, "%s.db", path);
-	sprintf(new, "%s.db/%s.db", path, name);
+	sprintf(newp, "%s.db/%s.db", path, name);
 	if (!dbase->havesects) {
-		(void)unlink(old);
-		if (link(dir, old))
+		(void)unlink(oldp);
+		if (link(dir, oldp))
 			if (!(nofile = errno == ENOENT)) {
 				create_error_popup(shell, errno,
-					"Could not link %s\nto %s", dir, old);
+					"Could not link %s\nto %s", dir, oldp);
 				return;
 			}
 		if (unlink(dir) && !nofile) {
 			create_error_popup(shell, errno,
 				"Could not unlink\n%s", dir);
-			(void)link(old, dir);
+			(void)link(oldp, dir);
 			return;
 		}
 		if (mkdir(dir, 0700)) {
@@ -229,31 +229,31 @@ static void add_callback(
 				"Could not create directory\n%s", dir);
 			return;
 		}
-		if (!nofile && link(old, new)) {
+		if (!nofile && link(oldp, newp)) {
 			create_error_popup(shell, errno,
 			       "Could not link %s\nto %s,\nleaving file in %s",
-							old, new, old);
+							oldp, newp, oldp);
 			return;
 		}
-		(void)unlink(old);
+		(void)unlink(oldp);
 	}
 	if (dbase->havesects || nofile) {
-		if ((fd = creat(new, 0600)) < 0) {
+		if ((fd = creat(newp, 0600)) < 0) {
 			create_error_popup(shell, errno,
-				"Could not create empty file\n%s", new);
+				"Could not create empty file\n%s", newp);
 			return;
 		}
 		close(fd);
 	}
 	if (dbase->havesects) {
 		i = (dbase->nsects+1) * sizeof(SECTION);
-		if (!(sect = dbase->sect ? realloc(dbase->sect,i):malloc(i))) {
+		if (!(sect = (SECTION *)(dbase->sect ? realloc(dbase->sect,i):malloc(i)))) {
 			create_error_popup(toplevel, errno,
 						"No memory for new section");
 			return;
 		}
 		dbase->sect = sect;
-		mybzero(sect = &dbase->sect[dbase->nsects], sizeof(SECTION));
+		memset(sect = &dbase->sect[dbase->nsects], 0, sizeof(SECTION));
 		dbase->currsect = dbase->nsects++;
 	} else {
 		sect = dbase->sect;
@@ -261,7 +261,7 @@ static void add_callback(
 			free(sect->path);
 	}
 	sect->mtime	= time(0);
-	sect->path	= mystrdup(new);
+	sect->path	= mystrdup(newp);
 	sect->modified	= TRUE;
 	dbase->modified	= TRUE;
 	dbase->havesects= TRUE;

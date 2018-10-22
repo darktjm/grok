@@ -61,12 +61,12 @@ static void print_data_expr(
  * the data entries in the data list.
  */
 
-static int compare(register MYCONST void *u, register MYCONST void *v)
+static int compare(register const void *u, register const void *v)
 	{ return(*(int *)u - *(int *)v); }
 static void *allocate(int n)
 	{ void *p=malloc(n); if (!p) fatal("no memory"); return(p); }
 
-char *mktemplate_html(
+const char *mktemplate_html(
 	char		*oname,		/* default output filename, 0=stdout */
 	int		mode)		/* 0=both, 1=summary, 2=data list */
 {
@@ -95,7 +95,7 @@ char *mktemplate_html(
 	if (mode != 2) {
 		fprintf(fp, "<H2>Summary:</H2>\n<TABLE BORDER=0 CELLSPACING=3 "
 				"CELLPADDING=4 BGCOLOR=#e0e0e0>\n<TR>");
-		itemorder = allocate(2 * card->form->nitems * sizeof(int));
+		itemorder = (int *)allocate(2 * card->form->nitems * sizeof(int));
 		ip = card->form->items;
 		for (nitems=i=0; i < card->form->nitems; i++)
 			if (ip[i]->sumwidth) {

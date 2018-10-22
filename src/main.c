@@ -37,7 +37,7 @@ Pixmap			pixmap[NPICS];	/* common symbols */
 BOOL			restricted;	/* restricted mode, no form editor */
 
 
-static String fallbacks[] = {
+static const char * const fallbacks[] = {
 #include "resource.h"
 	NULL
 };
@@ -53,13 +53,13 @@ int main(
 {
 	int		n, i;
 	char		*formname = 0;
-	char		*template = 0;
+	char		*tmpl = 0;
 	char		*query	  = 0;
 	BOOL		nofork	  = FALSE;
 	BOOL		ttymode	  = FALSE;
 	BOOL		planmode  = FALSE;
 	BOOL		noheader  = FALSE;
-	BOOL		export	  = FALSE;
+	BOOL		do_export = FALSE;
 	XGCValues	gcval;
 
 	if ((progname = strrchr(argv[0], '/')) && progname[1])
@@ -72,8 +72,8 @@ int main(
 		if (*argv[n] != '-')
 			if (!formname)
 				formname = argv[n];
-			else if (export && !template)
-				template = argv[n];
+			else if (do_export && !tmpl)
+				tmpl = argv[n];
 			else if (!query)
 				query = argv[n];
 			else
@@ -103,7 +103,7 @@ int main(
 				noheader = TRUE;
 				break;
 			  case 'x':
-				export   = TRUE;
+				do_export   = TRUE;
 				break;
 			  case 'r':
 				restricted = TRUE;
@@ -158,9 +158,9 @@ int main(
 		fflush(stdout);
 		_exit(0);
 	}
-	if (export) {
-		char *p;
-		if (!formname || !template)
+	if (do_export) {
+		const char *p;
+		if (!formname || !tmpl)
 			usage();
 		read_preferences();
 		switch_form(formname);
@@ -173,7 +173,7 @@ int main(
 			fprintf(stderr,"%s: %s: no match\n",progname,formname);
 			_exit(0);
 		}
-		if (p = exec_template(0, template, 0, curr_card))
+		if (p = exec_template(0, tmpl, 0, curr_card))
 			fprintf(stderr, "%s %s: %s\n", progname, formname, p);
 		fflush(stdout);
 		_exit(0);
@@ -191,7 +191,7 @@ int main(
 #		else
 				&argc, argv,
 #		endif
-				fallbacks, NULL, 0);
+				(String *)fallbacks, NULL, 0);
 	display = XtDisplay(toplevel);
 	set_icon(toplevel, 0);
 	gc     = XCreateGC(display, DefaultRootWindow(display), 0, 0);
@@ -256,7 +256,7 @@ static void usage(void)
 
 static void mkdir_callback(void)
 {
-	char *path = resolve_tilde(GROKDIR, 0);
+	char *path = resolve_tilde((char *)GROKDIR, 0); /* GROKDIR has no trailing / */
 	(void)chmod(path, 0700);
 	(void)mkdir(path, 0700);
 	if (access(path, X_OK))
@@ -266,7 +266,7 @@ static void mkdir_callback(void)
 
 static void make_grokdir(void)
 {
-	char *path = resolve_tilde(GROKDIR, 0);
+	char *path = resolve_tilde((char *)GROKDIR, 0); /* GROKDIR has no trailing / */
 	if (access(path, X_OK))
 		create_query_popup(toplevel, mkdir_callback, 0,
 "Cannot access directory %s\n\n\
@@ -293,18 +293,18 @@ figuration changes will not be saved.",
 
 void get_rsrc(
 	void		*ret,
-	char		*res_name,
-	char		*res_class_name,
-	char		*res_type)
+	const char	*res_name,
+	const char	*res_class_name,
+	const char	*res_type)
 {
 	XtResource	res_list[1];
 
-	res_list->resource_name	  = res_name;
-	res_list->resource_class  = res_class_name;
-	res_list->resource_type	  = res_type;
+	res_list->resource_name	  = (char *)res_name;
+	res_list->resource_class  = (char *)res_class_name;
+	res_list->resource_type	  = (char *)res_type;
 	res_list->resource_size	  = sizeof(res_type);
 	res_list->resource_offset = 0;
-	res_list->default_type	  = res_type;
+	res_list->default_type	  = (char *)res_type;
 	res_list->default_addr	  = 0;
 
 	XtGetApplicationResources(toplevel, ret, res_list, 1, NULL, 0);
@@ -322,7 +322,8 @@ static void init_colors(void)
 	Colormap		cmap;
 	XColor			rgb;
 	int			i, d;
-	char			*c, *n, class_name[256];
+	char			*c, class_name[256];
+	const char		*n;
 
 	cmap = DefaultColormap(display, DefaultScreen(display));
 	for (i=0; i < NCOLS; i++) {
@@ -384,7 +385,8 @@ void set_color(
 static void init_fonts(void)
 {
 	int		i;
-	char		*f, class_name[256];
+	char		class_name[256];
+	const char	*f;
 
 	for (i=0; i < NFONTS; i++) {
 		switch (i) {
@@ -403,7 +405,7 @@ static void init_fonts(void)
 		get_rsrc(&f, f, class_name, XtRString);
 		if (!(font[i] = XLoadQueryFont(display, f)))
 			fatal("can't load font \"%s\"\n", f);
-		if (!(fontlist[i] = XmFontListCreate(font[i], "cset")))
+		if (!(fontlist[i] = XmFontListCreate(font[i], (char *)"cset")))
 			fatal("can't create fontlist \"%s\"\n", f);
 	}
 }

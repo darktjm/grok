@@ -22,8 +22,8 @@
 #include "form.h"
 #include "proto.h"
 
-char *weekday_name[7] =	    { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
-char *alt_weekday_name[7] = { "Mo",  "Di",  "Mi",  "Do",  "Fr",  "Sa",  "So" };
+const char * const weekday_name[7] =	    { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+const char * const alt_weekday_name[7] = { "Mo",  "Di",  "Mi",  "Do",  "Fr",  "Sa",  "So" };
 
 
 /*
@@ -33,7 +33,7 @@ char *alt_weekday_name[7] = { "Mo",  "Di",  "Mi",  "Do",  "Fr",  "Sa",  "So" };
  * I hereby stipulate that nothing of significance happened on 1.1.1970.
  */
 
-char *mkdatestring(
+const char *mkdatestring(
 	time_t			time)		/* date in seconds */
 {
 	static char		buf[40];	/* string representation */

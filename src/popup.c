@@ -33,14 +33,14 @@
  * away. This is called from the File pulldown in the main menu.
  */
 
-static char about_message[] = "\
-\n\
-Graphical Resource Organizer Kit\n\
-Version %s\n\
-Compiled %s\n\n\
-Author: Thomas Driemeyer <thomas@bitrot.de>\n
-With minor fixes by Thomas J. Moore\n\n\
-Homepage: http://www.bitrot.de/grok.html\n";
+static const char about_message[] =
+	"\n"
+	"Graphical Resource Organizer Kit\n"
+	"Version %s\n"
+	"Compiled %s\n\n"
+	"Author: Thomas Driemeyer <thomas@bitrot.de>\n"
+	"With minor fixes by Thomas J. Moore\n\n"
+	"Homepage: http://www.bitrot.de/grok.html\n";
 
 void create_about_popup(void)
 {
@@ -54,11 +54,11 @@ void create_about_popup(void)
 	s = XmStringCreateLtoR(msg, XmSTRING_DEFAULT_CHARSET);
 	n = 0;
 	XtSetArg(args[n], XmNmessageString, s); n++;
-	dialog = XmCreateInformationDialog(mainwindow, "About", args, n);
+	dialog = XmCreateInformationDialog(mainwindow, (char *)"About", args, n);
 	XmStringFree(s);
 	XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_HELP_BUTTON));
 	XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_CANCEL_BUTTON));
-	(void)XmInternAtom(display, "WM_DELETE_WINDOW", False);
+	(void)XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
 	XtManageChild(dialog);
 }
 
@@ -71,7 +71,7 @@ void create_about_popup(void)
  */
 
 /*VARARGS*/
-void create_error_popup(Widget widget, int error, char *fmt, ...)
+void create_error_popup(Widget widget, int error, const char *fmt, ...)
 {
 	va_list			parm;
 	char			msg[17108];
@@ -93,11 +93,11 @@ void create_error_popup(Widget widget, int error, char *fmt, ...)
 	}
 	string = XmStringCreateLtoR(msg, XmSTRING_DEFAULT_CHARSET);
 	XtSetArg(args, XmNmessageString, string);
-	dialog = XmCreateWarningDialog(widget, "Grok Error", &args, 1);
+	dialog = XmCreateWarningDialog(widget, (char *)"Grok Error", &args, 1);
 	XmStringFree(string);
 	XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_CANCEL_BUTTON));
 	XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_HELP_BUTTON));
-	(void)XmInternAtom(display, "WM_DELETE_WINDOW", False);
+	(void)XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
 	XtManageChild(dialog);
 }
 
@@ -115,8 +115,8 @@ void create_error_popup(Widget widget, int error, char *fmt, ...)
 void create_query_popup(
 	Widget		widget,			/* window that caused this */
 	void		(*callback)(),		/* OK callback */
-	char		*help,			/* help text tag for popup */
-	char		*fmt, ...)		/* message */
+	const char	*help,			/* help text tag for popup */
+	const char	*fmt, ...)		/* message */
 {
 	va_list		parm;
 	char		msg[1024];
@@ -131,7 +131,7 @@ void create_query_popup(
 
 	XtSetArg(args[0], XmNmessageString,     string);
 	XtSetArg(args[1], XmNdefaultButtonType, XmDIALOG_CANCEL_BUTTON);
-	dialog = XmCreateQuestionDialog(widget, "Grok Dialog", args, 2);
+	dialog = XmCreateQuestionDialog(widget, (char *)"Grok Dialog", args, 2);
 	XmStringFree(string);
 
 	XtAddCallback(dialog, XmNokCallback,
@@ -140,7 +140,7 @@ void create_query_popup(
 			(XtCallbackProc)help_callback, (XtPointer)help);
 	XtSetSensitive(XmMessageBoxGetChild(dialog,
 					    XmDIALOG_HELP_BUTTON), !!help);
-	(void)XmInternAtom(display, "WM_DELETE_WINDOW", False);
+	(void)XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
 	XtManageChild(dialog);
 }
 
@@ -220,10 +220,10 @@ void create_dbase_info_popup(
 	s = XmStringCreateLtoR(msg, XmSTRING_DEFAULT_CHARSET);
 	n = 0;
 	XtSetArg(args[n], XmNmessageString, s); n++;
-	dialog = XmCreateInformationDialog(mainwindow, "Database Info", args,n);
+	dialog = XmCreateInformationDialog(mainwindow, (char *)"Database Info", args,n);
 	XmStringFree(s);
 	XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_HELP_BUTTON));
 	XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_CANCEL_BUTTON));
-	(void)XmInternAtom(display, "WM_DELETE_WINDOW", False);
+	(void)XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
 	XtManageChild(dialog);
 }

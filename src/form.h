@@ -19,6 +19,10 @@
  * displayed in the card menu. This makes deleting cards a bit difficult.
  */
 
+struct carditem {
+   Widget   w0;		/* primary input widget, 0 if invisible_if */
+   Widget   w1;		/* secondary widget (card form, label etc) */
+};
 typedef struct card {
 	struct form *form;	/* form struct that controls this card */
 	struct dbase*dbase;	/* database that callbacks use to store data */
@@ -37,10 +41,7 @@ typedef struct card {
 	int	    row;	/* database row shown in card, -1=none */
 	int	    disprow;	/* row being displayed in main window */
 	int	    nitems;	/* # of items, also size of following array */
-	struct carditem {
-	   Widget   w0;		/* primary input widget, 0 if invisible_if */
-	   Widget   w1;		/* secondary widget (card form, label etc) */
-	} items[1];
+	struct carditem items[1];
 } CARD;
 
 
@@ -145,19 +146,20 @@ typedef enum {			/*----- IT_TIME formats */
 #define	CC_XS		2	/* X size */
 #define	CC_YS		3	/* Y size */
 
+struct value {
+	int	mode;	/* one of CC_* */
+	char	*expr;	/* CC_EXPR: expression to eval */
+	int	field;	/* CC_DRAG: field number */
+	float	mul;	/* CC_DRAG: field * mul + add */
+	float	add;	/* CC_DRAG: field * mul + add */
+};
 typedef struct {		/*----- IT_CHART component */
 	BOOL	line;		/* replace bars with lines */
 	BOOL	xfat, yfat;	/* make bigger to touch neighbor */
 	char	*excl_if;	/* don't draw if this expr is true */
 	char	*color;		/* color 0..7 */
 	char	*label;		/* numeric label */
-	struct value {
-		int	mode;	/* one of CC_* */
-		char	*expr;	/* CC_EXPR: expression to eval */
-		int	field;	/* CC_DRAG: field number */
-		float	mul;	/* CC_DRAG: field * mul + add */
-		float	add;	/* CC_DRAG: field * mul + add */
-	} value[4];		/* x, y, xs, ys */
+	struct value value[4];		/* x, y, xs, ys */
 } CHART;
 
 typedef struct {		/*----- storage for visible chart bars */

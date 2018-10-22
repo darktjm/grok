@@ -36,7 +36,7 @@
 
 static void done_callback    (Widget, int, XmToggleButtonCallbackStruct *);
 static void context_callback (Widget, int, XmToggleButtonCallbackStruct *);
-static char *get_text(char *);
+static char *get_text(const char *);
 
 static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
 static Widget		shell;		/* popup menu shell */
@@ -64,7 +64,7 @@ void destroy_help_popup(void)
 /*ARGSUSED*/
 void help_callback(
 	Widget			parent,
-	char			*topic)
+	const char		*topic)
 {
 	static BOOL		have_fontlist = FALSE;
 	static XmFontList	fontlist;
@@ -81,7 +81,7 @@ void help_callback(
 		return;
 	if (!strcmp(topic, "card") && curr_card && curr_card->form
 						&& curr_card->form->help) {
-		if (!(message = realloc(message, strlen(message) +
+		if (!(message = (char *)realloc(message, strlen(message) +
 				 	strlen(curr_card->form->help) + 2)))
 			return;
 		strcat(message, "\n");
@@ -94,7 +94,7 @@ void help_callback(
 		return;
 	}
 	if (!have_fontlist++)
-		fontlist = XmFontListCreate(font[FONT_HELP], "cset");
+		fontlist = XmFontListCreate(font[FONT_HELP], (char *)"cset");
 	for (nlines=0, p=message; *p; p++)
 		nlines += *p == '\n';
 	if (nlines > 30)
@@ -157,7 +157,7 @@ void help_callback(
 	XtSetArg(args[n], XmNfontList,		fontlist);		n++;
 	XtSetArg(args[n], XmNscrollVertical,	True);			n++;
 	XtSetArg(args[n], XmNpendingDelete,	False);			n++;
-	text_w = w = XmCreateScrolledText(form, "text", args, n);
+	text_w = w = XmCreateScrolledText(form, (char *)"text", args, n);
 	XmTextSetString(w, message);
 	XtVaSetValues(w, XmNbackground, color[COL_SHEET],
 			 XmNforeground, color[COL_STD], NULL);
@@ -165,7 +165,7 @@ void help_callback(
 	XtAddCallback(w, XmNhelpCallback,
 			(XtCallbackProc)help_callback, (XtPointer)"help");
 	XtPopup(shell, XtGrabNone);
-	closewindow = XmInternAtom(display, "WM_DELETE_WINDOW", False);
+	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
 	XmAddWMProtocolCallback(shell, closewindow,
 			(XtCallbackProc)done_callback, (XtPointer)shell);
 	have_shell = TRUE;
@@ -201,7 +201,7 @@ static void context_callback(
 
 /*ARGSUSED*/
 static char *get_text(
-	char			*topic)
+	const char		*topic)
 {
 	FILE			*fp;		/* help file */
 	char			line[1024];	/* line buffer (and filename)*/
@@ -240,7 +240,7 @@ static char *get_text(
 		if (line[0] == '%' && line[1] == '%')
 			return(text);
 		p = line[0] == '\t' ? line+1 : line;
-		if (textlen + strlen(p) + 1 > textsize)
+		if (textlen + (int)strlen(p) + 1 > textsize)
 			if (!(text = (char *)realloc(text, textsize += 4096)))
 				break;
 		strcat(text, p);

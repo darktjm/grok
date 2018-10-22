@@ -38,7 +38,7 @@ void add_chart_component(
 		item->ch_curr++;
 	item->ch_comp = array;
 	chart = &array[item->ch_curr];
-	mybzero((void *)chart, sizeof(CHART));
+	memset((void *)chart, 0, sizeof(CHART));
 	chart->xfat =
 	chart->yfat = TRUE;
 	chart->value[0].mul = 1;

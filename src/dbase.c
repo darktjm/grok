@@ -42,13 +42,13 @@ DBASE *dbase_create(void)
 	DBASE		*dbase;		/* new dbase */
 
 	dbase = (DBASE *)malloc(sizeof(DBASE));
-	mybzero((void *)dbase, sizeof(DBASE));
-	if (!(dbase->sect = malloc(sizeof(SECTION)))) {
+	memset((void *)dbase, 0, sizeof(DBASE));
+	if (!(dbase->sect = (SECTION *)malloc(sizeof(SECTION)))) {
 		fprintf(stderr,
 			"grok: no memory for section, cannot continue.");
 		exit(1);
 	}
-	mybzero(dbase->sect, sizeof(SECTION));
+	memset(dbase->sect, 0, sizeof(SECTION));
 	dbase->nsects	= 1;
 	dbase->currsect	= -1;
 	return(dbase);
@@ -81,7 +81,7 @@ void dbase_delete(
 	}
 	if (dbase->row)
 		free(dbase->row);
-	mybzero((void *)dbase, sizeof(DBASE));
+	memset((void *)dbase, 0, sizeof(DBASE));
 }
 
 
@@ -115,9 +115,9 @@ BOOL dbase_addrow(
 	n = dbase->maxcolumns ? dbase->maxcolumns : 1;
 	i = sizeof(ROW) + (n-1) * sizeof(char *);
 	if (i == 0) i = 1;
-	if (!(row = dbase->row[dbase->nrows] = malloc(i)))
+	if (!(row = dbase->row[dbase->nrows] = (ROW *)malloc(i)))
 		return(FALSE);
-	mybzero(row, i);
+	memset(row, 0, i);
 	row->ncolumns   = n;
 	row->section    = newsect;
 	row->ctime	= time(0);
@@ -201,7 +201,7 @@ BOOL dbase_put(
 	register DBASE	*dbase,		/* database to put into */
 	register int	nrow,		/* row to put into */
 	register int	ncolumn,	/* column to put into */
-	char		*data)		/* string to store */
+	const char	*data)		/* string to store */
 {
 	register ROW	*row;		/* row to put into */
 	register char	*p;
@@ -215,10 +215,10 @@ BOOL dbase_put(
 	if (ncolumn >= dbase->maxcolumns)
 		dbase->maxcolumns = ncolumn + 1;
 	if (ncolumn >= row->ncolumns) {
-		if (!(row = realloc(row, sizeof(ROW) +
+		if (!(row = (ROW *)realloc(row, sizeof(ROW) +
 				(dbase->maxcolumns-1) * sizeof(char *))))
 			return(FALSE);
-		mybzero(&row->data[row->ncolumns], sizeof(char *) *
+		memset(&row->data[row->ncolumns], 0, sizeof(char *) *
 					(dbase->maxcolumns - row->ncolumns));
 		dbase->row[nrow] = row;
 		row->ncolumns = dbase->maxcolumns;
@@ -251,8 +251,8 @@ BOOL dbase_put(
  */
 
 static int compare_one(
-	MYCONST void	*u,
-	MYCONST void	*v,
+	const void	*u,
+	const void	*v,
 	register int	col)
 {
 	register ROW	*ru = *(ROW **)u;
@@ -274,14 +274,14 @@ static int compare_one(
 		if (du != dv)
 			return(du < dv ? -1 : du == dv ? 0 : 1);
 	}
-	return(mystrcasecmp(cu, cv));
+	return(strcasecmp(cu, cv));
 }
 
 
 static int reverse;
 static int compare(
-	register MYCONST void	*u,
-	register MYCONST void	*v)
+	register const void	*u,
+	register const void	*v)
 {
 	register int diff = compare_one(u, v, col_sorted_by);
 	if (!diff)

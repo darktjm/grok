@@ -27,7 +27,7 @@ static void remake_dbase_pulldown(void) {}
 #define STR(s) (s ? s : "")
 #define STORE(t,s) do{if(t)free((void*)t);t=(s)&&*(s)?mystrdup(s):0;}while(0)
 
-char *itemname[NITEMS] = {
+static const char * const itemname[NITEMS] = {
 	"None", "Label", "Print", "Input", "Time", "Note", "Choice", "Flag",
 	"Button", "Summary", "Chart" };
 
@@ -211,7 +211,7 @@ BOOL read_form(
 	DQUERY			*dq = 0;	/* default query pointer */
 	ITEM			*item = 0;	/* item pointer, 0=form hdr */
 	int			i;		/* item counter */
-	CHART			*chart;		/* next chart component */
+	CHART			*chart = 0;	/* next chart component */
 	CHART			nullchart;	/* if chart keyword missing */
 
 	path = resolve_tilde(path, "gf");
@@ -287,12 +287,12 @@ BOOL read_form(
 					STORE(dq->query, p);
 			} else if (!strcmp(key, "help") && *p++ == '\'') {
 				if (form->help) {
-					if (form->help = realloc(form->help,
+					if (form->help = (char *)realloc(form->help,
 							   strlen(form->help) +
 							   strlen(p) + 2))
 						strcat(form->help, p);
 				} else {
-					if (form->help = malloc(strlen(p) + 2))
+					if (form->help = (char *)malloc(strlen(p) + 2))
 						strcpy(form->help, p);
 				}
 				if (form->help)
@@ -311,7 +311,7 @@ BOOL read_form(
 					fprintf(stderr,
 						"%s: %s: bad item type %s\n",
 						progname, path, p);
-				item->type = i;
+				item->type = (ITYPE)i;
 			}
 			else if (!strcmp(key, "name"))
 					STORE(item->name, p);
@@ -336,7 +336,7 @@ BOOL read_form(
 			else if (!strcmp(key, "defsort"))
 					item->defsort = atoi(p) ? TRUE : FALSE;
 			else if (!strcmp(key, "timefmt"))
-					item->timefmt = atoi(p);
+					item->timefmt = (TIMEFMT)atoi(p);
 			else if (!strcmp(key, "code"))
 					STORE(item->flagcode, p);
 			else if (!strcmp(key, "codetxt"))
@@ -344,7 +344,7 @@ BOOL read_form(
 			else if (!strcmp(key, "label"))
 					STORE(item->label, p);
 			else if (!strcmp(key, "ljust"))
-					item->labeljust = atoi(p);
+					item->labeljust = (JUST)atoi(p);
 			else if (!strcmp(key, "lfont"))
 					item->labelfont = atoi(p);
 			else if (!strcmp(key, "gray"))
@@ -364,7 +364,7 @@ BOOL read_form(
 			else if (!strcmp(key, "maxlen"))
 					item->maxlen = atoi(p);
 			else if (!strcmp(key, "ijust"))
-					item->inputjust = atoi(p);
+					item->inputjust = (JUST)atoi(p);
 			else if (!strcmp(key, "ifont"))
 					item->inputfont = atoi(p);
 			else if (!strcmp(key, "p_act"))
@@ -411,7 +411,7 @@ BOOL read_form(
 			else if (!strcmp(key, "ch_ncomp")) {
 					if (item->ch_ncomp = atoi(p))
 						item->ch_comp =
-							calloc(item->ch_ncomp,
+							(CHART *)calloc(item->ch_ncomp,
 								sizeof(CHART));
 			}
 			else if (!strcmp(key, "chart"))

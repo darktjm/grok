@@ -58,7 +58,7 @@ void create_summary_menu(
 		return;
 	print_info_line();
 	if (!card)
-		mybzero((void *)(card = &dummy), sizeof(dummy));
+		memset((void *)(card = &dummy), 0, sizeof(dummy));
 	if (card->wheader)
 		XtDestroyWidget(card->wheader);
 	if (card->wsummary)
@@ -73,7 +73,7 @@ void create_summary_menu(
 		list[n] = XmStringCreateSimple(buf);
 	}
 	while (n < nlines)
-		list[n++] = XmStringCreateSimple(" ");
+		list[n++] = XmStringCreateSimple((char *)" ");
 	nlines = n;
 	make_summary_line(buf, card, -1);
 	strcat(buf, "                                                       ");
@@ -98,7 +98,7 @@ void create_summary_menu(
 	XtSetArg(args[n], XmNitems,		list);			n++;
 	XtSetArg(args[n], XmNfontList,		fontlist[FONT_COURIER]);n++;
 	XtSetArg(args[n], XmNscrollBarDisplayPolicy, XmSTATIC);		n++;
-	card->wsummary = XmCreateScrolledList(wform, "sumlist",
+	card->wsummary = XmCreateScrolledList(wform, (char *)"sumlist",
 			args, n);
 	XtAddCallback(card->wsummary, XmNbrowseSelectionCallback,
 				(XtCallbackProc)sum_callback, (XtPointer)0);
@@ -145,8 +145,8 @@ static void sum_callback(
  */
 
 static int compare(
-	register MYCONST void *u,
-	register MYCONST void *v)
+	register const void *u,
+	register const void *v)
 {
 	return((*(ITEM **)u)->sumcol - (*(ITEM **)v)->sumcol);
 }
@@ -159,7 +159,7 @@ void make_summary_line(
 {
 	static int	nsorted;	/* size of <sorted> array */
 	static ITEM	**sorted;	/* sorted item pointer list */
-	char		*data;		/* data string from the database */
+	const char	*data;		/* data string from the database */
 	char		databuf[200];	/* buffer for data with ':' stripped */
 	ITEM		*item;		/* contains info about formatting */
 	int		x = 0;		/* index to next free char in buf */
@@ -254,7 +254,7 @@ void make_plan_line(
 	int		row)		/* database row */
 {
 	static int	*sorted;	/* maps plan columns to grok columns */
-	char		*data;		/* data string from the database */
+	const char	*data;		/* data string from the database */
 	char		sep = 0;	/* separator */
 	ITEM		*item;		/* contains info about formatting */
 	int		i, j;		/* grok item counter */
@@ -264,7 +264,7 @@ void make_plan_line(
 						 || row >= card->dbase->nrows)
 		return;
 	if (!sorted) {
-		sorted = malloc(strlen(plan_code) * sizeof(int));
+		sorted = (int *)malloc(strlen(plan_code) * sizeof(int));
 		for (c=0; plan_code[c]; c++) {
 			for (i=card->form->nitems-1; i >= 0; i--) {
 				item = card->form->items[i];

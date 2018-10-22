@@ -27,8 +27,8 @@ CARD *create_card_menu(
 void card_readback_texts(
 	CARD		*card,		/* card that is displayed in window */
 	int		which);		/* all -f < 0, one item only if >= 0 */
-char *format_time_data(
-	char		*data,		/* string from database */
+const char *format_time_data(
+	const char	*data,		/* string from database */
 	TIMEFMT		timefmt);	/* new format, one of T_* */
 void fillout_card(
 	CARD		*card,		/* card to draw into menu */
@@ -61,7 +61,7 @@ void chart_action_callback(
 
 /*---------------------------------------- convert.c ------------*/
 
-char *mkdatestring(
+const char *mkdatestring(
 	time_t		time);		/* date in seconds */
 char *mktimestring(
 	time_t		time,		/* date in seconds */
@@ -93,7 +93,7 @@ BOOL dbase_put(
 	register DBASE	*dbase,		/* database to put into */
 	register int	nrow,		/* row to put into */
 	register int	ncolumn,	/* column to put into */
-	char		*data);		/* string to store */
+	const char	*data);		/* string to store */
 void dbase_sort(
 	CARD		*card,		/* database and form to sort */
 	int		col,		/* column to sort by */
@@ -116,31 +116,31 @@ BOOL read_dbase(
 
 void destroy_edit_popup(void);
 void create_edit_popup(
-	char		*title,		/* menu title string */
+	const char	*title,		/* menu title string */
 	char		**initial,	/* initial default text */
 	BOOL		readonly,	/* not modifiable if TRUE */
-	char		*helptag);	/* help tag */
+	const char	*helptag);	/* help tag */
 void edit_file(
-	char		*name,		/* file name to read */
+	const char	*name,		/* file name to read */
 	BOOL		readonly,	/* not modifiable if TRUE */
 	BOOL		create,		/* create if nonexistent if TRUE */
-	char		*title,		/* if nonzero, window title */
-	char		*helptag);	/* help tag */
+	const char	*title,		/* if nonzero, window title */
+	const char	*helptag);	/* help tag */
 
 /*---------------------------------------- eval.c ------------*/
 
-char *evaluate(
+const char *evaluate(
 	CARD		*card,
-	char		*exp);
+	const char	*exp);
 BOOL evalbool(
 	CARD		*card,
-	char		*exp);
+	const char	*exp);
 void f_foreach(
 	char		*cond,
 	char		*expr);
 int yylex(void);
 void yyerror(
-	char *msg);
+	const char *msg);
 int yywrap(void);
 
 
@@ -261,7 +261,7 @@ void destroy_formedit_window(void);
 void create_formedit_window(
 	FORM		*def,		/* new form to edit */
 	BOOL		copy,		/* use a copy of <def> */
-	BOOL		new);		/* ok to change form name */
+	BOOL		isnew);		/* ok to change form name */
 void sensitize_formedit(void);
 void fillout_formedit(void);
 void fillout_formedit_widget_by_code(
@@ -276,15 +276,15 @@ extern char		plan_code[];	/* code 0x260..0x26c */
 void destroy_help_popup(void);
 void help_callback(
 	Widget		parent,
-	char		*topic);
+	const char	*topic);
 
 /*---------------------------------------- main.c ------------*/
 
 void get_rsrc(
 	void		*ret,
-	char		*res_name,
-	char		*res_class_name,
-	char		*res_type);
+	const char	*res_name,
+	const char	*res_class_name,
+	const char	*res_type);
 void set_color(
 	int		col);
 
@@ -328,12 +328,12 @@ extern Widget		w_summary;	/* form for summary table */
 /*---------------------------------------- popup.c ------------*/
 
 void create_about_popup(void);
-void create_error_popup(Widget widget, int error, char *fmt, ...);
+void create_error_popup(Widget widget, int error, const char *fmt, ...);
 void create_query_popup(
 	Widget		widget,		/* window that caused this */
 	void		(*callback)(),	/* OK callback */
-	char		*help,		/* help text tag for popup */
-	char		*fmt, ...);	/* message */
+	const char	*help,		/* help text tag for popup */
+	const char	*fmt, ...);	/* message */
 void create_dbase_info_popup(
 	CARD		*card);
 
@@ -354,15 +354,15 @@ void print(void);
 
 int get_template_nbuiltins(void);
 char *get_template_path(
-	char		*name,		/* template name or 0 */
+	const char	*name,		/* template name or 0 */
 	int		seq,		/* if name==0, sequential number */
 	CARD		*card);		/* need this for form name */
 void list_templates(
 	void	(*func)(int, char *),	/* callback with seq# and name */
 	CARD		*card);		/* need this for form name */
-char *exec_template(
+const char *exec_template(
 	char		*oname,		/* output file name, 0=stdout */
-	char		*name,		/* template name to execute */
+	const char	*name,		/* template name to execute */
 	int		seq,		/* if name is 0, execute by seq num */
 	CARD		*card);		/* need this for form name */
 char *copy_template(
@@ -374,10 +374,10 @@ BOOL delete_template(
 	Widget		shell,		/* export window widget */
 	int		seq,		/* template to delete, >= NBUILTINS */
 	CARD		*card);		/* need this for form name */
-char *eval_template(
-	char		*iname,		/* template filename */
+const char *eval_template(
+	const char	*iname,		/* template filename */
 	char		*oname);	/* default output filename, 0=stdout */
-char *substitute_setup(
+const char *substitute_setup(
 	char		**array,	/* where to store substitutions */
 	char		*instr);	/* x=y x=y ... command string */
 
@@ -388,7 +388,7 @@ void create_templ_popup(void);
 
 /*---------------------------------------- templmk.c ------------*/
 
-char *mktemplate_html(
+const char *mktemplate_html(
 	char		*oname,		/* default output filename, 0=stdout */
 	int		mode);		/* 0=both, 1=summary, 2=data list */
 
@@ -405,7 +405,7 @@ int match_card(
 void query_any(
 	Searchmode	mode,		/* search, narrow, widen, ... */
 	CARD		*card,		/* database and form */
-	char		*string);	/* query string */
+	const char	*string);	/* query string */
 void query_none(
 	CARD		*card);		/* database and form */
 void query_all(
@@ -413,14 +413,14 @@ void query_all(
 void query_search(
 	Searchmode	mode,		/* search, narrow, widen, ... */
 	CARD		*card,		/* database and form */
-	char		*string);	/* string to search for */
+	const char	*string);	/* string to search for */
 void query_letter(
 	CARD		*card,		/* database and form */
 	int		letter);	/* 0=0..9, 1..26=a..z, 27=all */
 void query_eval(
 	Searchmode	mode,		/* search, narrow, widen, ... */
 	CARD		*card,		/* database and form */
-	char		*expr);		/* expression to apply to dbase */
+	const char	*expr);		/* expression to apply to dbase */
 
 /*---------------------------------------- querywin.c ------------*/
 
@@ -459,28 +459,22 @@ void replace_summary_line(
 
 /*---------------------------------------- util.c ------------*/
 
-char *section_name(
+const char *section_name(
 	register DBASE	*dbase,		/* contains section array */
 	int		n);		/* 0 .. dbase->nsects-1 */
 char *resolve_tilde(
 	char		*path,		/* path with ~ */
-	char		*ext);		/* append extension unless 0 */
+	const char	*ext);		/* append extension unless 0 */
 BOOL find_file(
 	char		*buf,		/* buffer for returned path */
-	char		*name,		/* file name to locate */
+	const char	*name,		/* file name to locate */
 	BOOL		exec);		/* must be executable? */
-void fatal(char *fmt, ...);
+void fatal(const char *fmt, ...);
 char *mystrdup(
-	register char	*s);
-void mybzero(
-	void		*p,
-	register int	n);
-int mystrcasecmp(
-	register char	*a,
-	register char	*b);
-void print_button(Widget w, char *fmt, ...);
-void print_text_button(Widget w, char *fmt, ...);
-void print_text_button_s(Widget w, char *str);
+	const char	*s);
+void print_button(Widget w, const char *fmt, ...);
+void print_text_button(Widget w, const char *fmt, ...);
+void print_text_button_s(Widget w, const char *str);
 char *read_text_button_noskipblank(Widget, char **);
 char *read_text_button(Widget, char **);
 char *read_text_button_noblanks(Widget, char **);
@@ -498,9 +492,9 @@ void truncate_string(
 	register int	len,		/* max len in pixels */
 	int		sfont);		/* font of string */
 int strlen_in_pixels(
-	register char	*string,	/* string to truncate */
+	const char	*string,	/* string to truncate */
 	int		sfont);		/* font of string */
-char *to_octal(
+const char *to_octal(
 	int		n);		/* ascii to convert to string */
 char to_ascii(
 	char		*str,		/* string to convert to ascii */

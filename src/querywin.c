@@ -43,7 +43,7 @@ static void got_text       (Widget, int, XmToggleButtonCallbackStruct *);
 static FORM		*form;		/* form whose queries are edited */
 static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
 static Widget		shell;		/* popup menu shell */
-static Widget		delete, dupl;	/* buttons, for desensitizing */
+static Widget		del, dupl;	/* buttons, for desensitizing */
 static Widget		info;		/* info line for error messages */
 static Widget		textwidget;	/* if editing, text widget; else 0 */
 static int		have_nrows;	/* # of table widget rows allocated */
@@ -67,7 +67,7 @@ DQUERY *add_dquery(
 	if (!(fp->query = (DQUERY *)(fp->query ? realloc((char *)fp->query, n)
 					       : malloc(n))))
 		fatal("no memory for query");
-	mybzero((void *)&fp->query[fp->nqueries-1], sizeof(DQUERY));
+	memset((void *)&fp->query[fp->nqueries-1], 0, sizeof(DQUERY));
 	return(&fp->query[fp->nqueries-1]);
 }
 
@@ -121,7 +121,7 @@ void create_query_window(
 	XtSetArg(args[n], XmNleftOffset,	8);			n++;
 	XtSetArg(args[n], XmNwidth,		80);			n++;
 	XtSetArg(args[n], XmNsensitive,		False);			n++;
-	delete = w = XtCreateManagedWidget("Delete", xmPushButtonWidgetClass,
+	del = w = XtCreateManagedWidget("Delete", xmPushButtonWidgetClass,
 			wform, args, n);
 	XtAddCallback(w, XmNactivateCallback,
 			(XtCallbackProc)delete_callback, (XtPointer)0);
@@ -182,7 +182,7 @@ void create_query_window(
 	XtSetArg(args[n], XmNalignment,		XmALIGNMENT_BEGINNING);	n++;
 	XtSetArg(args[n], XmNeditable,		FALSE);			n++;
 	XtSetArg(args[n], XmNrows,		2);			n++;
-	info = XmCreateScrolledText(wform, "info", args, n);
+	info = XmCreateScrolledText(wform, (char *)"info", args, n);
 
 							/*-- scroll --*/
 	n = 0;
@@ -216,7 +216,7 @@ void create_query_window(
 	XtManageChild(wform);
 	XtPopup(shell, XtGrabNone);
 
-	closewindow = XmInternAtom(display, "WM_DELETE_WINDOW", False);
+	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
 	XmAddWMProtocolCallback(shell, closewindow,
 			(XtCallbackProc)done_callback, (XtPointer)shell);
 	have_shell = TRUE;
@@ -234,7 +234,7 @@ void create_query_window(
 
 static short cell_x    [NCOLUMNS] = {  4, 44,  84,  284 };
 static short cell_xs   [NCOLUMNS] = { 30, 30, 200, 1000 };
-static char *cell_name [NCOLUMNS] = { "on", "def", "Name", "Query Expression"};
+static const char * const cell_name [NCOLUMNS] = { "on", "def", "Name", "Query Expression"};
 
 static void create_query_rows(void)
 {
@@ -242,8 +242,8 @@ static void create_query_rows(void)
 	int			x, y;
 	Arg			args[15];
 	int			n;
-	char			*name;
-	WidgetClass		class;
+	const char		*name;
+	WidgetClass		wclass;
 
 	if (!have_shell)				/* check # of rows: */
 		have_nrows = 0;
@@ -251,19 +251,19 @@ static void create_query_rows(void)
 		return;
 
 	n = (nrows+1) * NCOLUMNS * sizeof(Widget *);
-	if (qtable && !(qtable = (Widget (*)[])realloc(qtable, n)) ||
-	   !qtable && !(qtable = (Widget (*)[])malloc(n)))
+	if (qtable && !(qtable = (Widget (*)[4])realloc(qtable, n)) ||
+	   !qtable && !(qtable = (Widget (*)[4])malloc(n)))
 		fatal("no memory");
 
 	for (x=0; x < NCOLUMNS; x++) {
 	    for (y=have_nrows; y <= nrows; y++) {
 		XtUnmanageChild(qlist);
 		name  = cell_name[x];
-		class = xmPushButtonWidgetClass;
+		wclass = xmPushButtonWidgetClass;
 		n = 0;
 		if (y) {
 			if (x < 2) {
-				class = xmToggleButtonWidgetClass;
+				wclass = xmToggleButtonWidgetClass;
 				XtSetArg(args[n], XmNselectColor,
 						color[COL_TOGGLE]);	n++;
 			}
@@ -273,7 +273,7 @@ static void create_query_rows(void)
 			}
 			name  = " ";
 		} else
-			class = xmLabelWidgetClass;
+			wclass = xmLabelWidgetClass;
 
 		XtSetArg(args[n], XmNx,			cell_x[x]);	n++;
 		XtSetArg(args[n], XmNy,			10 + 30*y);	n++;
@@ -284,7 +284,7 @@ static void create_query_rows(void)
 		XtSetArg(args[n], XmNtraversalOn,	True);		n++;
 		XtSetArg(args[n], XmNhighlightThickness,0);		n++;
 		XtSetArg(args[n], XmNshadowThickness,	x > 1 && y);	n++;
-		qtable[y][x] = XtCreateManagedWidget(name, class,
+		qtable[y][x] = XtCreateManagedWidget(name, wclass,
 				qlist, args, n);
 		if (y)
 			XtAddCallback(qtable[y][x],
@@ -320,7 +320,7 @@ static void edit_query_button(
 {
 	Arg			args[15];
 	int			n;
-	char			*text;
+	const char		*text;
 
 	if (textwidget) {
 		char *string = XmTextGetString(textwidget);
@@ -458,7 +458,7 @@ void print_query_info(void)
 			comma = '\n';
 			j = 0;
 		}
-		if (i > sizeof(msg)-100)
+		if (i > (int)sizeof(msg)-100)
 			break;
 	}
 	if (comma == ' ')
@@ -493,7 +493,7 @@ static void delete_callback(
 	}
 	if (!ycurr) {
 		XtSetArg(args, XmNsensitive, 0);
-		XtSetValues(delete, &args, 1);
+		XtSetValues(del, &args, 1);
 		XtSetValues(dupl,   &args, 1);
 	}
 }
@@ -567,7 +567,7 @@ static void list_callback(
 		}
 	}
 	XtSetArg(arg, XmNsensitive, ycurr > 0);
-	XtSetValues(delete, &arg, 1);
+	XtSetValues(del, &arg, 1);
 	XtSetValues(dupl,   &arg, 1);
 }
 

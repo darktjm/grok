@@ -271,8 +271,8 @@ static BOOL find_db_file(
 #define MAXSC  1000		/* no more than 200 sections */
 
 static int compare_name(
-	register MYCONST void	*u,
-	register MYCONST void	*v)
+	const void	*u,
+	const void	*v)
 {
 	return(strcmp(*(char **)u, *(char **)v));
 }
@@ -354,14 +354,14 @@ static BOOL read_file(
 	}
 							/* step 2: new sectn */
 	i = (dbase->nsects+1) * sizeof(SECTION);
-	if (!(sect = dbase->sect ? realloc(dbase->sect, i) : malloc(i))) {
+	if (!(sect = (SECTION *)(dbase->sect ? realloc(dbase->sect, i) : malloc(i)))) {
 		create_error_popup(toplevel, errno,
 			"No memory for section %s", path);
 		form->proc ? pclose(fp) : fclose(fp);
 		return(FALSE);
 	}
 	dbase->sect = sect;
-	mybzero(sect = &dbase->sect[dbase->nsects], sizeof(SECTION));
+	memset(sect = &dbase->sect[dbase->nsects], 0, sizeof(SECTION));
 	dbase->currsect = dbase->nsects++;
 	sect->mtime = mtime;
 	sect->path  = mystrdup(path);
@@ -425,11 +425,11 @@ static BOOL read_file(
 			}
 		} else {					/* store char*/
 			if (bindex+1 >= bsize) {
-				char *new = (char *)realloc(buf,
+				char *newb = (char *)realloc(buf,
 						(bsize += BCHUNK));
-				if (error |= !new)
+				if (error |= !newb)
 					break;
-				buf = new;
+				buf = newb;
 			}
 			buf[bindex++] = c;
 			nc++;

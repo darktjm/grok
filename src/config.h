@@ -18,7 +18,6 @@
  *
  * Configurable parameters are:
  *
- *   MYCONST		either "const" or "" (the latter is for Ultrix)
  *   FIXMBAR		on some systems, pulldowns always come up empty.
  *			Define this to enable a weird hack that fixes this.
  *   NOMSEP		remove all separator lines in pulldowns. Surprisingly
@@ -52,12 +51,6 @@
 
 #if defined(osf) || defined(bsdi)
 #define DIRECT	1
-#endif
-
-#ifdef ultrix
-#define MYCONST			/* use this if cc doesn't know "const" */
-#else
-#define MYCONST		const
 #endif
 
 #ifdef FIXMBAR

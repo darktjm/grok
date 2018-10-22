@@ -38,6 +38,7 @@ char			plan_code[] = "tlwWrecnmsSTA";	/* code 0x260..0x26c */
 
 
 #define ANY 0xfffe
+#define ALL (unsigned short)~0U
 #define ITX 1<<IT_INPUT  | 1<<IT_TIME | 1<<IT_NOTE
 #define TXT 1<<IT_PRINT  | ITX
 #define TXF 1<<IT_CHOICE | TXT
@@ -58,35 +59,35 @@ static struct _template {
 	short	sensitive;	/* when type is n, make sensitive if & 1<<n */
 	int	type;		/* Text, Label, Rradio, Fflag, -line */
 	int	code;		/* code given to (global) callback routine */
-	char	*text;		/* label string */
-	char	*help;		/* label string */
+	const char *text;		/* label string */
+	const char *help;		/* label string */
 	Widget	widget;		/* allocated widget */
-} template[] = {
-	{  ~0, 'L',	 0,	"Form name:",		"fe_form",	},
-	{  ~0, 'T',	0x101,	" ",			"fe_form",	},
-	{  ~0, 'L',	 0,	"Referenced database:",	"fe_form",	},
-	{  ~0, 'T',	0x102,	" ",			"fe_form",	},
-	{  ~0, 'L',	 0,	"dbase field delim:",	"fe_delim",	},
-	{  ~0, 't',	0x103,	" ",			"fe_delim",	},
+} tmpl[] = {
+	{ ALL, 'L',	 0,	"Form name:",		"fe_form",	},
+	{ ALL, 'T',	0x101,	" ",			"fe_form",	},
+	{ ALL, 'L',	 0,	"Referenced database:",	"fe_form",	},
+	{ ALL, 'T',	0x102,	" ",			"fe_form",	},
+	{ ALL, 'L',	 0,	"dbase field delim:",	"fe_delim",	},
+	{ ALL, 't',	0x103,	" ",			"fe_delim",	},
 	{   0, 'F',	 0,	" ",			0,		},
-	{  ~0, 'f',	0x104,	"Read only",		"fe_rdonly",	},
-	{  ~0, 'f',	0x114,	"Timestamps/Synchronizable","fe_sync",	},
-	{  ~0, 'f',	0x105,	"Procedural",		"fe_proc",	},
-	{  ~0, 'B',	0x106,	"Edit",			"fe_proc",	},
-	{  ~0, 'L',	 0,	"Comment:",		"fe_ref",	},
-	{  ~0, 'T',	0x107,	" ",			"fe_ref",	},
+	{ ALL, 'f',	0x104,	"Read only",		"fe_rdonly",	},
+	{ ALL, 'f',	0x114,	"Timestamps/Synchronizable","fe_sync",	},
+	{ ALL, 'f',	0x105,	"Procedural",		"fe_proc",	},
+	{ ALL, 'B',	0x106,	"Edit",			"fe_proc",	},
+	{ ALL, 'L',	 0,	"Comment:",		"fe_ref",	},
+	{ ALL, 'T',	0x107,	" ",			"fe_ref",	},
 
-	{  ~0, 'L',	 0,	"Form",			0,		},
-	{  ~0, 'B',	0x10c,	"Queries",		"fe_query",	},
-	{  ~0, 'B',	0x10b,	"Def Help",		"fe_defhelp",	},
-	{  ~0, 'B',	0x10d,	"Debug",		"fe_debug",	},
-	{  ~0, 'B',	0x10e,	"Preview",		"fe_preview",	},
-	{  ~0, 'B',	0x10f,	"Help",			"edit",		},
-	{  ~0, 'B',	0x110,	"Cancel",		"fe_cancel",	},
-	{  ~0, 'B',	0x111,	"Done",			"fe_done",	},
+	{ ALL, 'L',	 0,	"Form",			0,		},
+	{ ALL, 'B',	0x10c,	"Queries",		"fe_query",	},
+	{ ALL, 'B',	0x10b,	"Def Help",		"fe_defhelp",	},
+	{ ALL, 'B',	0x10d,	"Debug",		"fe_debug",	},
+	{ ALL, 'B',	0x10e,	"Preview",		"fe_preview",	},
+	{ ALL, 'B',	0x10f,	"Help",			"edit",		},
+	{ ALL, 'B',	0x110,	"Cancel",		"fe_cancel",	},
+	{ ALL, 'B',	0x111,	"Done",			"fe_done",	},
 	{   0, '-',	 0,	" ",			0,		},
-	{  ~0, 'L',	 0,	"Field",		"fe_buts",	},
-	{  ~0, 'B',	0x112,	"Add",			"fe_add",	},
+	{ ALL, 'L',	 0,	"Field",		"fe_buts",	},
+	{ ALL, 'B',	0x112,	"Add",			"fe_add",	},
 	{ ANY, 'B',	0x113,	"Delete",		"fe_delete",	},
 	{   0, '[',	 0,	"attrs",		0,		},
 
@@ -378,11 +379,11 @@ void destroy_formedit_window(void)
 void create_formedit_window(
 	FORM			*def,		/* new form to edit */
 	BOOL			copy,		/* use a copy of <def> */
-	BOOL			new)		/* ok to change form name */
+	BOOL			isnew)		/* ok to change form name */
 {
 	struct _template	*tp;
 	int			len;		/* width of first column */
-	WidgetClass		class;
+	WidgetClass		wclass;
 	String			cback;
 	Widget			cform, outerform=0, innerform=0;
 	Widget			scroll=0, chart=0;
@@ -402,7 +403,7 @@ void create_formedit_window(
 			form->name = 0;
 		}
 	}
-	if (new && form->path) {
+	if (isnew && form->path) {
 		free(form->path);
 		form->path = 0;
 	}
@@ -423,13 +424,13 @@ void create_formedit_window(
 	XtAddCallback(cform, XmNhelpCallback,
 			(XtCallbackProc)help_callback, (XtPointer)"edit");
 
-	for (len=0, tp=template; tp->type; tp++)
+	for (len=0, tp=tmpl; tp->type; tp++)
 		if (tp->type == 'L') {
 			n = strlen_in_pixels(tp->text, FONT_HELV_S);
 			if (n > len)
 				len = n;
 		}
-	for (t=0, tp=template; tp->type; tp++, t++) {
+	for (t=0, tp=tmpl; tp->type; tp++, t++) {
 		n = 0;
 		switch(tp->type) {
 		  case ']':
@@ -482,7 +483,7 @@ void create_formedit_window(
 		   XtSetArg(args[n], XmNwidth,		100);		   n++;
 		   XtSetArg(args[n], XmNtopOffset,	2);		   n++;
 		}
-		if (tp->code == 0x101 && !new) {
+		if (tp->code == 0x101 && !isnew) {
 		   XtSetArg(args[n], XmNrightOffset,	8);		   n++;
 		   XtSetArg(args[n], XmNtopOffset,	2);		   n++;
 		   XtSetArg(args[n], XmNeditable,	FALSE);		   n++;
@@ -533,21 +534,21 @@ void create_formedit_window(
 		XtSetArg(args[n],    XmNfontList, fontlist[FONT_HELV_S]);  n++;
 
 		switch(tp->type) {
-		  case '-': class = xmSeparatorWidgetClass;		break;
-		  case 'L': class = xmLabelWidgetClass;			break;
-		  case 'l': class = xmLabelWidgetClass;			break;
-		  case 't': class = xmTextWidgetClass;			break;
-		  case 'T': class = xmTextWidgetClass;			break;
-		  case 'R': class = xmRowColumnWidgetClass;		break;
-		  case 'F': class = xmRowColumnWidgetClass;		break;
-		  case 'f': class = xmToggleButtonWidgetClass;		break;
-		  case 'r': class = xmToggleButtonWidgetClass;		break;
-		  case '[': class = xmScrolledWindowWidgetClass;	break;
-		  case '{': class = xmFrameWidgetClass;			break;
-		  case 'B': class = xmPushButtonWidgetClass;		break;
+		  case '-': wclass = xmSeparatorWidgetClass;		break;
+		  case 'L': wclass = xmLabelWidgetClass;			break;
+		  case 'l': wclass = xmLabelWidgetClass;			break;
+		  case 't': wclass = xmTextWidgetClass;			break;
+		  case 'T': wclass = xmTextWidgetClass;			break;
+		  case 'R': wclass = xmRowColumnWidgetClass;		break;
+		  case 'F': wclass = xmRowColumnWidgetClass;		break;
+		  case 'f': wclass = xmToggleButtonWidgetClass;		break;
+		  case 'r': wclass = xmToggleButtonWidgetClass;		break;
+		  case '[': wclass = xmScrolledWindowWidgetClass;	break;
+		  case '{': wclass = xmFrameWidgetClass;			break;
+		  case 'B': wclass = xmPushButtonWidgetClass;		break;
 		}
 		tp->widget =
-		prev = XtCreateManagedWidget(tp->text, class, cform, args, n);
+		prev = XtCreateManagedWidget(tp->text, wclass, cform, args, n);
 		if (tp->code && !strchr("RFl", tp->type))
 			XtAddCallback(prev, cback, (XtCallbackProc)
 					formedit_callback, (XtPointer)t);
@@ -575,7 +576,7 @@ void create_formedit_window(
 	sensitize_formedit();
 	fillout_formedit();
 	XtPopup(shell, XtGrabNone);
-	closewindow = XmInternAtom(display, "WM_DELETE_WINDOW", False);
+	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
 	XmAddWMProtocolCallback(shell, closewindow,
 			(XtCallbackProc)formedit_callback, (XtPointer)0);
 	have_shell = TRUE;
@@ -599,7 +600,7 @@ void sensitize_formedit(void)
 
 	item = curr_item >= form->nitems ? 0 : form->items[curr_item];
 	mask = 1 << (item ? item->type : IT_NULL);
-	for (tp=template; tp->type; tp++) 
+	for (tp=tmpl; tp->type; tp++) 
 		if (tp->sensitive) {
 			XtSetArg(args, XmNsensitive,
 				tp->code == 0x106 ? form->proc :
@@ -615,11 +616,11 @@ void sensitize_formedit(void)
  * definition window.
  * fillout_formedit_widget_by_code draws a single value into the form.
  * The code is searched for in the field list; see struct _template.
- * This is somewhat inefficient, an index into template[] would be
- * faster but would be guaranteed to get out of sync if template[] is
+ * This is somewhat inefficient, an index into tmpl[] would be
+ * faster but would be guaranteed to get out of sync if tmpl[] is
  * changed.
  * fillout_formedit_widget also draws a single field, but gets a pointer
- * to the right template[] line. The previous two routines use this.
+ * to the right tmpl[] line. The previous two routines use this.
  */
 
 static void fillout_formedit_widget(struct _template *);
@@ -628,7 +629,7 @@ void fillout_formedit(void)
 {
 	struct _template	*tp;
 
-	for (tp=template; tp->type; tp++)
+	for (tp=tmpl; tp->type; tp++)
 		fillout_formedit_widget(tp);
 }
 
@@ -638,7 +639,7 @@ void fillout_formedit_widget_by_code(
 {
 	struct _template	*tp;
 
-	for (tp=template; tp->type; tp++)
+	for (tp=tmpl; tp->type; tp++)
 		if (tp->code == code) {
 			fillout_formedit_widget(tp);
 			break;
@@ -664,7 +665,7 @@ static void fillout_formedit_widget(
 		item  = form->items[curr_item];
 		chart = &item->ch_comp[item->ch_curr];
 		if (!chart)
-			mybzero((void *)(chart = &nullchart), sizeof(CHART));
+			memset((void *)(chart = &nullchart), 0, sizeof(CHART));
 	}
 	switch(tp->code) {
 	  case 0x101: print_text_button_s(w, form->name);		break;
@@ -838,7 +839,7 @@ static void formedit_callback(
 {
 	switch(readback_item(indx)) {
 	  case 1:
-		fillout_formedit_widget(&template[indx]);
+		fillout_formedit_widget(&tmpl[indx]);
 		if (form->items && curr_item < form->nitems)
 			redraw_canvas_item(form->items[curr_item]);
 		break;
@@ -862,7 +863,7 @@ void readback_formedit(void)
 	int			t;
 
 	if (curr_item < form->nitems)
-		for (t=0, tp=template; tp->type; tp++, t++)
+		for (t=0, tp=tmpl; tp->type; tp++, t++)
 			if (tp->type == 'T' || tp->type == 't')
 				(void)readback_item(t);
 }
@@ -888,7 +889,7 @@ static void cancel_callback(void)
 static int readback_item(
 	int			indx)
 {
-	struct _template	*tp = &template[indx];
+	struct _template	*tp = &tmpl[indx];
 	register ITEM		*item = 0, *ip;
 	register CHART		*chart = 0;
 	Widget			w = tp->widget;
@@ -996,7 +997,7 @@ static int readback_item(
 	  case IT_BUTTON:
 	  case IT_VIEW:
 	  case IT_CHART:
-	 	      item->type = tp->code;
+	 	      item->type = (ITYPE)tp->code;
 		      all = TRUE;
 		      break;
 

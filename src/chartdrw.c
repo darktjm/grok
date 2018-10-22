@@ -59,7 +59,7 @@ void draw_chart(
 	Window		win;		/* window on screen to draw into */
 	register ITEM	*item;		/* chart item to draw */
 	register CHART	*chart;		/* describes current component */
-	char		*res;		/* result of expr evaluation */
+	const char	*res;		/* result of expr evaluation */
 	register BAR	*bar;		/* current bar */
 	int		r, c;		/* row (card) and comp (bar) counters*/
 	int		i;		/* index values */
@@ -90,7 +90,7 @@ void draw_chart(
 		for (c=0; c < item->ch_ncomp; c++, bar++) {
 			chart = &item->ch_comp[c];
 			if ((res=evaluate(card,chart->excl_if)) && atoi(res)) {
-				mybzero((void *)bar, sizeof(BAR));
+				memset((void *)bar, 0, sizeof(BAR));
 				continue;
 			}
 			if (res = evaluate(card, chart->color))

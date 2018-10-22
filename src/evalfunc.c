@@ -450,8 +450,8 @@ char *f_system(
 			rewind(fp);
 			sprintf(data, "Command failed: %s\n", cmd);
 			i = strlen(data);
-			if (i + size > sizeof(data)-1)
-				size = sizeof(data)-1 - i;
+			if (i + size > (int)sizeof(data)-1)
+				size = (int)sizeof(data)-1 - i;
 			size = fread(data+i, 1, size, fp);
 			data[i + size] = 0;
 			create_error_popup(toplevel, 0, data);
@@ -464,7 +464,7 @@ char *f_system(
 		(void)fseek(fp, 0, 2);
 		if (size = ftell(fp)) {
 			rewind(fp);
-			if (size > sizeof(data)-1)
+			if (size > (int)sizeof(data)-1)
 				size = sizeof(data)-1;
 			size = fread(data, 1, size, fp);
 			data[size] = 0;
@@ -488,9 +488,9 @@ char *f_tr(
 	char		*rules)
 {
 	int		i, len = 0, max = 1024;
-	char		*ret = malloc(max);
+	char		*ret = (char *)malloc(max);
 	char		**array = (char **)malloc(256 * sizeof(char *));
-	char		*err;
+	const char	*err;
 
 	if (!ret || !array) {
 		FREE(ret);
@@ -509,13 +509,13 @@ char *f_tr(
 		return(string);
 	}
 	while (*string) {
-		i = array[*string] ? strlen(array[*string]) : 1;
-		if (len+i >= max && !(ret = realloc(ret, max += max/2))) {
+		i = array[(unsigned char)*string] ? strlen(array[(unsigned char)*string]) : 1;
+		if (len+i >= max && !(ret = (char *)realloc(ret, max += max/2))) {
 			create_error_popup(toplevel, errno, "tr");
 			break;
 		}
-		if (array[*string]) {
-			strcpy(ret, array[*string++]);
+		if (array[(unsigned char)*string]) {
+			strcpy(ret, array[(unsigned char)*string++]);
 			ret += i;
 		} else
 			*ret++ = *string++;
@@ -540,7 +540,7 @@ char *f_substr(
 	int		num)
 {
 	int		len;
-	char		*new = 0;
+	char		*news = 0;
 
 	if (!string)
 		return(0);
@@ -552,13 +552,13 @@ char *f_substr(
 	if (pos < len) {
 		if (num > len - pos)
 			num = len - pos;
-		if (num > 0 && (new = malloc(num + 1))) {
-			strncpy(new, string+pos, num);
-			new[num] = 0;
+		if (num > 0 && (news = (char *)malloc(num + 1))) {
+			strncpy(news, string+pos, num);
+			news[num] = 0;
 		}
 	}
 	free((void *)string);
-	return(new);
+	return(news);
 }
 
 
@@ -609,17 +609,17 @@ struct arg *f_addarg(
 	struct arg	*list,		/* easier to keep struct arg local */
 	char		*value)		/* argument to append to list */
 {
-	struct arg	*new = (struct arg *)malloc(sizeof(struct arg));
+	struct arg	*newa = (struct arg *)malloc(sizeof(struct arg));
 	struct arg	*tail;
 
 	for (tail=list; tail && tail->next; tail=tail->next);
 	if (tail)
-		tail->next = new;
-	if (new) {
-		new->next  = 0;
-		new->value = value;
+		tail->next = newa;
+	if (newa) {
+		newa->next  = 0;
+		newa->value = value;
 	}
-	return(list ? list : new);
+	return(list ? list : newa);
 }
 
 
@@ -636,7 +636,7 @@ char *f_printf(
 	struct arg	*arg)
 {
 	struct arg	*argp;		/* next argument */
-	char		*value;		/* value string from next argument */
+	const char	*value;		/* value string from next argument */
 	char		buf[10240];	/* result buffer */
 	char		*bp = buf;	/* next free char in result buffer */
 	char		*fmt;		/* next char from format string */
@@ -659,7 +659,7 @@ char *f_printf(
 			if (*ctl == 'l')
 				ctl++;
 			i = ctl - fmt + 1;
-			if (i > sizeof(cbuf)-1)
+			if (i > (int)sizeof(cbuf)-1)
 				i = sizeof(cbuf)-1;
 			strncpy(cbuf, fmt, i);
 			cbuf[i] = 0;

@@ -96,7 +96,7 @@ static Widget		w_sect;		/* button: section popup for card */
 static int		defsection;	/* default section */
 
 static Searchmode	searchmode;	/* current search mode */
-static char		*modename[] = { "All", "In query", "Narrow", "Widen",
+static const char	* const modename[] = { "All", "In query", "Narrow", "Widen",
 					"Widen in Query", "Find & select" };
 
 
@@ -118,13 +118,13 @@ void create_mainwindow()
 			xmMainWindowWidgetClass, toplevel, NULL, 0);
 
 							/*-- menu bar --*/
-	s[0] = XmStringCreateSimple("File");
-	s[1] = XmStringCreateSimple("Database");
-	s[2] = XmStringCreateSimple("Section");
-	s[3] = XmStringCreateSimple("Sort");
-	s[4] = XmStringCreateSimple("Query");
-	s[5] = XmStringCreateSimple("Help");
-	menubar = XmVaCreateSimpleMenuBar(mainwindow, "menubar",
+	s[0] = XmStringCreateSimple((char *)"File");
+	s[1] = XmStringCreateSimple((char *)"Database");
+	s[2] = XmStringCreateSimple((char *)"Section");
+	s[3] = XmStringCreateSimple((char *)"Sort");
+	s[4] = XmStringCreateSimple((char *)"Query");
+	s[5] = XmStringCreateSimple((char *)"Help");
+	menubar = XmVaCreateSimpleMenuBar(mainwindow, (char *)"menubar",
 			FIX_MENUBAR
 			XmVaCASCADEBUTTON, s[0], 'F',
 			XmVaCASCADEBUTTON, s[1], 'D',
@@ -139,22 +139,22 @@ void create_mainwindow()
 	for (n=0; n < 5; n++)
 		XmStringFree(s[n]);
 
-	s[0]  = XmStringCreateSimple("Find & select");
-	s[1]  = XmStringCreateSimple("Print...");
-	s[2]  = XmStringCreateSimple("Export...");
-	s[3]  = XmStringCreateSimple("Preferences...");
-	s[4]  = XmStringCreateSimple("Form editor");
-	s[5]  = XmStringCreateSimple("About...");
-	s[6]  = XmStringCreateSimple("Save");
-	s[7]  = XmStringCreateSimple("Quit");
-	s[8]  = XmStringCreateSimple("Rambo Quit");
-	s[9]  = XmStringCreateSimple("Ctrl-F");
-	s[10] = XmStringCreateSimple("Ctrl-P");
-	s[11] = XmStringCreateSimple("Ctrl-E");
-	s[12] = XmStringCreateSimple("Ctrl-R");
-	s[13] = XmStringCreateSimple("Ctrl-S");
-	s[14] = XmStringCreateSimple("Ctrl-Q");
-	fmenu = XmVaCreateSimplePulldownMenu(menubar, "file", 0,
+	s[0]  = XmStringCreateSimple((char *)"Find & select");
+	s[1]  = XmStringCreateSimple((char *)"Print...");
+	s[2]  = XmStringCreateSimple((char *)"Export...");
+	s[3]  = XmStringCreateSimple((char *)"Preferences...");
+	s[4]  = XmStringCreateSimple((char *)"Form editor");
+	s[5]  = XmStringCreateSimple((char *)"About...");
+	s[6]  = XmStringCreateSimple((char *)"Save");
+	s[7]  = XmStringCreateSimple((char *)"Quit");
+	s[8]  = XmStringCreateSimple((char *)"Rambo Quit");
+	s[9]  = XmStringCreateSimple((char *)"Ctrl-F");
+	s[10] = XmStringCreateSimple((char *)"Ctrl-P");
+	s[11] = XmStringCreateSimple((char *)"Ctrl-E");
+	s[12] = XmStringCreateSimple((char *)"Ctrl-R");
+	s[13] = XmStringCreateSimple((char *)"Ctrl-S");
+	s[14] = XmStringCreateSimple((char *)"Ctrl-Q");
+	fmenu = XmVaCreateSimplePulldownMenu(menubar, (char *)"file", 0,
 			(XtCallbackProc)file_pulldown,
 			FIX_MENUBAR
 			XmVaPUSHBUTTON,    s[0], 'F',  "Ctrl<Key>F", s[9],
@@ -178,10 +178,10 @@ void create_mainwindow()
 	if (restricted && (w = XtNameToWidget(fmenu, "button_4")))
 		XtVaSetValues(w, XmNsensitive, FALSE, NULL);
 
-	s[0] = XmStringCreateSimple("Edit current form...");
-	s[1] = XmStringCreateSimple("Create new form from scratch...");
-	s[2] = XmStringCreateSimple("Create, use current as template...");
-	fmenu = XmVaCreateSimplePulldownMenu(fmenu, "newform", 4,
+	s[0] = XmStringCreateSimple((char *)"Edit current form...");
+	s[1] = XmStringCreateSimple((char *)"Create new form from scratch...");
+	s[2] = XmStringCreateSimple((char *)"Create, use current as template...");
+	fmenu = XmVaCreateSimplePulldownMenu(fmenu, (char *)"newform", 4,
 			(XtCallbackProc)newform_pulldown,
 			FIX_MENUBAR
 			XmVaPUSHBUTTON,    s[0], 'E',  NULL, NULL,
@@ -196,46 +196,46 @@ void create_mainwindow()
 	for (n=0; n < 3; n++)
 		XmStringFree(s[n]);
 
-	dbpulldown = XmVaCreateSimplePulldownMenu(menubar, "dbase", 1,
+	dbpulldown = XmVaCreateSimplePulldownMenu(menubar, (char *)"dbase", 1,
 			(XtCallbackProc)dbase_pulldown,
 			FIX_MENUBAR
 			NULL);
 	XtAddCallback(dbpulldown, XmNhelpCallback,
 			(XtCallbackProc)help_callback, (XtPointer)"pd_dbase");
 
-	sectpulldown = XmVaCreateSimplePulldownMenu(menubar, "section", 2,
+	sectpulldown = XmVaCreateSimplePulldownMenu(menubar, (char *)"section", 2,
 			(XtCallbackProc)section_pulldown,
 			FIX_MENUBAR
 			NULL);
 	XtAddCallback(sectpulldown, XmNhelpCallback,
 			(XtCallbackProc)help_callback,(XtPointer)"pd_section");
 
-	sortpulldown = XmVaCreateSimplePulldownMenu(menubar, "sort", 3,
+	sortpulldown = XmVaCreateSimplePulldownMenu(menubar, (char *)"sort", 3,
 			(XtCallbackProc)sort_pulldown,
 			FIX_MENUBAR
 			NULL);
 	XtAddCallback(sortpulldown, XmNhelpCallback,
 			(XtCallbackProc)help_callback, (XtPointer)"pd_sort");
 
-	qpulldown = XmVaCreateSimplePulldownMenu(menubar, "query", 4,
+	qpulldown = XmVaCreateSimplePulldownMenu(menubar, (char *)"query", 4,
 			(XtCallbackProc)query_pulldown,
 			FIX_MENUBAR
 			NULL);
 	XtAddCallback(qpulldown, XmNhelpCallback,
 			(XtCallbackProc)help_callback, (XtPointer)"pd_query");
 
-	s[0] = XmStringCreateSimple("On context");
-	s[1] = XmStringCreateSimple("Current database");
-	s[2] = XmStringCreateSimple("Introduction");
-	s[3] = XmStringCreateSimple("Getting help");
-	s[4] = XmStringCreateSimple("Troubleshooting");
-	s[5] = XmStringCreateSimple("Files and programs");
-	s[6] = XmStringCreateSimple("Expression grammar");
-	s[7] = XmStringCreateSimple("Variables and X Resources");
-	s[8] = XmStringCreateSimple("Ctrl-H");
-	s[9] = XmStringCreateSimple("Ctrl-D");
-	s[10]= XmStringCreateSimple("Ctrl-G");
-	fmenu = XmVaCreateSimplePulldownMenu(menubar, "help", 5,
+	s[0] = XmStringCreateSimple((char *)"On context");
+	s[1] = XmStringCreateSimple((char *)"Current database");
+	s[2] = XmStringCreateSimple((char *)"Introduction");
+	s[3] = XmStringCreateSimple((char *)"Getting help");
+	s[4] = XmStringCreateSimple((char *)"Troubleshooting");
+	s[5] = XmStringCreateSimple((char *)"Files and programs");
+	s[6] = XmStringCreateSimple((char *)"Expression grammar");
+	s[7] = XmStringCreateSimple((char *)"Variables and X Resources");
+	s[8] = XmStringCreateSimple((char *)"Ctrl-H");
+	s[9] = XmStringCreateSimple((char *)"Ctrl-D");
+	s[10]= XmStringCreateSimple((char *)"Ctrl-G");
+	fmenu = XmVaCreateSimplePulldownMenu(menubar, (char *)"help", 5,
 			(XtCallbackProc)help_pulldown,
 			FIX_MENUBAR
 			XmVaPUSHBUTTON, s[0], 'C',  "Ctrl<Key>H", s[8],
@@ -254,7 +254,7 @@ void create_mainwindow()
 	for (n=0; n < 10; n++)
 		XmStringFree(s[n]);
 
-	form = XtCreateWidget("mainform", xmFormWidgetClass,
+	form = XtCreateWidget((char *)"mainform", xmFormWidgetClass,
 			mainwindow, NULL, 0);
 							/*-- search string --*/
 	n = 0;
@@ -264,7 +264,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
 	XtSetArg(args[n], XmNrightOffset,	OFF);			n++;
 	XtSetArg(args[n], XmNheight,		34);			n++;
-	searchform = XtCreateManagedWidget("searchform", xmFormWidgetClass,
+	searchform = XtCreateManagedWidget((char *)"searchform", xmFormWidgetClass,
 			form, args, n);
 	XtAddCallback(searchform, XmNhelpCallback,
 			(XtCallbackProc)help_callback, (XtPointer)"search");
@@ -273,7 +273,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);		n++;
 	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
 	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	w = XtCreateManagedWidget("Requery", xmPushButtonWidgetClass,
+	w = XtCreateManagedWidget((char *)"Requery", xmPushButtonWidgetClass,
 			searchform, args, n);
 	XtAddCallback(w, XmNactivateCallback,
 			(XtCallbackProc)requery_callback, (XtPointer)0);
@@ -291,7 +291,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNarrowDirection,	XmARROW_RIGHT);		n++;
 	XtSetArg(args[n], XmNsensitive,		FALSE);			n++;
 	XtSetArg(args[n], XmNforeground,	color[COL_BACK]);	n++;
-	w = w_next = XtCreateManagedWidget("next", xmArrowButtonWidgetClass,
+	w = w_next = XtCreateManagedWidget((char *)"next", xmArrowButtonWidgetClass,
 			searchform, args, n);
 	XtAddCallback(w, XmNactivateCallback,
 			(XtCallbackProc)search_callback, (XtPointer)1);
@@ -305,7 +305,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNbottomOffset,	5);			n++;
 	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_WIDGET);	n++;
 	XtSetArg(args[n], XmNrightWidget,	w);			n++;
-	w = XtCreateManagedWidget("C", xmPushButtonWidgetClass,
+	w = XtCreateManagedWidget((char *)"C", xmPushButtonWidgetClass,
 			searchform, args, n);
 	XtAddCallback(w, XmNactivateCallback,
 			(XtCallbackProc)clear_callback, (XtPointer)0);
@@ -322,7 +322,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNarrowDirection,	XmARROW_LEFT);		n++;
 	XtSetArg(args[n], XmNsensitive,		FALSE);			n++;
 	XtSetArg(args[n], XmNforeground,	color[COL_BACK]);	n++;
-	w = w_prev = XtCreateManagedWidget("prev", xmArrowButtonWidgetClass,
+	w = w_prev = XtCreateManagedWidget((char *)"prev", xmArrowButtonWidgetClass,
 			searchform, args, n);
 	XtAddCallback(w, XmNactivateCallback,
 			(XtCallbackProc)search_callback, (XtPointer)-1);
@@ -334,7 +334,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
 	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
 	XtSetArg(args[n], XmNleftOffset,	OFF);			n++;
-	w = XtCreateManagedWidget("Search", xmPushButtonWidgetClass,
+	w = XtCreateManagedWidget((char *)"Search", xmPushButtonWidgetClass,
 			searchform, args, n);
 	XtAddCallback(w, XmNactivateCallback,
 			(XtCallbackProc)search_callback, (XtPointer)0);
@@ -349,7 +349,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNleftWidget,	w);			n++;
 	XtSetArg(args[n], XmNleftOffset,	0);			n++;
 	XtSetArg(args[n], XmNfontList,		fontlist[FONT_STD]);	n++;
-	popup = XmCreatePulldownMenu(form, "modepd", NULL, 0);
+	popup = XmCreatePulldownMenu(form, (char *)"modepd", NULL, 0);
 	for (i=0; i < SM_NMODES; i++) {
 		w = XtCreateManagedWidget(modename[i],
 				xmPushButtonGadgetClass, popup, NULL, 0);
@@ -360,7 +360,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
 	XtSetArg(args[n], XmNsubMenuId,		popup);			n++;
 	XtSetArg(args[n], XmNlabelString,	0);			n++;
-	w = XmCreateOptionMenu(searchform, "modeoption", args, n);
+	w = XmCreateOptionMenu(searchform, (char *)"modeoption", args, n);
 	XtManageChild(w);
 	XtAddCallback(w, XmNhelpCallback,
 			(XtCallbackProc)help_callback, (XtPointer)"search");
@@ -378,7 +378,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNpendingDelete,	True);			n++;
 	XtSetArg(args[n], XmNbackground,	color[COL_TEXTBACK]);	n++;
 	XtSetArg(args[n], XmNfontList,		fontlist[FONT_HELV]);	n++;
-	w_search = XtCreateManagedWidget(" ", xmTextWidgetClass,
+	w_search = XtCreateManagedWidget((char *)" ", xmTextWidgetClass,
 			searchform, args, n);
 	XtAddCallback(w_search, XmNactivateCallback,
 			(XtCallbackProc)search_callback, NULL);
@@ -394,7 +394,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNleftOffset,	OFF);			n++;
 	XtSetArg(args[n], XmNalignment, 	XmALIGNMENT_BEGINNING);	n++;
 	XtSetArg(args[n], XmNfontList,		fontlist[FONT_STD]);	n++;
-	w_info = XtCreateManagedWidget(" ", xmLabelWidgetClass,
+	w_info = XtCreateManagedWidget((char *)" ", xmLabelWidgetClass,
 			form, args, n);
 	XtAddCallback(w_info, XmNhelpCallback,
 			(XtCallbackProc)help_callback, (XtPointer)"info");
@@ -410,7 +410,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNrightOffset,	OFF);			n++;
 	XtSetArg(args[n], XmNalignment, 	XmALIGNMENT_END);	n++;
 	XtSetArg(args[n], XmNfontList,		fontlist[FONT_STD]);	n++;
-	w_mtime = XtCreateManagedWidget(" ", xmLabelWidgetClass,
+	w_mtime = XtCreateManagedWidget((char *)" ", xmLabelWidgetClass,
 			form, args, n);
 	XtAddCallback(w_mtime, XmNhelpCallback,
 			(XtCallbackProc)help_callback, (XtPointer)"info");
@@ -427,7 +427,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNlabelPixmap,	pixmap[PIC_LEFT]);	n++;
 	XtSetArg(args[n], XmNsensitive,		False);			n++;
 	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
-	w_left = XtCreateManagedWidget("Left", xmPushButtonWidgetClass,
+	w_left = XtCreateManagedWidget((char *)"Left", xmPushButtonWidgetClass,
 			form, args, n);
 	XtAddCallback(w_left, XmNactivateCallback,
 			(XtCallbackProc)pos_callback, (XtPointer)-1);
@@ -446,7 +446,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNlabelPixmap,	pixmap[PIC_RIGHT]);	n++;
 	XtSetArg(args[n], XmNsensitive,		False);			n++;
 	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
-	w_right = XtCreateManagedWidget("Right", xmPushButtonWidgetClass,
+	w_right = XtCreateManagedWidget((char *)"Right", xmPushButtonWidgetClass,
 			form, args, n);
 	XtAddCallback(w_right, XmNactivateCallback,
 			(XtCallbackProc)pos_callback, (XtPointer)1);
@@ -462,7 +462,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNwidth,		60);			n++;
 	XtSetArg(args[n], XmNsensitive,		False);			n++;
 	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
-	w_new = XtCreateManagedWidget("New", xmPushButtonWidgetClass,
+	w_new = XtCreateManagedWidget((char *)"New", xmPushButtonWidgetClass,
 			form, args, n);
 	XtAddCallback(w_new, XmNactivateCallback,
 			(XtCallbackProc)new_callback, (XtPointer)0);
@@ -478,7 +478,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNwidth,		60);			n++;
 	XtSetArg(args[n], XmNsensitive,		False);			n++;
 	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
-	w_dup = XtCreateManagedWidget("Dup", xmPushButtonWidgetClass,
+	w_dup = XtCreateManagedWidget((char *)"Dup", xmPushButtonWidgetClass,
 			form, args, n);
 	XtAddCallback(w_dup, XmNactivateCallback,
 			(XtCallbackProc)dup_callback, (XtPointer)0);
@@ -494,7 +494,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNwidth,		60);			n++;
 	XtSetArg(args[n], XmNsensitive,		False);			n++;
 	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
-	w_del = XtCreateManagedWidget("Delete", xmPushButtonWidgetClass,
+	w_del = XtCreateManagedWidget((char *)"Delete", xmPushButtonWidgetClass,
 			form, args, n);
 	XtAddCallback(w_del, XmNactivateCallback,
 			(XtCallbackProc)del_callback, (XtPointer)0);
@@ -508,7 +508,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNrightOffset,	OFF);			n++;
 	XtSetArg(args[n], XmNwidth,		60);			n++;
 	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
-	w = XtCreateManagedWidget("Help", xmPushButtonWidgetClass,
+	w = XtCreateManagedWidget((char *)"Help", xmPushButtonWidgetClass,
 			form, args, n);
 	XtAddCallback(w, XmNactivateCallback,
 			(XtCallbackProc)help_callback, (XtPointer)"card");
@@ -523,7 +523,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNtopOffset,		4);			n++;
 	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
 	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	w = XtCreateManagedWidget(" ", xmSeparatorWidgetClass,
+	w = XtCreateManagedWidget((char *)" ", xmSeparatorWidgetClass,
 			form, args, n);
 #else
 	w = w_info;
@@ -537,7 +537,7 @@ void create_mainwindow()
 	XtSetArg(args[n], XmNleftOffset,	OFF);			n++;
 	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
 	XtSetArg(args[n], XmNrightOffset,	OFF);			n++;
-	w = w_summary = XtCreateManagedWidget("summform", xmFormWidgetClass,
+	w = w_summary = XtCreateManagedWidget((char *)"summform", xmFormWidgetClass,
 			form, args, n);
 	XtAddCallback(w, XmNhelpCallback,
 			(XtCallbackProc)help_callback, (XtPointer)"summary");
@@ -552,7 +552,7 @@ void create_mainwindow()
 	 XtSetArg(args[n], XmNleftOffset,	OFF+2);			n++;
 	 XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
 	 XtSetArg(args[n], XmNrightOffset,	OFF);			n++;
-	 w = XtCreateManagedWidget("letters", xmFormWidgetClass,
+	 w = XtCreateManagedWidget((char *)"letters", xmFormWidgetClass,
 			form, args, n);
 	 XtAddCallback(w, XmNhelpCallback,
 	 		(XtCallbackProc)help_callback,(XtPointer)"letters");
@@ -788,8 +788,8 @@ static void make_dbase_pulldown(
 
 
 static int compare_db(
-	register MYCONST void	*u,
-	register MYCONST void	*v)
+	register const void	*u,
+	register const void	*v)
 {
 	return(strcmp(((struct db *)u)->name, ((struct db *)v)->name));
 }
@@ -909,7 +909,7 @@ void remake_query_pulldown(void)
 					       : curr_card->form->nqueries;
 	for (i=0; i <= n; i++) {
 		DQUERY *dq = i ? &curr_card->form->query[i-1] : 0;
-		char *name = i ? dq->name : "All";
+		const char *name = i ? dq->name : "All";
 		if (i && (dq->suspended || !dq->name || !dq->query))
 			continue;
 		if (pref.autoquery) {
@@ -1005,11 +1005,11 @@ static void remake_popup(void)
 		pnwidgets = 0;
 		return;
 	}
-	if (!(pwidgets = malloc(sizeof(Widget) * pnwidgets)))
+	if (!(pwidgets = (Widget *)malloc(sizeof(Widget) * pnwidgets)))
 		return;
 
-	popup = XmCreatePulldownMenu(form, "pulldown", NULL, 0);
-	str = XmStringCreateSimple("");
+	popup = XmCreatePulldownMenu(form, (char *)"pulldown", NULL, 0);
+	str = XmStringCreateSimple((char *)"");
 	n = 0;
 	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_OPPOSITE_WIDGET); n++;
 	XtSetArg(args[n], XmNbottomWidget,	w_del);			n++;
@@ -1020,7 +1020,7 @@ static void remake_popup(void)
 	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
 	XtSetArg(args[n], XmNsubMenuId,		popup);			n++;
 	XtSetArg(args[n], XmNlabelString,	str);			n++;
-	w_sect = XmCreateOptionMenu(form, "sectoption", args, n);
+	w_sect = XmCreateOptionMenu(form, (char *)"sectoption", args, n);
 	XtAddCallback(w_sect, XmNhelpCallback,
 			(XtCallbackProc)help_callback, (XtPointer)"sect");
 	XmStringFree(str);
@@ -1069,7 +1069,7 @@ void remake_sort_pulldown(void)
 	XtSetArg(args[0], XmNindicatorType, XmN_OF_MANY);
 	XtSetArg(args[1], XmNselectColor,   color[COL_TOGGLE]);
 	XtSetArg(args[2], XmNset,	    pref.revsort);
-	swidget[0] = XtCreateManagedWidget("Reverse sort",
+	swidget[0] = XtCreateManagedWidget((char *)"Reverse sort",
 			xmToggleButtonWidgetClass, sortpulldown, args, 3);
 	XtAddCallback(swidget[0], XmNvalueChangedCallback,
 			(XtCallbackProc)sort_pulldown, (XtPointer)-1);
@@ -1184,7 +1184,7 @@ void switch_form(
 		}
 	} else
 		if (toplevel)
-			XtVaSetValues(toplevel, XmNiconName, "None", NULL);
+			XtVaSetValues(toplevel, XmNiconName, (char *)"None", NULL);
 
 	if (toplevel) {
 		XtSetArg(args[0], XmNsensitive, formname != 0);
@@ -1873,22 +1873,22 @@ static void sect_callback(
 {
 	register CARD			*card = curr_card;
 	register SECTION		*sect = card->dbase->sect;
-	int				old, new;
+	int				olds, news;
 
-	old = card->dbase->row[card->row]->section;
-	new = item;
-	if (sect[old].rdonly)
+	olds = card->dbase->row[card->row]->section;
+	news = item;
+	if (sect[olds].rdonly)
 		create_error_popup(toplevel, 0,
-			"section file\n\"%s\" is read-only", sect[old].path);
-	else if (sect[new].rdonly)
+			"section file\n\"%s\" is read-only", sect[olds].path);
+	else if (sect[news].rdonly)
 		create_error_popup(toplevel, 0,
-			"section file\n\"%s\" is read-only", sect[new].path);
+			"section file\n\"%s\" is read-only", sect[news].path);
 	else {
-		sect[old].nrows--;
-		sect[new].nrows++;
-		sect[old].modified = TRUE;
-		sect[new].modified = TRUE;
-		card->dbase->row[card->row]->section = defsection = new;
+		sect[olds].nrows--;
+		sect[news].nrows++;
+		sect[olds].modified = TRUE;
+		sect[news].modified = TRUE;
+		card->dbase->row[card->row]->section = defsection = news;
 		card->dbase->modified = TRUE;
 		print_info_line();
 	}

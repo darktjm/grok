@@ -62,7 +62,7 @@ FORM *form_create(void)
 static void set_form_defaults(
 	FORM		*form)		/* for to initialize */
 {
-	mybzero((void *)form, sizeof(FORM));
+	memset((void *)form, 0, sizeof(FORM));
 	form->cdelim	 = ':';
 	form->xg	 = 4;
 	form->yg	 = 4;
@@ -106,7 +106,7 @@ FORM *form_clone(
 		form->items[i] = item_clone(parent->items[i]);
 
 	if (form->query) {
-		if (!(form->query = malloc(form->nqueries * sizeof(DQUERY)))) {
+		if (!(form->query = (DQUERY *)malloc(form->nqueries * sizeof(DQUERY)))) {
 			create_error_popup(toplevel, errno, "Queries lost");
 			form->nqueries = 0;
 		}
@@ -258,7 +258,7 @@ BOOL verify_form(
 			if (item->type == IT_CHOICE && it->type == IT_CHOICE) {
 				BOOL eq  = !strcmp(item->name, it->name);
 				BOOL sam = FALSE;
-				char *m  = 0;
+				const char *m  = 0;
 				if      ((item->column   == it->column) != eq)
 					m = "dbase column";
 				else if ((item->sumcol   == it->sumcol) != eq)
@@ -300,12 +300,12 @@ BOOL verify_form(
 					name, it->name ? it->name : "", ni);
 				i += strlen(msg+i);
 			}
-			if (i > sizeof(msg)-1024) {
+			if (i > (int)sizeof(msg)-1024) {
 				sprintf(msg+i, "Too many errors, aborted.");
 				break;
 			}
 		}
-		if (i > sizeof(msg)-1024) {
+		if (i > (int)sizeof(msg)-1024) {
 			sprintf(msg+i, "Too many errors, aborted.");
 			break;
 		}
@@ -373,8 +373,8 @@ The database name will be used as script name.");
  */
 
 static int icompare(
-	MYCONST void	*u,
-	MYCONST void	*v)
+	const void	*u,
+	const void	*v)
 {
 	register ITEM	*iu = *(ITEM **)u;
 	register ITEM	*iv = *(ITEM **)v;
@@ -476,7 +476,7 @@ BOOL item_create(
 		item->database	   = mystrdup(item->database);
 		item->query	   = mystrdup(item->query);
 	} else {
-		mybzero((void *)item, sizeof(ITEM));
+		memset((void *)item, 0, sizeof(ITEM));
 		item->type	   = IT_INPUT;
 		item->selected	   = TRUE;
 		item->labeljust	   = J_LEFT;

@@ -218,7 +218,7 @@ static void print_tail_a(
 
 static void print_formatted(
 	FILE		*fp,		/* file or spooler to print to */
-	char		*text,		/* text to print */
+	const char	*text,		/* text to print */
 	int		in0,		/* indent of first line */
 	int		len0,		/* length of first line */
 	int		in1,		/* indent of other lines */
@@ -226,7 +226,7 @@ static void print_formatted(
 	BOOL		nl)		/* append trailing newline if TRUE */
 {
 	char		out[1024];	/* output line buffer */
-	register char	*p = text;	/* next source character from text */
+	register const char *p = text;	/* next source character from text */
 	register char	*q = out;	/* next target character in out[] */
 	int		len;		/* current output line length */
 
@@ -263,8 +263,8 @@ static void print_card_a(
 {
 	ITEM		*item;		/* contains info about formatting */
 	char		buf[1024];	/* summary line buffer */
-	char		*label;		/* if C format, label in left column */
-	char		*data;		/* data string from the database */
+	const char	*label;		/* if C format, label in left column */
+	const char	*data;		/* data string from the database */
 	int		i;		/* item counter */
 	int		len;		/* output line length */
 	int		label_len = 0;	/* width of label column if C format */

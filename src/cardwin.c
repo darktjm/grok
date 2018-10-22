@@ -39,7 +39,7 @@ static void chart_expose_callback
 			(Widget, XtPointer, XmDrawingAreaCallbackStruct *);
 static void card_callback(Widget, XtPointer, XmToggleButtonCallbackStruct *);
 void card_readback_texts(CARD *, int);
-static BOOL store(CARD *, int, char *);
+static BOOL store(CARD *, int, const char *);
 
 
 /*
@@ -96,7 +96,7 @@ CARD *create_card_menu(
 	n = sizeof(CARD) + sizeof(struct carditem) * form->nitems;
 	if (!(card = (CARD *)malloc(n)))
 		return((CARD *)0);
-	mybzero((void *)card, n);
+	memset((void *)card, 0, n);
 	card->form   = form;
 	card->dbase  = dbase;
 	card->row    = -1;
@@ -135,7 +135,7 @@ CARD *create_card_menu(
 		card->wform = XtCreateManagedWidget("wform",
 				xmFormWidgetClass, card->shell, args, n);
 		XtPopup(card->shell, XtGrabNone);
-		closewindow = XmInternAtom(display, "WM_DELETE_WINDOW", False);
+		closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
 		XmAddWMProtocolCallback(card->shell, closewindow,
 				(XtCallbackProc)mwm_quit_callback, NULL);
 	}
@@ -210,7 +210,7 @@ static void create_item_widgets(
 	XmString	label, blank;
 	BOOL		editable;
 	XtActionsRec	action;
-	String		translations =
+	const char * const 	translations =
 		"<Btn1Down>:	chart(down)	ManagerGadgetArm()	\n\
 		 <Btn1Up>:	chart(up)	ManagerGadgetActivate()	\n\
 		 <Btn1Motion>:	chart(motion)	ManagerGadgetButtonMotion()";
@@ -237,7 +237,7 @@ static void create_item_widgets(
 	if (evalbool(card, item.invisible_if))
 		return;
 	label = item.label ? XmStringCreateSimple(item.label) : 0;
-	blank = XmStringCreateSimple(" ");
+	blank = XmStringCreateSimple((char *)" ");
 	editable = item.type != IT_PRINT
 			&& (!card->dbase || !card->dbase->rdonly)
 			&& !card->form->rdonly
@@ -253,7 +253,7 @@ static void create_item_widgets(
 			  case F_HELV_L:   i = FONT_HELV_L;	break;
 			  case F_COURIER:  i = FONT_COURIER;	break;
 			}
-			ftlist[n] = XmFontListCreate(font[i], "cset");
+			ftlist[n] = XmFontListCreate(font[i], (char *)"cset");
 		}
 	switch(item.type) {
 	  case IT_LABEL:			/* a text without function */
@@ -390,7 +390,7 @@ static void create_item_widgets(
 		carditem->w0 = XtCreateWidget("note",
 				xmTextWidgetClass, carditem->w0, args, n);
 #else
-		carditem->w0 = XmCreateScrolledText(wform, "note",
+		carditem->w0 = XmCreateScrolledText(wform, (char *)"note",
 					args, n);
 		/* NOTE: COL_BACK isn't really the right color */
 		/* but it looks OK, anyway */
@@ -465,7 +465,7 @@ static void create_item_widgets(
 
 	  case IT_CHART:			/* chart display */
 		if (!did_register++) {
-			action.string = "chart";
+			action.string = (char *)"chart";
 			action.proc   = (XtActionProc)chart_action_callback;
 			XtAppAddActions(app, &action, 1);
 		}
@@ -561,7 +561,8 @@ static void card_callback(
 	CARD		*card = (CARD *)icard;
 	ITEM		*item;
 	int		nitem, i;
-	char		*n, *o;
+	const char	*n;
+	char		*o;
 
 	for (nitem=0; nitem < card->nitems; nitem++)
 		if (widget == card->items[nitem].w0 ||
@@ -709,7 +710,7 @@ void card_readback_texts(
 static BOOL store(
 	register CARD	*card,		/* card the item is added to */
 	int		nitem,		/* number of item being added */
-	char		*string)	/* string to store in dbase */
+	const char	*string)	/* string to store in dbase */
 {
 	BOOL		newsum = FALSE;	/* must redraw summary? */
 
@@ -748,8 +749,8 @@ static BOOL store(
  * item. This is used by fillout_item and make_summary_line.
  */
 
-char *format_time_data(
-	char		*data,		/* string from database */
+const char *format_time_data(
+	const char	*data,		/* string from database */
 	TIMEFMT		timefmt)	/* new format, one of T_* */
 {
 	static char	buf[40];	/* for date/time conversion */
@@ -808,8 +809,8 @@ void fillout_item(
 	BOOL		sens;		/* (de-)sensitize item */
 	register ITEM	*item;		/* describes type and geometry */
 	Widget		w0, w1;		/* input widget(s) in card */
-	char		*data;		/* value string in database */
-	char		*eval;		/* evaluated expression, 0=error */
+	const char	*data;		/* value string in database */
+	const char	*eval;		/* evaluated expression, 0=error */
 	Arg		arg;		/* for (de-) sensitizing */
 
 	w0   = card->items[i].w0;

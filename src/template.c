@@ -35,10 +35,10 @@ static int	ntemps;			/* # of valid user-defined templates */
 static char	*templates[MAXFILES];	/* list of user-defd template names */
 
 static struct builtins {
-	char	*name;
-	char	*desc;
-	char	*(*func)(char *, int);
-	int	mode;
+	const char	*name;
+	const char	*desc;
+	const char	*(*func)(char *, int);
+	int		mode;
 } builtins[NBUILTINS] = {
 	{ "html",	"  (builtin HTML)",		mktemplate_html, 0 },
 	{ "html-s",	"(builtin HTML, summary only)",	mktemplate_html, 1 },
@@ -58,7 +58,7 @@ int get_template_nbuiltins(void) { return(NBUILTINS); }
  */
 
 char *get_template_path(
-	char		*name,		/* template name or 0 */
+	const char	*name,		/* template name or 0 */
 	int		seq,		/* if name==0, sequential number */
 	CARD		*card)		/* need this for form name */
 {
@@ -67,7 +67,7 @@ char *get_template_path(
 	if (!name)
 		name = seq < NBUILTINS ? builtins[seq].name
 				       : templates[seq - NBUILTINS];
-	path = allocate(strlen(card->form->path) + 1 + strlen(name) + 1);
+	path = (char *)allocate(strlen(card->form->path) + 1 + strlen(name) + 1);
 	strcpy(path, card->form->path);
 	if (p = strrchr(path, '.'))
 		strcpy(p, ".tm");
@@ -125,15 +125,16 @@ void list_templates(
  * out which template is meant and execute it.
  */
 
-char *exec_template(
-	char	*oname,			/* output file name, 0=stdout */
-	char	*name,			/* template name to execute */
-	int	seq,			/* if name is 0, execute by seq num */
-	CARD	*card)			/* need this for form name */
+const char *exec_template(
+	char		*oname,		/* output file name, 0=stdout */
+	const char	*name,		/* template name to execute */
+	int		seq,		/* if name is 0, execute by seq num */
+	CARD		*card)		/* need this for form name */
 {
-	char	tmp[1024];		/* temp file for builtin template */
-	char	*path, *p;		/* template file path */
-	char	*ret;			/* returned error message or 0 */
+	char		tmp[1024];	/* temp file for builtin template */
+	char		*path;		/* template file path */
+	const char	*p;		/* template file path */
+	const char	*ret;		/* returned error message or 0 */
 
 	if (!ntemps)
 		list_templates(0, card);
@@ -179,7 +180,7 @@ char *copy_template(
 	CARD		*card)		/* need this for form name */
 {
 	char		*src;		/* source template name */
-	char		*err = 0;	/* error message */
+	const char	*err = 0;	/* error message */
 	FILE		*ifp=0, *ofp=0;	/* source and target files */
 	int		c;		/* for file copying */
 
@@ -199,11 +200,11 @@ char *copy_template(
 		else
 			while ((c = fgetc(ifp)) != EOF)
 				fputc(c, ofp);
+		if (ifp) fclose(ifp);
+		if (ofp) fclose(ofp);
+		free(src);
 	}
-	if (ifp) fclose(ifp);
-	if (ofp) fclose(ofp);
 	if (err) free(tar);
-	free(src);
 	return(err ? 0 : tar);
 }
 
@@ -242,16 +243,16 @@ BOOL delete_template(
 #define ISOCTAL(c) ((c)>='0' && (c)<='7')
 #define NEST		10
 
-static char html_subst[] = "<=&lt; >=&gt; &=&amp; \n=<BR>";
-static char *eval_command(char *, BOOL *);
+static const char html_subst[] = "<=&lt; >=&gt; &=&amp; \n=<BR>";
+static const char *eval_command(char *, BOOL *);
 static void backslash_subst(char *);
-static char *putstring(char *);
+static const char *putstring(const char *);
 
 struct forstack { long offset; int num; int nquery; int *query; };
 
 enum opcode { O_EXPR, O_IF, O_ENDIF, O_FOREACH,
 	      O_END, O_QUIT, O_FILE, O_SUBST };
-static struct { enum opcode opcode; char *name; } opcode_list[] = {
+static const struct { enum opcode opcode; const char *name; } opcode_list[] = {
 	{ O_IF,		"IF",		},
 	{ O_ENDIF,	"ENDIF"		},
 	{ O_FOREACH,	"FOREACH"	},
@@ -282,11 +283,12 @@ static int		forskip;	/* # of empty loops, skip to END */
  * Return 0 if all went well, or an error string.
  */
 
-char *eval_template(
-	char		*iname,		/* template filename */
+const char *eval_template(
+	const char	*iname,		/* template filename */
 	char		*oname)		/* default output filename, 0=stdout */
 {
-	char		word[4096], *p;	/* command string in \{ } */
+	char		word[4096];	/* command string in \{ } */
+	const char	*p;
 	int		indx = 0;	/* next free char in word[] */
 	int		line = 1;	/* line number in template */
 	int		c, prevc;	/* curr end prev char from template */
@@ -298,7 +300,7 @@ char *eval_template(
 	default_row   = curr_card->row;
 	default_query = 0;
 	if (default_nquery = curr_card->nquery) {
-		default_query = allocate(default_nquery * sizeof(int));
+		default_query = (int *)allocate(default_nquery * sizeof(int));
 		memcpy(default_query, curr_card->query,
 					 default_nquery * sizeof(int));
 	}
@@ -401,12 +403,13 @@ char *eval_template(
  * are printed. Return 0 if all went well, or an error message string.
  */
 
-static char *eval_command(
+static const char *eval_command(
 	char		*word,		/* command to evaluate */
 	BOOL		*eat_nl)	/* if command, set to true (skip \n) */
 {
 	char		cmd[256];	/* extracted command word */
 	char		*p, *q;		/* for searching the command */
+	const char	*pc;
 	struct forstack	*sp;		/* current foreach stack level */
 	int		i, nq, *qu;
 
@@ -462,7 +465,7 @@ static char *eval_command(
 			sp->offset = ftell(ifp);
 			sp->num    = 0;
 			sp->nquery = nq;
-			sp->query  = allocate(nq * sizeof(int));
+			sp->query  = (int *)allocate(nq * sizeof(int));
 			memcpy(sp->query, qu, nq * sizeof(int));
 			curr_card->row = sp->query[sp->num];
 		} else
@@ -502,9 +505,8 @@ static char *eval_command(
 	  case O_SUBST:
 		if (forskip || n_false_if)
 			break;
-		if (!strcmp(p, "HTML"))
-			p = html_subst;
-		substitute_setup(subst, p);
+		/* (char *) cast is safe because no \-sust is needed */
+		substitute_setup(subst, !strcmp(p, "HTML") ? (char *)html_subst : p);
 		break;
 
 	  case O_EXPR:
@@ -513,13 +515,13 @@ static char *eval_command(
 			break;
 		*--p = '{';
 		strcat(p, "}");
-		q = evaluate(curr_card, p);
+		pc = evaluate(curr_card, p);
 		cmd[1] = 0;
-		if(!q)
+		if(!pc)
 			return "error in expression";
 		while (cmd[0] = *q++)
-			if (p = putstring(subst[cmd[0]] ? subst[cmd[0]] : cmd))
-				return(p);
+			if (pc = putstring(subst[(unsigned char)cmd[0]] ? subst[(unsigned char)cmd[0]] : cmd))
+				return(pc);
 	}
 	return(0);
 }
@@ -532,7 +534,7 @@ static char *eval_command(
  * Return an error message or 0 if all went well.
  */
 
-char *substitute_setup(
+const char *substitute_setup(
 	char		**array,	/* where to store substitutions */
 	char		*cmd)		/* x=y x=y ... command string */
 {
@@ -600,8 +602,8 @@ void backslash_subst(
  * lets the template override the output file name).
  */
 
-static char *putstring(
-	char		*text)		/* string to export */
+static const char *putstring(
+	const char	*text)		/* string to export */
 {
 	if (!ofp)
 		if (!outname)

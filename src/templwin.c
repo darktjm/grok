@@ -71,7 +71,7 @@ void destroy_templ_popup(void)
 static struct menu {
 	char	type;		/* Label, Scroll, b/q/Button, Text, -line */
 	long	code;		/* unique identifier, 0=none */
-	char	*text;
+	const char *text;
 	Widget	widget;
 } menu[] = {
 	{ 'L',	0,	"Template:"		},
@@ -93,7 +93,7 @@ static struct menu {
 void create_templ_popup(void)
 {
 	struct menu	*mp;			/* current menu[] entry */
-	WidgetClass	class;			/* label, radio, or button */
+	WidgetClass	wclass;			/* label, radio, or button */
 	Widget		form, w=0, top=0;
 	Arg		args[20];
 	int		n;
@@ -151,14 +151,14 @@ void create_templ_popup(void)
 	    switch(mp->type) {
 	      case 'B':
 	      case 'b':
-	      case 'q': class = xmPushButtonWidgetClass;	break;
-	      case 'T': class = xmTextWidgetClass;		break;
-	      case '-': class = xmSeparatorWidgetClass;		break;
-	      case 'L':	class = xmLabelWidgetClass;		break;
-	      case 'S': class = 0;				break;
+	      case 'q': wclass = xmPushButtonWidgetClass;	break;
+	      case 'T': wclass = xmTextWidgetClass;		break;
+	      case '-': wclass = xmSeparatorWidgetClass;		break;
+	      case 'L':	wclass = xmLabelWidgetClass;		break;
+	      case 'S': wclass = 0;				break;
 	    }
-	    if (class) {
-		w = mp->widget = XtCreateManagedWidget(mp->text, class,
+	    if (wclass) {
+		w = mp->widget = XtCreateManagedWidget((char *)mp->text, wclass,
 							form, args, n);
 		if (mp->type == 'T' && pref.xfile)
 			print_text_button(w, pref.xfile);
@@ -169,7 +169,7 @@ void create_templ_popup(void)
 		XtSetArg(args[n], XmNfontList,	fontlist[FONT_COURIER]);   n++;
 		XtSetArg(args[n], XmNscrollBarDisplayPolicy, XmSTATIC);	   n++;
 		w = list = mp->widget =
-				XmCreateScrolledList(form, mp->text, args, n);
+				XmCreateScrolledList(form, (char *)mp->text, args, n);
 		list_nlines = 0;
 		mklist();
 		XtManageChild(list);
@@ -183,7 +183,7 @@ void create_templ_popup(void)
 			(XtCallbackProc)button_callback, (XtPointer)mp->code);
 	}
 	XtPopup(shell, XtGrabNone);
-	closewindow = XmInternAtom(display, "WM_DELETE_WINDOW", False);
+	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
 	XmAddWMProtocolCallback(shell, closewindow,
 			(XtCallbackProc)button_callback, (XtPointer)0x42);
 	have_shell = TRUE;
@@ -233,10 +233,10 @@ static int get_list_seq(void)
 }
 
 
-static BOOL export(void)
+static BOOL do_export(void)
 {
 	struct menu	*mp;		/* for finding text widget */
-	char		*err;
+	const char	*err;
 
 	for (mp=menu; mp->code != 0x30; mp++);
 	read_text_button_noblanks(mp->widget, &pref.xfile);
@@ -291,7 +291,7 @@ static void button_callback(
 		mklist();
 		break;
 	  case 0x40:						/* Browse */
-		w = XmCreateFileSelectionDialog(shell, "xfile", NULL, 0);
+		w = XmCreateFileSelectionDialog(shell, (char *)"xfile", NULL, 0);
 		XtAddCallback(w, XmNokCallback,
 				(XtCallbackProc)file_export_callback, 0);
 		XtAddCallback(w, XmNcancelCallback,
@@ -300,7 +300,7 @@ static void button_callback(
 		break;
 	  case 0x30:						/* text */
 	  case 0x41:						/* Export */
-		if (export())
+		if (do_export())
 	  case 0x42:						/* Cancel */
 		destroy_templ_popup();
 		break;
@@ -431,7 +431,7 @@ static void askname(
 						(XtPointer)"tempname");
 
 	XtPopup(askshell, XtGrabNone);
-	closewindow = XmInternAtom(display, "WM_DELETE_WINDOW", False);
+	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
 	XmAddWMProtocolCallback(askshell, closewindow, (XtCallbackProc)
 				textcancel_callback, (XtPointer)askshell);
 	have_askshell = TRUE;
@@ -439,10 +439,10 @@ static void askname(
 
 
 /*ARGSUSED*/
-static void textcancel_callback(widget, item, data)
-	Widget				widget;
-	int				item;
-	XmToggleButtonCallbackStruct	*data;
+static void textcancel_callback(
+	Widget				widget,
+	int				item,
+	XmToggleButtonCallbackStruct	*data)
 {
 	if (have_askshell)
 		XtPopdown(askshell);
@@ -451,10 +451,10 @@ static void textcancel_callback(widget, item, data)
 
 
 /*ARGSUSED*/
-static void text_callback(widget, item, data)
-	Widget				widget;
-	int				item;
-	XmToggleButtonCallbackStruct	*data;
+static void text_callback(
+	Widget				widget,
+	int				item,
+	XmToggleButtonCallbackStruct	*data)
 {
 	char				*name, *p;
 	char				*string;

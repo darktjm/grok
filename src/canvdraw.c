@@ -65,7 +65,7 @@ void create_canvas_window(
 	int		n;
 	Atom		closewindow;
 	XtActionsRec	action;
-	String		translations =
+	const char * const	translations =
 		"<Btn1Down>:	canvas(down)	ManagerGadgetArm()	\n\
 		 <Btn1Up>:	canvas(up)	ManagerGadgetActivate()	\n\
 		 <Btn1Motion>:	canvas(motion)	ManagerGadgetButtonMotion()";
@@ -80,7 +80,7 @@ void create_canvas_window(
 			applicationShellWidgetClass, display, args, n);
 	set_icon(shell, 1);
 
-	action.string = "canvas";
+	action.string = (char *)"canvas";
 	action.proc   = (XtActionProc)canvas_callback;
 	XtAppAddActions(app, &action, 1);
 
@@ -99,7 +99,7 @@ void create_canvas_window(
 			(XtCallbackProc)resize_callback, (XtPointer)0);
 
 	XtPopup(shell, XtGrabNone);
-	closewindow = XmInternAtom(display, "WM_DELETE_WINDOW", False);
+	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
 	XmAddWMProtocolCallback(shell, closewindow,
 			(XtCallbackProc)quit_callback, (XtPointer)0);
 	set_cursor(canvas, XC_arrow);
@@ -474,7 +474,7 @@ void undraw_canvas_item(
 }
 
 
-static char *datatext[NITEMS] = {
+static const char * const datatext[NITEMS] = {
 	"None", "", "Print", "Input", "Time", "Note", "", "", "", "Card", "" };
 
 void redraw_canvas_item(
@@ -534,7 +534,7 @@ void redraw_canvas_item(
 		sprintf(buf, "[%ld=%s%s] ", item->column,
 				item->flagcode ? item->flagcode : "?", sumcol);
 	strcat(buf, item->label ? item->label : "label");
-	nfont = ifont(item->labelfont);
+	nfont = ifont((FONTN)item->labelfont);
 	truncate_string(buf, xm<0 ? item->xs-4 : xm-4, nfont);
 	XSetFont(display, gc, font[nfont]->fid);
 	XDrawString(display, window, gc,
@@ -547,7 +547,7 @@ void redraw_canvas_item(
 		sprintf(buf, "[%ld%s] ", item->column, sumcol);
 	strcat(buf, datatext[item->type]);
 	if (xm > 0 && xm < item->xs) {
-		nfont = ifont(item->inputfont);
+		nfont = ifont((FONTN)item->inputfont);
 		truncate_string(buf, item->xs-xm-4, nfont);
 		XSetFont(display, gc, font[nfont]->fid);
 		XDrawString(display, window, gc,
@@ -556,8 +556,8 @@ void redraw_canvas_item(
 			buf, strlen(buf));
 
 	} else if (ym > 0 && ym < item->ys) {
-		nfont = ifont(item->type == IT_NOTE ? item->inputfont
-						    : item->labelfont);
+		nfont = ifont((FONTN)(item->type == IT_NOTE ? item->inputfont
+						    : item->labelfont));
 		truncate_string(buf, item->xs-4, nfont);
 		XSetFont(display, gc, font[nfont]->fid);
 		XDrawString(display, window, gc,

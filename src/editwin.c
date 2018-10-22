@@ -55,7 +55,7 @@ void destroy_edit_popup(void)
 {
 	char		*string;	/* contents of text widget */
 	FILE		*fp;		/* file to write */
-	char		*name;		/* file name */
+	const char	*name;		/* file name */
 
 	if (!have_shell)
 		return;
@@ -110,10 +110,10 @@ void destroy_edit_popup(void)
  */
 
 void create_edit_popup(
-	char			*title,		/* menu title string */
+	const char		*title,		/* menu title string */
 	char			**initial,	/* initial default text */
 	BOOL			readonly,	/* not modifiable if TRUE */
-	char			*helptag)	/* help tag */
+	const char		*helptag)	/* help tag */
 {
 	Widget			form, but=0, w, help;
 	Arg			args[20];
@@ -238,7 +238,7 @@ void create_edit_popup(
 	XtSetArg(args[n], XmNpendingDelete,	False);			n++;
 	XtSetArg(args[n], XmNeditable,		!readonly);		n++;
 	XtSetArg(args[n], XmNfontList,		fontlist[FONT_COURIER]);n++;
-	text = XmCreateScrolledText(form, "text", args, n);
+	text = XmCreateScrolledText(form, (char *)"text", args, n);
 	if (initial && *initial) {
 		XmTextSetString(text, *initial);
 		XmTextSetInsertionPosition(text, strlen(*initial));
@@ -247,7 +247,7 @@ void create_edit_popup(
 	XtManageChild(text);
 
 	XtPopup(shell, XtGrabNone);
-	closewindow = XmInternAtom(display, "WM_DELETE_WINDOW", False);
+	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
 	XmAddWMProtocolCallback(shell, closewindow,
 			(XtCallbackProc)done_callback, (XtPointer)shell);
 	have_shell = TRUE;
@@ -298,7 +298,7 @@ static void delete_callback(
 	int				item,
 	XmToggleButtonCallbackStruct	*data)
 {
-	XmTextSetString(text, "");
+	XmTextSetString(text, (char *)"");
 	destroy_edit_popup();
 }
 
@@ -309,7 +309,7 @@ static void clear_callback(
 	int				item,
 	XmToggleButtonCallbackStruct	*data)
 {
-	XmTextSetString(text, "");
+	XmTextSetString(text, (char *)"");
 	XmTextSetInsertionPosition(text, 0);
 }
 
@@ -322,21 +322,22 @@ static void clear_callback(
  */
 
 void edit_file(
-	char		*name,		/* file name to read */
+	const char	*name,		/* file name to read */
 	BOOL		readonly,	/* not modifiable if TRUE */
 	BOOL		create,		/* create if nonexistent if TRUE */
-	char		*title,		/* if nonzero, window title */
-	char		*helptag)	/* help tag */
+	const char	*title,		/* if nonzero, window title */
+	const char	*helptag)	/* help tag */
 {
 	FILE		*fp;		/* file to read */
 	long		size;		/* file size */
 	char		*text = NULL;	/* text read from file */
 	BOOL		writable;	/* have write permission for file? */
 
-	name = resolve_tilde(name, 0);
+	name = resolve_tilde((char *)name, 0); /* it's a file; better not have trailing / */
 	if (!title)
 		title = name;
 	if (access(name, F_OK)) {
+		const char *fn;
 		if (!create || readonly) {
 			create_error_popup(toplevel, errno,
 						"Cannot open %s", name);
@@ -344,8 +345,9 @@ void edit_file(
 		}
 		writable = TRUE;
 		create_edit_popup(title, 0, readonly, helptag);
+		fn = strrchr(name, '/');
 		print_button(w_name, "File %s (new file)",
-			(text = strrchr(name, '/')) ? text+1 : name);
+			     fn ? fn + 1 : name);
 	} else {
 		create = FALSE;
 		if (access(name, R_OK)) {
@@ -364,7 +366,7 @@ void edit_file(
 		size = ftell(fp);
 		rewind(fp);
 		if (size) {
-			if (!(text = malloc(size+1))) {
+			if (!(text = (char *)malloc(size+1))) {
 				create_error_popup(toplevel, errno,
 						"Cannot alloc %d bytes for %s",
 						size+1, name);
@@ -383,10 +385,12 @@ void edit_file(
 		create_edit_popup(title, text ? &text : 0,
 				readonly || !writable, helptag);
 		free(text);
-		if (!readonly)
+		if (!readonly) {
+			const char *fn = strrchr(name, '/');
 			print_button(w_name, "File %s %s",
-				(text = strrchr(name, '/')) ? text+1 : name,
+				fn ? fn+1 : name,
 				writable ? "" : "(read only)");
+		}
 	}
 	if (!readonly && writable)
 		sourcefile = mystrdup(name);

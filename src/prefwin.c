@@ -98,7 +98,7 @@ void destroy_preference_popup(void)
  * initialized with data from pref.
  */
 
-static struct flag { BOOL *value; char *text; } flags[] = {
+static const struct flag { BOOL *value; const char *text; } flags[] = {
 	{ &pref.ampm,		"12 hour mode (am/pm)"			},
 	{ &pref.mmddyy,		"Month/day/year mode"			},
 	{ &pref.query2search,	"Show query search expressions"		},
@@ -117,7 +117,7 @@ void create_preference_popup(void)
 	Arg			args[20];
 	int			n;
 	Atom			closewindow;
-	struct flag		*flag;
+	const struct flag	*flag;
 
 	destroy_preference_popup();
 
@@ -333,7 +333,7 @@ void create_preference_popup(void)
 			(XtCallbackProc)help_callback, (XtPointer)"pref");
 
 	XtPopup(shell, XtGrabNone);
-	closewindow = XmInternAtom(display, "WM_DELETE_WINDOW", False);
+	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
 	XmAddWMProtocolCallback(shell, closewindow,
 			(XtCallbackProc)done_callback, (XtPointer)0);
 	print_text_button_s(w_spoola,        pref.pspooler_a);
@@ -405,7 +405,7 @@ void write_preferences(void)
 	char		*path;		/* path of preferences file */
 	FILE		*fp;		/* preferences file */
 
-	path = resolve_tilde(PREFFILE, 0);
+	path = resolve_tilde((char *)PREFFILE, 0); /* PREFFILE has no final / */
 	if (!(fp = fopen(path, "w"))) {
 		create_error_popup(toplevel, errno,
 			"Failed to write to preferences file\n%s", path);
@@ -456,7 +456,7 @@ void read_preferences(void)
 	pref.pspooler_p	= mystrdup(PSPOOL_P);
 	pref.linelen	= 79;
 
-	path = resolve_tilde(PREFFILE, 0);
+	path = resolve_tilde((char *)PREFFILE, 0); /* PREFFILE has no final / */
 	if (!(fp = fopen(path, "r")))
 		return;
 	for (;;) {

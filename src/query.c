@@ -26,8 +26,8 @@
 		       (db)->currsect == (db)->row[r]->section)
 
 static BOOL alloc_query(CARD *, char **);
-static BOOL search_matches_card(CARD *, char *);
-static int expr_matches_card(CARD *, char *);
+static BOOL search_matches_card(CARD *, const char *);
+static int expr_matches_card(CARD *, const char *);
 
 
 /*
@@ -51,7 +51,7 @@ int match_card(
 	else {
 		if (*string == '/')
 			string++;
-		for (p=string, q=search, i=0; *p && i < sizeof(search)-1; i++)
+		for (p=string, q=search, i=0; *p && i < (int)sizeof(search)-1; i++)
 			*q++ = *p++ | 0x20;
 		*q = 0;
 		return(search_matches_card(card, search));
@@ -66,7 +66,7 @@ int match_card(
 void query_any(
 	Searchmode	mode,		/* search, narrow, widen, ... */
 	CARD		*card,		/* database and form */
-	char		*string)	/* query string */
+	const char	*string)	/* query string */
 {
 	if (!string || *string == '*' && !string[1])
 		query_all(card);
@@ -121,16 +121,17 @@ void query_all(
 void query_search(
 	Searchmode	mode,		/* search, narrow, widen, ... */
 	CARD		*card,		/* database and form */
-	char		*string)	/* string to search for */
+	const char	*string)	/* string to search for */
 {
 	int		i;		/* item counter */
 	char		*mask;		/* for skipping unselected cards */
 	char		search[1024];	/* lower-case search string */
-	register char	*p, *q;		/* copy and comparison pointers */
+	const char	*p;		/* copy and comparison pointers */
+	register char	*q;		/* copy and comparison pointers */
 
 	if (!alloc_query(card, &mask))
 		return;
-	for (p=string, q=search, i=0; *p && i < sizeof(search)-1; i++)
+	for (p=string, q=search, i=0; *p && i < (int)sizeof(search)-1; i++)
 		*q++ = *p++ | 0x20;
 	*q = 0;
 	if (mode == SM_SEARCH && pref.incremental)
@@ -230,7 +231,7 @@ void query_letter(
 void query_eval(
 	Searchmode	mode,		/* search, narrow, widen, ... */
 	CARD		*card,		/* database and form */
-	char		*expr)		/* expression to apply to dbase */
+	const char	*expr)		/* expression to apply to dbase */
 {
 	char		*mask;		/* for skipping unselected cards */
 	int		match;		/* to detect/skip errors */
@@ -291,7 +292,7 @@ static BOOL alloc_query(
 	if (mask) {
 		register int r;
 		*mask = 0;
-		if (card->query && (*mask = malloc(card->dbase->nrows))) {
+		if (card->query && (*mask = (char *)malloc(card->dbase->nrows))) {
 			(void)memset(*mask, 0, card->dbase->nrows);
 			for (r=0; r < card->nquery; r++)
 				(*mask)[card->query[r]] = 1;
@@ -318,12 +319,12 @@ static BOOL alloc_query(
 
 static BOOL search_matches_card(
 	CARD		*card,		/* database and form */
-	char		*search)	/* lowercased string to search for */
+	const char	*search)	/* lowercased string to search for */
 {
 	int		i;		/* item counter */
 	ITEM		*item;		/* item to check */
 	char		*data;		/* database string to test */
-	register char	*p, *q;		/* copy and comparison pointers */
+	const char	*p, *q;		/* copy and comparison pointers */
 
 	for (i=0; i < card->form->nitems; i++) {
 		item = card->form->items[i];
@@ -355,9 +356,9 @@ static BOOL search_matches_card(
 
 static int expr_matches_card(
 	CARD		*card,		/* database and form */
-	char		*expr)		/* expression to test */
+	const char	*expr)		/* expression to test */
 {
-	char		*val;		/* return from expression eval */
+	const char	*val;		/* return from expression eval */
 
 	if (!(val = evaluate(card, expr)))
 		return(-1);

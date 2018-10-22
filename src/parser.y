@@ -88,14 +88,14 @@ string	: STRING			{ $$ = $1; }
 	| '{' string '}'		{ $$ = $2; }
 	| string ';' string		{ $$ = $3; f_free($1); }
 	| string '.' string		{ char *s=$1, *t=$3, *r=
-					     malloc(f_len(s)+f_len(t)+1); *r=0;
+					     (char *)malloc(f_len(s)+f_len(t)+1); *r=0;
 					  if (s) strcpy(r, s); f_free(s);
 					  if (t) strcat(r, t); f_free(t);
 					  $$ = r; }
 	| VAR				{ $$ = getsvar($1); }
 	| VAR APP string		{ int v=$1;
 					  char *s=getsvar(v), *t=$3, *r=
-					     malloc(f_len(s)+f_len(t)+1); *r=0;
+					     (char *)malloc(f_len(s)+f_len(t)+1); *r=0;
 					  if (s) strcpy(r, s); f_free(s);
 					  if (t) strcat(r, t); f_free(t);
 					  $$ = setsvar(v, r); }
