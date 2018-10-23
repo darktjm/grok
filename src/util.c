@@ -329,8 +329,8 @@ static char *readbutton(
 	BOOL			noblanks)
 {
 	char			*string, *s;	/* contents of text widget */
-	static char		*buf;
-	static int		bufsize;
+	static char		*buf = 0;
+	static int		bufsize = 0;
 	int			size;
 
 	if (w) {
