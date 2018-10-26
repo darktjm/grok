@@ -409,7 +409,7 @@ static const char *eval_command(
 {
 	char		cmd[256];	/* extracted command word */
 	char		*p, *q;		/* for searching the command */
-	const char	*pc;
+	const char	*pc, *err;
 	struct forstack	*sp;		/* current foreach stack level */
 	int		i, nq, *qu;
 
@@ -519,9 +519,9 @@ static const char *eval_command(
 		cmd[1] = 0;
 		if(!pc)
 			return "error in expression";
-		while (cmd[0] = *q++)
-			if (pc = putstring(subst[(unsigned char)cmd[0]] ? subst[(unsigned char)cmd[0]] : cmd))
-				return(pc);
+		while (cmd[0] = *pc++)
+			if (err = putstring(subst[(unsigned char)cmd[0]] ? subst[(unsigned char)cmd[0]] : cmd))
+				return(err);
 	}
 	return(0);
 }
