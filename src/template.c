@@ -243,7 +243,7 @@ BOOL delete_template(
 #define ISOCTAL(c) ((c)>='0' && (c)<='7')
 #define NEST		10
 
-static const char html_subst[] = "<=&lt; >=&gt; &=&amp; \n=<BR>";
+static char html_subst[] = "<=&lt; >=&gt; &=&amp; \n=<BR>";
 static const char *eval_command(char *, BOOL *);
 static void backslash_subst(char *);
 static const char *putstring(const char *);
