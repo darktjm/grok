@@ -4,9 +4,10 @@
 "/* Former background:  global default background color */\n"
 "/* Note that setting this globally (using QWidget) causes strange behavior.*/\n"
 "/* QWidget { background-color: #a0a0a0; color: black; } */\n"
-"QMainWindow, QDialog, QMenu { background-color: #a0a0a0; color: black; }\n"
+"/* Even setting this for these few things makes things uugly, so just don't */\n"
+"/* QMainWindow, QDialog, QMenu { background-color: #a0a0a0; color: black; } */\n"
 "/* And menus in the default style no longer highlight */\n"
-"QMenu:selected, QMenu::tearoff:selected { background-color: black; color: #a0a0a0; }\n"
+"/* QMenu:selected, QMenu::tearoff:selected { background-color: black; color: #a0a0a0; } */\n"
 "/* Former colStd:  standard foreground */\n"
 /*   Foreground color of card next/prev pixmaps% */
 /*   Foreground color of help text */
@@ -19,7 +20,7 @@
 /*   Background of read-only text widgets in card form */
 "QLineEdit:read-only { background-color: #b4b4b4; color: black; }\n"
 "QTextEdit:read-only { background-color: #b4b4b4; color: black; }\n"
-"/* Former colSheet:  paper-line text scroll areas */\n"
+"/* Former colSheet:  paper-like text scroll areas */\n"
 /*   Background of help text */
 /*   Background of text editor text */
 "*[colSheet=\"true\"] { background-color: #f0f0f0; color: black; }\n"
@@ -117,4 +118,4 @@
 "/* Former labelFont - font used for charts */\n"
 "/* Note that charts don't have text right now, so this is unused. */\n"
 /*   Unused */
-"ChartQSS { font: 12px \"Helvetica\"; }\n"
+"GrokChart { font: 12px \"Helvetica\"; }\n"

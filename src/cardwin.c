@@ -137,6 +137,7 @@ CARD *create_card_menu(
 	}
 	if (ydiv < ys) {
 	    QFrame *f = new QFrame(wform);
+	    f->setAutoFillBackground(true);  // should be true already, but isn't?
 	    f->show(); // why is this needed?
 	    f->move(0, ydiv);
 	    f->resize(xs+6, ys-ydiv+6);

@@ -220,18 +220,18 @@ int main(
 	}
 	app->setStyleSheet(qss);
 
-	// FIXME: setfgcolor(white)
 	init_pixmaps();
 	read_preferences();
-	// FIXME: setfgcolor(color[COL_CANVBACK])
 
 	create_mainwindow();
 	mainwindow->show();
 
 	make_grokdir();
 
-	if (formname)
-		switch_form(formname);
+	// always do this, even if there is no form, so icon name and window
+	// size are set correctly
+	switch_form(formname);
+		
 	if (query) {
 		query_any(SM_SEARCH, curr_card, query);
 		create_summary_menu(curr_card);
@@ -318,6 +318,16 @@ static void init_pixmaps(void)
 {
 	int			p;
 
-	for (p=0; p < NPICS; p++)
-		pixmap[p].addPixmap(QBitmap::fromData(QSize(pix_width[p], pix_height[p]), pics[p]));
+	for (p=0; p < NPICS; p++) {
+		QBitmap m(QBitmap(QBitmap::fromData(
+				QSize(pix_width[p], pix_height[p]), pics[p])));
+		// it's not possible for a QBitmap to have a mask, so
+		// a pixmap must be used instead
+		QPixmap pm(m.size());
+		// FIXME: should be alterable via QSS
+		//        motif version used black, too, though
+		pm.fill(Qt::black);
+		pm.setMask(m);
+		pixmap[p] = QIcon(pm);
+	}
 }

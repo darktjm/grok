@@ -7,6 +7,7 @@
 
 #include "config.h"
 #include <unistd.h>
+#include <float.h>
 #include <stdlib.h>
 #include <QtWidgets>
 #include "grok.h"
@@ -28,8 +29,10 @@ static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
 static QDialog		*shell;		/* popup menu shell */
 static FORM		*form;		/* current form definition */
 int			curr_item;	/* current item, 0..form.nitems-1 */
+static QWidget		*scroll_w;	/* the widget inside the scroll area */
+static QFrame		*chart;		/* the widget for chart options */
 
-char			plan_code[] = "tlwWrecnmsSTA";	/* code 0x260..0x26c */
+const char		plan_code[] = "tlwWrecnmsSTA";	/* code 0x260..0x26c */
 
 
 #define ANY 0xfffe  // all except IT_NULL
@@ -107,11 +110,11 @@ static struct _template {
 	{ ANY, 'L',	 0,	"Internal field name:",	"fe_int",	},
 	{ ANY, 't',	0x204,	" ",			"fe_int",	},
 	{ BAS, 'L',	 0,	"Database column:",	"fe_column",	},
-	{ BAS, 't',	0x205,	" ",			"fe_column",	},
+	{ BAS, 'i',	0x205,	" ",			"fe_column",	},
 	{ BAS, 'L',	 0,	"Summary column:",	"fe_sum",	},
-	{ BAS, 't',	0x206,	" ",			"fe_sum",	},
+	{ BAS, 'i',	0x206,	" ",			"fe_sum",	},
 	{ BAS, 'l',	 0,	"Width in summary:",	"fe_sum",	},
-	{ BAS, 't',	0x207,	" ",			"fe_sum",	},
+	{ BAS, 'i',	0x207,	" ",			"fe_sum",	},
 	{ FLG, 'L',	 0,	"Choice/flag code:",	"fe_flag",	},
 	{ FLG, 't',	0x208,	" ",			"fe_flag",	},
 	{ FLG, 'l',	 0,	"shown in summary as",	"fe_flag",	},
@@ -153,7 +156,7 @@ static struct _template {
 	{ TXT, 'r',	0x218,	"HelvB",		"fe_ifont",	},
 	{ TXT, 'r',	0x219,	"Courier",		"fe_ifont",	},
 	{ ITX, 'L',	 0,	"Max input length:",	"fe_range",	},
-	{ ITX, 't',	0x21f,	" ",			"fe_range",	},
+	{ ITX, 'i',	0x21f,	" ",			"fe_range",	},
 	{ IDF, 'L',	 0,	"Input default:",	"fe_def",	},
 	{ IDF, 'T',	0x220,	" ",			"fe_def",	},
 	{ TXT, '-',	 0,	" ",			0,		},
@@ -196,23 +199,23 @@ static struct _template {
 	{ CHA, '-',	 0,	" ",			0,		},
 
 	{ CHA, 'L',	 0,	"Chart X range:",	"fe_chart",	},
-	{ CHA, 't',	0x280,	" ",			"fe_chart",	},
+	{ CHA, 'd',	0x280,	" ",			"fe_chart",	},
 	{ CHA, 'l',	 0,	"to",			"fe_chart",	},
-	{ CHA, 't',	0x281,	" ",			"fe_chart",	},
+	{ CHA, 'd',	0x281,	" ",			"fe_chart",	},
 	{   0, 'F',	 0, 	" ",			0,		},
 	{ CHA, 'f',	0x28c,	"automatic",		"fe_chart",	},
 	{ CHA, 'L',	 0,	"Chart Y range:",	"fe_chart",	},
-	{ CHA, 't',	0x282,	" ",			"fe_chart",	},
+	{ CHA, 'd',	0x282,	" ",			"fe_chart",	},
 	{ CHA, 'l',	 0,	"to",			"fe_chart",	},
-	{ CHA, 't',	0x283,	" ",			"fe_chart",	},
+	{ CHA, 'd',	0x283,	" ",			"fe_chart",	},
 	{   0, 'F',	 0, 	" ",			0,		},
 	{ CHA, 'f',	0x28d,	"automatic",		"fe_chart",	},
 	{ CHA, 'L',	 0,	"Chart XY grid every:",	"fe_chart",	},
-	{ CHA, 't',	0x284,	" ",			"fe_chart",	},
-	{ CHA, 't',	0x285,	" ",			"fe_chart",	},
+	{ CHA, 'd',	0x284,	" ",			"fe_chart",	},
+	{ CHA, 'd',	0x285,	" ",			"fe_chart",	},
 	{ CHA, 'L',	 0,	"Chart XY snap every:",	"fe_chart",	},
-	{ CHA, 't',	0x286,	" ",			"fe_chart",	},
-	{ CHA, 't',	0x287,	" ",			"fe_chart",	},
+	{ CHA, 'd',	0x286,	" ",			"fe_chart",	},
+	{ CHA, 'd',	0x287,	" ",			"fe_chart",	},
 	{ CHA, 'L',	 0,	"Chart component:",	0,		},
 	{ CHA, 'B',	0x290,	"Add",			"fe_chart",	},
 	{ CHA, 'B',	0x291,	"Delete",		"fe_chart",	},
@@ -246,11 +249,12 @@ static struct _template {
 	{ CHA, 'L',	 0,	" ",			"fe_chart",	},
 	{   0, 'R',	 0,	" ",			0,		},
 	{ CHA, 'r',	0x313,	"drag field",		"fe_chart",	},
-	{ CHA, 't',	0x315,	" ",			"fe_chart",	},
+        // FIXME:  this should probably be a combo box with field names
+	{ CHA, 'i',	0x315,	" ",			"fe_chart",	},
 	{ CHA, 'l',	 0,	"multiplied by",	"fe_chart",	},
-	{ CHA, 't',	0x316,	" ",			"fe_chart",	},
+	{ CHA, 'd',	0x316,	" ",			"fe_chart",	},
 	{ CHA, 'l',	 0,	"plus",			"fe_chart",	},
-	{ CHA, 't',	0x317,	" ",			"fe_chart",	},
+	{ CHA, 'd',	0x317,	" ",			"fe_chart",	},
 
 	{ CHA, 'L',	 0,	"Y position:",		"fe_chart",	},
 	{   0, 'R',	 0,	" ",			0,		},
@@ -265,11 +269,12 @@ static struct _template {
 	{ CHA, 'L',	 0,	" ",			"fe_chart",	},
 	{   0, 'R',	 0,	" ",			0,		},
 	{ CHA, 'r',	0x323,	"drag field",		"fe_chart",	},
-	{ CHA, 't',	0x325,	" ",			"fe_chart",	},
+        // FIXME:  this should probably be a combo box with field names
+	{ CHA, 'i',	0x325,	" ",			"fe_chart",	},
 	{ CHA, 'l',	 0,	"multiplied by",	"fe_chart",	},
-	{ CHA, 't',	0x326,	" ",			"fe_chart",	},
+	{ CHA, 'd',	0x326,	" ",			"fe_chart",	},
 	{ CHA, 'l',	 0,	"plus",			"fe_chart",	},
-	{ CHA, 't',	0x327,	" ",			"fe_chart",	},
+	{ CHA, 'd',	0x327,	" ",			"fe_chart",	},
 
 	{ CHA, 'L',	 0,	"X size:",		"fe_chart",	},
 	{   0, 'R',	 0,	" ",			0,		},
@@ -322,9 +327,8 @@ void create_formedit_window(
 	int			n, len, off;	/* width of first column */
 	QBoxLayout		*vform, *hform = 0;
 	QButtonGroup		*bg=0;
-	QFrame			*chart=0;
 	QScrollArea		*scroll=0;
-	QWidget			*w=0, *scroll_w=0;
+	QWidget			*w=0;
 	QVBoxLayout		*scroll_l, *chart_l;
 	long			t;
 
@@ -425,6 +429,24 @@ void create_formedit_window(
 			if (tp->type == 't')
 				w->setMinimumWidth(100);
 			break;
+		    case 'i': {
+			QSpinBox *sb = new QSpinBox;
+			hform->addWidget((w = sb));
+			sb->setMinimumWidth(100);
+			// FIXME:  What should the range be?
+			sb->setRange(0, 999);
+			break;
+		    }
+		    case 'd': {
+			QDoubleSpinBox *sb = new QDoubleSpinBox;
+			hform->addWidget((w = sb));
+			sb->setMinimumWidth(100);
+			// FIXME:  What should the range be?
+			sb->setRange(-DBL_MAX, DBL_MAX);
+			// FIXME:  Do I need to set decimals?  What's the default?
+			// sb->setDecimal(10);
+			break;
+		    }
 		    case 'F':
 		    case 'R':
 			{
@@ -501,6 +523,8 @@ void create_formedit_window(
 
 		if(tp->type == 't' || tp->type == 'T')
 			set_text_cb(w, formedit_callback(t));
+		else if(tp->type == 'i' || tp->type == 'd')
+			set_spin_cb(w, formedit_callback(t));
 		else if(tp->type == 'r' || tp->type == 'f' || tp->type == 'B')
 			set_button_cb(w, formedit_callback(t));
 
@@ -540,6 +564,11 @@ void sensitize_formedit(void)
 				tp->code == 0x113 ? item != 0 : true);
 			tp->widget->setVisible(tp->sensitive & mask);
 		}
+	// Without explicit adjustSize(), there are huge gaps in form
+	if(chart->isVisible())
+		chart->adjustSize();
+	scroll_w->adjustSize();
+	
 }
 
 
@@ -578,6 +607,8 @@ void fillout_formedit_widget_by_code(
 		}
 }
 
+#define set_sb_value(w, v) dynamic_cast<QSpinBox *>(w)->setValue(v)
+#define set_dsb_value(w, v) dynamic_cast<QDoubleSpinBox *>(w)->setValue(v)
 
 static void fillout_formedit_widget(
 	struct _template	*tp)
@@ -590,7 +621,7 @@ static void fillout_formedit_widget(
 	if (tp->code < 0x100 || tp->code > 0x107) {
 		if (!form->items || curr_item >= form->nitems ||
 		    !(tp->sensitive & (1 << form->items[curr_item]->type))) {
-			if (tp->type == 'T' || tp->type == 't')
+			if (tp->type == 'T' || tp->type == 't' || tp->type == 'i' || tp->type == 'd')
 				print_text_button_s(w, "");
 			return;
 		}
@@ -666,10 +697,10 @@ static void fillout_formedit_widget(
 		      sensitize_formedit();
 		      break;
 
-	  case 0x21f: print_text_button(w, "%d", item->maxlen);		break;
-	  case 0x206: print_text_button(w, "%d", item->sumcol);		break;
-	  case 0x207: print_text_button(w, "%d", item->sumwidth);	break;
-	  case 0x205: print_text_button(w, "%d", item->column);		break;
+	  case 0x21f: set_sb_value(w, item->maxlen);			break;
+	  case 0x206: set_sb_value(w, item->sumcol);			break;
+	  case 0x207: set_sb_value(w, item->sumwidth);			break;
+	  case 0x205: set_sb_value(w, item->column);			break;
 	  case 0x204: print_text_button_s(w, item->name);		break;
 	  case 0x208: print_text_button_s(w, item->flagcode);		break;
 	  case 0x236: print_text_button_s(w, item->flagtext);		break;
@@ -685,14 +716,14 @@ static void fillout_formedit_widget(
 	  case 0x227: print_text_button_s(w, item->added);		break;
 	  case 0x228: print_text_button_s(w, form->planquery);		break;
 
-	  case 0x280: print_text_button(w, "%g", item->ch_xmin);	break;
-	  case 0x281: print_text_button(w, "%g", item->ch_xmax);	break;
-	  case 0x282: print_text_button(w, "%g", item->ch_ymin);	break;
-	  case 0x283: print_text_button(w, "%g", item->ch_ymax);	break;
-	  case 0x284: print_text_button(w, "%g", item->ch_xgrid);	break;
-	  case 0x285: print_text_button(w, "%g", item->ch_ygrid);	break;
-	  case 0x286: print_text_button(w, "%g", item->ch_xsnap);	break;
-	  case 0x287: print_text_button(w, "%g", item->ch_ysnap);	break;
+	  case 0x280: set_dsb_value(w, item->ch_xmin);			break;
+	  case 0x281: set_dsb_value(w, item->ch_xmax);			break;
+	  case 0x282: set_dsb_value(w, item->ch_ymin);			break;
+	  case 0x283: set_dsb_value(w, item->ch_ymax);			break;
+	  case 0x284: set_dsb_value(w, item->ch_xgrid);			break;
+	  case 0x285: set_dsb_value(w, item->ch_ygrid);			break;
+	  case 0x286: set_dsb_value(w, item->ch_xsnap);			break;
+	  case 0x287: set_dsb_value(w, item->ch_ysnap);			break;
 	  case 0x28c: set_toggle(w, item->ch_xauto);			break;
 	  case 0x28d: set_toggle(w, item->ch_yauto);			break;
 	  case 0x294: print_button(w, item->ch_ncomp ? "%d of %d" : "none",
@@ -710,18 +741,18 @@ static void fillout_formedit_widget(
 	  case 0x312: set_toggle(w, chart->value[0].mode == CC_EXPR);	break;
 	  case 0x313: set_toggle(w, chart->value[0].mode == CC_DRAG);	break;
 	  case 0x314: print_text_button_s(w, chart->value[0].expr);	break;
-	  case 0x315: print_text_button(w, "%d", chart->value[0].field);break;
-	  case 0x316: print_text_button(w, "%g", chart->value[0].mul);	break;
-	  case 0x317: print_text_button(w, "%g", chart->value[0].add);	break;
+	  case 0x315: set_sb_value(w, chart->value[0].field);		break;
+	  case 0x316: set_dsb_value(w, chart->value[0].mul);		break;
+	  case 0x317: set_dsb_value(w, chart->value[0].add);		break;
 
 	  case 0x320: set_toggle(w, chart->value[1].mode == CC_NEXT);	break;
 	  case 0x321: set_toggle(w, chart->value[1].mode == CC_SAME);	break;
 	  case 0x322: set_toggle(w, chart->value[1].mode == CC_EXPR);	break;
 	  case 0x323: set_toggle(w, chart->value[1].mode == CC_DRAG);	break;
 	  case 0x324: print_text_button_s(w, chart->value[1].expr);	break;
-	  case 0x325: print_text_button(w, "%d", chart->value[1].field);break;
-	  case 0x326: print_text_button(w, "%g", chart->value[1].mul);	break;
-	  case 0x327: print_text_button(w, "%g", chart->value[1].add);	break;
+	  case 0x325: set_sb_value(w, chart->value[1].field);		break;
+	  case 0x326: set_dsb_value(w, chart->value[1].mul);		break;
+	  case 0x327: set_dsb_value(w, chart->value[1].add);		break;
 
 	  case 0x332: set_toggle(w, chart->value[2].mode == CC_EXPR);	break;
 	  case 0x334: print_text_button_s(w, chart->value[2].expr);	break;
@@ -768,7 +799,7 @@ void readback_formedit(void)
 
 	if (curr_item < form->nitems)
 		for (t=0, tp=tmpl; tp->type; tp++, t++)
-			if (tp->type == 'T' || tp->type == 't')
+			if (tp->type == 'T' || tp->type == 't' || tp->type == 'i' || tp->type == 'd')
 				(void)readback_item(t);
 }
 
@@ -789,6 +820,9 @@ static void cancel_callback(void)
 	free((void *)form);
 	form = 0;
 }
+
+#define get_sb_value(w) dynamic_cast<QSpinBox *>(w)->value()
+#define get_dsb_value(w) dynamic_cast<QDoubleSpinBox *>(w)->value()
 
 static int readback_item(
 	int			indx)
@@ -988,10 +1022,10 @@ static int readback_item(
 	  case 0x20b: item->timefmt = T_DATETIME;	all = TRUE;	break;
 	  case 0x20c: item->timefmt = T_DURATION;	all = TRUE;	break;
 
-	  case 0x21f: item->maxlen   = atoi(read_text_button(w, 0));	break;
-	  case 0x206: item->sumcol   = atoi(read_text_button(w, 0));	break;
-	  case 0x207: item->sumwidth = atoi(read_text_button(w, 0));	break;
-	  case 0x205: item->column   = atoi(read_text_button(w, 0));	break;
+	  case 0x21f: item->maxlen   = get_sb_value(w);			break;
+	  case 0x206: item->sumcol   = get_sb_value(w);			break;
+	  case 0x207: item->sumwidth = get_sb_value(w);			break;
+	  case 0x205: item->column   = get_sb_value(w);			break;
 	  case 0x204: (void)read_text_button(w, &item->name);		break;
 	  case 0x208: (void)read_text_button(w, &item->flagcode);	break;
 	  case 0x236: (void)read_text_button(w, &item->flagtext);	break;
@@ -1007,14 +1041,14 @@ static int readback_item(
 	  case 0x227: (void)read_text_button(w, &item->added);		break;
 	  case 0x228: (void)read_text_button(w, &form->planquery);	break;
 
-	  case 0x280: item->ch_xmin   = atof(read_text_button(w, 0));	break;
-	  case 0x281: item->ch_xmax   = atof(read_text_button(w, 0));	break;
-	  case 0x282: item->ch_ymin   = atof(read_text_button(w, 0));	break;
-	  case 0x283: item->ch_ymax   = atof(read_text_button(w, 0));	break;
-	  case 0x284: item->ch_xgrid  = atof(read_text_button(w, 0));	break;
-	  case 0x285: item->ch_ygrid  = atof(read_text_button(w, 0));	break;
-	  case 0x286: item->ch_xsnap  = atof(read_text_button(w, 0));	break;
-	  case 0x287: item->ch_ysnap  = atof(read_text_button(w, 0));	break;
+	  case 0x280: item->ch_xmin   = get_dsb_value(w);			break;
+	  case 0x281: item->ch_xmax   = get_dsb_value(w);			break;
+	  case 0x282: item->ch_ymin   = get_dsb_value(w);			break;
+	  case 0x283: item->ch_ymax   = get_dsb_value(w);			break;
+	  case 0x284: item->ch_xgrid  = get_dsb_value(w);			break;
+	  case 0x285: item->ch_ygrid  = get_dsb_value(w);			break;
+	  case 0x286: item->ch_xsnap  = get_dsb_value(w);			break;
+	  case 0x287: item->ch_ysnap  = get_dsb_value(w);			break;
 	  case 0x28c: item->ch_xauto ^= TRUE;				break;
 	  case 0x28d: item->ch_yauto ^= TRUE;				break;
 
@@ -1036,18 +1070,18 @@ static int readback_item(
 	  case 0x312: chart->value[0].mode = CC_EXPR;			break;
 	  case 0x313: chart->value[0].mode = CC_DRAG;			break;
 	  case 0x314: (void)read_text_button(w, &chart->value[0].expr);	break;
-	  case 0x315: chart->value[0].field=atof(read_text_button(w,0));break;
-	  case 0x316: chart->value[0].mul= atof(read_text_button(w, 0));break;
-	  case 0x317: chart->value[0].add= atof(read_text_button(w, 0));break;
+	  case 0x315: chart->value[0].field=get_sb_value(w);		break;
+	  case 0x316: chart->value[0].mul= get_dsb_value(w);		break;
+	  case 0x317: chart->value[0].add= get_dsb_value(w);		break;
 
 	  case 0x320: chart->value[1].mode = CC_NEXT;			break;
 	  case 0x321: chart->value[1].mode = CC_SAME;			break;
 	  case 0x322: chart->value[1].mode = CC_EXPR;			break;
 	  case 0x323: chart->value[1].mode = CC_DRAG;			break;
 	  case 0x324: (void)read_text_button(w, &chart->value[1].expr);	break;
-	  case 0x325: chart->value[1].field=atof(read_text_button(w,0));break;
-	  case 0x326: chart->value[1].mul= atof(read_text_button(w, 0));break;
-	  case 0x327: chart->value[1].add= atof(read_text_button(w, 0));break;
+	  case 0x325: chart->value[1].field=get_sb_value(w);		break;
+	  case 0x326: chart->value[1].mul= get_dsb_value(w);		break;
+	  case 0x327: chart->value[1].add= get_dsb_value(w);		break;
 
 	  case 0x332: chart->value[2].mode = CC_EXPR;			break;
 	  case 0x334: (void)read_text_button(w, &chart->value[2].expr);	break;
@@ -1055,9 +1089,9 @@ static int readback_item(
 	  case 0x342: chart->value[3].mode = CC_EXPR;			break;
 	  case 0x343: chart->value[3].mode = CC_DRAG;			break;
 	  case 0x344: (void)read_text_button(w, &chart->value[3].expr);	break;
-	  case 0x345: chart->value[3].field=atof(read_text_button(w,0));break;
-	  case 0x346: chart->value[3].mul= atof(read_text_button(w, 0));break;
-	  case 0x347: chart->value[3].add= atof(read_text_button(w, 0));break;
+	  case 0x345: chart->value[3].field=get_sb_value(w);		break;
+	  case 0x346: chart->value[3].mul= get_dsb_value(w);		break;
+	  case 0x347: chart->value[3].add= get_dsb_value(w);		break;
 	}
 
 	/*

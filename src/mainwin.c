@@ -129,6 +129,7 @@ void create_mainwindow()
 	menu->addAction("&Save", [=](){file_pulldown(6);},
 			QKeySequence("Ctrl+S"));
 	menu->addAction("&Quit", [=](){file_pulldown(7);},
+			// FIXME:  Qt is ignoring Ctrl+Q
 			QKeySequence("Ctrl+Q"));
 	menu->addAction("Rambo Quit", [=](){file_pulldown(8);});
 	
@@ -244,6 +245,7 @@ void create_mainwindow()
 	// support non-button widgets (like the section selector)
 	QHBoxLayout *bb = new QHBoxLayout;
 	add_layout_qss(bb, NULL);
+
 	bb->addWidget(w_left = new QPushButton(pixmap[PIC_LEFT], ""), dbbr(Action));
 	w_left->resize(30, 30);
 	w_left->setEnabled(false);
@@ -305,8 +307,8 @@ void create_mainwindow()
 	 }
 	}
 							/*-- card --*/
-	// this isn't really necessary
-	// mainform->addWidget(mk_separator());
+	// this isn't really necessary, since the card is in a frame
+	mainform->addWidget(mk_separator());
 	w_card = new QWidget;
 	w_card->resize(400, 6);
 	w_card->setObjectName("cardform");
@@ -349,7 +351,13 @@ void resize_mainwindow(void)
 	if (win_xs > xs) xs = win_xs;
 	mainwindow->resize(xs + 2*2 + 2*16, win_ys + ys + 2*3);
 #else
+	// FIXME: window moves -- saving & restoring position doesn't help
+	QPoint pos(mainwindow->pos());
 	mainwindow->adjustSize();
+	mainwindow->move(pos);
+	// FIXME: window is too wide -- setting to "minimum size" doesn't work
+	//mainwindow->resize(mainwindow->minimumSize());
+	mainwindow->resize(mainwindow->minimumSize());
 #endif
 }
 

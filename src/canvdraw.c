@@ -413,10 +413,6 @@ void redraw_canvas(void)
 	shell->update();
 }
 
-#define setcolor(c) do { \
-    painter.setPen(c); \
-    painter.setBrush(QBrush(c, Qt::SolidPattern)); \
-} while(0)
 #define fillrect(x, y, w, h) painter.fillRect(x, y, w, h, QBrush(painter.pen().color(), Qt::SolidPattern))
 
 void GrokCanvas::paintEvent(QPaintEvent *e)

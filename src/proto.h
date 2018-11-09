@@ -265,7 +265,7 @@ void fillout_formedit_widget_by_code(
 void readback_formedit(void);
 
 extern int		curr_item;	/* current item, 0..form.nitems-1 */
-extern char		plan_code[];	/* code 0x260..0x26c */
+extern const char	plan_code[];	/* code 0x260..0x26c */
 
 /*---------------------------------------- help.c ------------*/
 

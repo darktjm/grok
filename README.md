@@ -1,29 +1,41 @@
 Graphical Resource Organizer Kit
 ================================
 
-This is an old Motif-based generic personal database application.  My
-first introduction to the concept came from [Fiasco on the Amiga](
+This is a generic personal database application.  My first
+introduction to the concept came from [Fiasco on the Amiga](
 http://aminet.net/search?name=fiasco), even though it's likely grok
 came first.  Unlike Fiasco, grok is for UNIX, and is also free
 software.  Since I actually implemented a database using it, I have
 verified that it works with OpenMotif 2.3.8 on Linux.  I make no
 guarantees for any other target.  I have adequately addressed (but not
-fully fixed) a few bugs I found.  That's what this repository is: the
-last official release of grok I know of ([xmbase_grok 1.5 from 23 May
-2001](
-ftp://ftp.fu-berlin.de/pub/unix/graphics/grok/xmbase_grok-1.5.tar.gz))
-with a few extra fixes (I have taken the liberty to update the version
-to 1.5.1).  See the original README below for information on the
-original and its author (who no longer acknowledges its existence on
-his own site); I take no credit for this application.  I am working on
-a similar application that works a little differently, but I thought
-I'd release this now that it's usable.
+fully fixed) a few bugs I found.  You can obtain the last Motif
+version I created of this application at
 
-Since the time I wrote the above, I have made no progress on my own
-application, so I have instead decided to make more substantial
-changes to grok.  See TODO.md.  Among other things, the move to Qt5
-now depends on Qt5 (tested with 5.11) instead of Motif (obviously) and
-has different build instructions:
+> <https://bitbucket.org/darktjm/grok/get/xmbase_grok-1.5.1.tar.bz2>
+
+This is the last official release of grok I know of ([xmbase_grok 1.5
+from 23 May 2001](
+ftp://ftp.fu-berlin.de/pub/unix/graphics/grok/xmbase_grok-1.5.tar.gz))
+with a few extra fixes (and I have taken the liberty to update the
+version to 1.5.1).  See the original README below for information on
+the original and its author (who no longer acknowledges its existence
+on his own site); I take no credit for this application.
+
+I was working on my own, similar application (inspired mostly by
+Fiasco and a generic HTML-based database access program I wrote and
+maintained for a commercial entity around the same time these two
+projects died), but have made no progress.  Instead, I decided to make
+more substantial changes to grok.  For one, I have changed the GUI
+toolkit from Motif to Qt.  This makes the "xm" part of the name no
+longer relevant, and the binary name never changed, anyway, so I've
+renamed it back to grok.  I will release a tarball (tentatively named
+1.6, although I might change that to 2.0 by the time I'm ready) when
+most of what I consider critical bugs have been fixed.  See TODO.md
+for what I have planned.
+
+Among other things, the move to Qt5 now depends on Qt5 (tested with
+5.11.2) instead of Motif (obviously) and has different build
+instructions:
 
 >     cd src; qmake && make && sudo make install
 
@@ -36,12 +48,13 @@ generating a package), use `INSTALL_TARGET` instead of the traditional
 All of my modifications to this source, as represented by the SCM
 changes at <https://bitbucket.org/darktjm/grok/> are granted to the
 public domain. Keep in mind that the original author may not
-appreciate email about this version.  Once the TODO.md list has been
-pared down a bit, I will shorten and reformat to be more like the
-original documentation.
+appreciate email about this version; instead, post issues at
+<https://bitbucket.org/darktjm/grok/issues>.  Once the TODO.md list has
+been pared down a bit, I will shorten and reformat this document to be
+more like the original.
 
 I have decided to include the orignal README verbatim (with formatting
-changes to support markdown) below.
+changes to support markdown) below:
 
 xmbase-grok - Graphical Resource Organizer Kit
 ----------------------------------------------
@@ -142,8 +155,8 @@ There are no implied or expressed warranties for grok. I do not claim it
 is good for anything whatsoever, and if you lose your precious data or
 your cat dies this is entirely your problem.
 
-Note:  as per the license, I hereby notify all who read this that I,
-Thomas J. Moore, have made changes to this distribution, in the form
-of minor bug fixes.  I don't really feel like trying to report them
-upstream, given that the author's primary web site has no mention of
-grok any more.
+Note: as per the license, I hereby notify all who read this that I,
+Thomas J. Moore, have made changes to this distribution; see the
+HISTORY file for details.  I don't really feel like trying to report
+the bug fixes upstream, given that the author's primary web site has
+no mention of grok any more.
