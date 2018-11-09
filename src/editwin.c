@@ -10,37 +10,28 @@
  */
 
 #include "config.h"
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <Xm/Xm.h>
-#include <Xm/DialogS.h>
-#include <Xm/Form.h>
-#include <Xm/LabelP.h>
-#include <Xm/LabelG.h>
-#include <Xm/PushBP.h>
-#include <Xm/PushBG.h>
-#include <Xm/ScrolledW.h>
-#include <Xm/Text.h>
-#include <Xm/Protocols.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
 
-static void done_callback   (Widget, int, XmToggleButtonCallbackStruct *);
-static void cancel_callback (Widget, int, XmToggleButtonCallbackStruct *);
-static void delete_callback (Widget, int, XmToggleButtonCallbackStruct *);
-static void clear_callback  (Widget, int, XmToggleButtonCallbackStruct *);
+static void done_callback   (void);
+static void cancel_callback (void);
+static void delete_callback (void);
+static void clear_callback  (void);
 
 static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
 static char		**source;	/* ptr to string ptr of default */
 static char		*sourcefile;	/* if nonzero, file to write back to */
-static Widget		shell;		/* popup menu shell */
-static Widget		text;		/* text widget */
-Widget			w_name;		/* filename text between buttons */
+static QDialog		*shell;		/* popup menu shell */
+static QTextEdit	*text;		/* text widget */
+static QLabel		*w_name;	/* filename text between buttons */
 
 
 /*
@@ -63,29 +54,31 @@ void destroy_edit_popup(void)
 		if (!(fp = fopen(name = sourcefile, "w"))) {
 			int e = errno;
 			fp = fopen(name = "/tmp/grokback", "w");
-			create_error_popup(toplevel, e, fp
+			create_error_popup(mainwindow, e, fp
 				? "Failed to create file %s, wrote to %s"
 				: "Failed to create file %s or backup file %s",
 							sourcefile, name);
 			if (!fp)
 				return;
 		}
-		string = XmTextGetString(text);
+		string = 0;
+		read_text_button(text, &string);
 		if (!string || !*string) {
 			fclose(fp);
 			unlink(name);
 
 		} else if (fwrite(string, strlen(string), 1, fp) != 1) {
-			create_error_popup(toplevel, errno,
+			create_error_popup(mainwindow, errno,
 					"Failed to write to file %s", name);
 			fclose(fp);
-			XtFree(string);
+			free(string);
 			return;
 		} else
 			fclose(fp);
-		XtFree(string);
+		free(string);
+		// FIXME: this shouldn't be done for templates
 		if (chmod(name, 0700))
-			create_error_popup(toplevel, errno,
+			create_error_popup(mainwindow, errno,
 			 "Failed to chmod 700 %s\nThe file is not executable.",
 								name);
 		free(sourcefile);
@@ -94,13 +87,15 @@ void destroy_edit_popup(void)
 	} else if (source) {
 		if (*source)
 			free(*source);
-		string = XmTextGetString(text);
-		*source = *string ? mystrdup(string) : 0;
-		XtFree(string);
+		string = 0;
+		read_text_button(text, &string);
+		*source = string && *string ? string : 0;
+		if(string && !*string)
+			free(string);
 		source = 0;
 	}
-	XtPopdown(shell);
-	XtDestroyWidget(shell);
+	shell->hide();
+	delete shell;
 	have_shell = FALSE;
 }
 
@@ -115,141 +110,71 @@ void create_edit_popup(
 	BOOL			readonly,	/* not modifiable if TRUE */
 	const char		*helptag)	/* help tag */
 {
-	Widget			form, but=0, w, help;
-	Arg			args[20];
-	int			n;
-	Atom			closewindow;
+	QBoxLayout		*form, *buttons = 0;
+	QPushButton		*but=0;
 
 	destroy_edit_popup();
 
-	n = 0;
-	XtSetArg(args[n], XmNdeleteResponse,	XmDO_NOTHING);		n++;
-	XtSetArg(args[n], XmNiconic,		False);			n++;
-	shell = XtAppCreateShell(title, "Grok",
-			applicationShellWidgetClass, display, args, n);
+	// The proper way to ignore delete is to override QWindow::closeEvent()
+	// Instead, I'll do nothing.  It makes more sense to issue a reject
+	// (the default behavior), anyway - tjm
+	shell = new QDialog;
+	shell->setWindowTitle(title);
 	set_icon(shell, 1);
-	form = XtCreateManagedWidget("editform", xmFormWidgetClass,
-			shell, NULL, 0);
-	XtAddCallback(form, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)helptag);
+	form = new QVBoxLayout(shell);
+	add_layout_qss(form, "editform");
+	bind_help(shell, helptag);
 
-							/*-- buttons --*/
+							/*-- left buttons --*/
+	buttons = new QHBoxLayout; // QDialogButtonBox is only buttons
+	add_layout_qss(buttons, NULL);
 	if (!readonly) {
-	  n = 0;
-	  XtSetArg(args[n], XmNbottomAttachment,XmATTACH_FORM);		n++;
-	  XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	  XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	  XtSetArg(args[n], XmNleftOffset,	8);			n++;
-	  XtSetArg(args[n], XmNwidth,		80);			n++;
-	  XtSetArg(args[n], XmNtraversalOn,	False);			n++;
-	  but = XtCreateManagedWidget("Delete", xmPushButtonWidgetClass,
-			form, args, n);
-	  XtAddCallback(but, XmNactivateCallback,
-	  		(XtCallbackProc)delete_callback, (XtPointer)0);
-	  XtAddCallback(but, XmNhelpCallback,
-	  		(XtCallbackProc)help_callback,(XtPointer)"msg_delete");
-
-	  n = 0;
-	  XtSetArg(args[n], XmNbottomAttachment,XmATTACH_FORM);		n++;
-	  XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	  XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);	n++;
-	  XtSetArg(args[n], XmNleftWidget,	but);			n++;
-	  XtSetArg(args[n], XmNleftOffset,	8);			n++;
-	  XtSetArg(args[n], XmNwidth,		80);			n++;
-	  XtSetArg(args[n], XmNtraversalOn,	False);			n++;
-	  but = XtCreateManagedWidget("Clear", xmPushButtonWidgetClass,
-			form, args, n);
-	  XtAddCallback(but, XmNactivateCallback,
-	  		(XtCallbackProc)clear_callback, (XtPointer)0);
-	  XtAddCallback(but, XmNhelpCallback,
-	  		(XtCallbackProc)help_callback, (XtPointer)"msg_clear");
+		buttons->addWidget((but = mk_button(NULL, "Delete")));
+		but->setFocusPolicy(Qt::ClickFocus);
+		set_button_cb(but, delete_callback());
+		bind_help(but, "msg_delete");
+		buttons->addWidget((but = mk_button(NULL, "Clear")));
+		but->setFocusPolicy(Qt::ClickFocus);
+		set_button_cb(but, clear_callback());
+		bind_help(but, "msg_clear");
 	}
-	n = 0;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		80);			n++;
-	w = help = XtCreateManagedWidget("Help", xmPushButtonWidgetClass,
-			form, args, n);
-	XtAddCallback(help, XmNactivateCallback,
-			(XtCallbackProc)help_callback, (XtPointer)helptag);
-	if (!readonly) {
-	  n = 0;
-	  XtSetArg(args[n], XmNbottomAttachment,XmATTACH_FORM);		n++;
-	  XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	  XtSetArg(args[n], XmNrightAttachment,	XmATTACH_WIDGET);	n++;
-	  XtSetArg(args[n], XmNrightWidget,	w);			n++;
-	  XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	  XtSetArg(args[n], XmNwidth,		80);			n++;
-	  w = XtCreateManagedWidget("Cancel", xmPushButtonWidgetClass,
-	 		 form, args, n);
-	  XtAddCallback(w, XmNactivateCallback,
-	  		(XtCallbackProc)cancel_callback, (XtPointer)0);
-	  XtAddCallback(w, XmNhelpCallback,
-	  		(XtCallbackProc)help_callback,(XtPointer)"msg_cancel");
-	}
-	n = 0;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNrightWidget,	w);			n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		80);			n++;
-	w = XtCreateManagedWidget(readonly ? "Done" : "Save",
-			xmPushButtonWidgetClass, form, args, n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)done_callback, (XtPointer)0);
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"msg_done");
-
 							/*-- filename --*/
-	n = 0;
-	if (but) {
-	  XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);	n++;
-	  XtSetArg(args[n], XmNleftWidget,	but);			n++;
-	} else {
-	  XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
+	w_name = new QLabel;
+	buttons->addStretch(1);
+	buttons->addWidget(w_name);
+	buttons->addStretch(1);
+	
+							/*-- right buttons --*/
+	but = mk_button(NULL, readonly ? "Done" : "Save");
+	buttons->addWidget(but);
+	set_button_cb(but, done_callback());
+	bind_help(but, "msg_done");
+	if (!readonly) {
+		but = mk_button(NULL, NULL, dbbb(Cancel));
+		buttons->addWidget(but);
+		set_button_cb(but, cancel_callback());
+		bind_help(but, "msg_cancel");
 	}
-	XtSetArg(args[n], XmNleftOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNrightWidget,	w);			n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	w_name = XtCreateManagedWidget(" ", xmLabelWidgetClass,
-			form, args, n);
-							/*-- text --*/
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNbottomWidget,	help);			n++;
-	XtSetArg(args[n], XmNbottomOffset,	16);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNhighlightThickness,0);			n++;
-	XtSetArg(args[n], XmNeditMode,		XmMULTI_LINE_EDIT);	n++;
-	XtSetArg(args[n], XmNcolumns,		80);			n++;
-	XtSetArg(args[n], XmNrows,		24);			n++;
-	XtSetArg(args[n], XmNscrollVertical,	True);			n++;
-	XtSetArg(args[n], XmNpendingDelete,	False);			n++;
-	XtSetArg(args[n], XmNeditable,		!readonly);		n++;
-	XtSetArg(args[n], XmNfontList,		fontlist[FONT_COURIER]);n++;
-	text = XmCreateScrolledText(form, (char *)"text", args, n);
-	if (initial && *initial) {
-		XmTextSetString(text, *initial);
-		XmTextSetInsertionPosition(text, strlen(*initial));
-	}
-	XtVaSetValues(text, XmNbackground, color[COL_SHEET], NULL);
-	XtManageChild(text);
+	but = mk_button(NULL, NULL, dbbb(Help));
+	buttons->addWidget(but);
+	set_button_cb(but, help_callback(shell, helptag));
 
-	XtPopup(shell, XtGrabNone);
-	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
-	XmAddWMProtocolCallback(shell, closewindow,
-			(XtCallbackProc)done_callback, (XtPointer)shell);
+							/*-- text --*/
+	text = new QTextEdit;
+	form->addWidget(text);
+	text->resize(80, 24);
+	text->setReadOnly(readonly);
+	text->setProperty("courierFont", true);
+	text->setLineWrapMode(QTextEdit::NoWrap);
+	if (initial && *initial)
+		print_text_button_s(text, *initial);
+	text->setProperty("colSheet", true);
+
+	form->addLayout(buttons);
+
+	popup_nonmodal(shell);
+
+	set_dialog_cancel_cb(shell, done_callback());
 	have_shell = TRUE;
 	source = readonly ? 0 : initial;
 }
@@ -260,11 +185,7 @@ void create_edit_popup(
  * All of these routines are direct X callbacks.
  */
 
-/*ARGSUSED*/
-static void done_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+static void done_callback(void)
 {
 	destroy_edit_popup();
 }
@@ -281,36 +202,23 @@ static void discard(void)
 	destroy_edit_popup();
 }
 
-/*ARGSUSED*/
-static void cancel_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+static void cancel_callback(void)
 {
-	create_query_popup(widget, discard, "msg_discard",
+	create_query_popup(shell, discard, "msg_discard",
 		"Press OK to confirm discarding\nall changes to the text");
 }
 
 
-/*ARGSUSED*/
-static void delete_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+static void delete_callback(void)
 {
-	XmTextSetString(text, (char *)"");
+	print_text_button_s(text, "");
 	destroy_edit_popup();
 }
 
 
-/*ARGSUSED*/
-static void clear_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+static void clear_callback(void)
 {
-	XmTextSetString(text, (char *)"");
-	XmTextSetInsertionPosition(text, 0);
+	print_text_button_s(text, "");
 }
 
 
@@ -339,7 +247,7 @@ void edit_file(
 	if (access(name, F_OK)) {
 		const char *fn;
 		if (!create || readonly) {
-			create_error_popup(toplevel, errno,
+			create_error_popup(mainwindow, errno,
 						"Cannot open %s", name);
 			return;
 		}
@@ -351,14 +259,14 @@ void edit_file(
 	} else {
 		create = FALSE;
 		if (access(name, R_OK)) {
-			create_error_popup(toplevel, errno,
+			create_error_popup(mainwindow, errno,
 						"Cannot read %s", name);
 			return;
 		}
 		writable = !access(name, W_OK);
 
 		if (!(fp = fopen(name, "r"))) {
-			create_error_popup(toplevel, errno,
+			create_error_popup(mainwindow, errno,
 						"Cannot read %s", name);
 			return;
 		}
@@ -367,14 +275,14 @@ void edit_file(
 		rewind(fp);
 		if (size) {
 			if (!(text = (char *)malloc(size+1))) {
-				create_error_popup(toplevel, errno,
+				create_error_popup(mainwindow, errno,
 						"Cannot alloc %d bytes for %s",
 						size+1, name);
 				fclose(fp);
 				return;
 			}
 			if (fread(text, size, 1, fp) != 1) {
-				create_error_popup(toplevel, errno,
+				create_error_popup(mainwindow, errno,
 						"Cannot read %s", name);
 				fclose(fp);
 				return;

@@ -10,13 +10,13 @@
  *	dbase_sort(dbase,c,rev)		sort database by column c
  */
 
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <sys/stat.h>
-#include <Xm/Xm.h>
+#include <QtWidgets>
 #include "config.h"
 
 #if defined(GROK) || defined(PLANGROK)

@@ -12,13 +12,12 @@
 #else
 #include <dirent.h>
 #endif
-#include <X11/Xos.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h> /* mkdir */
 #include <errno.h>
-#include <Xm/Xm.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
@@ -174,7 +173,7 @@ const char *exec_template(
  */
 
 char *copy_template(
-	Widget		shell,		/* export window widget */
+	QWidget		*shell,		/* export window widget */
 	char		*tar,		/* target template name */
 	int		seq,		/* source template number */
 	CARD		*card)		/* need this for form name */
@@ -214,7 +213,7 @@ char *copy_template(
  */
 
 BOOL delete_template(
-	Widget		shell,		/* export window widget */
+	QWidget		*shell,		/* export window widget */
 	int		seq,		/* template to delete, >= NBUILTINS */
 	CARD		*card)		/* need this for form name */
 {
@@ -544,6 +543,9 @@ const char *substitute_setup(
 	backslash_subst(cmd);
 	while (*cmd) {
 	        char endc;
+		// tjm - FIXME:  if 1st char is =, it will go too far
+		// In fact, this should only work if at least 1 ws has been
+		// skipped
 		if (*cmd == '=' && cmd[1] != '=')
 			cmd--;
 		i = *cmd++;

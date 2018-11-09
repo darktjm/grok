@@ -14,10 +14,10 @@
  */
 
 #include "config.h"
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <Xm/Xm.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
@@ -302,7 +302,7 @@ static BOOL alloc_query(
 	if (!card->dbase->nrows)
 		return(FALSE);
 	if (!(card->query = (int*)malloc(card->dbase->nrows * sizeof(int*)))) {
-		create_error_popup(toplevel, errno,
+		create_error_popup(mainwindow, errno,
 					"No memory for query result summary");
 		return(FALSE);
 	}

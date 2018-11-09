@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
-#include <Xm/Xm.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
@@ -175,9 +175,9 @@ string	: STRING			{ $$ = $1; }
 	| EXPAND '(' FIELD '[' number ']' ')'
 					{ $$ = f_expand($3, $5); }
 	| PRINTF '(' args ')'		{ $$ = f_printf($3); }
-	| BEEP				{ XBell(display, 0); $$ = 0; }
+	| BEEP				{ app->beep(); $$ = 0; }
 	| ERROR '(' args ')'		{ char *s = f_printf($3);
-					  create_error_popup(toplevel, 0, s);
+					  create_error_popup(mainwindow, 0, s);
 					  f_free(s); $$ = 0; }
 	;
 

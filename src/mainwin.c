@@ -12,7 +12,7 @@
  */
 
 #include "config.h"
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -22,20 +22,7 @@
 #else
 #include <dirent.h>
 #endif
-#include <Xm/Xm.h>
-#include <Xm/MainW.h>
-#include <Xm/Separator.h>
-#include <Xm/RowColumn.h>
-#include <Xm/Form.h>
-#include <Xm/Frame.h>
-#include <Xm/LabelP.h>
-#include <Xm/ArrowBP.h>
-#include <Xm/ArrowBG.h>
-#include <Xm/Text.h>
-#include <Xm/PushBP.h>
-#include <Xm/PushBG.h>
-#include <Xm/ToggleB.h>
-#include <X11/cursorfont.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
@@ -48,51 +35,50 @@
 #endif
 
 static void append_search_string(char *);
-static void file_pulldown	(Widget, int, XmToggleButtonCallbackStruct *);
-static void newform_pulldown	(Widget, int, XmToggleButtonCallbackStruct *);
-static void help_pulldown	(Widget, int, XmToggleButtonCallbackStruct *);
-static void dbase_pulldown	(Widget, int, XmToggleButtonCallbackStruct *);
-static void section_pulldown	(Widget, int, XmToggleButtonCallbackStruct *);
-static void mode_callback	(Widget, int, XmToggleButtonCallbackStruct *);
-static void sect_callback	(Widget, int, XmToggleButtonCallbackStruct *);
-static void query_pulldown	(Widget, int, XmToggleButtonCallbackStruct *);
-static void sort_pulldown	(Widget, int, XmToggleButtonCallbackStruct *);
-static void search_callback	(Widget, int, XmToggleButtonCallbackStruct *);
-static void requery_callback	(Widget, int, XmToggleButtonCallbackStruct *);
-static void clear_callback	(Widget, int, XmToggleButtonCallbackStruct *);
-static void letter_callback	(Widget, int, XmToggleButtonCallbackStruct *);
-static void pos_callback	(Widget, int, XmToggleButtonCallbackStruct *);
-static void new_callback  (Widget, XtPointer, XmToggleButtonCallbackStruct *);
-static void dup_callback  (Widget, XtPointer, XmToggleButtonCallbackStruct *);
-static void del_callback  (Widget, XtPointer, XmToggleButtonCallbackStruct *);
+static void file_pulldown	(int);
+static void newform_pulldown	(int);
+static void help_pulldown	(int);
+static void dbase_pulldown	(int);
+static void section_pulldown	(int);
+static void mode_callback	(int);
+static void sect_callback	(int);
+static void query_pulldown	(int item, bool set = false);
+static void sort_pulldown	(int item, bool set = false);
+static void search_callback	(int);
+static void requery_callback	(void);
+static void clear_callback	(void);
+static void letter_callback	(int);
+static void pos_callback	(int);
+static void new_callback  (void);
+static void dup_callback  (void);
+static void del_callback  (void);
 
 CARD 			*curr_card;	/* card being displayed in main win, */
 char			*prev_form;	/* previous form name */
-Widget			mainwindow;	/* popup menus hang off main window */
+QMainWindow		*mainwindow;	/* popup menus hang off main window */
 int			last_query=-1;	/* last query pd index, for ReQuery */
-static Dimension	win_xs, win_ys;	/* size of main window w/o sum+card */
-static Widget		menubar;	/* menu bar in main window */
-static Widget		dbpulldown;	/* dbase pulldown menu widget */
-static Widget		sectpulldown;	/* sectn pulldown menu widget */
-static Widget		sortpulldown;	/* sort  pulldown menu widget */
-static Widget		qpulldown;	/* query pulldown menu widget */
-static Widget		sectpdcall;	/* button that calls section pulldn */
+#if 0
+static int		win_xs, win_ys;	/* size of main window w/o sum+card */
+#endif
+static QMenu		*dbpulldown;	/* dbase pulldown menu widget */
+static QMenu		*sectpulldown;	/* sectn pulldown menu widget */
+static QMenu		*sortpulldown;	/* sort  pulldown menu widget */
+static QMenu		*qpulldown;	/* query pulldown menu widget */
 
-static Widget		form;		/* w_sect etc are on this form */
-static Widget		w_info;		/* info label, for "n found" */
-static Widget		w_mtime;	/* shows last modify time of card */
-static Widget		w_search;	/* search string text widget */
-static Widget		w_prev;		/* search prev arrow */
-static Widget		w_next;		/* search next arrow */
-       Widget		w_summary;	/* form for summary table */
-static Widget		w_letter[28];	/* buttons for a,b,c,...,z,misc,* */
-static Widget		w_card;		/* form for card */
-static Widget		w_left;		/* button: previous card */
-static Widget		w_right;	/* button: next card */
-static Widget		w_new;		/* button: start a new card */
-static Widget		w_dup;		/* button: duplicate a card */
-static Widget		w_del;		/* button: delete current card */
-static Widget		w_sect;		/* button: section popup for card */
+static QLabel		*w_info;	/* info label, for "n found" */
+static QLabel		*w_mtime;	/* shows last modify time of card */
+static QLineEdit	*w_search;	/* search string text widget */
+static QPushButton	*w_prev;	/* search prev arrow */
+static QPushButton	*w_next;	/* search next arrow */
+       QVBoxLayout	*mainform;	/* form for summary table */
+       QWidget		*w_summary;	/* widget to replace in mainform */
+static QWidget		*w_card;	/* form for card */
+static QPushButton	*w_left;	/* button: previous card */
+static QPushButton	*w_right;	/* button: next card */
+static QPushButton	*w_new;		/* button: start a new card */
+static QPushButton	*w_dup;		/* button: duplicate a card */
+static QPushButton	*w_del;		/* button: delete current card */
+static QComboBox	*w_sect;	/* button: section popup for card */
 static int		defsection;	/* default section */
 
 static Searchmode	searchmode;	/* current search mode */
@@ -108,512 +94,229 @@ static const char	* const modename[] = { "All", "In query", "Narrow", "Widen",
 
 void create_mainwindow()
 {
-	XmString	s[20];
-	Widget		fmenu, w, searchform, popup;
-	Arg		args[30];
-	long		n, i, wid;
+	QWidget		*w;
+	QComboBox	*popup;
+	long		i;
 	char		buf[10];
+	QMenuBar	*menubar;
+	QMenu		*menu, *submenu;
 
-	mainwindow = XtCreateManagedWidget("mainwindow",
-			xmMainWindowWidgetClass, toplevel, NULL, 0);
+	mainwindow = new QMainWindow();
+	set_icon(mainwindow, 0); // from main(); there is no separate "toplevel"
 
 							/*-- menu bar --*/
-	s[0] = XmStringCreateSimple((char *)"File");
-	s[1] = XmStringCreateSimple((char *)"Database");
-	s[2] = XmStringCreateSimple((char *)"Section");
-	s[3] = XmStringCreateSimple((char *)"Sort");
-	s[4] = XmStringCreateSimple((char *)"Query");
-	s[5] = XmStringCreateSimple((char *)"Help");
-	menubar = XmVaCreateSimpleMenuBar(mainwindow, (char *)"menubar",
-			FIX_MENUBAR
-			XmVaCASCADEBUTTON, s[0], 'F',
-			XmVaCASCADEBUTTON, s[1], 'D',
-			XmVaCASCADEBUTTON, s[2], 'e',
-			XmVaCASCADEBUTTON, s[3], 'S',
-			XmVaCASCADEBUTTON, s[4], 'Q',
-			XmVaCASCADEBUTTON, s[5], 'H',
-			NULL);
-	if (w = XtNameToWidget(menubar, "button_5"))
-		XtVaSetValues(menubar, XmNmenuHelpWidget, w, NULL);
-	sectpdcall = XtNameToWidget(menubar, "button_2");
-	for (n=0; n < 5; n++)
-		XmStringFree(s[n]);
+	menubar = mainwindow->menuBar();
+	menu = menubar->addMenu("&File");
+	menu->setTearOffEnabled(true);
+	bind_help(menu, "pd_file");
+	menu->addAction("&Find && select", [=](){file_pulldown(0);},
+			QKeySequence("Ctrl+F"));
+	menu->addAction("&Print...", [=](){file_pulldown(1);},
+			QKeySequence("Ctrl+P"));
+	menu->addAction("&Export", [=](){file_pulldown(2);},
+			QKeySequence("Ctrl+E"));
+	menu->addAction("P&references...", [=](){file_pulldown(3);},
+			QKeySequence("Ctrl+R"));
+	submenu = menu->addMenu("F&orm editor");
+	if (restricted)
+		submenu->setEnabled(false);
+	submenu->setTearOffEnabled(true);
+	bind_help(submenu, "pd_file");
+	submenu->addAction("&Edit current form...", [=](){newform_pulldown(0);});
+	submenu->addAction("&Create new form from scratch...", [=](){newform_pulldown(1);});
+	submenu->addAction("Create, use current as &template...", [=](){newform_pulldown(2);});
+	menu->addAction("&About...", [=](){file_pulldown(5);});
+	menu->addAction("&Save", [=](){file_pulldown(6);},
+			QKeySequence("Ctrl+S"));
+	menu->addAction("&Quit", [=](){file_pulldown(7);},
+			QKeySequence("Ctrl+Q"));
+	menu->addAction("Rambo Quit", [=](){file_pulldown(8);});
+	
+	dbpulldown = menu = menubar->addMenu("&Database");
+	menu->setTearOffEnabled(true);
+	bind_help(menu, "pd_dbase");
 
-	s[0]  = XmStringCreateSimple((char *)"Find & select");
-	s[1]  = XmStringCreateSimple((char *)"Print...");
-	s[2]  = XmStringCreateSimple((char *)"Export...");
-	s[3]  = XmStringCreateSimple((char *)"Preferences...");
-	s[4]  = XmStringCreateSimple((char *)"Form editor");
-	s[5]  = XmStringCreateSimple((char *)"About...");
-	s[6]  = XmStringCreateSimple((char *)"Save");
-	s[7]  = XmStringCreateSimple((char *)"Quit");
-	s[8]  = XmStringCreateSimple((char *)"Rambo Quit");
-	s[9]  = XmStringCreateSimple((char *)"Ctrl-F");
-	s[10] = XmStringCreateSimple((char *)"Ctrl-P");
-	s[11] = XmStringCreateSimple((char *)"Ctrl-E");
-	s[12] = XmStringCreateSimple((char *)"Ctrl-R");
-	s[13] = XmStringCreateSimple((char *)"Ctrl-S");
-	s[14] = XmStringCreateSimple((char *)"Ctrl-Q");
-	fmenu = XmVaCreateSimplePulldownMenu(menubar, (char *)"file", 0,
-			(XtCallbackProc)file_pulldown,
-			FIX_MENUBAR
-			XmVaPUSHBUTTON,    s[0], 'F',  "Ctrl<Key>F", s[9],
-			XmVaPUSHBUTTON,    s[1], 'P',  "Ctrl<Key>P", s[10],
-			XmVaPUSHBUTTON,    s[2], 'E',  "Ctrl<Key>E", s[11],
-			XmVaPUSHBUTTON,    s[3], 'r',  "Ctrl<Key>R", s[12],
-			XmVaCASCADEBUTTON, s[4], 'o',
-			XmVaPUSHBUTTON,    s[5], 'A',  NULL, NULL,
-			XmVaPUSHBUTTON,    s[6], 'S',  "Ctrl<Key>S", s[13],
-			XmVaPUSHBUTTON,    s[7], 'Q',  "Ctrl<Key>Q", s[14],
-			XmVaPUSHBUTTON,    s[8], NULL, NULL, NULL,
-			NULL);
-#ifdef XmNtearOffModel
-	XtVaSetValues(fmenu, XmNtearOffModel, XmTEAR_OFF_ENABLED, NULL);
-#endif
-	XtAddCallback(fmenu, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"pd_file");
-	for (n=0; n < 15; n++)
-		XmStringFree(s[n]);
+	sectpulldown = menu = menubar->addMenu("S&ection");
+	menu->setTearOffEnabled(true);
+	bind_help(menu, "pd_section");
 
-	if (restricted && (w = XtNameToWidget(fmenu, "button_4")))
-		XtVaSetValues(w, XmNsensitive, FALSE, NULL);
+	sortpulldown = menu = menubar->addMenu("&Sort");
+	menu->setTearOffEnabled(true);
+	bind_help(menu, "pd_sort");
 
-	s[0] = XmStringCreateSimple((char *)"Edit current form...");
-	s[1] = XmStringCreateSimple((char *)"Create new form from scratch...");
-	s[2] = XmStringCreateSimple((char *)"Create, use current as template...");
-	fmenu = XmVaCreateSimplePulldownMenu(fmenu, (char *)"newform", 4,
-			(XtCallbackProc)newform_pulldown,
-			FIX_MENUBAR
-			XmVaPUSHBUTTON,    s[0], 'E',  NULL, NULL,
-			XmVaPUSHBUTTON,    s[1], 'C',  NULL, NULL,
-			XmVaPUSHBUTTON,    s[2], 't',  NULL, NULL,
-			NULL);
-#ifdef XmNtearOffModel
-	XtVaSetValues(fmenu, XmNtearOffModel, XmTEAR_OFF_ENABLED, NULL);
-#endif
-	XtAddCallback(fmenu, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"pd_file");
-	for (n=0; n < 3; n++)
-		XmStringFree(s[n]);
+	qpulldown = menu = menubar->addMenu("&Query");
+	menu->setTearOffEnabled(true);
+	bind_help(menu, "pd_query");
 
-	dbpulldown = XmVaCreateSimplePulldownMenu(menubar, (char *)"dbase", 1,
-			(XtCallbackProc)dbase_pulldown,
-			FIX_MENUBAR
-			NULL);
-	XtAddCallback(dbpulldown, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"pd_dbase");
+	// Qt seems to have no way to force this to the right
+	// Qt also seems to have no way to make this the "help" menu
+	menu = menubar->addMenu("&Help");
+	menu->setTearOffEnabled(true);
 
-	sectpulldown = XmVaCreateSimplePulldownMenu(menubar, (char *)"section", 2,
-			(XtCallbackProc)section_pulldown,
-			FIX_MENUBAR
-			NULL);
-	XtAddCallback(sectpulldown, XmNhelpCallback,
-			(XtCallbackProc)help_callback,(XtPointer)"pd_section");
+	menu->addAction("On &context", [=](){help_pulldown(0);},
+			QKeySequence("Ctrl+H"));
+	menu->addAction("Current &database", [=](){help_pulldown(1);},
+			QKeySequence("Ctrl+D"));
+	menu->addSeparator();
+	menu->addAction("&Introduction", [=](){help_pulldown(2);});
+	menu->addAction("&Getting help", [=](){help_pulldown(3);});
+	menu->addAction("&Troubleshooting", [=](){help_pulldown(4);});
+	menu->addAction("&Files and programs", [=](){help_pulldown(5);});
+	menu->addAction("&Expression grammar", [=](){help_pulldown(6);},
+			QKeySequence("Ctrl+G"));
+	menu->addAction("&Variables and X Resources", [=](){});
 
-	sortpulldown = XmVaCreateSimplePulldownMenu(menubar, (char *)"sort", 3,
-			(XtCallbackProc)sort_pulldown,
-			FIX_MENUBAR
-			NULL);
-	XtAddCallback(sortpulldown, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"pd_sort");
-
-	qpulldown = XmVaCreateSimplePulldownMenu(menubar, (char *)"query", 4,
-			(XtCallbackProc)query_pulldown,
-			FIX_MENUBAR
-			NULL);
-	XtAddCallback(qpulldown, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"pd_query");
-
-	s[0] = XmStringCreateSimple((char *)"On context");
-	s[1] = XmStringCreateSimple((char *)"Current database");
-	s[2] = XmStringCreateSimple((char *)"Introduction");
-	s[3] = XmStringCreateSimple((char *)"Getting help");
-	s[4] = XmStringCreateSimple((char *)"Troubleshooting");
-	s[5] = XmStringCreateSimple((char *)"Files and programs");
-	s[6] = XmStringCreateSimple((char *)"Expression grammar");
-	s[7] = XmStringCreateSimple((char *)"Variables and X Resources");
-	s[8] = XmStringCreateSimple((char *)"Ctrl-H");
-	s[9] = XmStringCreateSimple((char *)"Ctrl-D");
-	s[10]= XmStringCreateSimple((char *)"Ctrl-G");
-	fmenu = XmVaCreateSimplePulldownMenu(menubar, (char *)"help", 5,
-			(XtCallbackProc)help_pulldown,
-			FIX_MENUBAR
-			XmVaPUSHBUTTON, s[0], 'C',  "Ctrl<Key>H", s[8],
-			XmVaPUSHBUTTON, s[1], 'D',  "Ctrl<Key>D", s[9],
-			XM_VA_SEPARATOR
-			XmVaPUSHBUTTON, s[2], 'I',  NULL, NULL,
-			XmVaPUSHBUTTON, s[3], 'G',  NULL, NULL,
-			XmVaPUSHBUTTON, s[4], 'T',  NULL, NULL,
-			XmVaPUSHBUTTON, s[5], 'F',  NULL, NULL,
-			XmVaPUSHBUTTON, s[6], 'E',  "Ctrl<Key>G", s[10],
-			XmVaPUSHBUTTON, s[7], 'V',  NULL, NULL,
-			NULL);
-#ifdef XmNtearOffModel
-	XtVaSetValues(fmenu, XmNtearOffModel, XmTEAR_OFF_ENABLED, NULL);
-#endif
-	for (n=0; n < 10; n++)
-		XmStringFree(s[n]);
-
-	form = XtCreateWidget((char *)"mainform", xmFormWidgetClass,
-			mainwindow, NULL, 0);
+	w = new QWidget;
+	mainwindow->setCentralWidget(w);
+	mainform = new QVBoxLayout(w);
+	add_layout_qss(mainform, "mainform");
 							/*-- search string --*/
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNtopOffset,		10);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	OFF);			n++;
-	XtSetArg(args[n], XmNheight,		34);			n++;
-	searchform = XtCreateManagedWidget((char *)"searchform", xmFormWidgetClass,
-			form, args, n);
-	XtAddCallback(searchform, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"search");
+	QHBoxLayout *hb = new QHBoxLayout;
+	add_layout_qss(hb, "searchform");
+	mainform->addLayout(hb);
+	// bind_help(hb, "search"); // not a widget, so how?
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	w = XtCreateManagedWidget((char *)"Requery", xmPushButtonWidgetClass,
-			searchform, args, n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)requery_callback, (XtPointer)0);
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"search");
+	w = new QPushButton("Search");
+	hb->addWidget(w);
+	set_button_cb(w, search_callback(0));
+	bind_help(w, "search");
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNtopOffset,		5);			n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	5);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNrightWidget,	w);			n++;
-	XtSetArg(args[n], XmNrightOffset,	10);			n++;
-	XtSetArg(args[n], XmNarrowDirection,	XmARROW_RIGHT);		n++;
-	XtSetArg(args[n], XmNsensitive,		FALSE);			n++;
-	XtSetArg(args[n], XmNforeground,	color[COL_BACK]);	n++;
-	w = w_next = XtCreateManagedWidget((char *)"next", xmArrowButtonWidgetClass,
-			searchform, args, n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)search_callback, (XtPointer)1);
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"search");
+	popup = new QComboBox;
+	for (i=0; i < SM_NMODES; i++)
+		popup->addItem(modename[i]);
+	set_popup_cb(popup, mode_callback(i), int, i);
+	bind_help(popup, "search");
+	hb->addWidget(popup);
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNtopOffset,		5);			n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	5);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNrightWidget,	w);			n++;
-	w = XtCreateManagedWidget((char *)"C", xmPushButtonWidgetClass,
-			searchform, args, n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)clear_callback, (XtPointer)0);
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"search");
+	w_search = new QLineEdit;
+	w_search->sizePolicy().setHorizontalStretch(1);
+	hb->addWidget(w_search);
+	set_text_cb(w_search, search_callback(0));
+	bind_help(w_search, "search");
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNtopOffset,		5);			n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	5);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNrightWidget,	w);			n++;
-	XtSetArg(args[n], XmNarrowDirection,	XmARROW_LEFT);		n++;
-	XtSetArg(args[n], XmNsensitive,		FALSE);			n++;
-	XtSetArg(args[n], XmNforeground,	color[COL_BACK]);	n++;
-	w = w_prev = XtCreateManagedWidget((char *)"prev", xmArrowButtonWidgetClass,
-			searchform, args, n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)search_callback, (XtPointer)-1);
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"search");
+	QHBoxLayout *h = new QHBoxLayout;
+	hb->addLayout(h);
+	h->setSpacing(0);
+	w_prev = new QPushButton(QIcon::fromTheme("go-previous"), "");
+	h->addWidget(w_prev);
+	w_prev->setEnabled(false);
+	set_button_cb(w_prev, search_callback(-1));
+	bind_help(w_prev, "search");
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	OFF);			n++;
-	w = XtCreateManagedWidget((char *)"Search", xmPushButtonWidgetClass,
-			searchform, args, n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)search_callback, (XtPointer)0);
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"search");
+	w = new QPushButton("C");
+	// This should be easier, but the non-motif default is to make
+	// all buttons 80 pixels wide
+	w->setMinimumWidth(strlen_in_pixels(w, "C")+8 /* +border?*/);
+	// and because it's in its own hboxlayout, it gets bigger
+	w->setMaximumWidth(w->minimumWidth());
+	h->addWidget(w);
+	set_button_cb(w, clear_callback());
+	bind_help(w, "search");
 
-#ifdef XmCSimpleOptionMenu
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w);			n++;
-	XtSetArg(args[n], XmNleftOffset,	0);			n++;
-	XtSetArg(args[n], XmNfontList,		fontlist[FONT_STD]);	n++;
-	popup = XmCreatePulldownMenu(form, (char *)"modepd", NULL, 0);
-	for (i=0; i < SM_NMODES; i++) {
-		w = XtCreateManagedWidget(modename[i],
-				xmPushButtonGadgetClass, popup, NULL, 0);
-		XtAddCallback(w, XmNactivateCallback,
-				(XtCallbackProc)mode_callback, (XtPointer)i);
-	}
-	XtSetArg(args[n], XmNmarginHeight,	0);			n++;
-	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
-	XtSetArg(args[n], XmNsubMenuId,		popup);			n++;
-	XtSetArg(args[n], XmNlabelString,	0);			n++;
-	w = XmCreateOptionMenu(searchform, (char *)"modeoption", args, n);
-	XtManageChild(w);
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"search");
-#endif
+	w_next = new QPushButton(QIcon::fromTheme("go-next"), "");
+	h->addWidget(w_next);
+	w_next->setEnabled(false);
+	set_button_cb(w_next, search_callback(1));
+	bind_help(w_next, "search");
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w);			n++;
-	XtSetArg(args[n], XmNleftOffset,	3);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNrightWidget,	w_prev);		n++;
-	XtSetArg(args[n], XmNrightOffset,	5);			n++;
-	XtSetArg(args[n], XmNpendingDelete,	True);			n++;
-	XtSetArg(args[n], XmNbackground,	color[COL_TEXTBACK]);	n++;
-	XtSetArg(args[n], XmNfontList,		fontlist[FONT_HELV]);	n++;
-	w_search = XtCreateManagedWidget((char *)" ", xmTextWidgetClass,
-			searchform, args, n);
-	XtAddCallback(w_search, XmNactivateCallback,
-			(XtCallbackProc)search_callback, NULL);
-	XtAddCallback(w_search, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"search");
+	w = new QPushButton("Requery");
+	hb->addWidget(w);
+	set_button_cb(w, requery_callback());
+	bind_help(w, "search");
 
 							/*-- info line --*/
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		searchform);		n++;
-	XtSetArg(args[n], XmNtopOffset,		5);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	OFF);			n++;
-	XtSetArg(args[n], XmNalignment, 	XmALIGNMENT_BEGINNING);	n++;
-	XtSetArg(args[n], XmNfontList,		fontlist[FONT_STD]);	n++;
-	w_info = XtCreateManagedWidget((char *)" ", xmLabelWidgetClass,
-			form, args, n);
-	XtAddCallback(w_info, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"info");
+	hb = new QHBoxLayout;
+	add_layout_qss(hb, NULL);
+	mainform->addLayout(hb);
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		searchform);		n++;
-	XtSetArg(args[n], XmNtopOffset,		5);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w_info);		n++;
-	XtSetArg(args[n], XmNleftOffset,	OFF);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	OFF);			n++;
-	XtSetArg(args[n], XmNalignment, 	XmALIGNMENT_END);	n++;
-	XtSetArg(args[n], XmNfontList,		fontlist[FONT_STD]);	n++;
-	w_mtime = XtCreateManagedWidget((char *)" ", xmLabelWidgetClass,
-			form, args, n);
-	XtAddCallback(w_mtime, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"info");
+	w_info = new QLabel(" ");
+	hb->addWidget(w_info);
+	bind_help(w_info, "info");
+
+	hb->addStretch(1);
+
+	w_mtime = new QLabel(" ");
+	hb->addWidget(w_mtime);
+	bind_help(w_mtime, "info");
 
 							/*-- buttons --*/
-	n = 0;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	OFF);			n++;
-	XtSetArg(args[n], XmNwidth,		30);			n++;
-	XtSetArg(args[n], XmNheight,		30);			n++;
-	XtSetArg(args[n], XmNlabelType,		XmPIXMAP);		n++;
-	XtSetArg(args[n], XmNlabelPixmap,	pixmap[PIC_LEFT]);	n++;
-	XtSetArg(args[n], XmNsensitive,		False);			n++;
-	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
-	w_left = XtCreateManagedWidget((char *)"Left", xmPushButtonWidgetClass,
-			form, args, n);
-	XtAddCallback(w_left, XmNactivateCallback,
-			(XtCallbackProc)pos_callback, (XtPointer)-1);
-	XtAddCallback(w_left, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"pos");
+	// A QDialogButtonBox would seem appropriate, but it doesnt
+	// support non-button widgets (like the section selector)
+	QHBoxLayout *bb = new QHBoxLayout;
+	add_layout_qss(bb, NULL);
+	bb->addWidget(w_left = new QPushButton(pixmap[PIC_LEFT], ""), dbbr(Action));
+	w_left->resize(30, 30);
+	w_left->setEnabled(false);
+	set_button_cb(w_left, pos_callback(-1));
+	bind_help(w_left, "pos");
 
-	n = 0;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w_left);		n++;
-	XtSetArg(args[n], XmNleftOffset,	4);			n++;
-	XtSetArg(args[n], XmNwidth,		30);			n++;
-	XtSetArg(args[n], XmNheight,		30);			n++;
-	XtSetArg(args[n], XmNlabelType,		XmPIXMAP);		n++;
-	XtSetArg(args[n], XmNlabelPixmap,	pixmap[PIC_RIGHT]);	n++;
-	XtSetArg(args[n], XmNsensitive,		False);			n++;
-	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
-	w_right = XtCreateManagedWidget((char *)"Right", xmPushButtonWidgetClass,
-			form, args, n);
-	XtAddCallback(w_right, XmNactivateCallback,
-			(XtCallbackProc)pos_callback, (XtPointer)1);
-	XtAddCallback(w_right, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"pos");
+	bb->addWidget(w_right = new QPushButton(pixmap[PIC_RIGHT], ""), dbbr(Action));
+	w_right->resize(30, 30);
+	w_right->setEnabled(false);
+	set_button_cb(w_right, pos_callback(1));
+	bind_help(w_right, "pos");
 
-	n = 0;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w_right);		n++;
-	XtSetArg(args[n], XmNleftOffset,	16);			n++;
-	XtSetArg(args[n], XmNwidth,		60);			n++;
-	XtSetArg(args[n], XmNsensitive,		False);			n++;
-	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
-	w_new = XtCreateManagedWidget((char *)"New", xmPushButtonWidgetClass,
-			form, args, n);
-	XtAddCallback(w_new, XmNactivateCallback,
-			(XtCallbackProc)new_callback, (XtPointer)0);
-	XtAddCallback(w_new, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"new");
+	/* grok makes these 60-wide instead of 80-wide like the dialogs */
+	/* but I'm going to use mk_button anyway */
+	bb->addWidget(w_new = mk_button(NULL, "New"));
+	set_button_cb(w_new, new_callback());
+	bind_help(w_new, "new");
 
-	n = 0;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w_new);			n++;
-	XtSetArg(args[n], XmNleftOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		60);			n++;
-	XtSetArg(args[n], XmNsensitive,		False);			n++;
-	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
-	w_dup = XtCreateManagedWidget((char *)"Dup", xmPushButtonWidgetClass,
-			form, args, n);
-	XtAddCallback(w_dup, XmNactivateCallback,
-			(XtCallbackProc)dup_callback, (XtPointer)0);
-	XtAddCallback(w_dup, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"dup");
+	bb->addWidget(w_dup = mk_button(NULL, "Dup"));
+	set_button_cb(w_dup, dup_callback());
+	bind_help(w_dup, "dup");
 
-	n = 0;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w_dup);			n++;
-	XtSetArg(args[n], XmNleftOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		60);			n++;
-	XtSetArg(args[n], XmNsensitive,		False);			n++;
-	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
-	w_del = XtCreateManagedWidget((char *)"Delete", xmPushButtonWidgetClass,
-			form, args, n);
-	XtAddCallback(w_del, XmNactivateCallback,
-			(XtCallbackProc)del_callback, (XtPointer)0);
-	XtAddCallback(w_del, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"del");
+	bb->addWidget(w_del = mk_button(NULL, "Delete"));
+	set_button_cb(w_del, del_callback());
+	bind_help(w_del, "del");
 
-	n = 0;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	OFF);			n++;
-	XtSetArg(args[n], XmNwidth,		60);			n++;
-	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
-	w = XtCreateManagedWidget((char *)"Help", xmPushButtonWidgetClass,
-			form, args, n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"card");
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"card");
+	bb->addWidget(w_sect = new QComboBox);
+	w_sect->hide();
+	set_popup_cb(w_sect, sect_callback(i), int, i); // formerly in remake_popups
+	bind_help(w_sect, "sect"); // formerly in remake_popup()
 
+	bb->addStretch(100); // can't really do platform-dependent Help location
+
+	bb->addWidget(w = mk_button(NULL, 0, dbbb(Help)));
+	set_button_cb(w, help_callback(mainwindow, "card"));
+	bind_help(w, "card");
 							/*-- summary --*/
-#if 0
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		w_info);		n++;
-	XtSetArg(args[n], XmNtopOffset,		4);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	w = XtCreateManagedWidget((char *)" ", xmSeparatorWidgetClass,
-			form, args, n);
-#else
-	w = w_info;
-#endif
-	n = 0;
-	XtSetArg(args[n], XmNwidth,		400);			n++;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		w);			n++;
-	XtSetArg(args[n], XmNtopOffset,		4);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	OFF);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	OFF);			n++;
-	w = w_summary = XtCreateManagedWidget((char *)"summform", xmFormWidgetClass,
-			form, args, n);
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"summary");
+	w_summary = new QWidget; // to be replaced
+	mainform->addWidget(w_summary);
 
 							/*-- letters --*/
 	if (pref.letters) {
-	 n = 0;
-	 XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	 XtSetArg(args[n], XmNtopWidget,	w_summary);		n++;
-	 XtSetArg(args[n], XmNtopOffset,	5);			n++;
-	 XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	 XtSetArg(args[n], XmNleftOffset,	OFF+2);			n++;
-	 XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	 XtSetArg(args[n], XmNrightOffset,	OFF);			n++;
-	 w = XtCreateManagedWidget((char *)"letters", xmFormWidgetClass,
-			form, args, n);
-	 XtAddCallback(w, XmNhelpCallback,
-	 		(XtCallbackProc)help_callback,(XtPointer)"letters");
-
+	 hb = new QHBoxLayout;
+	 add_layout_qss(hb, "letters");
+	 // bind_help(hb, "letters"); // not a widget
+	 hb->setContentsMargins(0, 0, 0, 0);
+	 hb->setSpacing(0);
+	 mainform->addLayout(hb);
 	 for (i=0; i < 28; i++) {
-	  wid = strlen_in_pixels("W", FONT_STD);
 	  sprintf(buf, i < 26 ? "%c" : i==26 ? "misc" : "all", (int)i+'A');
-	  n = 0;
-	  if (i == 0) {
-	   XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	  } else {
-	   XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);	n++;
-	   XtSetArg(args[n], XmNleftWidget,	w_letter[i-1]);		n++;
-	  }
-	  if (i < 26) {
-	   XtSetArg(args[n], XmNwidth,		wid + 6);		n++;
-	  }
-	  XtSetArg(args[n], XmNheight,		wid + 6);		n++;
-	  XtSetArg(args[n], XmNleftOffset,	0);			n++;
-	  XtSetArg(args[n], XmNshadowThickness,	2);			n++;
-	  XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);		n++;
-	  XtSetArg(args[n], XmNbottomAttachment,XmATTACH_FORM);		n++;
-	  XtSetArg(args[n], XmNhighlightThickness, 0);			n++;
-	  w_letter[i] = XtCreateManagedWidget(buf, xmPushButtonWidgetClass,
-					w, args, n);
-	  XtAddCallback(w_letter[i], XmNactivateCallback,
-			(XtCallbackProc)letter_callback, (XtPointer)i);
-	  XtAddCallback(w_letter[i], XmNhelpCallback,
-	 		(XtCallbackProc) help_callback, (XtPointer)"letters");
+	  w = new QPushButton(buf);
+	  w->setMinimumWidth(strlen_in_pixels(w, buf)+4/*border?*/);
+	  int l, r, t, b;
+	  w->getContentsMargins(&l, &r, &t, &b);
+	  w->setContentsMargins(2, 2, t, b);
+	  hb->addWidget(w);
+	  set_button_cb(w, letter_callback(i));
+	  bind_help(w, "letters");
 	 }
 	}
 							/*-- card --*/
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		w);			n++;
-	XtSetArg(args[n], XmNtopOffset,		OFF);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	w = XtCreateManagedWidget(" ", xmSeparatorWidgetClass,
-			form, args, n);
-	n = 0;
-	XtSetArg(args[n], XmNwidth,		400);			n++;
-	XtSetArg(args[n], XmNheight,		6);			n++;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		w);			n++;
-	XtSetArg(args[n], XmNtopOffset,		OFF);			n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNbottomWidget,	w_new);			n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	OFF);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	OFF);			n++;
-	w_card = XtCreateManagedWidget("cardform", xmFormWidgetClass,
-			form, args, n);
-	XtAddCallback(w_card, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"card");
+	// this isn't really necessary
+	// mainform->addWidget(mk_separator());
+	w_card = new QWidget;
+	w_card->resize(400, 6);
+	w_card->setObjectName("cardform");
+	w_card->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+	bind_help(w_card, "card");
+	mainform->addWidget(w_card);
 
-	XtManageChild(form);
-	XtManageChild(menubar);
-	create_summary_menu(curr_card, w_summary, mainwindow);
+	mainform->addLayout(bb); // needs to be last so it's on bottom
+
+	create_summary_menu(curr_card);
 	remake_dbase_pulldown();
 	remake_section_pulldown();
 	remake_query_pulldown();
@@ -630,13 +333,13 @@ void create_mainwindow()
 
 void resize_mainwindow(void)
 {
-	Arg		args[2];
-	Dimension	xs=0, ys=0;
+#if 0 // tjm - auto-resizing should be sufficient
+	int	xs=0, ys=0;
 
 	if (!win_ys) {
-		XtSetArg(args[0], XmNwidth,  &win_xs);
-		XtSetArg(args[1], XmNheight, &win_ys);
-		XtGetValues(mainwindow, args, 2);
+		const QSize size(mainwindow->size());
+		win_xs = size.width();
+		win_ys = size.height();
 		win_ys -= 1;
 	}
 	if (curr_card && curr_card->form) {
@@ -644,9 +347,10 @@ void resize_mainwindow(void)
 		ys = pref.scale * curr_card->form->ys + 2;
 	}
 	if (win_xs > xs) xs = win_xs;
-	XtSetArg(args[0], XmNwidth,  xs + 2*2 + 2*16);
-	XtSetArg(args[1], XmNheight, win_ys + ys + 2*3);
-	XtSetValues(XtParent(mainwindow), args, 2);
+	mainwindow->resize(xs + 2*2 + 2*16, win_ys + ys + 2*3);
+#else
+	mainwindow->adjustSize();
+#endif
 }
 
 
@@ -664,7 +368,7 @@ void print_info_line(void)
 	register DBASE	*dbase;
 	int		s, n;
 
-	if (!display)
+	if (!mainwindow)
 		return;
 	if (!card || !card->dbase || !card->form || !card->form->name) {
 		strcpy(buf, "No database");
@@ -720,7 +424,6 @@ void print_info_line(void)
 static struct db {
 	char	*name;		/* callback gets an index into this array */
 	char	*path;		/* path where form file was found */
-	Widget	widget;		/* button widgets, destroyed before remake */
 } db[MAXD];
 
 static int append_to_dbase_list(
@@ -774,14 +477,12 @@ static void make_dbase_pulldown(
 	for (i=0; i < nlines; i++) {
 		if (!db[i].path) {
 #			ifndef NOMSEP
-			db[i].widget = XtCreateManagedWidget(" ",
-				xmSeparatorWidgetClass, dbpulldown, NULL, 0);
+			dbpulldown->addSeparator();
 #			endif
 		} else {
-			db[i].widget = XtCreateManagedWidget(db[i].name+1,
-				xmPushButtonGadgetClass, dbpulldown, NULL, 0);
-			XtAddCallback(db[i].widget, XmNactivateCallback,
-				(XtCallbackProc)dbase_pulldown, (XtPointer)(unsigned long)i);
+			QString n(db[i].name+1);
+			n.replace('&', "&&");
+			dbpulldown->addAction(n, [=](){dbase_pulldown(i);});
 		}
 	}
 }
@@ -800,14 +501,12 @@ void remake_dbase_pulldown(void)
 	int		n;
 	char		path[1024], *env;
 
+	dbpulldown->clear();
 	for (n=0; n < MAXD; n++) {
-		if (db[n].widget)
-			XtDestroyWidget(db[n].widget);
 		if (db[n].path)
 			free((void *)db[n].path);
 		if (db[n].name)
 			free((void *)db[n].name);
-		db[n].widget = 0;
 		db[n].name = 0;
 		db[n].path = 0;
 	}
@@ -818,13 +517,11 @@ void remake_dbase_pulldown(void)
 	n = append_to_dbase_list(n, path, 1);
 	strcpy(path, GROKDIR);
 	n = append_to_dbase_list(n, path, 2);
-	sprintf(path, "%s/grokdir", LIB);
+	strcpy(path, LIB "/grokdir");
 	n = append_to_dbase_list(n, path, 3);
 	qsort(db, n, sizeof(struct db), compare_db);
 	make_dbase_pulldown(n);
-#ifdef XmNtearOffModel
-	XtVaSetValues(dbpulldown, XmNtearOffModel, XmTEAR_OFF_ENABLED, NULL);
-#endif
+	// tearoff already enabled above
 }
 
 
@@ -834,42 +531,30 @@ void remake_dbase_pulldown(void)
  */
 
 #define MAXSC  200		/* no more than 200 sections in pulldown */
-static Widget  scwidget[MAXSC];	/* button widgets, destroyed before remake */
 
 void remake_section_pulldown(void)
 {
 	int		maxn;
 	long		n;
-	char		*name[MAXSC];
 
-	for (n=0; n < MAXSC; n++) {
-		if (scwidget[n])
-			XtDestroyWidget(scwidget[n]);
-		scwidget[n] = 0;
-	}
+	sectpulldown->clear();
 	if (!curr_card || !curr_card->dbase || curr_card->form->proc) {
-		XtVaSetValues(sectpdcall, XmNsensitive, FALSE, NULL);
+		sectpulldown->setEnabled(false);
 		return;
 	}
-	maxn = curr_card->dbase->havesects ? curr_card->dbase->nsects + 2 : 1;
-	if (maxn > MAXSC)
-		maxn = MAXSC;
-	for (n=0; n < maxn; n++)
-		name[n] = mystrdup(
-			  n == maxn-1 ? "New ..." :
-  			  n == 0      ? "All"
-				      : section_name(curr_card->dbase, n-1));
+	maxn = curr_card->dbase->havesects ? curr_card->dbase->nsects : 0;
+	if (maxn > MAXSC - 2)
+		maxn = MAXSC - 2;
+	if(maxn)
+		sectpulldown->addAction("All", [=](){section_pulldown(0);});
 	for (n=0; n < maxn; n++) {
-		scwidget[n] = XtCreateManagedWidget(name[n],
-				xmPushButtonGadgetClass, sectpulldown, NULL,0);
-		XtAddCallback(scwidget[n], XmNactivateCallback,
-				(XtCallbackProc)section_pulldown,(XtPointer)n);
-		free(name[n]);
+		QString s(section_name(curr_card->dbase, n));
+		s.replace('&', "&&");
+		sectpulldown->addAction(s, [=](){section_pulldown(n + 1);});
 	}
-	XtVaSetValues(sectpdcall, XmNsensitive, TRUE, NULL);
-#ifdef XmNtearOffModel
-	XtVaSetValues(sectpulldown, XmNtearOffModel, XmTEAR_OFF_ENABLED, NULL);
-#endif
+	sectpulldown->addAction("New ...", [=](){section_pulldown(n + 1);});
+	sectpulldown->setEnabled(true);
+	// teearoff already enabled above
 	remake_section_popup(TRUE);
 }
 
@@ -881,58 +566,48 @@ void remake_section_pulldown(void)
  */
 
 #define MAXQ	100		/* no more than 100 queries in pulldown */
-static Widget	qwidget[MAXQ];	/* button widgets, destroyed before remake */
+static QActionGroup	*qag = 0;	/* for readio-like queries */
 
 void remake_query_pulldown(void)
 {
 	long		i;		/* # of queries in pulldown */
 	int		n;		/* max # of lines in pulldown */
-	Arg		args[10];
 
-	for (n=0; n < MAXQ; n++) {
-		if (qwidget[n])
-			XtDestroyWidget(qwidget[n]);
-		qwidget[n] = 0;
+	qpulldown->clear();
+	if(qag) {
+		delete qag;
+		qag = 0;
 	}
 	if (!curr_card || !curr_card->form)
 		return;
 
-	XtSetArg(args[0], XmNindicatorType, XmN_OF_MANY);
-	XtSetArg(args[1], XmNselectColor,   color[COL_TOGGLE]);
-	XtSetArg(args[2], XmNset,	    pref.autoquery);
-	qwidget[0] = XtCreateManagedWidget("Autoquery",
-			xmToggleButtonWidgetClass, qpulldown, args, 3);
-	XtAddCallback(qwidget[0], XmNvalueChangedCallback,
-			(XtCallbackProc)query_pulldown, (XtPointer)-2);
+	QAction *aq = qpulldown->addAction("Autoquery",
+				   [=](bool c){query_pulldown(-2, c);});
+	aq->setCheckable(true);
+	aq->setChecked(pref.autoquery);
+
+	if (pref.autoquery)
+		qag = new QActionGroup(qpulldown);
 
 	n = curr_card->form->nqueries > MAXQ-2 ? MAXQ-2
 					       : curr_card->form->nqueries;
 	for (i=0; i <= n; i++) {
 		DQUERY *dq = i ? &curr_card->form->query[i-1] : 0;
-		const char *name = i ? dq->name : "All";
 		if (i && (dq->suspended || !dq->name || !dq->query))
 			continue;
+		QString name(i ? dq->name : "All");
+		name.replace('&', "&&");
 		if (pref.autoquery) {
-			XtSetArg(args[0], XmNindicatorType, XmONE_OF_MANY);
-			XtSetArg(args[1], XmNselectColor,   color[COL_TOGGLE]);
-			XtSetArg(args[2], XmNset, curr_card->form->autoquery ==
-									i-1);
-			qwidget[i+1] = XtCreateManagedWidget(name,
-				xmToggleButtonWidgetClass, qpulldown, args, 3);
-			XtAddCallback(qwidget[i+1], XmNvalueChangedCallback,
-				(XtCallbackProc)query_pulldown,
-				(XtPointer)(i-1));
+			QAction *a = qpulldown->addAction(name,
+					 [=](){query_pulldown(i-1);});
+			a->setCheckable(true);
+			a->setChecked(curr_card->form->autoquery == i-1);
+			qag->addAction(a);
 		} else {
-			qwidget[i+1] = XtCreateManagedWidget(name,
-				xmPushButtonGadgetClass, qpulldown, NULL, 0);
-			XtAddCallback(qwidget[i+1], XmNactivateCallback,
-				(XtCallbackProc)query_pulldown,
-				(XtPointer)(i-1));
+			qpulldown->addAction(name, [=](){query_pulldown(i-1);});
 		}
 	}
-#ifdef XmNtearOffModel
-	XtVaSetValues(qpulldown, XmNtearOffModel, XmTEAR_OFF_ENABLED, NULL);
-#endif
+	// tearoff already set above
 	last_query = curr_card->form->autoquery;
 }
 
@@ -942,15 +617,10 @@ void remake_query_pulldown(void)
  */
 
 static void	remake_popup(void);
-static Widget	*pwidgets;		/* label widgets in popup */
-static int	pnwidgets;		/* number of widgets in pwidgets[] */
 
 void remake_section_popup(
 	BOOL		newsects)	/* did the section list change? */
 {
-#ifdef XmCSimpleOptionMenu
-	Arg		args[2];
-
 	if (newsects)
 		remake_popup();
 
@@ -958,84 +628,45 @@ void remake_section_popup(
 			||  curr_card->row < 0
 			||  curr_card->row >= curr_card->dbase->nrows
 			|| !curr_card->dbase->havesects) {
-		if (w_sect) {
-			XtSetArg(args[0], XmNsensitive, FALSE);
-			XtSetValues(w_sect, args, 1);
-			XtSetValues(w_del,  args, 1);
-			XtSetValues(XmOptionButtonGadget(w_sect), args, 1);
+		if (w_sect->isVisible()) {
+			w_sect->setEnabled(false);
+			// I've no idea what this is doing here:
+			w_del->setEnabled(false);
 		}
 		return;
 	}
-	if (w_sect) {
-		XtSetArg(args[0], XmNsensitive, TRUE);
-		XtSetArg(args[1], XmNmenuHistory, pwidgets[
-			curr_card->dbase->row[curr_card->row]->section]);
-		XtSetValues(w_sect, args, 2);
-		XtSetValues(w_del,  args, 1);
-		XtSetValues(XmOptionButtonGadget(w_sect), args, 1);
+	if (w_sect->isVisible()) {
+		printf("%d\n", curr_card->dbase->row[curr_card->row]->section);
+		w_sect->setEnabled(true);
+		w_sect->setCurrentIndex(
+			curr_card->dbase->row[curr_card->row]->section);
+		// I've no idea what this is doing here
+		w_del->setEnabled(true);
 	}
-#endif
 }
 
 
 static void remake_popup(void)
 {
-#ifdef XmCSimpleOptionMenu
-	static Widget	popup;		/* the popup menu */
-	XmString	str;		/* for labels in pwidgets, temp */
-	Arg		args[20];	/* for option menu creation */
 	int		i, n;
 
-	if (w_sect) {
-		XtDestroyWidget(w_sect);
-		w_sect = 0;
-	}
-	if (popup) {
-		XtDestroyWidget(popup);
-		popup = 0;
-	}
-	if (pwidgets) {
-		for (i=0; i < pnwidgets; i++)
-			XtDestroyWidget(pwidgets[i]);
-		free(pwidgets);
-		pwidgets = 0;
-	}
-	pnwidgets = curr_card->dbase->nsects;
-	if (pnwidgets < 2) {
-		pnwidgets = 0;
-		return;
-	}
-	if (!(pwidgets = (Widget *)malloc(sizeof(Widget) * pnwidgets)))
+	w_sect->clear();
+	w_sect->hide();
+	n = curr_card->dbase->nsects;
+	if (n < 2)
 		return;
 
-	popup = XmCreatePulldownMenu(form, (char *)"pulldown", NULL, 0);
-	str = XmStringCreateSimple((char *)"");
-	n = 0;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_OPPOSITE_WIDGET); n++;
-	XtSetArg(args[n], XmNbottomWidget,	w_del);			n++;
-	XtSetArg(args[n], XmNmarginHeight,	0);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w_del);			n++;
-	XtSetArg(args[n], XmNwidth,		60);			n++;
-	XtSetArg(args[n], XmNhighlightThickness,1);			n++;
-	XtSetArg(args[n], XmNsubMenuId,		popup);			n++;
-	XtSetArg(args[n], XmNlabelString,	str);			n++;
-	w_sect = XmCreateOptionMenu(form, (char *)"sectoption", args, n);
-	XtAddCallback(w_sect, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"sect");
-	XmStringFree(str);
-
-	for (i=0; i < pnwidgets; i++) {
-		XtSetArg(args[0], XmNsensitive,
-				!curr_card->dbase->sect[i].rdonly);
-		pwidgets[i] = XtCreateManagedWidget(
-				section_name(curr_card->dbase, i),
-				xmPushButtonGadgetClass, popup, NULL, 0);
-		XtAddCallback(pwidgets[i], XmNactivateCallback,
-				(XtCallbackProc)sect_callback, (XtPointer)(unsigned long)i);
+	for (i=0; i < n; i++) {
+		QString str(section_name(curr_card->dbase, i));
+		str.replace('&', "&&");
+		w_sect->addItem(str);
+		// my use of a QComboBox makes marking individual items
+		// read-only impossible, but as far as I can tell, it's
+		// not possible to set a section read-only, anyway
+		// (Instead, the form's read-only status should prevail)
+		// callback is set above for entire widget
 	}
-	XtManageChild(w_sect);
-#endif
+	w_sect->show();
 }
 
 
@@ -1046,7 +677,7 @@ static void remake_popup(void)
  */
 
 #define MAXS	100		/* no more than 100 criteria in pulldown */
-static Widget	swidget[2*MAXS+1];	/* widgets, destroyed before remake */
+static QActionGroup	*sag = 0;	/* for radio-like sort menu */
 
 void remake_sort_pulldown(void)
 {
@@ -1056,23 +687,21 @@ void remake_sort_pulldown(void)
 	int		i;		/* item counter */
 	int		j;		/* skip redundant choice items */
 	int		n;		/* # of lines in pulldown */
-	Arg		args[10];
 
-	for (n=0; n < MAXS; n++) {
-		if (swidget[n])
-			XtDestroyWidget(swidget[n]);
-		swidget[n] = 0;
+	sortpulldown->clear();
+	if(sag) {
+		delete sag;
+		sag = 0;
 	}
+
 	if (!curr_card || !curr_card->form || !curr_card->dbase)
 		return;
 
-	XtSetArg(args[0], XmNindicatorType, XmN_OF_MANY);
-	XtSetArg(args[1], XmNselectColor,   color[COL_TOGGLE]);
-	XtSetArg(args[2], XmNset,	    pref.revsort);
-	swidget[0] = XtCreateManagedWidget((char *)"Reverse sort",
-			xmToggleButtonWidgetClass, sortpulldown, args, 3);
-	XtAddCallback(swidget[0], XmNvalueChangedCallback,
-			(XtCallbackProc)sort_pulldown, (XtPointer)-1);
+	QAction *rs = sortpulldown->addAction("Reverse sort",
+					      [=](bool c){sort_pulldown(-1, c);});
+	rs->setCheckable(true);
+	rs->setChecked(pref.revsort);
+	sag = new QActionGroup(mainwindow);
 
 	for (n=1, i=0; i < curr_card->form->nitems; i++) {
 		item = curr_card->form->items[i];
@@ -1087,19 +716,16 @@ void remake_sort_pulldown(void)
 								: item->label);
 		if (buf[j = strlen(buf)-1] == ':')
 			buf[j] = 0;
-		XtSetArg(args[0], XmNindicatorType, XmONE_OF_MANY);
-		XtSetArg(args[1], XmNselectColor,   color[COL_TOGGLE]);
-		XtSetArg(args[2], XmNset,	   item->column==pref.sortcol);
-		swidget[n] = XtCreateManagedWidget(buf,
-			xmToggleButtonWidgetClass, sortpulldown, args, 3);
-		XtAddCallback(swidget[n], XmNvalueChangedCallback,
-				(XtCallbackProc)sort_pulldown,
-				(XtPointer)item->column);
+		QString str(buf);
+		str.replace('&', "&&");
+		QAction *a = sortpulldown->addAction(str,
+					[=](){sort_pulldown(item->column);});
+		a->setCheckable(true);
+		a->setChecked(item->column==pref.sortcol);
+		sag->addAction(a);
 		sort_col[n++] = item->column;
 	}
-#ifdef XmNtearOffModel
-	XtVaSetValues(sortpulldown, XmNtearOffModel, XmTEAR_OFF_ENABLED,NULL);
-#endif
+	// tearoff already set above
 }
 
 
@@ -1116,7 +742,6 @@ void switch_form(
 	char		*formname)	/* new form name */
 {
 	char		name[1024], *p;	/* capitalized formname */
-	Arg		args[5];
 	int		i;
 
 	if (curr_card) {
@@ -1167,7 +792,7 @@ void switch_form(
 				  form->query[form->autoquery].query);
 		else
 			query_all(curr_card);
-		create_summary_menu(curr_card, w_summary, mainwindow);
+		create_summary_menu(curr_card);
 
 		strcpy(name, formname);
 		if (*name >= 'a' && *name <= 'z')
@@ -1178,22 +803,21 @@ void switch_form(
 			p++;
 		else
 			p = name;
-		if (toplevel) {
-			XtVaSetValues(toplevel, XmNiconName, p, NULL);
+		if (mainwindow) {
+			mainwindow->setWindowIconText(p);
 			fillout_card(curr_card, FALSE);
 		}
 	} else
-		if (toplevel)
-			XtVaSetValues(toplevel, XmNiconName, (char *)"None", NULL);
+		if (mainwindow)
+			mainwindow->setWindowIconText("None");
 
-	if (toplevel) {
-		XtSetArg(args[0], XmNsensitive, formname != 0);
-		XtSetValues(w_left,  args, 1);
-		XtSetValues(w_right, args, 1);
-		XtSetValues(w_del,   args, 1);
-		XtSetValues(w_dup,   args, 1);
-		XtSetValues(w_new,   args, 1);
-
+	if (mainwindow) {
+		w_left->setEnabled(formname != 0);
+		w_right->setEnabled(formname != 0);
+		w_del->setEnabled(formname != 0);
+		w_dup->setEnabled(formname != 0);
+		w_new->setEnabled(formname != 0);
+		
 		remake_query_pulldown();
 		remake_sort_pulldown();
 		remake_section_pulldown();	/* also sets w_sect, w_del */
@@ -1213,7 +837,7 @@ void switch_form(
 static void find_and_select(
 	char		*string)	/* contents of search text widget */
 {
-	int		i, j;		/* query count, query index */
+	int		i, j = 0;	/* query count, query index */
 	int		oldrow;		/* if search fails, stay put */
 
 	if (!curr_card)
@@ -1246,18 +870,16 @@ static void find_and_select(
 
 static void rambo_quit(void) { exit(0); }
 
-/*ARGSUSED*/
 static void file_pulldown(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+	int				item)
 {
 	card_readback_texts(curr_card, -1);
 	switch (item) {
 	  case 0: {						/* find&sel */
-		char *string = XmTextGetString(w_search);
-		if (string)
+		char *string = qstrdup(w_search->text());
+		if (*string)
 			find_and_select(string);
+		free(string);
 		break; }
 
 	  case 1:						/* print */
@@ -1311,11 +933,8 @@ static void file_pulldown(
 }
 
 
-/*ARGSUSED*/
 static void newform_pulldown(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+	int				item)
 {
 	card_readback_texts(curr_card, -1);
 	switch (item) {
@@ -1330,7 +949,7 @@ static void newform_pulldown(
 						return;
 			create_formedit_window(curr_card->form, FALSE, FALSE);
 		} else
-			create_error_popup(toplevel, 0,
+			create_error_popup(mainwindow, 0,
 		     "Please choose database to edit\nfrom Database pulldown");
 		break;
 
@@ -1350,30 +969,19 @@ static void newform_pulldown(
 						return;
 			create_formedit_window(curr_card->form, TRUE, TRUE);
 		} else
-			create_error_popup(toplevel, 0,
+			create_error_popup(mainwindow, 0,
 			"Please choose database from Database pulldown first");
 		break;
 	}
 }
 
 
-/*ARGSUSED*/
 static void help_pulldown(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+	int				item)
 {
-	Cursor				cursor;
-	Widget				w;
-
 	switch (item) {
 	  case 0:						/* context */
-		cursor = XCreateFontCursor(display, XC_question_arrow);
-		if (w = XmTrackingLocate(mainwindow, cursor, False)) {
-			data->reason = XmCR_HELP;
-			XtCallCallbacks(w, XmNhelpCallback, &data);
-		}
-		XFreeCursor(display, cursor);
+		QWhatsThis::enterWhatsThisMode();
 		break;
 
 	  case 1:						/* database */
@@ -1407,11 +1015,8 @@ static void help_pulldown(
 }
 
 
-/*ARGSUSED*/
 static void dbase_pulldown(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+	int				item)
 {
 	char				path[1024];
 
@@ -1422,11 +1027,8 @@ static void dbase_pulldown(
 }
 
 
-/*ARGSUSED*/
 static void section_pulldown(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+	int				item)
 {
 	card_readback_texts(curr_card, -1);
 	if (item == curr_card->dbase->nsects+1 || item == MAXSC-1 ||
@@ -1439,7 +1041,7 @@ static void section_pulldown(
 		else
 			query_all(curr_card);
 
-		create_summary_menu(curr_card, w_summary, mainwindow);
+		create_summary_menu(curr_card);
 
 		curr_card->row = curr_card->query ? curr_card->query[0]
 						  : curr_card->dbase->nrows;
@@ -1448,25 +1050,23 @@ static void section_pulldown(
 }
 
 
-/*ARGSUSED*/
 static void query_pulldown(
-	Widget				widget,	/* 0 if called by ReQuery */
-	int				item,	/* -1: all, -2: autoquery */
-	XmToggleButtonCallbackStruct	*data)	/* 0 if called by ReQuery */
+	int		item,	/* -1: all, -2: autoquery */
+	bool		set)
 {
 	print_info_line();
 	if (!curr_card || !curr_card->dbase || !curr_card->dbase->nrows)
 		return;
 	card_readback_texts(curr_card, -1);
 	if (item == -2) {
-		pref.autoquery = data->set;
+		pref.autoquery = set;
 		item = curr_card->form->autoquery;
 	} else if (pref.autoquery)
 		curr_card->form->autoquery = item;
 
 	do_query(item);
 
-	create_summary_menu(curr_card, w_summary, mainwindow);
+	create_summary_menu(curr_card);
 
 	curr_card->row = curr_card->query ? curr_card->query[0]
 					  : curr_card->dbase->nrows;
@@ -1475,20 +1075,18 @@ static void query_pulldown(
 }
 
 
-/*ARGSUSED*/
 static void sort_pulldown(
-	Widget				widget,
-	int				item,	/* -1 is reverse flag */
-	XmToggleButtonCallbackStruct	*data)
+	int		item,	/* -1 is reverse flag */
+	bool		set)
 {
 	if (item < 0)
-		pref.revsort = data->set;
+		pref.revsort = set;
 	else
 		pref.sortcol = item;
 
 	card_readback_texts(curr_card, -1);
 	dbase_sort(curr_card, pref.sortcol, pref.revsort);
-	create_summary_menu(curr_card, w_summary, mainwindow);
+	create_summary_menu(curr_card);
 	curr_card->row = curr_card->query ? curr_card->query[0]
 					  : curr_card->dbase->nrows;
 	fillout_card(curr_card, FALSE);
@@ -1520,15 +1118,13 @@ void do_query(
 
 	else if (*curr_card->form->query[qmode].query == '/') {
 		char *query = curr_card->form->query[qmode].query;
-		char *string = XtMalloc(strlen(query));
-		strcpy(string, query+1);
+		char *string = strdup(query + 1);
 		append_search_string(string);
 		query_search(SM_SEARCH, curr_card, query+1);
 	} else {
 		char *query = curr_card->form->query[qmode].query;
 		if (pref.query2search) {
-			char *string = XtMalloc(strlen(query)+1);
-			strcpy(string, query);
+			char *string = strdup(query);
 			append_search_string(string);
 		}
 		query_eval(SM_SEARCH, curr_card, query);
@@ -1553,7 +1149,6 @@ void do_query(
  * switch statement in expressions too.
  */
 
-/*ARGSUSED*/
 void search_cards(
 	Searchmode	mode,		/* search, narrow, widen, ... */
 	CARD		*card,
@@ -1566,7 +1161,7 @@ void search_cards(
 	if (!card || !card->dbase || !card->dbase->nrows)
 		return;
 	query_any(mode, card, string);
-	create_summary_menu(card, w_summary, mainwindow);
+	create_summary_menu(card);
 	card->row = card->nquery ? card->query[0] : card->dbase->nrows;
 	fillout_card(card, FALSE);
 }
@@ -1576,14 +1171,10 @@ void search_cards(
  * Clear the search string.
  */
 
-/*ARGSUSED*/
-static void clear_callback(
-	Widget				widget,
-	int				inc,
-	XmToggleButtonCallbackStruct	*data)
+static void clear_callback(void)
 {
 	print_text_button_s(w_search, "");
-	XmProcessTraversal(w_search, XmTRAVERSE_CURRENT);
+	w_search->setFocus();
 }
 
 
@@ -1597,21 +1188,15 @@ static void clear_callback(
 static char	*history[NHIST];
 static int	s_curr, s_offs;
 
-/*ARGSUSED*/
 static void mode_callback(
-	Widget				widget,
-	int				item,	/* one of SM_* */
-	XmToggleButtonCallbackStruct	*data)
+	int				item)	/* one of SM_* */
 {
 	searchmode = (Searchmode)item;
 }
 
 
-/*ARGSUSED*/
 static void search_callback(
-	Widget				widget,
-	int				inc,
-	XmToggleButtonCallbackStruct	*data)
+	int				inc)
 {
 	if (inc) {
 		int o = s_offs + inc;
@@ -1622,7 +1207,7 @@ static void search_callback(
 		}
 		append_search_string(0);
 	} else {
-		char *string = XmTextGetString(w_search);
+		char *string = qstrdup(w_search->text());
 		if (searchmode != SM_FIND)
 			search_cards(searchmode, curr_card, string);
 		else if (curr_card->nquery > 0)
@@ -1632,22 +1217,16 @@ static void search_callback(
 }
 
 
-/*ARGSUSED*/
-static void requery_callback(
-	Widget				widget,
-	int				inc,
-	XmToggleButtonCallbackStruct	*data)
+static void requery_callback(void)
 {
 	if (last_query >= 0)
-		query_pulldown(0, last_query, 0);
+		query_pulldown(last_query);
 }
 
 
 static void append_search_string(
 	char		*text)
 {
-	Arg		arg;
-
 	if (text) {
 		print_text_button_s(w_search, text);
 		s_offs = 0;
@@ -1655,14 +1234,12 @@ static void append_search_string(
 				    && strcmp(history[s_curr], text))
 			s_curr = (s_curr + 1) % NHIST;
 		if (history[s_curr])
-			XtFree(history[s_curr]);
+			free(history[s_curr]);
 		history[s_curr] = text;
 	}
-	XtSetArg(arg, XmNsensitive, s_offs < 0);
-	XtSetValues(w_next, &arg, 1);
-	XtSetArg(arg, XmNsensitive, s_offs > -NHIST+1 &&
+	w_next->setEnabled(s_offs < 0);
+	w_prev->setEnabled(s_offs > -NHIST+1 &&
 				history[(s_curr + s_offs + NHIST -1) % NHIST]);
-	XtSetValues(w_prev, &arg, 1);
 }
 
 
@@ -1671,17 +1248,14 @@ static void append_search_string(
  * search and display the result in the summary.
  */
 
-/*ARGSUSED*/
 static void letter_callback(
-	Widget				widget,
-	int				letter,
-	XmToggleButtonCallbackStruct	*cbs)
+	int				letter)
 {
 	if (!curr_card || !curr_card->dbase || !curr_card->dbase->nrows)
 		return;
 	card_readback_texts(curr_card, -1);
 	query_letter(curr_card, letter);
-	create_summary_menu(curr_card, w_summary, mainwindow);
+	create_summary_menu(curr_card);
 	curr_card->row = curr_card->query ? curr_card->query[0]
 					  : curr_card->dbase->nrows;
 	fillout_card(curr_card, FALSE);
@@ -1694,11 +1268,8 @@ static void letter_callback(
  * added cards; step in the raw database in this case.
  */
 
-/*ARGSUSED*/
 static void pos_callback(
-	Widget				widget,
-	int				inc,
-	XmToggleButtonCallbackStruct	*data)
+	int				inc)
 {
 	register CARD			*card = curr_card;
 
@@ -1725,7 +1296,6 @@ static void pos_callback(
  * When finished, find the first text input item and put the cursor into it.
  */
 
-/*ARGSUSED*/
 static void add_card(
 	BOOL		dup)
 {
@@ -1739,7 +1309,7 @@ static void add_card(
 	card_readback_texts(card, -1);
 	s = defsection < dbase->nsects ? defsection : 0;
 	if (dbase->sect[s].rdonly) {
-		create_error_popup(toplevel, 0,
+		create_error_popup(mainwindow, 0,
 					"Section file\n\"%s\" is read-only",
 					dbase->sect[s].path);
 		return;
@@ -1747,7 +1317,7 @@ static void add_card(
 	dbase->currsect = s;
 	if (!dbase_addrow(&card->row, dbase)) {
 		dbase->currsect = save_sect;
-		create_error_popup(toplevel, errno,
+		create_error_popup(mainwindow, errno,
 					"No memory for new database row");
 		return;
 	}
@@ -1766,14 +1336,14 @@ static void add_card(
 	if (card->qcurr = card->nquery)
 		if (!(newq = (int *)realloc(card->query, card->dbase->nrows *
 								sizeof(int*))))
-			create_error_popup(toplevel, errno,
+			create_error_popup(mainwindow, errno,
 							"No memory for query");
 		else {
 			card->query = newq;
 			card->query[card->nquery++] = card->row;
 		}
 	dbase_sort(card, pref.sortcol, pref.revsort);
-	create_summary_menu(card, w_summary, mainwindow);
+	create_summary_menu(card);
 	fillout_card(card, FALSE);
 	scroll_summary(card);
 	print_info_line();
@@ -1781,19 +1351,14 @@ static void add_card(
 		item = card->form->items[i];
 		if (item->type == IT_INPUT || item->type == IT_TIME
 					   || item->type == IT_NOTE) {
-			XmProcessTraversal(card->items[i].w0,
-						XmTRAVERSE_CURRENT);
+			card->items[i].w0->setFocus();
 			break;
 		}
 	}
 }
 
 
-/*ARGSUSED*/
-static void new_callback(
-	Widget				widget,
-	XtPointer			null,
-	XmToggleButtonCallbackStruct	*cbs)
+static void new_callback(void)
 {
 	add_card(FALSE);
 	if (pref.autoquery) {
@@ -1809,11 +1374,7 @@ static void new_callback(
  * the same data as the current card.
  */
 
-/*ARGSUSED*/
-static void dup_callback(
-	Widget				widget,
-	XtPointer			null,
-	XmToggleButtonCallbackStruct	*cbs)
+static void dup_callback(void)
 {
 	if (curr_card->row >= 0)
 		add_card(TRUE);
@@ -1827,11 +1388,7 @@ static void dup_callback(
  * removed, row indices > deleted row must be decremented.
  */
 
-/*ARGSUSED*/
-static void del_callback(
-	Widget				widget,
-	XtPointer			null,
-	XmToggleButtonCallbackStruct	*data)
+static void del_callback(void)
 {
 	register CARD			*card = curr_card;
 	register int			*p, *q;
@@ -1841,7 +1398,7 @@ static void del_callback(
 		return;
 	s = card->dbase->row[card->row]->section;
 	if (card->dbase->sect[s].rdonly) {
-		create_error_popup(toplevel, 0,
+		create_error_popup(mainwindow, 0,
 				"section file\n\"%s\" is read-only",
 				card->dbase->sect[s].path);
 		return;
@@ -1857,7 +1414,7 @@ static void del_callback(
 	card->nquery -= p - q;
 	print_info_line();
 	fillout_card(card, FALSE);
-	create_summary_menu(card, w_summary, mainwindow);
+	create_summary_menu(card);
 }
 
 
@@ -1865,11 +1422,8 @@ static void del_callback(
  * assign new section to the current card (called from the option popup)
  */
 
-/*ARGSUSED*/
 static void sect_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+	int				item)
 {
 	register CARD			*card = curr_card;
 	register SECTION		*sect = card->dbase->sect;
@@ -1878,10 +1432,10 @@ static void sect_callback(
 	olds = card->dbase->row[card->row]->section;
 	news = item;
 	if (sect[olds].rdonly)
-		create_error_popup(toplevel, 0,
+		create_error_popup(mainwindow, 0,
 			"section file\n\"%s\" is read-only", sect[olds].path);
 	else if (sect[news].rdonly)
-		create_error_popup(toplevel, 0,
+		create_error_popup(mainwindow, 0,
 			"section file\n\"%s\" is read-only", sect[news].path);
 	else {
 		sect[olds].nrows--;

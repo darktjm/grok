@@ -3,14 +3,14 @@
  */
 
 #include "config.h"
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <Xm/Xm.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
-#include "y.tab.h"
+#include "parser_yacc.h"
 
 #if !(defined(bsdi) || defined(linux))
 int		yylineno;		/* current line # being parsed */
@@ -32,7 +32,7 @@ BOOL		assigned;		/* did a field assignment */
 
 int yywrap(void) { return(1); }
 
-void yyerror(
+void parsererror(
 	const char *msg)
 {
 	if (!*errormsg) {
@@ -68,11 +68,11 @@ const char *evaluate(
 	yycard = card;
 	yyret  = 0;
 
-	(void)yyparse();
+	(void)parserparse();
 
 	free((void *)yyexpr);
 	if (*errormsg) {
-		create_error_popup(toplevel, 0, errormsg);
+		create_error_popup(mainwindow, 0, errormsg);
 		return(0);
 	}
 	return(yyret ? yyret : "");
@@ -141,7 +141,9 @@ static const struct symtab { const char *name; int token; } symtab[] = {
 			{ "last",	LAST	},
 			{ "avg",	AVG	},
 			{ "dev",	DEV	},
-			{ "var",	VAR	},
+			/* tjm - I'm guessing this was supposed to be variance */
+			/*       but it conflicts with variables */
+			/* { "var",	VAR	}, */
 			{ "min",	AMIN	},
 			{ "max",	AMAX	},
 			{ "sum",	SUM	},
@@ -211,11 +213,11 @@ static const struct symtab { const char *name; int token; } symtab[] = {
  * return next token and its value, called by parser
  */
 
-int yylex(void)
+int parserlex(void)
 #if 0 /* debug lexer */
 {
-	int Xyylex(void);
-	int t = Xyylex();
+	int Xparserlex(void);
+	int t = Xparserlex();
 	if (t > 31 && t < 127)
 		printf("== '%c'\n", t);
 	else switch(t) {
@@ -230,7 +232,7 @@ int yylex(void)
 	}
 	return(t);
 }
-int Xyylex(void)
+int Xparserlex(void)
 #endif
 {
 	int		i;
@@ -245,7 +247,7 @@ int Xyylex(void)
 								/* number */
 	if (ISDIGIT(*yytext) || *yytext == '.' && ISDIGIT(yytext[1])) {
 		char *ptr;
-		yylval.dval = strtod(yytext, &ptr);
+		parserlval.dval = strtod(yytext, &ptr);
 		yytext = ptr;
 		return(NUMBER);
 	}
@@ -259,16 +261,16 @@ int Xyylex(void)
 		if (!*yytext)
 			return(0); /* unterminated */
 		*yytext = 0;
-		yylval.sval = mystrdup(begin);
+		parserlval.sval = mystrdup(begin);
 		*yytext++ = quote;
 		return(STRING);
 	}
 	if (*yytext>='a'&&*yytext<='z'&&!ISSYM(yytext[1])) {	/* variable */
-		yylval.ival = *yytext++ - 'a';
+		parserlval.ival = *yytext++ - 'a';
 		return(VAR);
 	}
 	if (*yytext>='A'&&*yytext<='Z'&&!ISSYM(yytext[1])) {
-		yylval.ival = *yytext++ - 'A' + 26;
+		parserlval.ival = *yytext++ - 'A' + 26;
 		return(VAR);
 	}
 	if (*yytext == '_') {					/* field */
@@ -279,18 +281,18 @@ int Xyylex(void)
 		if (yycard && yycard->form) {
 			item = yycard->form->items;
 			if (ISDIGIT(*token)) {			/* ...numeric*/
-				yylval.ival = atoi(token);
+				parserlval.ival = atoi(token);
 				return(FIELD);
 			} else					/* ...name */
 				for (i=yycard->form->nitems-1; i >= 0; i--)
 					if (!strcmp(item[i]->name, token)) {
-						yylval.ival = yycard->form->
+						parserlval.ival = yycard->form->
 							      items[i]->column;
 						return(FIELD);
 					}
 		}
-		sprintf(msg, "Illegal field \"_%s\"", token);
-		yyerror(msg);
+		sprintf(msg, "Illegal field \"_%.80s\"", token);
+		parsererror(msg);
 		return(EOF);
 	}
 	if (ISSYM_B(*yytext)) {					/* symbol */
@@ -300,7 +302,7 @@ int Xyylex(void)
 		for (sym=symtab; sym->name; sym++)		/* ...token? */
 			if (!strcmp(sym->name, token))
 				return(sym->token);
-		yylval.sval = mystrdup(token);			/* ...symbol */
+		parserlval.sval = mystrdup(token);			/* ...symbol */
 		return(SYMBOL);
 	}
 	for (i=0; pair_l[i]; i++)				/* char pair */

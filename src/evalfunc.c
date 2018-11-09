@@ -19,16 +19,17 @@
  */
 
 #include "config.h"
-#include <X11/Xos.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <math.h>
-#include <Xm/Xm.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
-#include "y.tab.h"
+#include "parser_yacc.h"
 
 
 /*
@@ -454,7 +455,7 @@ char *f_system(
 				size = (int)sizeof(data)-1 - i;
 			size = fread(data+i, 1, size, fp);
 			data[i + size] = 0;
-			create_error_popup(toplevel, 0, data);
+			create_error_popup(mainwindow, 0, data);
 		}
 		fclose(fp);
 	}
@@ -496,7 +497,7 @@ char *f_tr(
 		FREE(ret);
 		FREE(array);
 		FREE(rules);
-		create_error_popup(toplevel, errno, "tr");
+		create_error_popup(mainwindow, errno, "tr");
 		return(string);
 	}
 	memset(array, 0, 256 * sizeof(char *));
@@ -505,13 +506,13 @@ char *f_tr(
 		FREE(ret);
 		FREE(array);
 		FREE(rules);
-		create_error_popup(toplevel, 0, err);
+		create_error_popup(mainwindow, 0, err);
 		return(string);
 	}
 	while (*string) {
 		i = array[(unsigned char)*string] ? strlen(array[(unsigned char)*string]) : 1;
 		if (len+i >= max && !(ret = (char *)realloc(ret, max += max/2))) {
-			create_error_popup(toplevel, errno, "tr");
+			create_error_popup(mainwindow, errno, "tr");
 			break;
 		}
 		if (array[(unsigned char)*string]) {

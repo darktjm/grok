@@ -23,16 +23,16 @@
  */
 
 #include "config.h"
-#include <X11/Xos.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <pwd.h>
 #include <signal.h>
-#include <Xm/Xm.h>
-#include <Xm/Text.h>
-#include <X11/StringDefs.h>
-#include <X11/cursorfont.h>
+#include <QtWidgets>
+#include <QtGui/private/qguiapplication_p.h>
+#include <QtGui/qpa/qplatformtheme.h>
+#include "layout-qss.h"
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
@@ -247,55 +247,47 @@ char *mystrdup(
  * routines.
  */
 
-void print_button(Widget w, const char *fmt, ...)
+static void set_w_text(QWidget *w, QString &string)
+{
+	QPushButton		*b;
+	QLabel			*l;
+	QLineEdit		*le;
+	QTextEdit		*te;
+
+	if((b = dynamic_cast<QPushButton *>(w)))
+		b->setText(string);
+	else if((l = dynamic_cast<QLabel *>(w)))
+		l->setText(string);
+	else if((le = dynamic_cast<QLineEdit *>(w))) {
+		le->setText(string);
+		le->setCursorPosition(string.size());
+	} else if((te = dynamic_cast<QTextEdit *>(w))) {
+		te->setPlainText(string);
+		te->textCursor().setPosition(string.size());
+	}
+}
+
+void print_button(QWidget *w, const char *fmt, ...)
 {
 	va_list			parm;
-	Arg			args;
-	XmString		string;
-	char			buf[1024];
 
 	if (w) {
 		va_start(parm, fmt);
 		if (!fmt) fmt = "";
-		vsprintf(buf, fmt, parm);
+		QString string(QString::vasprintf(fmt, parm));
 		va_end(parm);
-		string = XmStringCreateSimple(buf);
-		XtSetArg(args, XmNlabelString, string);
-		XtSetValues(w, &args, 1);
-		XmStringFree(string);
+		set_w_text(w, string);
 	}
 }
 
-void print_text_button(Widget w, const char *fmt, ...)
+void print_text_button_s(QWidget *w, const char *str)
 {
-	va_list			parm;
-	XmString		string;
-	char			buf[1024];
-
-	if (w) {
-		va_start(parm, fmt);
-		if (!fmt) fmt = "";
-		vsprintf(buf, fmt, parm);
-		va_end(parm);
-		string = XmStringCreateSimple(buf);
-		XmTextSetString(w, buf);
-		XmTextSetInsertionPosition(w, strlen(buf));
-		XmStringFree(string);
-	}
-}
-
-void print_text_button_s(Widget w, const char *str)
-{
-	XmString		string;
-
 	if (!w)
 		return;
 	if (!str)
 		str = "";
-	string = XmStringCreateSimple((char *)str);
-	XmTextSetString(w, (char *)str);
-	XmTextSetInsertionPosition(w, strlen(str));
-	XmStringFree(string);
+	QString string(str);
+	set_w_text(w, string);
 }
 
 
@@ -304,15 +296,11 @@ void print_text_button_s(Widget w, const char *str)
  */
 
 void set_toggle(
-	Widget			w,
+	QWidget			*w,
 	BOOL			set)
 {
-	Arg			arg;
-
-	if (w) {
-		XtSetArg(arg, XmNset, set);
-		XtSetValues(w, &arg, 1);
-	}
+	if (w)
+		dynamic_cast<QAbstractButton *>(w)->setChecked(set);
 }
 
 
@@ -323,39 +311,48 @@ void set_toggle(
  */
 
 static char *readbutton(
-	Widget			w,
+	QWidget			*w,
 	char			**ptr,
 	BOOL			skipblank,
 	BOOL			noblanks)
 {
-	char			*string, *s;	/* contents of text widget */
-	static char		*buf = 0;
+	static char		*buf = NULL;
 	static int		bufsize = 0;
 	int			size;
+	QString			string;
 
 	if (w) {
-		s = string = XmTextGetString(w);
+		QLineEdit		*le;
+		int			s = 0, e, i;
+		if((le = dynamic_cast<QLineEdit *>(w)))
+			string = le->text();
+		else
+			string = dynamic_cast<QTextEdit *>(w)->toPlainText();
+		e = string.size();
 		if (skipblank) {
-			while (*s == ' ' || *s == '\t')
+			while(s < e && string[s] == ' ' || string[s] == '\t')
 				s++;
 			if (noblanks)
-				for (size=0; s[size]; size++)
-					if (s[size] == ' ' || s[size] == '\t')
-						s[size] = '_';
-			size = strlen(s);
-			while (size && (s[size-1] == ' ' || s[size-1] == '\t'))
-				size--;
-			s[size++] = 0;
-		} else
-			size = strlen(s) + 1;
+				for (i = 0; i < e; i++)
+					if(string[i] == ' ' || string[i] == '\t')
+						string[i] = '_';
+			/* note: if(noblanks), this will do nothing */
+			/* that is probalby a bug - tjm */
+			while(e > s && (string[e - 1] == ' ' || string[e - 1] == '\t'))
+				e--;
+		}
+		string.chop(string.size() - e);
+		string.remove(0, s);
+		QByteArray bytes(string.toLocal8Bit());
+		size = bytes.size() + 1;
 
 		if (size > bufsize) {
 			if (buf) free(buf);
 			if (!(buf = (char *)malloc(bufsize = size)))
 				return(0);
 		}
-		strcpy(buf, s);
-		XtFree(string);
+		memcpy(buf, bytes.data(), size - 1);
+		buf[size - 1] = 0;
 	} else if (buf)
 		*buf = 0;
 	if (ptr) {
@@ -365,13 +362,13 @@ static char *readbutton(
 	return(buf);
 }
 
-char *read_text_button_noskipblank(Widget w, char **ptr)
+char *read_text_button_noskipblank(QWidget *w, char **ptr)
 	{ return(readbutton(w, ptr, FALSE, FALSE)); }
 
-char *read_text_button(Widget w, char **ptr)
+char *read_text_button(QWidget *w, char **ptr)
 	{ return(readbutton(w, ptr, TRUE, FALSE)); }
 
-char *read_text_button_noblanks(Widget w, char **ptr)
+char *read_text_button_noblanks(QWidget *w, char **ptr)
 	{ return(readbutton(w, ptr, TRUE, TRUE)); }
 
 
@@ -379,81 +376,70 @@ char *read_text_button_noblanks(Widget w, char **ptr)
  * set icon for the application or a shell.
  */
 
+/* FIXME: change this to use Grok.xpm instead */
 void set_icon(
-	Widget			shell,
+	QWidget			*shell,
 	int			sub)		/* 0=main, 1=submenu */
 {
-#ifndef sgi
-	Pixmap			icon;
-
-	if (icon = XCreatePixmapFromBitmapData(display,
-				DefaultRootWindow(display),
-				(char *)(sub ? bm_icon_bits : bm_icon_bits),
-				bm_icon_width, bm_icon_height,
-				BlackPixelOfScreen(XtScreen(shell)),
-				WhitePixelOfScreen(XtScreen(shell)),
-				DefaultDepth(display, DefaultScreen(display))))
-
-		XtVaSetValues(shell, XmNiconPixmap, icon, NULL);
-#endif
+	static QIcon icon;
+	if(icon.isNull())
+		icon.addPixmap(QPixmap::fromImage(QImage(bm_icon_bits, bm_icon_width, bm_icon_height, QImage::Format_Mono)));
+	/* there is only 1 icon, so sub is actually ignored */
+	shell->setWindowIcon(icon);
 }
 
 
 /*
  * set mouse cursor to one of the predefined shapes. This is used in the
  * form editor's canvas drawing area. The list of supported cursors is in
- * <X11/cursorfont.h>.
  */
 
 void set_cursor(
-	Widget			w,		/* in which widget */
-	int			n)		/* which cursor, one of XC_* */
+	QWidget			*w,		/* in which widget */
+	Qt::CursorShape		n)		/* which cursor, one of XC_* */
 {
-	static Cursor		cursor[XC_num_glyphs];
-
-	if (!cursor[n])
-		cursor[n] = XCreateFontCursor(display, n);
-	XDefineCursor(display, XtWindow(w), cursor[n]);
+	w->setCursor(QCursor(n));
 }
 
 
 /*
  * truncate <string> such that it is not longer than <len> pixels when
  * drawn with font <sfont>, by storing \0 somewhere in the string.
+ * This used to take a font ID, but style sheets could change the font
+ * of any widget, so best to pass in the widget.
  */
 
 void truncate_string(
+	QWidget *w,			/* widget string will show in */
 	register char	*string,	/* string to truncate */
-	register int	len,		/* max len in pixels */
-	int		sfont)		/* font of string */
+	register int	len)		/* max len in pixels */
 {
-	while (*string) {
-		len -= font[sfont]->per_char
-		       [*string - font[sfont]->min_char_or_byte2].width;
-		if (len < 0)
-			*string = 0;
-		else
-			string++;
+	const QFontMetrics &fs(w->fontMetrics());
+	QString str(string);
+	int slen = str.size();
+	while(str.size() > 0) {
+		if(fs.boundingRect(str).width() <= len)
+			break;
+		str.chop(1);
 	}
+	if(slen == str.size())
+		return;
+	string[str.toLocal8Bit().size()] = 0;
 }
 
 
 /*
- * return the length of <string> in pixels, when drawn with <sfont>
+ * return the length of <string> in pixels, when drawn in <w>.
+ * This used to take a font ID, but style sheets could change the font
+ * of any widget, so best to pass in the widget.
  */
 
 int strlen_in_pixels(
-	const char	*string,	/* string to truncate */
-	int		sfont)		/* font of string */
+	QWidget		*w,		/* widget string will show in */
+	const char	*string)	/* string to truncate */
 {
-	register int	len = 0;	/* max len in pixels */
-
-	while (*string) {
-		len += font[sfont]->per_char
-		       [*string - font[sfont]->min_char_or_byte2].width;
-		string++;
-	}
-	return(len);
+	const QFontMetrics &fs(w->fontMetrics());
+	return fs.boundingRect(string).width();
 }
 
 
@@ -495,4 +481,63 @@ char to_ascii(
 		return('\\');
 	} else
 		return(*p);
+}
+
+QWidget *mk_separator(void)
+{
+	QFrame *f = new QFrame;
+	f->setFrameStyle(QFrame::HLine | QFrame::Sunken);
+	f->setObjectName("sep"); // for style sheets
+	return f;
+}
+
+QPushButton *mk_button(
+	QDialogButtonBox *bb,		/* target button box; may be 0 */
+	const char	*label,		/* label, or 0 if standard */
+	int		role)		/* role, or ID if label is NULL */
+{
+	QPushButton *w;
+	if(bb) {
+		if(label)
+			w = bb->addButton(label, (dbbb(ButtonRole))role);
+		else
+			w = bb->addButton((dbbb(StandardButton))role);
+	} else {
+		if(label)
+			w = new QPushButton(label);
+		else
+			// Qt provides no public way of obtaining standard button labels
+			w = new QPushButton(QGuiApplicationPrivate::platformTheme()->standardButtonText(role));
+	}
+	w->setMinimumWidth(80);
+#if 0
+	/* As mentioned in QT-README.md, I won't be matching Motif's */
+	/* usual convention of naming button widgets after their label */
+	w->setObjectName(w->text());
+#endif
+	return w;
+}
+
+void add_layout_qss(QLayout *l, const char *name)
+{
+	if(name)
+		l->setObjectName(name);
+	l->addWidget(new LayoutQSS(l));
+}
+
+void popup_nonmodal(QDialog *d)
+{
+	d->setModal(false);
+	d->show();
+	d->raise();
+	d->activateWindow();
+}
+
+char *qstrdup(const QString &str)
+{
+	const QByteArray bytes(str.toLocal8Bit());
+	char *ret = (char *)malloc(bytes.size() + 1);
+	memcpy(ret, bytes.data(), bytes.size());
+	ret[bytes.size()] = 0;
+	return ret;
 }

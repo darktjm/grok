@@ -5,11 +5,11 @@
  */
 
 #include "config.h"
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
 #include <signal.h>
-#include <Xm/Xm.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
@@ -35,7 +35,7 @@ static void print_card_p(FILE *, int);
 
 static void broken_pipe_handler(int sig)
 {
-	create_error_popup(toplevel, 0,
+	create_error_popup(mainwindow, 0,
 			"Print failed, spooler aborted with signal %d\n", sig);
 	signal(SIGPIPE, SIG_IGN);
 }
@@ -59,11 +59,11 @@ void print(void)
 		  case 'A': n = curr_card->dbase->nrows;	break;
 		}
 	if (n == 0) {
-		create_error_popup(toplevel, 0, "No cards to print.");
+		create_error_popup(mainwindow, 0, "No cards to print.");
 		return;
 	}
 	if (pref.pquality == 'P') {
-		create_error_popup(toplevel, 0, "PostScript not supported");
+		create_error_popup(mainwindow, 0, "PostScript not supported");
 		return;
 	}
 	signal(SIGPIPE, broken_pipe_handler);
@@ -72,7 +72,7 @@ void print(void)
 	  case 'P':
 		file = pref.pquality == 'P' ? pref.pspooler_a : pref.pspooler_a;
 		if (!(fp = popen(file, "w"))) {
-			create_error_popup(toplevel, errno,
+			create_error_popup(mainwindow, errno,
 			    "Cannot open pipe to print spooler\n\"%s\"", file);
 			return;
 		}
@@ -83,7 +83,7 @@ void print(void)
 
 	  case 'F':
 		if (!(fp = fopen(file, "w"))) {
-			create_error_popup(toplevel, errno,
+			create_error_popup(mainwindow, errno,
 				"Cannot open print output file\n\"%s\"", file);
 			return;
 		}
@@ -203,7 +203,6 @@ static void print_head_a(
  * no trailer for ascii
  */
 
-/*ARGSUSED*/
 static void print_tail_a(
 	FILE		*fp)		/* file or spooler to print to */
 {

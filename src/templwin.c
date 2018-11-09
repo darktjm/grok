@@ -8,38 +8,26 @@
  */
 
 #include "config.h"
-#include <X11/Xos.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <Xm/Xm.h>
-#include <Xm/DialogS.h>
-#include <Xm/Form.h>
-#include <Xm/List.h>
-#include <Xm/Text.h>
-#include <Xm/TextF.h>
-#include <Xm/LabelP.h>
-#include <Xm/LabelG.h>
-#include <Xm/PushBP.h>
-#include <Xm/PushBG.h>
-#include <Xm/Separator.h>
-#include <Xm/FileSB.h>
-#include <Xm/Protocols.h>
+#include <unistd.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
 
 #define NLINES	15		/* number of lines in list widget */
 
+static void button_callback(int code);
+static void file_export_callback(QDialog *d, const QString &file);
+
 static void mklist(void);
-static void button_callback	(Widget, int, XmToggleButtonCallbackStruct *);
-static void file_export_callback(Widget,int,XmFileSelectionBoxCallbackStruct*);
-static void file_cancel_callback(Widget,int,XmFileSelectionBoxCallbackStruct*);
 static void editfile(char *);
 static void askname(BOOL);
 
 static BOOL	have_shell = FALSE;	/* message popup exists if TRUE */
-static Widget	shell;		/* popup menu shell */
-static Widget	list;		/* template list widget */
+static QDialog	*shell;		/* popup menu shell */
+static QListWidget	*list;		/* template list widget */
 static int	list_nlines;	/* # of lines displayed in scroll list */
 static BOOL	modified;	/* preferences have changed */
 
@@ -53,9 +41,9 @@ void destroy_templ_popup(void)
 	if (have_shell) {
 		if (modified)
 			write_preferences();
-		XtPopdown(shell);
-		XtDestroyWidget(shell);
 		have_shell = FALSE;
+		shell->close();
+		delete shell;
 	}
 }
 
@@ -71,121 +59,96 @@ void destroy_templ_popup(void)
 static struct menu {
 	char	type;		/* Label, Scroll, b/q/Button, Text, -line */
 	long	code;		/* unique identifier, 0=none */
+	int 	role;
 	const char *text;
-	Widget	widget;
+	QWidget	*widget;
 } menu[] = {
-	{ 'L',	0,	"Template:"		},
-	{ 'S',	0x10,	"scroll",		},
-	{ 'B',	0x20,	"Create"		},
-	{ 'b',	0x21,	"Dup"			},
-	{ 'b',	0x22,	"Edit"			},
-	{ 'q',	0x23,	"Delete"		},
-	{ '-',	0,	"div"			},
-	{ 'L',	0,	"Output file:"		},
-	{ 'T',	0x30,	"text",			},
-	{ 'B',	0x40,	"Browse"		},
-	{ 'b',	0x41,	"Export"		},
-	{ 'b',	0x42,	"Cancel"		},
-	{ 'q',	0x43,	"Help"			},
-	{  0,   0,	0			}
+	{ 'L',	0,	dbbr(Invalid), "Template:"		},
+	{ 'S',	0x10,	dbbr(Invalid), "scroll",		},
+	{ 'B',	0x20,	dbbr(Action),  "Create"		},
+	{ 'b',	0x21,	dbbr(Action),  "Dup"		},
+	{ 'b',	0x22,	dbbr(Action),  "Edit"		},
+	{ 'q',	0x23,	dbbr(Action),  "Delete"		},
+	{ '-',	0,	dbbr(Invalid), "div"		},
+	{ 'L',	0,	dbbr(Invalid), "Output file:"	},
+	{ 'T',	0x30,	dbbr(Invalid), "text",		},
+	{ 'B',	0x40,	dbbr(Action),  "Browse"		},
+	{ 'b',	0x41,	dbbr(Accept),  "Export"		},
+	{ 'b',	0x42,	dbbb(Cancel),  0		},
+	{ 'q',	0x43,	dbbb(Help),    0		},
+	{  0,   0,	dbbr(Invalid), 0			}
 };
 
 void create_templ_popup(void)
 {
 	struct menu	*mp;			/* current menu[] entry */
-	WidgetClass	wclass;			/* label, radio, or button */
-	Widget		form, w=0, top=0;
-	Arg		args[20];
-	int		n;
-	Atom		closewindow;
+	QWidget		*w=0;
+	QBoxLayout	*form;
+	QDialogButtonBox *hb = 0;
 
 	destroy_templ_popup();
 
-	n = 0;
-	XtSetArg(args[n], XmNdeleteResponse,	XmDO_NOTHING);		n++;
-	XtSetArg(args[n], XmNiconic,		False);			n++;
-	shell = XtAppCreateShell("Grok Export", "Grok",
-			applicationShellWidgetClass, display, args, n);
+	if (!curr_card) {
+		create_error_popup(mainwindow, 0, "Select a database to export");
+		return;
+	}
+
+	// The proper way to ignore delete is to override QWindow::closeEvent()
+	// Instead, I'll do nothing.  It makes more sense to issue a reject
+	// (the default behavior), anyway - tjm
+	shell = new QDialog;
+	shell->setWindowTitle("Grok Export");
 	set_icon(shell, 1);
-	form = XtCreateManagedWidget("exportform", xmFormWidgetClass,
-			shell, NULL, 0);
-	XtAddCallback(form, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"tempname");
+	form = new QVBoxLayout(shell);
+	add_layout_qss(form, "exportform");
+    	/* I could use from->setContentsMargins() to 16 but I'll leave at default */
+	/* Same applies to setSpacing() */
+	bind_help(shell, "tempname");
 
 	for (mp=menu; mp->type; mp++) {
-	    n = 0;
-	    if (w == 0) {
-		XtSetArg(args[n], XmNtopAttachment,  XmATTACH_FORM);	n++;
-	    } else {
-		XtSetArg(args[n], XmNtopAttachment,  XmATTACH_WIDGET);	n++;
-		XtSetArg(args[n], XmNtopWidget,      top);		n++;
-	    }
-	    if ((mp->code & 0x70) == 0x40) {
-		XtSetArg(args[n], XmNbottomAttachment,XmATTACH_FORM);	n++;
-		XtSetArg(args[n], XmNbottomOffset,   16);		n++;
-	    }
-	    if (mp->type == 'b' || mp->type == 'q') {
-		XtSetArg(args[n], XmNleftAttachment, XmATTACH_WIDGET);	n++;
-		XtSetArg(args[n], XmNleftWidget,     w);		n++;
-		XtSetArg(args[n], XmNleftOffset,     8);		n++;
-	    } else {
-		XtSetArg(args[n], XmNleftAttachment, XmATTACH_FORM);	n++;
-		XtSetArg(args[n], XmNleftOffset,     16);		n++;
-	    }
-	    if (mp->type != 'L' && mp->type != 'b' && mp->type != 'B') {
-		XtSetArg(args[n], XmNrightAttachment,XmATTACH_FORM);	n++;
-	        XtSetArg(args[n], XmNrightOffset,    16);		n++;
-	    }
-	    if (mp->type == 'b' || mp->type == 'q' || mp->type == 'B') {
-		XtSetArg(args[n], XmNwidth,	     80);		n++;
-		XtSetArg(args[n], XmNtopOffset,	     16);		n++;
-	    } else if (mp->type == 'L') {
-		XtSetArg(args[n], XmNtopOffset,	     16);		n++;
-	    } else {
-		XtSetArg(args[n], XmNtopOffset,	     8);		n++;
-	    }
-	    if (mp->type == 'T') {
-		XtSetArg(args[n], XmNbackground,  color[COL_TEXTBACK]);	n++;
-	    }
-	    XtSetArg(args[n], XmNhighlightThickness, 0);		n++;
 	    switch(mp->type) {
-	      case 'B':
+	      case 'B': hb = new QDialogButtonBox;
 	      case 'b':
-	      case 'q': wclass = xmPushButtonWidgetClass;	break;
-	      case 'T': wclass = xmTextWidgetClass;		break;
-	      case '-': wclass = xmSeparatorWidgetClass;		break;
-	      case 'L':	wclass = xmLabelWidgetClass;		break;
-	      case 'S': wclass = 0;				break;
+	      case 'q': {
+		      w = mk_button(hb, mp->text, mp->role);
+		      if(mp->role == dbbr(Accept))
+			      dynamic_cast<QPushButton *>(w)->setDefault(true);
+		      break;
+	      }
+	      case 'T': w = new QLineEdit; w->setObjectName(mp->text);	break;
+	      case '-': w = mk_separator();		break;
+	      case 'L':	w = new QLabel(mp->text);	break;
+	      case 'S': {
+		  w = list = new QListWidget;
+		  list->setSelectionMode(QAbstractItemView::SingleSelection);
+		  // list->setAttribute("courierFont", true); // This isn't necessary
+		  list->addItem("QT is a pain in the ass");
+		  list->setMinimumHeight(list->sizeHintForRow(0) * NLINES);
+		  list->clear();
+		  list_nlines = 0;
+		  mklist();
+		  break;
+	      }
 	    }
-	    if (wclass) {
-		w = mp->widget = XtCreateManagedWidget((char *)mp->text, wclass,
-							form, args, n);
-		if (mp->type == 'T' && pref.xfile)
-			print_text_button(w, pref.xfile);
-	    } else {
-		XtSetArg(args[n], XmNselectionPolicy,	XmBROWSE_SELECT);  n++;
-		XtSetArg(args[n], XmNvisibleItemCount,	NLINES);	   n++;
-		XtSetArg(args[n], XmNitemCount,		0);		   n++;
-		XtSetArg(args[n], XmNfontList,	fontlist[FONT_COURIER]);   n++;
-		XtSetArg(args[n], XmNscrollBarDisplayPolicy, XmSTATIC);	   n++;
-		w = list = mp->widget =
-				XmCreateScrolledList(form, (char *)mp->text, args, n);
-		list_nlines = 0;
-		mklist();
-		XtManageChild(list);
-	    }
-	    if (mp->type != 'B' && mp->type != 'b')
-		top = w;
+	    if (!hb && w)
+		form->addWidget(w);
+	    if (mp->type == 'b' || mp->type == 'q')
+		form->addWidget(hb);
+	    if (mp->type == 'q')
+		hb = 0;
+	    if (mp->type == 'T' && pref.xfile)
+		print_text_button(w, pref.xfile);
 
-	    if (mp->type == 'b' || mp->type == 'q' || mp->type == 'B'
-	    					   || mp->type == 'T')
-		XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)button_callback, (XtPointer)mp->code);
+	    if (mp->type == 'b' || mp->type == 'q' || mp->type == 'B')
+		set_button_cb(w, button_callback(mp->code));
+	    if (mp->type == 'T')
+		set_text_cb(w, button_callback(mp->code));
+	    mp->widget = w;
 	}
-	XtPopup(shell, XtGrabNone);
-	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
-	XmAddWMProtocolCallback(shell, closewindow,
-			(XtCallbackProc)button_callback, (XtPointer)0x42);
+	// close does a reject by default, so no extra callback needed
+	set_dialog_cancel_cb(shell, button_callback(0x42));
+
+	popup_nonmodal(shell);
 	have_shell = TRUE;
 	modified = FALSE;
 }
@@ -197,20 +160,18 @@ void create_templ_popup(void)
 
 static void save_cb(int seq, char *name)
 {
-	XmString string = XmStringCreateSimple(name);
-	XmListAddItemUnselected(list, string, 0);
-	XmStringFree(string);
+	list->addItem(name);
 	list_nlines++;
 }
 
 static void mklist(void)
 {
-	while (list_nlines)
-		XmListDeletePos(list, list_nlines--);
+	list->clear();
+	list_nlines = 0;
 	list_templates(save_cb, curr_card);
 	if (pref.xlistpos >= list_nlines)
 		pref.xlistpos = list_nlines-1;
-	XmListSelectPos(list, pref.xlistpos+1, False);
+	list->setCurrentRow(pref.xlistpos);
 }
 
 
@@ -219,12 +180,9 @@ static void mklist(void)
 
 static int get_list_seq(void)
 {
-	int		*sel, num;	/* list of selected lines */
-
-	if (XmListGetSelectedPos(list, &sel, &num) && num == 1
-						   && *sel <= list_nlines) {
-		pref.xlistpos = *sel - 1;
-		free(sel);
+	int i = list->currentRow();
+	if(i >= 0) {
+		pref.xlistpos = i;
 		return(TRUE);
 	} else {
 		create_error_popup(shell, 0, "Please choose a template name");
@@ -257,12 +215,8 @@ static BOOL do_export(void)
 
 
 static void button_callback(
-	Widget				widget,
-	int				code,
-	XmToggleButtonCallbackStruct	*data)
+	int				code)
 {
-	Widget				w;
-
 	switch(code) {
 	  case 0x20:						/* Create */
 		askname(FALSE);
@@ -291,13 +245,15 @@ static void button_callback(
 		mklist();
 		break;
 	  case 0x40:						/* Browse */
-		w = XmCreateFileSelectionDialog(shell, (char *)"xfile", NULL, 0);
-		XtAddCallback(w, XmNokCallback,
-				(XtCallbackProc)file_export_callback, 0);
-		XtAddCallback(w, XmNcancelCallback,
-				(XtCallbackProc)file_cancel_callback, 0);
-		XtManageChild(w);
+	{
+		QFileDialog *d = new QFileDialog(shell, "xfile");
+		d->setAcceptMode(QFileDialog::AcceptSave);
+		set_file_dialog_cb(d, file_export_callback(d, fn), fn);
+		// close does a reject by default, so no extra callback needed
+		d->exec();
+		delete d;
 		break;
+	}
 	  case 0x30:						/* text */
 	  case 0x41:						/* Export */
 		if (do_export())
@@ -314,33 +270,18 @@ static void button_callback(
 /*-------------------------------- browse callbacks -------------------------*/
 
 static void file_export_callback(
-	Widget				widget,
-	int				item,
-	XmFileSelectionBoxCallbackStruct*data)
+	QDialog		*d,
+	const QString	&filename)
 {
-	char				*p = 0;
 	struct menu			*mp;
 
-	if (!XmStringGetLtoR(data->value,XmSTRING_DEFAULT_CHARSET, &p) || !p)
-		return;
-	if (*p) {
+	if (filename.size()) {
 		if (pref.xfile)
 			free(pref.xfile);
-		pref.xfile = mystrdup(p);
+		pref.xfile = qstrdup(filename);
 		for (mp=menu; mp->code != 0x30; mp++);
 		print_text_button(mp->widget, pref.xfile);
 	}
-	XtFree(p);
-	XtDestroyWidget(widget);
-}
-
-
-static void file_cancel_callback(
-	Widget				widget,
-	int				item,
-	XmFileSelectionBoxCallbackStruct*data)
-{
-	XtDestroyWidget(widget);
 }
 
 
@@ -349,117 +290,82 @@ static void file_cancel_callback(
  * user pressed Dup or Create. Ask for a new file name.
  */
 
-static void text_callback	(Widget, int, XmToggleButtonCallbackStruct *);
-static void textcancel_callback	(Widget, int, XmToggleButtonCallbackStruct *);
+static void text_callback	(void);
+static void textcancel_callback	(void);
 
 static BOOL		have_askshell = FALSE;	/* text popup exists if TRUE */
-static Widget		askshell;	/* popup menu shell */
-static Widget		text;		/* template name string */
+static QDialog		*askshell;	/* popup menu shell */
+static QLineEdit	*text;		/* template name string */
 static BOOL		duplicate;	/* dup file before editing */
 
 static void askname(
 	BOOL		dup)		/* duplicate file before editing */
 {
-	Widget		form, w;
-	Arg		args[20];
-	int		n;
-	Atom		closewindow;
+	QWidget		*w;
+	QBoxLayout	*form;
+	QDialogButtonBox *b;
 
 	duplicate = dup;
 	if (have_askshell) {
-		XtPopup(askshell, XtGrabNone);
-		return;
+		popup_nonmodal(askshell);
+ 		return;
 	}
-	n = 0;
-	XtSetArg(args[n], XmNdeleteResponse,	XmDO_NOTHING);		n++;
-	XtSetArg(args[n], XmNiconic,		False);			n++;
-	askshell = XtAppCreateShell("Template name", "Grok",
-			applicationShellWidgetClass, display, args, n);
+	// The proper way to ignore delete is to override QWindow::closeEvent()
+	// Instead, I'll do nothing.  It makes more sense to issue a reject
+	// (the default behavior), anyway - tjm
+	askshell = new QDialog(shell);
+	askshell->setWindowTitle("Template name");
+	askshell->setObjectName("tempform"); // for style sheets
+
 	set_icon(askshell, 1);
-	form = XtCreateManagedWidget("tempform", xmFormWidgetClass,
-			askshell, NULL, 0);
-	XtAddCallback(form, XmNhelpCallback, (XtCallbackProc)help_callback,
-						(XtPointer)"tempname");
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNtopOffset,		16);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	16);			n++;
-	w = XtCreateManagedWidget("Name for new template:", xmLabelWidgetClass,
-			form, args, n);
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		w);			n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	16);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	16);			n++;
-	XtSetArg(args[n], XmNrecomputeSize,	False);			n++;
-	XtSetArg(args[n], XmNpendingDelete,	True);			n++;
-	XtSetArg(args[n], XmNhighlightThickness,0);			n++;
-	XtSetArg(args[n], XmNbackground,	color[COL_TEXTBACK]);	n++;
-	text = XtCreateManagedWidget(" ", xmTextFieldWidgetClass,
-			form, args, n);
-	XtAddCallback(text, XmNactivateCallback, (XtCallbackProc)text_callback,
-						(XtPointer)NULL);
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		text);			n++;
-	XtSetArg(args[n], XmNtopOffset,		16);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	16);			n++;
-	XtSetArg(args[n], XmNwidth,		80);			n++;
-	w = XtCreateManagedWidget("Cancel", xmPushButtonWidgetClass,
-			form, args, n);
-	XtAddCallback(w, XmNactivateCallback, (XtCallbackProc)
-					textcancel_callback, (XtPointer)0);
+	bind_help(askshell, "tempname");
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		text);			n++;
-	XtSetArg(args[n], XmNtopOffset,		16);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNrightWidget,	w);			n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	16);			n++;
-	XtSetArg(args[n], XmNwidth,		80);			n++;
-	w = XtCreateManagedWidget("Help", xmPushButtonWidgetClass,
-			form, args, n);
-	XtAddCallback(w, XmNactivateCallback, (XtCallbackProc)help_callback,
-						(XtPointer)"tempname");
+	form = new QVBoxLayout(askshell);
+	add_layout_qss(form, "tempform");
 
-	XtPopup(askshell, XtGrabNone);
-	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
-	XmAddWMProtocolCallback(askshell, closewindow, (XtCallbackProc)
-				textcancel_callback, (XtPointer)askshell);
+	w = new QLabel("Name for new template:");
+	form->addWidget(w);
+
+	text = new QLineEdit;
+	form->addWidget(text);
+	set_text_cb(text, text_callback());
+
+	b = new QDialogButtonBox;
+	form->addWidget(b);
+
+	w = mk_button(b, 0, dbbb(Cancel));
+	set_button_cb(w, textcancel_callback());
+
+	w = mk_button(b, 0, dbbb(Help));
+	set_button_cb(w, help_callback(askshell, "tempname"));
+
+	// tjm - added this button mostly for consistency
+	w = mk_button(b, "Create", dbbr(Accept));
+	dynamic_cast<QPushButton *>(w)->setDefault(true);
+	set_button_cb(w, text_callback());
+
+	// close does a reject by default, so no extra callback needed
+	set_dialog_cancel_cb(shell, textcancel_callback());
+
+	popup_nonmodal(askshell);
 	have_askshell = TRUE;
 }
 
 
-/*ARGSUSED*/
-static void textcancel_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+static void textcancel_callback(void)
 {
 	if (have_askshell)
-		XtPopdown(askshell);
+		delete askshell;
 	have_askshell = FALSE;
 }
 
 
-/*ARGSUSED*/
-static void text_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+static void text_callback(void)
 {
 	char				*name, *p;
 	char				*string;
 
-	string = XmTextFieldGetString(text);
+	string = qstrdup(text->text());
 	for (name=string; *name == ' ' || *name == '\n'; name++);
 	if (*name) {
 		for (p=name; *p; p++)
@@ -476,8 +382,8 @@ static void text_callback(
 		editfile(name);
 		free(name);
 	}
-	XtFree(string);
-	textcancel_callback(widget, item, data);
+	free(string);
+	textcancel_callback();
 }
 
 

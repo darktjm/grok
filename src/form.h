@@ -1,3 +1,5 @@
+#ifndef _FORM_H_
+#define _FORM_H_
 /*
  * form and database definitions
  */
@@ -20,8 +22,8 @@
  */
 
 struct carditem {
-   Widget   w0;		/* primary input widget, 0 if invisible_if */
-   Widget   w1;		/* secondary widget (card form, label etc) */
+   QWidget   *w0;		/* primary input widget, 0 if invisible_if */
+   QWidget   *w1;		/* secondary widget (card form, label etc) */
 };
 typedef struct card {
 	struct form *form;	/* form struct that controls this card */
@@ -30,14 +32,12 @@ typedef struct card {
 	int	    nquery;	/* # of valid row indices in query[] */
 	int	    qcurr;	/* index into query[] for displayed card */
 	int	    *query;	/* row numbers of cards that satisfy query */
-	Widget	    wsummary;	/* summary list widget, for destroying */
-	Widget	    wheader;	/* summary list header line, for destroying */
-	Widget	    wsumshell;	/* shell that encloses wsummary */
+	QTreeWidget *wsummary;	/* summary list widget, for destroying */
 				/****** card window **************************/
-	Widget	    shell;	/* if nonzero, card has its own window */
-	Widget	    wform;	/* form widget card is drawn into */
-	Widget	    wcard;	/* child of wform card is drawn into */
-	Widget	    wstat;	/* child of wform static part is drawn into */
+	QDialog	    *shell;	/* if nonzero, card has its own window */
+	QWidget	    *wform;	/* form widget card is drawn into */
+	QWidget	    *wcard;	/* child of wform card is drawn into */
+	QWidget	    *wstat;	/* child of wform static part is drawn into */
 	int	    row;	/* database row shown in card, -1=none */
 	int	    disprow;	/* row being displayed in main window */
 	int	    nitems;	/* # of items, also size of following array */
@@ -108,10 +108,13 @@ typedef enum {			/*----- item type */
 	IT_CHOICE,		/* diamond on/off switch, one of many */
 	IT_FLAG,		/* square on/off switch, no restriction */
 	IT_BUTTON,		/* pressable button with script */
-	IT_VIEW,		/* database summary view */
 	IT_CHART,		/* graphical chart */
 	NITEMS
 } ITYPE;
+
+/* Warning: these enums are stored as raw numbers in the form file. */
+/* This does not apply to IT_* above; just keep itemname[] in sync. */
+/* Do not change the ordering or make gaps */
 
 typedef enum {			/*----- justification */
 	J_LEFT = 0,		/* default, left-justified */
@@ -198,8 +201,6 @@ typedef struct item {
 	char	*skip_if;	/* if expr is true, cursor skips field */
 				/*----- for INPUT, DATE, TIME, NOTE */
 	char	*idefault;	/* default input string */
-	char	*pattern;	/* regexp that input string must match */
-	int	minlen;		/* min length of input field */
 	int	maxlen;		/* max length of input field */
 	JUST	inputjust;	/* input field justification */
 	int	inputfont;	/* input font, F_* */
@@ -217,21 +218,11 @@ typedef struct item {
 	float	ch_ygrid;	/* horz grid lines every ygrid units */
 	float	ch_xsnap;	/* snap X to nearest xsnap */
 	float	ch_ysnap;	/* snap Y to nearest ysnap */
-	float	ch_xlabel;	/* X axis label every xlabel units */
-	float	ch_ylabel;	/* Y axis label every ylabel units */
-	char	*ch_xexpr;	/* X axis label expression */
-	char	*ch_yexpr;	/* Y axis label expression */
 	int	ch_ncomp;	/* # of components in ch_comp */
 	int	ch_curr;	/* current component index */
 	CHART	*ch_comp;	/* component array */
 	BAR	*ch_bar;	/* nrows * ncomp bars, ncomp-major order */
 	int	ch_nbars;	/* number of bars in ch_bar array */
-				/*----- for VIEW */
-	char	*database;	/* which database to search */
-	char	*query;		/* query to do */
-	BOOL	qsummary;	/* print summary */
-	BOOL	qfirst;		/* print first card */
-	BOOL	qlast;		/* print last card */
 } ITEM;
 
 
@@ -289,3 +280,4 @@ typedef struct form {
  */
 
 struct arg { struct arg *next; char *value; };
+#endif

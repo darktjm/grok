@@ -5,12 +5,12 @@
  *	read_form(form, path)		read form into empty form struct
  */
 
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <time.h>
-#include <Xm/Xm.h>
+#include <QtWidgets>
 #include "config.h"
 
 #if defined(GROK) || defined(PLANGROK)
@@ -29,7 +29,7 @@ static void remake_dbase_pulldown(void) {}
 
 static const char * const itemname[NITEMS] = {
 	"None", "Label", "Print", "Input", "Time", "Note", "Choice", "Flag",
-	"Button", "Summary", "Chart" };
+	"Button", "Chart" };
 
 
 #ifdef GROK
@@ -54,14 +54,14 @@ BOOL write_form(
 
 	path = form->path ? form->path : form->name;
 	if (!path || !*path) {
-		create_error_popup(toplevel, 0,
+		create_error_popup(mainwindow, 0,
 			"Form has no name, cannot save to disk");
 		return(FALSE);
 	}
 	if (!form->path)
 		path = resolve_tilde(path, "gf");
 	if (!(fp = fopen(path, "w"))) {
-		create_error_popup(toplevel, errno,
+		create_error_popup(mainwindow, errno,
 			"Failed to create form file %s", path);
 		return(FALSE);
 	}
@@ -120,18 +120,11 @@ BOOL write_form(
 		fprintf(fp, "invis      %s\n",	      STR(item->invisible_if));
 		fprintf(fp, "skip       %s\n",		STR(item->skip_if));
 		fprintf(fp, "default    %s\n",		STR(item->idefault));
-		fprintf(fp, "pattern    %s\n",		STR(item->pattern));
-		fprintf(fp, "minlen     %d\n",		item->minlen);
 		fprintf(fp, "maxlen     %d\n",		item->maxlen);
 		fprintf(fp, "ijust      %d\n",		item->inputjust);
 		fprintf(fp, "ifont      %d\n",		item->inputfont);
 		fprintf(fp, "p_act      %s\n",		STR(item->pressed));
 		fprintf(fp, "a_act      %s\n",		STR(item->added));
-		fprintf(fp, "q_dbase    %s\n",		STR(item->database));
-		fprintf(fp, "query      %s\n",		STR(item->query));
-		fprintf(fp, "q_summ     %d\n",		item->qsummary);
-		fprintf(fp, "q_first    %d\n",		item->qfirst);
-		fprintf(fp, "q_last     %d\n",		item->qlast);
 		if (item->plan_if)
 		    fprintf(fp, "plan_if    %c\n",	item->plan_if);
 
@@ -145,10 +138,6 @@ BOOL write_form(
 							item->ch_ygrid);
 		fprintf(fp, "ch_snap    %g %g\n",	item->ch_xsnap,
 							item->ch_ysnap);
-		fprintf(fp, "ch_label   %g %g\n",	item->ch_xlabel,
-							item->ch_ylabel);
-		fprintf(fp, "ch_xexpr   %s\n",		STR(item->ch_xexpr));
-		fprintf(fp, "ch_yexpr   %s\n",		STR(item->ch_yexpr));
 		fprintf(fp, "ch_ncomp   %d\n",		item->ch_ncomp);
 
 		for (c=0; c < item->ch_ncomp; c++) {
@@ -176,7 +165,7 @@ BOOL write_form(
 	path = resolve_tilde(form->dbase, "db");
 	if (access(path, F_OK) && errno == ENOENT) {
 		if (!(fp = fopen(path, "w"))) {
-			create_error_popup(toplevel, errno,
+			create_error_popup(mainwindow, errno,
 "The form was created successfully, but the\n\
 database file %s cannot be created.\n\
 No cards can be entered into the new Form.\n\nProblem: ", path);
@@ -185,7 +174,7 @@ No cards can be entered into the new Form.\n\nProblem: ", path);
 		fclose(fp);
 	}
 	if (access(path, R_OK)) {
-		create_error_popup(toplevel, errno,
+		create_error_popup(mainwindow, errno,
 "The form was created successfully, but the\n\
 database file %s exists but is not readable.\n\
 No cards can be entered into the new Form.\n\nProblem: ", path);
@@ -216,7 +205,7 @@ BOOL read_form(
 
 	path = resolve_tilde(path, "gf");
 	if (!(fp = fopen(path, "r"))) {
-		create_error_popup(toplevel, errno,
+		create_error_popup(mainwindow, errno,
 			"Failed to open form file %s", path);
 		return(FALSE);
 	}
@@ -357,10 +346,6 @@ BOOL read_form(
 					STORE(item->skip_if, p);
 			else if (!strcmp(key, "default"))
 					STORE(item->idefault, p);
-			else if (!strcmp(key, "pattern"))
-					STORE(item->pattern, p);
-			else if (!strcmp(key, "minlen"))
-					item->minlen = atoi(p);
 			else if (!strcmp(key, "maxlen"))
 					item->maxlen = atoi(p);
 			else if (!strcmp(key, "ijust"))
@@ -371,16 +356,6 @@ BOOL read_form(
 					STORE(item->pressed, p);
 			else if (!strcmp(key, "a_act"))
 					STORE(item->added, p);
-			else if (!strcmp(key, "q_dbase"))
-					STORE(item->database, p);
-			else if (!strcmp(key, "query"))
-					STORE(item->query, p);
-			else if (!strcmp(key, "q_summ"))
-					item->qsummary = atoi(p);
-			else if (!strcmp(key, "q_first"))
-					item->qfirst = atoi(p);
-			else if (!strcmp(key, "q_last"))
-					item->qlast = atoi(p);
 			else if (!strcmp(key, "showplan"))
 					;	/* 1.5: now called planquery */
 			else if (!strcmp(key, "plan_if"))
@@ -401,13 +376,6 @@ BOOL read_form(
 			else if (!strcmp(key, "ch_snap"))
 					sscanf(p, "%g %g", &item->ch_xsnap,
 							   &item->ch_ysnap);
-			else if (!strcmp(key, "ch_label"))
-					sscanf(p, "%g %g", &item->ch_xlabel,
-							   &item->ch_ylabel);
-			else if (!strcmp(key, "ch_xexpr"))
-					STORE(item->ch_xexpr, p);
-			else if (!strcmp(key, "ch_yexpr"))
-					STORE(item->ch_yexpr, p);
 			else if (!strcmp(key, "ch_ncomp")) {
 					if (item->ch_ncomp = atoi(p))
 						item->ch_comp =

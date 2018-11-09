@@ -8,32 +8,20 @@
  */
 
 #include "config.h"
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdlib.h>
-#include <Xm/Xm.h>
-#include <Xm/DialogS.h>
-#include <Xm/Form.h>
-#include <Xm/LabelP.h>
-#include <Xm/LabelG.h>
-#include <Xm/PushBP.h>
-#include <Xm/PushBG.h>
-#include <Xm/ToggleB.h>
-#include <Xm/Separator.h>
-#include <Xm/RowColumn.h>
-#include <Xm/FileSB.h>
-#include <Xm/Protocols.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
 
-static void cancel_callback	(Widget, int, XmToggleButtonCallbackStruct *);
-static void print_callback	(Widget, int, XmToggleButtonCallbackStruct *);
-static void config_callback	(Widget, int, XmToggleButtonCallbackStruct *);
-static void file_print_callback	(Widget,int,XmFileSelectionBoxCallbackStruct*);
-static void file_cancel_callback(Widget,int,XmFileSelectionBoxCallbackStruct*);
+static void cancel_callback	(void);
+static void print_callback	(void);
+static void config_callback	(char *, char,bool);
+static void file_print_callback	(QDialog *,const QString &);
 
 static BOOL	have_shell = FALSE;	/* message popup exists if TRUE */
-static Widget	shell;		/* popup menu shell */
+static QDialog	*shell;		/* popup menu shell */
 static BOOL	modified;	/* preferences have changed */
 
 
@@ -44,11 +32,11 @@ static BOOL	modified;	/* preferences have changed */
 void destroy_print_popup(void)
 {
 	if (have_shell) {
+		have_shell = FALSE;
 		if (modified)
 			write_preferences();
-		XtPopdown(shell);
-		XtDestroyWidget(shell);
-		have_shell = FALSE;
+		shell->close();
+		delete shell;
 	}
 }
 
@@ -67,7 +55,7 @@ static struct menu {
 	char	*ptr;		/* location in pref where value is stored */
 	char	value;		/* value stored in pref for each mode */
 	const char *text;
-	Widget	widget;
+	QWidget	*widget;
 } menu[] = {
 	{ 'L',	0,	0,		  0,	"Cards to print:"	   },
 	{ 'R',	0,	0,		  0,	"rc1",			   },
@@ -96,126 +84,68 @@ static struct menu {
 void create_print_popup(void)
 {
 	struct menu	*mp;			/* current menu[] entry */
-	WidgetClass	wclass;			/* label, radio, or button */
-	String		cback;			/* activale or valueChanged */
-	Widget		form, w=0, rowcol=0, sep;
-	Arg		args[20];
-	int		n;
-	Atom		closewindow;
+	QVBoxLayout	*form;
+	QGridLayout	*g;
+	QButtonGroup	*bg=0;
+	QWidget		*w=0;
+	QRadioButton	*b;
+	int		span=1, row = 0;
 
 	destroy_print_popup();
 
-	n = 0;
-	XtSetArg(args[n], XmNdeleteResponse,	XmDO_NOTHING);		n++;
-	XtSetArg(args[n], XmNiconic,		False);			n++;
-	shell = XtAppCreateShell("Grok Print", "Grok",
-			applicationShellWidgetClass, display, args, n);
+	// The proper way to ignore delete is to override QWindow::closeEvent()
+	// Instead, I'll do nothing.  It makes more sense to issue a reject
+	// (the default behavior), anyway - tjm
+	shell = new QDialog;
+	shell->setWindowTitle("Grok Print");
 	set_icon(shell, 1);
-	form = XtCreateManagedWidget("prefform", xmFormWidgetClass,
-			shell, NULL, 0);
-	XtAddCallback(form, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"print");
+	form = new QVBoxLayout(shell);
+	add_layout_qss(form, "prefform");
+	g = new QGridLayout;
+	form->addLayout(g);
+	bind_help(shell, "print");
 
 	for (mp=menu; mp->type; mp++) {
-	    wclass = xmLabelWidgetClass;
-	    cback = 0;
-	    n = 0;
-	    if (mp->type == 'L')
-		w = rowcol;
-	    if (w == 0) {
-		XtSetArg(args[n], XmNtopAttachment,  XmATTACH_FORM);	n++;
-	    } else {
-		XtSetArg(args[n], XmNtopAttachment,  XmATTACH_WIDGET);	n++;
-		XtSetArg(args[n], XmNtopWidget,      w);		n++;
-	    }
-	    if (mp->type == 'R') {
-		XtSetArg(args[n], XmNradioBehavior,  True);		n++;
-		XtSetArg(args[n], XmNradioAlwaysOne, True);		n++;
-		XtSetArg(args[n], XmNleftAttachment, XmATTACH_FORM);	n++;
-		XtSetArg(args[n], XmNleftOffset,     32);		n++;
-		wclass = xmRowColumnWidgetClass;
-	    } else {
-		XtSetArg(args[n], XmNleftAttachment, XmATTACH_FORM);	n++;
-		XtSetArg(args[n], XmNtopOffset,	     8);		n++;
-		XtSetArg(args[n], XmNleftOffset,     16);		n++;
-	    }
-	    if (mp->type == 'C') {
-		XtSetArg(args[n], XmNset,	  *mp->ptr==mp->value);	n++;
-		XtSetArg(args[n], XmNfillOnSelect,   True);		n++;
-		XtSetArg(args[n], XmNselectColor,    color[COL_TOGGLE]);n++;
-		wclass = xmToggleButtonWidgetClass;
-		cback = XmNvalueChangedCallback;
-	    }
-	    if (mp->code == 0x32) { /*<<<*/
-		XtSetArg(args[n], XmNsensitive,	     FALSE);		n++;
-	    }
-	    XtSetArg(args[n], XmNhighlightThickness, 0);		n++;
-	    w = mp->widget = XtCreateManagedWidget(mp->text, wclass,
-	   			 mp->type == 'C' ? rowcol : form, args, n);
-	    if (cback)
-		XtAddCallback(w, cback,
-			(XtCallbackProc)config_callback, (XtPointer)mp->code);
-	    if (mp->type == 'R') {
-		rowcol = w;
-		w = 0;
-	    }
+		switch(mp->type) {
+		    case 'L':
+			w = new QLabel(mp->text);
+			span = 2;
+			break;
+		    case 'R':
+			bg = new QButtonGroup(shell);
+			w = 0;
+			break;
+		    case 'C':
+			w = b = new QRadioButton(mp->text);
+			bg->addButton(b);
+			b->setChecked(*mp->ptr==mp->value);
+			span = 1;
+			set_button_cb(b, config_callback(mp->ptr, mp->value, c), bool c);
+			break;
+		}
+		mp->widget = w;
+		if(w)
+			g->addWidget(w, row++, span == 1, 1, span);
 	}
 							/*-- buttons --*/
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		w);			n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	sep = XtCreateManagedWidget("ps",xmSeparatorWidgetClass,form,args,n);
+	form->addWidget(mk_separator());
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		sep);			n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		80);			n++;
-	w = XtCreateManagedWidget("Print",xmPushButtonWidgetClass,form,args,n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)print_callback, NULL);
+	QDialogButtonBox *bb = new QDialogButtonBox;
+	form->addWidget(bb);
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		sep);			n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w);			n++;
-	XtSetArg(args[n], XmNleftOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		80);			n++;
-	w = XtCreateManagedWidget("Cancel",xmPushButtonWidgetClass,form,args,n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)cancel_callback, NULL);
+	w = mk_button(bb, "Print", dbbr(Accept));
+	set_button_cb(w, print_callback());
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		sep);			n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w);			n++;
-	XtSetArg(args[n], XmNleftOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		80);			n++;
-	w = XtCreateManagedWidget("Help",xmPushButtonWidgetClass,form,args,n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"print");
+	w = mk_button(bb, 0, dbbb(Cancel));
+	set_button_cb(w, cancel_callback());
 
-	XtPopup(shell, XtGrabNone);
-	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
-	XmAddWMProtocolCallback(shell, closewindow,
-			(XtCallbackProc)cancel_callback, NULL);
+	w = mk_button(bb, 0, dbbb(Help));
+	set_button_cb(w, help_callback(shell, "print"));
+
+	set_dialog_cancel_cb(shell, cancel_callback());
+
+	popup_nonmodal(shell);
+
 	have_shell = TRUE;
 	modified = FALSE;
 }
@@ -226,90 +156,50 @@ void create_print_popup(void)
  * All of these routines are direct X callbacks.
  */
 
-/*ARGSUSED*/
-static void cancel_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+static void cancel_callback(void)
 {
 	destroy_print_popup();
 }
 
 
-/*ARGSUSED*/
-static void print_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+static void print_callback(void)
 {
-	Arg		args[20];
-	int		n = 0;
-	Widget		w;
-
 	if (pref.pdevice == 'F') {
-		/*
-		XtSetArg(args[n], XmNtopAttachment, XmATTACH_WIDGET); n++;
-		*/
-		w = XmCreateFileSelectionDialog(shell, (char *)"pfile", args, n);
-		XtAddCallback(w, XmNokCallback,
-				(XtCallbackProc)file_print_callback, 0);
-		XtAddCallback(w, XmNcancelCallback,
-				(XtCallbackProc)file_cancel_callback, 0);
-		XtManageChild(w);
-		return;
+		int ret;
+		QFileDialog *d = new QFileDialog(shell, "pfile");
+		d->setAcceptMode(QFileDialog::AcceptSave);
+		set_file_dialog_cb(d, file_print_callback(d, fn), fn);
+		ret = d->exec();
+		delete d;
+		if(ret == QDialog::Rejected)
+			return;
 	}
 	print();
 	destroy_print_popup();
 }
 
 
-/*ARGSUSED*/
 static void file_print_callback(
-	Widget				widget,
-	int				item,
-	XmFileSelectionBoxCallbackStruct*data)
+	QDialog		*d,
+	const QString	&filename)
 {
-	char	*p = 0;
-
-	if (!XmStringGetLtoR(data->value,XmSTRING_DEFAULT_CHARSET,&p) || !*p) {
+	if (!filename.size()) {
 		create_error_popup(shell, 0, "No file name, aborted.");
-		if (p) XtFree(p);
 		return;
 	}
 	if (pref.pfile)
 		free(pref.pfile);
-	pref.pfile = mystrdup(p);
-	print();
-	XtFree(p);
-	destroy_print_popup();
+	pref.pfile = qstrdup(filename);
 }
 
 
-/*ARGSUSED*/
-static void file_cancel_callback(
-	Widget				widget,
-	int				item,
-	XmFileSelectionBoxCallbackStruct*data)
-{
-	XtDestroyWidget(widget);
-}
-
-
-/*ARGSUSED*/
 static void config_callback(
-	Widget				widget,
-	int				code,
-	XmToggleButtonCallbackStruct	*data)
+	char				*ptr,
+	char				value,
+	bool				set)
 {
-	struct menu			*mp;
-
-	if (!data->set)
+	if (!set || !ptr)
 		return;
-	for (mp=menu; mp->type; mp++)
-		if (code == mp->code)
-			break;
-	if (!mp->type)
-		return;
-	*mp->ptr = mp->value;
+	*ptr = value;
 	modified = TRUE;
 }

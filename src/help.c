@@ -15,31 +15,20 @@
  */
 
 #include "config.h"
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <Xm/Xm.h>
-#include <Xm/DialogS.h>
-#include <Xm/Form.h>
-#include <Xm/Frame.h>
-#include <Xm/LabelP.h>
-#include <Xm/LabelG.h>
-#include <Xm/PushBP.h>
-#include <Xm/PushBG.h>
-#include <Xm/ToggleB.h>
-#include <Xm/Text.h>
-#include <Xm/Protocols.h>
-#include <X11/cursorfont.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
 
-static void done_callback    (Widget, int, XmToggleButtonCallbackStruct *);
-static void context_callback (Widget, int, XmToggleButtonCallbackStruct *);
-static char *get_text(const char *);
+static void done_callback    (void);
+static void context_callback (void);
+static char *get_text(const char *), *add_card_help(const char *, char *);
 
 static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
-static Widget		shell;		/* popup menu shell */
+static QDialog		*shell;			/* popup menu shell */
 
 
 /*
@@ -49,9 +38,9 @@ static Widget		shell;		/* popup menu shell */
 void destroy_help_popup(void)
 {
 	if (have_shell) {
-		XtPopdown(shell);
-		XtDestroyWidget(shell);
 		have_shell = FALSE;
+		shell->close();
+		delete shell;
 	}
 }
 
@@ -61,145 +50,103 @@ void destroy_help_popup(void)
  * look up the help text for <topic> and create a window containing the text.
  */
 
-/*ARGSUSED*/
 void help_callback(
-	Widget			parent,
+	QWidget			*parent,
 	const char		*topic)
 {
-	static BOOL		have_fontlist = FALSE;
-	static XmFontList	fontlist;
-	static Widget		text_w;
-	Widget			form, w;
-	Atom			closewindow;
+	static QTextEdit	*text_w;
+	QVBoxLayout		*form;
+	QWidget			*w;
 	char			*message;
-	Arg			args[20];
-	int			n;
 	int			nlines = 1;
 	char			*p;
 
-	if (!(message = get_text(topic)))
+	if (!(message = get_text(topic)) ||
+	    !(message = add_card_help(topic, message)))
 		return;
-	if (!strcmp(topic, "card") && curr_card && curr_card->form
-						&& curr_card->form->help) {
-		if (!(message = (char *)realloc(message, strlen(message) +
-				 	strlen(curr_card->form->help) + 2)))
-			return;
-		strcat(message, "\n");
-		strcat(message, curr_card->form->help);
-	}
 	if (have_shell) {
-		XmTextSetString(text_w, message);
-		XtPopup(shell, XtGrabNone);
+		text_w->setText(message);
+		popup_nonmodal(shell);
 		free(message);
 		return;
 	}
-	if (!have_fontlist++)
-		fontlist = XmFontListCreate(font[FONT_HELP], (char *)"cset");
+
 	for (nlines=0, p=message; *p; p++)
 		nlines += *p == '\n';
 	if (nlines > 30)
 		nlines = 30;
 
-	n = 0;
-	XtSetArg(args[n], XmNdeleteResponse,	XmDO_NOTHING);		n++;
-	XtSetArg(args[n], XmNiconic,		False);			n++;
-	shell = XtAppCreateShell("Help", "Grok",
-			applicationShellWidgetClass, display, args, n);
+	//  Not going to bother disabling the close button here
+	shell = new QDialog();
+	shell->setWindowTitle("Help");
 	set_icon(shell, 1);
-	form = XtCreateManagedWidget("helpform", xmFormWidgetClass,
-			shell, NULL, 0);
-	XtAddCallback(form, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"help");
+	form = new QVBoxLayout(shell);
+	add_layout_qss(form, "helpform");
+	bind_help(shell, "help");
 
 							/*-- buttons --*/
-	n = 0;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		80);			n++;
-	w = XtCreateManagedWidget("Dismiss", xmPushButtonWidgetClass,
-			form, args, n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)done_callback, (XtPointer)0);
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"help_done");
-	n = 0;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNrightWidget,	w);			n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		80);			n++;
-	w = XtCreateManagedWidget("Context", xmPushButtonWidgetClass,
-			form, args, n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)context_callback, (XtPointer)0);
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"help_ctx");
+	QDialogButtonBox *bb = new QDialogButtonBox;
+	w = mk_button(bb, "Dismiss", dbbr(Reject));
+	set_button_cb(w, done_callback());
+	bind_help(w, "help_done");
 
+	w = mk_button(bb, "Context", dbbr(Action));
+	set_button_cb(w, context_callback());
+	bind_help(w, "help_ctx");
 							/*-- text --*/
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNbottomWidget,	w);			n++;
-	XtSetArg(args[n], XmNbottomOffset,	16);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNhighlightThickness,0);			n++;
-	XtSetArg(args[n], XmNeditable,		False);			n++;
-	XtSetArg(args[n], XmNeditMode,		XmMULTI_LINE_EDIT);	n++;
-	XtSetArg(args[n], XmNcolumns,		60);			n++;
-	XtSetArg(args[n], XmNrows,		nlines+1);		n++;
-	XtSetArg(args[n], XmNfontList,		fontlist);		n++;
-	XtSetArg(args[n], XmNscrollVertical,	True);			n++;
-	XtSetArg(args[n], XmNpendingDelete,	False);			n++;
-	text_w = w = XmCreateScrolledText(form, (char *)"text", args, n);
-	XmTextSetString(w, message);
-	XtVaSetValues(w, XmNbackground, color[COL_SHEET],
-			 XmNforeground, color[COL_STD], NULL);
-	XtManageChild(w);
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"help");
-	XtPopup(shell, XtGrabNone);
-	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
-	XmAddWMProtocolCallback(shell, closewindow,
-			(XtCallbackProc)done_callback, (XtPointer)shell);
+	text_w = new QTextEdit;
+	form->addWidget(text_w);
+	text_w->setProperty("helpFont", true);
+	text_w->setReadOnly(true);
+	text_w->setLineWrapMode(QTextEdit::NoWrap);
+	text_w->setMinimumWidth(text_w->fontMetrics().size(0, "M").width() * 60);
+	text_w->setMinimumHeight(text_w->fontMetrics().height() * (nlines + 1));
+	text_w->setLineWrapMode(QTextEdit::NoWrap);
+	text_w->setText(message);
+	text_w->setProperty("colSheet", true);
+	text_w->setProperty("colStd", true);
+	// bind_help(text_w, "help"); // already in shell
+
+	form->addWidget(bb);
+
+	set_dialog_cancel_cb(shell, done_callback());
+
+	popup_nonmodal(shell);
 	have_shell = TRUE;
 	free(message);
 }
 
 
-/*ARGSUSED*/
-static void done_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+static void done_callback(void)
 {
 	destroy_help_popup();
 }
 
 
-/*ARGSUSED*/
-static void context_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+static void context_callback(void)
 {
-	Widget w;
-	Cursor cursor = XCreateFontCursor(display, XC_question_arrow);
-	if (w = XmTrackingLocate(shell, cursor, False)) {
-		data->reason = XmCR_HELP;
-		XtCallCallbacks(w, XmNhelpCallback, &data);
-	}
-	XFreeCursor(display, cursor);
+	QWhatsThis::enterWhatsThisMode();
 }
 
 
-/*ARGSUSED*/
+static char *add_card_help(const char *topic, char *message)
+{
+	if (!strcmp(topic, "card") && curr_card && curr_card->form
+						&& curr_card->form->help) {
+		char *msg = (char *)realloc(message, strlen(message) +
+				 	strlen(curr_card->form->help) + 2);
+		if(!msg) {
+			free(message);
+			return NULL;
+		}
+		message = msg;
+		strcat(message, "\n");
+		strcat(message, curr_card->form->help);
+	}
+	return message;
+}
+
+
 static char *get_text(
 	const char		*topic)
 {
@@ -249,4 +196,16 @@ static char *get_text(
 	for (n=strlen(text); n && text[n-1] == '\n'; n--)
 		text[n-1] = 0;
 	return(text);
+}
+
+void bind_help(
+	QWidget		*parent,
+	const char	*topic)
+{
+	char *message = get_text(topic);
+	message = add_card_help(topic, message);
+	if(message) {
+		parent->setWhatsThis(message);
+		free(message);
+	}
 }

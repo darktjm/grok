@@ -12,11 +12,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <errno.h>
-#include <Xm/Xm.h>
-#include <Xm/MessageB.h>
-#include <Xm/Protocols.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
@@ -36,30 +34,16 @@
 static const char about_message[] =
 	"\n"
 	"Graphical Resource Organizer Kit\n"
-	"Version %s\n"
-	"Compiled %s\n\n"
+	"Version " VERSION "\n"
+	"Compiled " __DATE__ "\n\n"
 	"Author: Thomas Driemeyer <thomas@bitrot.de>\n"
 	"With minor fixes by Thomas J. Moore\n\n"
-	"Homepage: http://www.bitrot.de/grok.html\n";
+	"Homepage: http://www.bitrot.de/grok.html\n"
+	"Or, maybe https://bitbucket.org/darktjm/grok\n";
 
 void create_about_popup(void)
 {
-	char			msg[512];
-	Widget			dialog;
-	XmString		s;
-	Arg			args[10];
-	int			n;
-
-	sprintf(msg, about_message, VERSION, __DATE__);
-	s = XmStringCreateLtoR(msg, XmSTRING_DEFAULT_CHARSET);
-	n = 0;
-	XtSetArg(args[n], XmNmessageString, s); n++;
-	dialog = XmCreateInformationDialog(mainwindow, (char *)"About", args, n);
-	XmStringFree(s);
-	XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_HELP_BUTTON));
-	XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_CANCEL_BUTTON));
-	(void)XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
-	XtManageChild(dialog);
+	QMessageBox::about(mainwindow, "About", about_message);
 }
 
 
@@ -71,34 +55,28 @@ void create_about_popup(void)
  */
 
 /*VARARGS*/
-void create_error_popup(Widget widget, int error, const char *fmt, ...)
+void create_error_popup(QWidget *widget, int error, const char *fmt, ...)
 {
 	va_list			parm;
-	char			msg[17108];
-	Widget			dialog;
-	XmString		string;
-	Arg			args;
+	QMessageBox		*dialog;
 
-	strcpy(msg, "ERROR:\n\n");
 	va_start(parm, fmt);
-	vsprintf(msg + strlen(msg), fmt, parm);
+	QString msg(QString::vasprintf(fmt, parm));
 	va_end(parm);
+	msg.prepend("ERROR:\n\n");
 	if (error) {
-		strcat(msg, "\n");
-		strcat(msg, strerror(error));
+		msg.append('\n');
+		msg.append(strerror(error));
 	}
 	if (!widget) {
-		fprintf(stderr, "%s: %s\n", progname, msg);
+		const QByteArray bytes(msg.toLocal8Bit());
+		fprintf(stderr, "%s: %.*s\n", progname, (int)bytes.size(), bytes.data());
 		return;
 	}
-	string = XmStringCreateLtoR(msg, XmSTRING_DEFAULT_CHARSET);
-	XtSetArg(args, XmNmessageString, string);
-	dialog = XmCreateWarningDialog(widget, (char *)"Grok Error", &args, 1);
-	XmStringFree(string);
-	XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_CANCEL_BUTTON));
-	XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_HELP_BUTTON));
-	(void)XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
-	XtManageChild(dialog);
+	dialog = new QMessageBox(QMessageBox::Warning, "Grok Error", msg,
+				 QMessageBox::Ok, widget);
+	popup_nonmodal(dialog);
+	// FIXME:  when does this ever get deleted?
 }
 
 
@@ -113,35 +91,39 @@ void create_error_popup(Widget widget, int error, const char *fmt, ...)
 
 /*VARARGS*/
 void create_query_popup(
-	Widget		widget,			/* window that caused this */
-	void		(*callback)(),		/* OK callback */
+	QWidget		*widget,		/* window that caused this */
+	void		(*callback)(void),	/* OK callback */
 	const char	*help,			/* help text tag for popup */
 	const char	*fmt, ...)		/* message */
 {
 	va_list		parm;
-	char		msg[1024];
-	Widget		dialog;
-	XmString	string;
-	Arg		args[2];
+	QMessageBox::StandardButtons buttons = QMessageBox::Ok | QMessageBox::Cancel;
 
 	va_start(parm, fmt);
-	vsprintf(msg, fmt, parm);
+	QString msg(QString::vasprintf(fmt, parm));
 	va_end(parm);
-	string = XmStringCreateLtoR(msg, XmSTRING_DEFAULT_CHARSET);
 
-	XtSetArg(args[0], XmNmessageString,     string);
-	XtSetArg(args[1], XmNdefaultButtonType, XmDIALOG_CANCEL_BUTTON);
-	dialog = XmCreateQuestionDialog(widget, (char *)"Grok Dialog", args, 2);
-	XmStringFree(string);
+	if(help)
+		buttons |= QMessageBox::Help;
 
-	XtAddCallback(dialog, XmNokCallback,
-			(XtCallbackProc)callback, NULL);
-	XtAddCallback(dialog, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)help);
-	XtSetSensitive(XmMessageBoxGetChild(dialog,
-					    XmDIALOG_HELP_BUTTON), !!help);
-	(void)XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
-	XtManageChild(dialog);
+	// QMessageBox kills itself when any button is pressed, even if
+	// a callback is added.  So, to support Help, I have to run it in
+	// a loop.
+	while(1) {
+		switch(QMessageBox::question(widget, "Grok Dialog", msg,
+					     buttons, QMessageBox::Cancel)) {
+		    case QMessageBox::Ok:
+			callback();
+			return;
+		    case QMessageBox::Help:
+			// this will be immediately pushed to the back
+			// when question() runs again.  <sigh>
+			help_callback(widget, help);
+			break;
+		    default:
+			return;
+		}
+	}
 }
 
 
@@ -151,7 +133,7 @@ void create_query_popup(
  * the named card. This is called from the Help pulldown in the main menu.
  */
 
-static char info_message[] = "\n\
+static const char info_message[] = "\n\
   Form name:  %s\n\
   Form path:  %s\n\
   Form comment:  %s\n\n\
@@ -167,18 +149,15 @@ void create_dbase_info_popup(
 {
 	FORM		*form;
 	DBASE		*dbase;
-	char		msg[8192], date[20];
+	QString		msg;
+	char		date[20];
 	struct tm	*tm;
-	Widget		dialog;
-	XmString	s;
-	Arg		args[10];
-	int		n;
 
 	if (!card)
 		return;
 	form  = card->form;
 	dbase = card->dbase;
-	sprintf(msg, info_message,
+	msg = QString::asprintf(info_message,
 		form && form->name	? form->name	      : "(none)",
 		form && form->path	? form->path	      : "(none)",
 		form && form->comment	? form->comment	      : "(none)",
@@ -193,9 +172,10 @@ void create_dbase_info_popup(
 		dbase			? dbase->maxcolumns-1 : 0,
 		form  && form->help	? form->help	      : "     (none)");
 	if (!dbase || !dbase->nsects)
-		strcat(msg, " (none)");
+		msg.append(" (none)");
 	else {
 		register SECTION *sect = dbase->sect;
+		int		 n;
 		for (n=0; n < dbase->nsects; n++, sect++) {
 			tm = localtime(&sect->mtime);
 			if (pref.mmddyy)
@@ -207,23 +187,16 @@ void create_dbase_info_popup(
 			sprintf(date+6, "%2d %2d:%02d",    tm->tm_year % 100,
 							   tm->tm_hour,
 							   tm->tm_min);
-			sprintf(msg + strlen(msg),
+			msg.append(QString::asprintf(
 				"\n      %s:  %d cards, %s, \"%s\" %s%s",
 				section_name(dbase, n),
 				sect->nrows == -1 ? 0 : sect->nrows,
 				date,
 				sect->path,
 				sect->rdonly   ? " (read only)" : "",
-				sect->modified ? " (modified)"  : "");
+				sect->modified ? " (modified)"  : ""));
 		}
 	}
-	s = XmStringCreateLtoR(msg, XmSTRING_DEFAULT_CHARSET);
-	n = 0;
-	XtSetArg(args[n], XmNmessageString, s); n++;
-	dialog = XmCreateInformationDialog(mainwindow, (char *)"Database Info", args,n);
-	XmStringFree(s);
-	XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_HELP_BUTTON));
-	XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_CANCEL_BUTTON));
-	(void)XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
-	XtManageChild(dialog);
+	QMessageBox::information(mainwindow, "Database Info", msg,
+				 QMessageBox::Ok);
 }

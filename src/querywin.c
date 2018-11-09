@@ -5,25 +5,23 @@
  * button. The query menu is started from the form editor, default queries
  * are expressions attached to a form. They appear in the Query pulldown.
  *
+ * tjm - As part of the Qt port, I have changed the behavior entirely.
+ * The main area is a standard table widget with editable cells, which sort
+ * of works the same way, but is managed by Qt instead of this code.  Besides,
+ * any statement about speed is moot on modern systems, especially considering
+ * that Qt is probably slower than Motif overall.  I also immediately prune
+ * empty lines, and only provide one line for entry of new data.
+ *
  *	add_dquery(form)		apend a query entry to the form's list
  *	destroy_query_window()		remove query popup
  *	create_query_window()		create query popup
  */
 
 #include "config.h"
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <pwd.h>
-#include <Xm/Xm.h>
-#include <Xm/Form.h>
-#include <Xm/LabelP.h>
-#include <Xm/LabelG.h>
-#include <Xm/PushBP.h>
-#include <Xm/PushBG.h>
-#include <Xm/ToggleB.h>
-#include <Xm/ScrolledW.h>
-#include <Xm/Text.h>
-#include <Xm/Protocols.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
@@ -31,27 +29,17 @@
 #define NCOLUMNS	4		/* # of widget columns in query list */
 
 static void create_query_rows(void);
-static void edit_query_button(BOOL, int, int);
-static void got_query_text(int, int, char *);
-static void draw_row(int);
-static void delete_callback(Widget, int, XmToggleButtonCallbackStruct *);
-static void dupl_callback  (Widget, int, XmToggleButtonCallbackStruct *);
-static void done_callback  (Widget, int, XmToggleButtonCallbackStruct *);
-static void list_callback  (Widget, int, XmToggleButtonCallbackStruct *);
-static void got_text       (Widget, int, XmToggleButtonCallbackStruct *);
+static void delete_callback(void);
+static void dupl_callback  (void);
+static void done_callback  (void);
+static void list_callback  (QWidget *w, int x, int y, bool checked = false);
 
 static FORM		*form;		/* form whose queries are edited */
 static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
-static Widget		shell;		/* popup menu shell */
-static Widget		del, dupl;	/* buttons, for desensitizing */
-static Widget		info;		/* info line for error messages */
-static Widget		textwidget;	/* if editing, text widget; else 0 */
-static int		have_nrows;	/* # of table widget rows allocated */
-static int		xedit, yedit;	/* if editing, column/row */
-static int		ycurr;		/* current row, 0=none, 1=1st query..*/
-static Widget		qlist;		/* query list RowColumn widget */
-static Widget	(*qtable)[NCOLUMNS];	/* all widgets in query list table */
-					/* [0][*] is title row */
+static QDialog		*shell;		/* popup menu shell */
+static QWidget		*del, *dupl;	/* buttons, for desensitizing */
+static QTextEdit	*info;		/* info line for error messages */
+static QTableWidget	*qlist;		/* query list table widget */
 
 
 
@@ -79,9 +67,9 @@ DQUERY *add_dquery(
 void destroy_query_window(void)
 {
 	if (have_shell) {
-		XtPopdown(shell);
-		XtDestroyWidget(shell);
 		have_shell = FALSE;
+		shell->close();
+		delete shell;
 	}
 }
 
@@ -93,333 +81,171 @@ void destroy_query_window(void)
 void create_query_window(
 	FORM			*newform)	/*form whose queries are chgd*/
 {
-	Widget			wform, scroll, w;
-	Arg			args[15];
-	int			n;
-	Atom			closewindow;
+	QVBoxLayout		*wform;
+	QWidget			*w;
 
 	destroy_query_window();
 	if (have_shell)
 		return;
 	form = newform;
-	n = 0;
-	XtSetArg(args[n], XmNdeleteResponse,	XmUNMAP);		n++;
-	XtSetArg(args[n], XmNiconic,		False);			n++;
-	shell = XtAppCreateShell("Default Queries", "Grok",
-			applicationShellWidgetClass, display, args, n);
+	// The proper way to ignore delete is to override QWindow::closeEvent()
+	// Instead, I'll do nothing.  It makes more sense to issue a reject
+	// (the default behavior), anyway - tjm
+	shell = new QDialog;
+	shell->setWindowTitle("Default Queries");
 	set_icon(shell, 1);
-	wform = XtCreateWidget("queryform", xmFormWidgetClass,
-			shell, NULL, 0);
-	XtAddCallback(wform, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"queries");
+	wform = new QVBoxLayout(shell);
+	add_layout_qss(wform, "queryform");
+	bind_help(shell, "queries");
 
 							/*-- buttons --*/
-	n = 0;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		80);			n++;
-	XtSetArg(args[n], XmNsensitive,		False);			n++;
-	del = w = XtCreateManagedWidget("Delete", xmPushButtonWidgetClass,
-			wform, args, n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)delete_callback, (XtPointer)0);
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"dq_delete");
+	QDialogButtonBox *bb = new QDialogButtonBox;
 
-	n = 0;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w);			n++;
-	XtSetArg(args[n], XmNleftOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		80);			n++;
-	XtSetArg(args[n], XmNsensitive,		False);			n++;
-	dupl = w = XtCreateManagedWidget("Duplicate", xmPushButtonWidgetClass,
-			wform, args, n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)dupl_callback, (XtPointer)0);
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"dq_dupl");
+	w = del = mk_button(bb, "Delete", dbbr(Action));
+	w->setEnabled(false);
+	set_button_cb(w, delete_callback());
+	bind_help(w, "dq_delete");
 
-	n = 0;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		80);			n++;
-	w = XtCreateManagedWidget("Done", xmPushButtonWidgetClass,
-			wform, args, n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)done_callback, (XtPointer)0);
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"dq_done");
+	w = dupl = mk_button(bb, "Duplicate", dbbr(Action));
+	w->setEnabled(false);
+	set_button_cb(w, dupl_callback());
+	bind_help(w, "dq_dupl");
 
-	n = 0;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNrightWidget,	w);			n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		80);			n++;
-	w = XtCreateManagedWidget("Help", xmPushButtonWidgetClass,
-			wform, args, n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"queries");
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"queries");
+	w = mk_button(bb, "Done", dbbr(Accept));
+	dynamic_cast<QPushButton *>(w)->setDefault(true);
+	set_button_cb(w, done_callback());
+	bind_help(w, "dq_done");
+	
+	w = mk_button(bb, 0, dbbb(Help));
+	set_button_cb(w, help_callback(w, "queries"));
+	// bind_help(w, "queries");  // same as main window
 
 							/*-- infotext -- */
-	n = 0;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNeditMode,		XmMULTI_LINE_EDIT);	n++;
-	XtSetArg(args[n], XmNalignment,		XmALIGNMENT_BEGINNING);	n++;
-	XtSetArg(args[n], XmNeditable,		FALSE);			n++;
-	XtSetArg(args[n], XmNrows,		2);			n++;
-	info = XmCreateScrolledText(wform, (char *)"info", args, n);
+	info = new QTextEdit();
+	info->setLineWrapMode(QTextEdit::NoWrap);
+	wform->addWidget(info);
+	info->setReadOnly(true);
+	// FIXME:  only a guess as to how to make this 2 rows high
+	print_text_button_s(info, "M");
+	w->setMinimumHeight(info->sizeHint().height() * 2);
 
 							/*-- scroll --*/
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		info);			n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNbottomWidget,	w);			n++;
-	XtSetArg(args[n], XmNbottomOffset,	16);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		580);			n++;
-	XtSetArg(args[n], XmNheight,		300);			n++;
-	XtSetArg(args[n], XmNscrollingPolicy,	XmAUTOMATIC);		n++;
-	scroll = XtCreateWidget("qscroll", xmScrolledWindowWidgetClass,
-			wform, args, n);
-	XtAddCallback(scroll, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"queries");
 
-	n = 0;
-	qlist = XtCreateManagedWidget("qlist", xmBulletinBoardWidgetClass,
-			scroll, args, n);
+	w = qlist = new QTableWidget(NCOLUMNS, 3);
+	qlist->setShowGrid(false);
+	qlist->setWordWrap(false);
+	qlist->horizontalHeader()->setStretchLastSection(true);
+	qlist->verticalHeader()->hide();
+	w->setMinimumSize(580, 300);
+	wform->addWidget(w);
+	wform->addWidget(bb);
+	// bind_help(w, "queries");  // same as main window
 
 	create_query_rows();	/* have_shell must be FALSE here */
 	print_query_info();
 
-	XtManageChild(info);
-	XtManageChild(scroll);
-	XtManageChild(wform);
-	XtPopup(shell, XtGrabNone);
-
-	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
-	XmAddWMProtocolCallback(shell, closewindow,
-			(XtCallbackProc)done_callback, (XtPointer)shell);
+	popup_nonmodal(shell);
+	set_dialog_cancel_cb(shell, done_callback());
 	have_shell = TRUE;
 }
 
 
 /*
- * makes sure there are enough widget rows for query entries. Also makes
- * sure that there aren't too many, for speed reasons. Allocate one extra
- * widget row for the title at the top. All the text buttons are
- * label widgets. For performance reasons, they are overlaid by a text
- * widget when pressed.
- * No text is printed into the buttons, this is done later by draw_row().
+ * Initializes the table widget.  The old code just set up the widgets,
+ * and had a separate function for filling in data.  I do it all here.
+ * Also, I only have one spare row.  I also auto-delete blank rows, unless
+ * they are set to being the default.
  */
 
-static short cell_x    [NCOLUMNS] = {  4, 44,  84,  284 };
 static short cell_xs   [NCOLUMNS] = { 30, 30, 200, 1000 };
-static const char * const cell_name [NCOLUMNS] = { "on", "def", "Name", "Query Expression"};
+static QStringList cell_name = { "on", "def", "Name", "Query Expression"};
+
+static void set_row_widgets(int y)
+{
+	int x;
+	register DQUERY	*dq = &form->query[y];
+	bool blank = y > form->nqueries;
+
+	QCheckBox *cb = new QCheckBox;
+	if (!blank)
+		cb->setCheckState(dq->suspended ? Qt::Unchecked : Qt::Checked);
+	qlist->setCellWidget(0, y, cb);
+	QRadioButton *rb = new QRadioButton;
+	if (!blank)
+		rb->setDown(y == form->autoquery);
+	qlist->setCellWidget(1, y, rb);
+	QLineEdit *t = new QLineEdit;
+	if (!blank && dq->name)
+		t->setText(dq->name);
+	qlist->setCellWidget(2, y, t);
+	t = new QLineEdit;
+	if (!blank && dq->query)
+		t->setText(dq->query);
+	qlist->setCellWidget(3, y, t);
+
+	for(x = 0; x < NCOLUMNS; x++) {
+		QWidget *w = qlist->cellWidget(x, y);
+		if(x > 1)
+			set_text_cb(w, list_callback(w, x, y));
+		else
+			set_button_cb(w, list_callback(w, x, y, c), bool c);
+		// bind_help(w, "queries"); // same as main window
+	}
+}
+
+static void del_query(int y)
+{
+	int n;
+
+	form->nqueries--;
+	if(form->query[y].name)
+		free(form->query[y].name);
+	if(form->query[y].query)
+		free(form->query[y].query);
+	for (n=y; n < form->nqueries; n++)
+		form->query[n] = form->query[n+1];
+	if (y == form->autoquery)
+		form->autoquery = -1;
+	else if (y < form->autoquery)
+		--form->autoquery;
+}
+
+static bool remove_if_blank(int y)
+{
+	if(y == form->autoquery ||
+	   (form->query[y].name && form->query[y].name[0]) ||
+	   (form->query[y].query && form->query[y].query[0]))
+		return false;
+	del_query(y);
+	qlist->removeRow(y);
+	return true;
+}
 
 static void create_query_rows(void)
 {
-	int			nrows = form->nqueries+3 - form->nqueries%3;
 	int			x, y;
-	Arg			args[15];
-	int			n;
-	const char		*name;
-	WidgetClass		wclass;
 
-	if (!have_shell)				/* check # of rows: */
-		have_nrows = 0;
-	if (nrows <= have_nrows)
-		return;
-
-	n = (nrows+1) * NCOLUMNS * sizeof(Widget *);
-	if (qtable && !(qtable = (Widget (*)[4])realloc(qtable, n)) ||
-	   !qtable && !(qtable = (Widget (*)[4])malloc(n)))
-		fatal("no memory");
-
-	for (x=0; x < NCOLUMNS; x++) {
-	    for (y=have_nrows; y <= nrows; y++) {
-		XtUnmanageChild(qlist);
-		name  = cell_name[x];
-		wclass = xmPushButtonWidgetClass;
-		n = 0;
-		if (y) {
-			if (x < 2) {
-				wclass = xmToggleButtonWidgetClass;
-				XtSetArg(args[n], XmNselectColor,
-						color[COL_TOGGLE]);	n++;
-			}
-			if (x == 1) {
-				XtSetArg(args[n], XmNindicatorType,
-						XmONE_OF_MANY);		n++;
-			}
-			name  = " ";
-		} else
-			wclass = xmLabelWidgetClass;
-
-		XtSetArg(args[n], XmNx,			cell_x[x]);	n++;
-		XtSetArg(args[n], XmNy,			10 + 30*y);	n++;
-		XtSetArg(args[n], XmNwidth,		cell_xs[x]);	n++;
-		XtSetArg(args[n], XmNheight,		30);		n++;
-		XtSetArg(args[n], XmNalignment, XmALIGNMENT_BEGINNING);	n++;
-		XtSetArg(args[n], XmNrecomputeSize,	False);		n++;
-		XtSetArg(args[n], XmNtraversalOn,	True);		n++;
-		XtSetArg(args[n], XmNhighlightThickness,0);		n++;
-		XtSetArg(args[n], XmNshadowThickness,	x > 1 && y);	n++;
-		qtable[y][x] = XtCreateManagedWidget(name, wclass,
-				qlist, args, n);
-		if (y)
-			XtAddCallback(qtable[y][x],
-				x > 1 ? XmNactivateCallback
-				      : XmNvalueChangedCallback,
-				(XtCallbackProc)list_callback,
-				(XtPointer)((long)(x + y * NCOLUMNS)));
-		XtAddCallback(qtable[y][x], XmNhelpCallback,
-				(XtCallbackProc)help_callback,
-				(XtPointer)"queries");
-	    }
+	qlist->setRowCount(form->nqueries + 1);
+	// setting width here probably doesn't work right
+	for (x=0; x < NCOLUMNS; x++)
+		qlist->setColumnWidth(x, (int)cell_xs[x]);
+	qlist->setHorizontalHeaderLabels(cell_name);
+	for (y=0; y < form->nqueries; y++) {
+		if(remove_if_blank(y)) {
+			y--;
+			continue;
+		}
+		set_row_widgets(y);
 	}
-	for (y=have_nrows; y <= nrows; y++)
-		draw_row(y);
-	have_nrows = nrows;
+	set_row_widgets(form->nqueries);
 
-	XtManageChild(qlist);
+	qlist->update();
 }
-
-
-/*-------------------------------------------------- editing ----------------*/
-/*
- * turn a text label into a Text button, to allow user input. This is done
- * by simply installing a text widget on top of the label widget. The proper
- * query name or expression is put into the text widget. The previously edited
- * button is un-edited.
- */
-
-static void edit_query_button(
-	BOOL			doedit,		/* TRUE=edit, FALSE=unedit */
-	int			x,		/* column, 0..NCOLUMNS-1* */
-	int			y)		/* row, y=0: title */
-{
-	Arg			args[15];
-	int			n;
-	const char		*text;
-
-	if (textwidget) {
-		char *string = XmTextGetString(textwidget);
-		got_query_text(xedit, yedit, string);
-		XtFree(string);
-		XtDestroyWidget(textwidget);
-		draw_row(yedit);
-		create_query_rows();
-	}
-	textwidget = 0;
-	if (!doedit)
-		return;
-
-	if (y > form->nqueries+1)
-		y = form->nqueries+1;
-	n = 0;
-	XtSetArg(args[n], XmNx,			cell_x[x]);		n++;
-	XtSetArg(args[n], XmNy,			10 + 30*y);		n++;
-	XtSetArg(args[n], XmNwidth,		cell_xs[x]);		n++;
-	XtSetArg(args[n], XmNheight,		30);			n++;
-	XtSetArg(args[n], XmNrecomputeSize,	False);			n++;
-	XtSetArg(args[n], XmNpendingDelete,	True);			n++;
-	XtSetArg(args[n], XmNhighlightThickness,0);			n++;
-	XtSetArg(args[n], XmNshadowThickness,	1);			n++;
-	XtSetArg(args[n], XmNbackground,	color[COL_TEXTBACK]);	n++;
-	textwidget = XtCreateManagedWidget("text", xmTextWidgetClass,
-			qlist, args, n);
-	XtAddCallback(textwidget, XmNactivateCallback,
-			(XtCallbackProc)got_text, (XtPointer)0);
-	XtAddCallback(textwidget, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"queries");
-	XmProcessTraversal(textwidget, XmTRAVERSE_CURRENT);
-
-	text = y > form->nqueries ? "" : x == 2 ? form->query[y-1].name
-						: form->query[y-1].query;
-	print_text_button_s(textwidget, text);
-	xedit = x;
-	yedit = y;
-}
-
-static void got_query_text(
-	int		x,		/* column, 0..NCOLUMNS-1* */
-	int		y,		/* row, y=0: title */
-	char		*string)	/* text entered by user */
-{
-	register DQUERY	*dq;		/* query entry */
-
-	if (!y--)
-		return;
-	if (y >= form->nqueries) {
-		(void)add_dquery(form);
-		y = form->nqueries - 1;
-	}
-	dq = &form->query[y];
-	if (x == 2) {					/* name */
-		if (dq->name)
-			free(dq->name);
-		dq->name = mystrdup(string);
-	} else {					/* query expr */
-		if (dq->query)
-			free(dq->query);
-		dq->query = mystrdup(string);
-	}
-}
-
-
-/*
- * draw all buttons of row y. y must be > 0 because 0 is the title row.
- * If y is > form->nqueries, the row is blanked.
- */
-
-static void draw_row(
-	int		y)
-{
-	Arg		arg;
-	register DQUERY	*dq = &form->query[y-1];
-
-	if (y < 1)
-		return;
-	if (y <= form->nqueries) {				/* valid row */
-		XtSetArg(arg, XmNset, !dq->suspended);
-		XtSetValues (qtable[y][0], &arg, 1);
-		XtSetArg(arg, XmNset, form->autoquery == y-1);
-		XtSetValues (qtable[y][1], &arg, 1);
-		print_button(qtable[y][2], dq->name  ? dq->name  : " ");
-		print_button(qtable[y][3], dq->query ? dq->query : " ");
-	} else {						/* blank row */
-		XtSetArg(arg, XmNset, 0);
-		XtSetValues (qtable[y][0], &arg, 1);
-		XtSetValues (qtable[y][1], &arg, 1);
-		print_button(qtable[y][2], " ");
-		print_button(qtable[y][3], " ");
-	}
-}
-
 
 /*
  * print interesting info into the message line. This is done only once, when
  * the menu is created.
+ * FIXME: make this a separate popup that can be called from help menu
  */
 
 void print_query_info(void)
@@ -474,59 +300,38 @@ void print_query_info(void)
  * All of these routines are direct X callbacks.
  */
 
-/*ARGSUSED*/
-static void delete_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+static void delete_callback(void)
 {
-	int				n;
-	Arg				args;
+	int				ycurr = qlist->currentRow();
 
-	if (ycurr && ycurr <= form->nqueries) {
-		edit_query_button(FALSE, 0, 0);
-		for (n=ycurr-1; n < form->nqueries; n++)
-			form->query[n] = form->query[n+1];
-		form->nqueries--;
-		for (n=ycurr; n <= have_nrows; n++)
-			draw_row(n);
+	if (ycurr >= 0 && ycurr < form->nqueries) {
+		qlist->removeRow(ycurr);
+		del_query(ycurr);
 	}
-	if (!ycurr) {
-		XtSetArg(args, XmNsensitive, 0);
-		XtSetValues(del, &args, 1);
-		XtSetValues(dupl,   &args, 1);
+	if (!form->nqueries) {
+		del->setEnabled(false);
+		dupl->setEnabled(false);
 	}
 }
 
 
-/*ARGSUSED*/
-static void dupl_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+static void dupl_callback(void)
 {
-	int				n;
+	int				ycurr = qlist->currentRow(), n;
 
 	if (form->nqueries) {
-		edit_query_button(FALSE, 0, 0);
 		(void)add_dquery(form);
-		create_query_rows();
-		for (n=form->nqueries-1; n > ycurr-1; n--)
+		for (n=form->nqueries-1; n > ycurr; n--)
 			form->query[n] = form->query[n-1];
 		form->query[n].name  = mystrdup(form->query[n].name);
 		form->query[n].query = mystrdup(form->query[n].query);
-		for (n=ycurr; n <= form->nqueries; n++)
-			draw_row(n);
+		qlist->insertRow(ycurr);
+		set_row_widgets(ycurr);
 	}
 }
 
-/*ARGSUSED*/
-static void done_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+static void done_callback(void)
 {
-	edit_query_button(FALSE, 0, 0);
 	destroy_query_window();
 	remake_query_pulldown();
 }
@@ -536,51 +341,59 @@ static void done_callback(
  * one of the buttons in the list was pressed
  */
 
-/*ARGSUSED*/
 static void list_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+	QWidget				*w,
+	int				x,
+	int				y,
+	bool				checked)
 {
-	int				x = item % NCOLUMNS;
-	int				y = item / NCOLUMNS;
-	Arg				arg;
 	int				i;
+	register DQUERY	*dq = &form->query[y];
+	char *string = 0;
+	bool onblank = y >= form->nqueries;
 
-	if (y > form->nqueries) {				/* new entry */
-		x = 2;
-		edit_query_button(TRUE, x, ycurr = form->nqueries+1);
-	} else {						/* old entry */
-		ycurr = y;
-		switch(x) {
-		  case 0:
-			form->query[y-1].suspended = !data->set;
-			break;
-		  case 1:
-			i = form->autoquery;
-			form->autoquery = y-1;
-			draw_row(i+1);
-			draw_row(y);
-			break;
-		  default:
-			edit_query_button(TRUE, x, y);
-		}
+	if(x > 1) {
+		const QString &qs = dynamic_cast<QLineEdit *>(w)->text();
+		if(qs.size())
+			string = qstrdup(qs);
 	}
-	XtSetArg(arg, XmNsensitive, ycurr > 0);
-	XtSetValues(del, &arg, 1);
-	XtSetValues(dupl,   &arg, 1);
-}
+	switch(x) {
+	    case 0:
+		if(onblank)
+			dynamic_cast<QCheckBox *>(w)->setCheckState(Qt::Unchecked);
+		else
+			dq->suspended = !checked;
+		break;
+	    case 1:
+		if(checked && y != (i = form->autoquery)) {
+			form->autoquery = y;
+			if(remove_if_blank(i)) {
+				if(i < y)
+					y--;
+			} else
+				dynamic_cast<QRadioButton *>(qlist->cellWidget(x, i))->setDown(false);
+			if(onblank) {
+				(void)add_dquery(form);
+				set_row_widgets(y + 1);
+				onblank = false;
+			}
+		}
+		break;
+	    case 2:					/* name */
+		if (dq->name)
+			free(dq->name);
+		dq->name = string;
+		break;
+	    case 3:					/* query expr */
+		if (dq->query)
+			free(dq->query);
+		dq->query = string;
+		break;
+	}
+	if(!onblank && remove_if_blank(y))
+		onblank = true;
 
-
-/*
- * the user pressed Return in a text entry button
- */
-
-/*ARGSUSED*/
-static void got_text(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
-{
-	edit_query_button(FALSE, 0, 0);
+	// FIXME:  this needs to be in a click-callback as well
+	del->setEnabled(!onblank);
+	dupl->setEnabled(!onblank);
 }

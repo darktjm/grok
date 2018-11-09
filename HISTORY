@@ -117,3 +117,47 @@ version 1.5, released 23.5.01
   * when procedural databases were written successfully, the modified flags
     were not reset. Fix by Fredy Paquet <fredy@gilera.opag.ch>
   * the default year was incorrect, it defaulted to 2000 instead of 2001
+
+-----  All releases below this line are by Thomas J. Moore,
+-----  https://bitbucket.org/darktjm/grok/
+-----  If tarballs aren't availble, look for the appropriate SVN ID.
+
+SVN revision 494 is the last version that is basically the same as
+xmbase_grok-1.5.  I'd tag it in git for git users, but I can't get
+that to work right.  Maybe I'll fix that some day.
+
+version 1.5.1, SVN ID 494, released 26.10.18
+
+  * fewer segfaults in templates
+  * don't pop up new error dialog for every record on search expr error
+  * multi-line text widget now works correclty in Motif 2.3.8
+  * code now compiles with g++
+  * other minor cleanups that may make this break in ancient unix
+
+version 1.6, released ???
+
+  * added a substantial todo list, in case I don't abandon this soon
+  * replaced Motif with Qt; bye bye systems that don't support it
+    Everything looks and works a little differently.  In particular,
+    X11-style resources are gone.  However, the underlying applicaiton
+    is still pretty much the same as with 1.5.
+  * by sheer coiincidence, fixed a few buffer overflow bugs
+  * fixed some missing/wrong docs while adding qt-related info
+  * removed #if 0-d features; if they haven't been implemented since 2001,
+    they probably never will:
+    * separator before summary header
+    * View:  a summary window on another database (I will do something
+      similar for the foreign key feature later).  Note that q_dbase,
+      query, q_summ, q_first, q_last will no longer written to/read from
+      the .gf file.
+    * min field length.  I will convert this to a non-empty flag.  It
+      could also be validated by my suggested input pattern replacement.
+      Note that minlen will no longer be written to/read from the .gf file.
+    * Input pattern:  this may be a good idea some time in the future as
+      a field validator, but as an expression.  For this, regex support
+      should be in the expressions.  Note that pattern will no longer be
+      written to/read from the .gf file. (added to TODO.md)
+    * Many chart-related options.  The whole chart thing needs to be
+      rethought, anyway.  I have no intention of re-implementing gdchart
+      here.  Note that ch_label, ch_xexpr, ch_yexpr, will no longer be written to/read
+      from the .gf file.

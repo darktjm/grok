@@ -11,8 +11,6 @@ void destroy_canvas_window(void);
 void create_canvas_window(
 	FORM		*f);
 void redraw_canvas(void);
-void undraw_canvas_item(
-	register ITEM	*item);		/* item to redraw */
 void redraw_canvas_item(
 	register ITEM	*item);		/* item to redraw */
 
@@ -23,7 +21,7 @@ void destroy_card_menu(
 CARD *create_card_menu(
 	FORM		*form,		/* form that controls layout */
 	DBASE		*dbase,		/* database for callbacks, or 0 */
-	Widget		wform);		/* form widget to install into, or 0 */
+	QWidget		*wform);		/* form widget to install into, or 0 */
 void card_readback_texts(
 	CARD		*card,		/* card that is displayed in window */
 	int		which);		/* all -f < 0, one item only if >= 0 */
@@ -37,6 +35,9 @@ void fillout_item(
 	CARD		*card,		/* card to draw into menu */
 	int		i,		/* item index */
 	BOOL		deps);		/* if TRUE, dependencies only */
+
+/* property names for widget fonts */
+extern const char * const font_prop[F_NFONTS];
 
 /*---------------------------------------- chart.c ------------*/
 
@@ -53,11 +54,6 @@ void clone_chart_component(
 void draw_chart(
 	CARD		*card,		/* life, the universe, and everything*/
 	int		nitem);		/* # of item in form */
-void chart_action_callback(
-	Widget		widget,		/* drawing area */
-	XButtonEvent	*event,		/* X event, contains position */
-	String		*args,		/* what happened, up/down/motion */
-	int		nargs);		/* # of args, must be 1 */
 
 /*---------------------------------------- convert.c ------------*/
 
@@ -152,7 +148,7 @@ extern char	*switch_expr;		/* .. name to switch to and expr */
 extern BOOL	assigned;		/* did a field assignment */
 
 /*---------------------------------------- parser.y ------------*/
-extern int yyparse(void);
+extern int parserparse(void);
 
 /*---------------------------------------- evalfunc.c ------------*/
 
@@ -237,10 +233,10 @@ void form_delete(
 BOOL verify_form(
 	FORM		*form,		/* form to verify */
 	int		*bug,		/* retuirned buggy item # */
-	Widget		shell);		/* error popup parent */
+	QWidget		*shell);		/* error popup parent */
 void form_edit_script(
 	FORM		*form,		/* form to edit */
-	Widget		shell,		/* error popup parent */
+	QWidget		*shell,		/* error popup parent */
 	char		*fname);	/* file name of script (dbase name) */
 void form_sort(
 	register FORM	*form);		/* form to sort */
@@ -274,30 +270,23 @@ extern char		plan_code[];	/* code 0x260..0x26c */
 /*---------------------------------------- help.c ------------*/
 
 void destroy_help_popup(void);
+/* Qt doesn't support a "help callback" */
+/* closest would be binding the Help key, I guess */
+void bind_help(
+	QWidget		*parent,
+	const char	*topic);
+/* or maybe tooltip or "what's this?"? for the whole dialog? */
+/* tooltip/whatsThis requires loading text in advance, though */
+/* maybe later */
 void help_callback(
-	Widget		parent,
+	QWidget		*parent,
 	const char	*topic);
 
 /*---------------------------------------- main.c ------------*/
 
-void get_rsrc(
-	void		*ret,
-	const char	*res_name,
-	const char	*res_class_name,
-	const char	*res_type);
-void set_color(
-	int		col);
-
-extern Display		*display;	/* everybody uses the same server */
-extern GC		gc;		/* everybody uses this context */
-extern GC		xor_gc;		/* XOR gc for rubberbanding */
-extern XtAppContext	app;		/* application handle */
-extern Widget		toplevel;	/* top-level shell for icon name */
+extern QApplication	*app;		/* application handle */
 extern char		*progname;	/* argv[0] */
-extern XFontStruct	*font[NFONTS];	/* fonts: FONT_* */
-extern XmFontList	fontlist[NFONTS];
-extern Pixel		color[NCOLS];	/* colors: COL_* */
-extern Pixmap		pixmap[NPICS];	/* common symbols */
+extern QIcon		pixmap[NPICS];	/* common symbols */
 extern BOOL		restricted;	/* restricted mode, no form editor */
 
 /*---------------------------------------- mainwin.c ------------*/
@@ -321,17 +310,18 @@ void do_query(
 
 extern CARD 		*curr_card;	/* card being displayed in main win, */
 extern char		*prev_form;	/* previous form name */
-extern Widget		mainwindow;	/* popup menus hang off main window */
+extern QMainWindow	*mainwindow;	/* popup menus hang off main window */
 extern int		last_query;	/* last query pd index, for ReQuery */
-extern Widget		w_summary;	/* form for summary table */
+extern QVBoxLayout	*mainform;	/* form for summary table */
+extern QWidget		*w_summary;	/* the widget to replace in form */
 
 /*---------------------------------------- popup.c ------------*/
 
 void create_about_popup(void);
-void create_error_popup(Widget widget, int error, const char *fmt, ...);
+void create_error_popup(QWidget *widget, int error, const char *fmt, ...);
 void create_query_popup(
-	Widget		widget,		/* window that caused this */
-	void		(*callback)(),	/* OK callback */
+	QWidget		*widget,		/* window that caused this */
+	void		(*callback)(void),	/* OK callback */
 	const char	*help,		/* help text tag for popup */
 	const char	*fmt, ...);	/* message */
 void create_dbase_info_popup(
@@ -366,12 +356,12 @@ const char *exec_template(
 	int		seq,		/* if name is 0, execute by seq num */
 	CARD		*card);		/* need this for form name */
 char *copy_template(
-	Widget		shell,		/* export window widget */
+	QWidget		*shell,		/* export window widget */
 	char		*tar,		/* target template name */
 	int		seq,		/* source template number */
 	CARD		*card);		/* need this for form name */
 BOOL delete_template(
-	Widget		shell,		/* export window widget */
+	QWidget		*shell,		/* export window widget */
 	int		seq,		/* template to delete, >= NBUILTINS */
 	CARD		*card);		/* need this for form name */
 const char *eval_template(
@@ -441,13 +431,13 @@ void create_newsect_popup(void);
 void destroy_summary_menu(
 	register CARD	*card);		/* card to destroy */
 void create_summary_menu(
-	CARD		*card,		/* card with query results */
-	Widget		wform,		/* form widget to install into */
-	Widget		shell);		/* enclosing shell */
+	CARD		*card);		/* card with query results */
 void make_summary_line(
 	char		*buf,		/* text buffer for result line */
 	CARD		*card,		/* card with query results */
-	int		row);		/* database row */
+	int		row,		/* database row */
+	QTreeWidget	*w = 0,		/* non-0: add line to table widget */
+	int		lrow = -1);	/* >=0: replace row #lrow */
 void make_plan_line(
 	CARD		*card,		/* card with query results */
 	int		row);		/* database row */
@@ -472,30 +462,64 @@ BOOL find_file(
 void fatal(const char *fmt, ...);
 char *mystrdup(
 	const char	*s);
-void print_button(Widget w, const char *fmt, ...);
-void print_text_button(Widget w, const char *fmt, ...);
-void print_text_button_s(Widget w, const char *str);
-char *read_text_button_noskipblank(Widget, char **);
-char *read_text_button(Widget, char **);
-char *read_text_button_noblanks(Widget, char **);
+void print_button(QWidget *w, const char *fmt, ...);
+#define print_text_button print_button
+void print_text_button_s(QWidget *w, const char *str);
+char *read_text_button_noskipblank(QWidget*, char **);
+char *read_text_button(QWidget*, char **);
+char *read_text_button_noblanks(QWidget*, char **);
 void set_toggle(
-	Widget		w,
+	QWidget		*w,
 	BOOL		set);
 void set_icon(
-	Widget		shell,
+	QWidget		*shell,
 	int		sub);		/* 0=main, 1=submenu */
 void set_cursor(
-	Widget		w,		/* in which widget */
-	int		n);		/* which cursor, one of XC_* */
+	QWidget		*w,		/* in which widget */
+	Qt::CursorShape	n);		/* which cursor, one of XC_* */
 void truncate_string(
+	QWidget		*w,		/* widget string will show in */
 	register char	*string,	/* string to truncate */
-	register int	len,		/* max len in pixels */
-	int		sfont);		/* font of string */
+	register int	len);		/* max len in pixels */
 int strlen_in_pixels(
-	const char	*string,	/* string to truncate */
-	int		sfont);		/* font of string */
+	QWidget		*w,		/* widget string will show in */
+	const char	*string);	/* string to truncate */
 const char *to_octal(
 	int		n);		/* ascii to convert to string */
 char to_ascii(
 	char		*str,		/* string to convert to ascii */
 	int		def);		/* default if string is empty */
+// Convenience function to make a horizontal separator
+QWidget *mk_separator(void);
+/* 80-pixel-wide button in a DialogButtonBox */
+// Why does C++ always have to be so goddamn verbose?
+#define dbbb(x) QDialogButtonBox::x
+#define dbbr(x) dbbb(x##Role)
+QPushButton *mk_button(
+	QDialogButtonBox *bb,		/* target button box; may be 0 */
+	const char	*label,		/* label, or NULL if standard */
+	int		role = dbbr(Action));	/* role, or ID if label is NULL */
+void add_layout_qss(
+	QLayout		*l,		/* layout to get QSS support */
+	const char	*name);		/* object name, or NULL if none */
+
+// These macros allow me to connect Qt signals to C callbacks
+#define set_qt_cb(_t, _sig, _w, _f, ...) \
+    QObject::connect(dynamic_cast<_t *>(_w), &_t::_sig, [=](__VA_ARGS__){ _f; })
+#define set_qt_cb_ov1(_t, _sig, _p, _w, _f, ...) \
+    QObject::connect(dynamic_cast<_t *>(_w), QOverload<_p>::of(&_t::_sig), [=](__VA_ARGS__){ _f; })
+#define set_button_cb(_w, _f, ...) \
+    set_qt_cb(QAbstractButton, clicked, _w, _f, __VA_ARGS__)
+#define set_text_cb(_w, _f) set_qt_cb(QLineEdit, returnPressed, _w, _f)
+#define set_mltext_cb(_w, _f) set_qt_cb(QTextEdit, textChanged, _w, _f)
+#define set_spin_cb(_w, _f) set_qt_cb(QAbstractSpinBox, editingFinished, _w, _f)
+#define set_dialog_cancel_cb(_w, _f) set_qt_cb(QDialog, rejected, _w, _f)
+#define set_file_dialog_cb(_w, _f, _v) set_qt_cb(QFileDialog, fileSelected, \
+	                                         _w, _f, const QString &_v)
+#define set_popup_cb(_w, _f, _t, _v) \
+    set_qt_cb_ov1(QComboBox, currentIndexChanged, _t, _w, _f, _t _v)
+#define set_combo_cb(_w, _f) set_qt_cb(QComboBox, currentTextChanged, _w, _f)
+// Make the calls needed to pop up a non-modal dialog (use exec for modal)
+void popup_nonmodal(QDialog *d);
+// Convert QString to char * by allocating enough memory
+char *qstrdup(const QString &str);

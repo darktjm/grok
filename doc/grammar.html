@@ -63,6 +63,8 @@ precedences. Bitwise operations operate on 32 bits only.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TT>&gt;</TT> <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>1 if the first number is greater than the second, 0 otherwise
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TT>&lt;=</TT> <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>1 if the first number is less than or equal to the second, 0 otherwise
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TT>&gt;=</TT> <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>1 if the first number is greater than or equal to the second, 0 otherwise
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>abs(</TT><B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Absolute value of a number
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>int(</TT><B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A number trucated to a whole integer
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>sqrt(</TT><B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Square root of a number
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>exp(</TT><B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Exponential function, <I>e<SUP>n</SUP></I>
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>log(</TT><B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Decimal logarithm, log<SUB>10</SUB>&nbsp;<I>n</I>
@@ -77,6 +79,7 @@ precedences. Bitwise operations operate on 32 bits only.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>atan2(</TT><B>n</B>, <B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Quadrant-aligned arc tangent
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>len(</TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Length of a string
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>bound(</TT><B>n</B>, <B>n</B>, <B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The first number bounded by a minimum (second number) and a maximum (third number)
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>random</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A random number in the range of [0.0, 1.0]
 </TABLE>
 
 <A NAME="gc">
@@ -103,6 +106,7 @@ numerical operators are used on the result.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>chop(</TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Return the string with the trailing newline, if any, removed
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>substr(</TT><B>s</B>, <B>n</B>, <B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Return a substring of the first string. The first number is the start index and the second the length. A negative index counts from the end.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>printf(</TT><I>args</I><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Format and return a string; <I>args</I> is a comma-separated list of expressions. Compound expressions must be enclosed in <TT>(&nbsp;)</TT> or <TT>{&nbsp;}</TT>.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>tr(</TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Transform characters in the first string according to substitutinos in the second.  The second string consists of space-separated <B>c</B><TT>=</TT><B>s</B> expressions; all occurrences of <B>c</B> will be replaced by <B>s</B>.
 </TABLE>
 
 
@@ -160,7 +164,7 @@ operators are also available as <TT>qavg</TT>, <TT>qdev</TT>,
 <TT>qmin</TT>, <TT>qmax</TT>, and <TT> qsum</TT>, which apply the
 calculation only to the result of the last query (i.e., to the cards
 displayed in the summary). Finally, the <TT> savg</TT>, <TT>sdev</TT>,
-<TT>smin</TT>, <TT>smax</TT>, and <TT>qsum</TT> variations are applied
+<TT>smin</TT>, <TT>smax</TT>, and <TT>ssum</TT> variations are applied
 to all cards in the current section; if there are no sections or if all
 sections are selected, all cards are considered.
 

@@ -15,11 +15,11 @@
  *	item_delete(form, nitem)	free item and remove from form
  */
 
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <Xm/Xm.h>
+#include <QtWidgets>
 #include "config.h"
 
 #if defined(GROK) || defined(PLANGROK)
@@ -51,7 +51,7 @@ FORM *form_create(void)
 	FORM		*form;		/* new form */
 
 	if (!(form = (FORM *)malloc(sizeof(FORM)))) {
-		create_error_popup(toplevel, errno, "Can't create form");
+		create_error_popup(mainwindow, errno, "Can't create form");
 		return(0);
 	}
 	set_form_defaults(form);
@@ -87,7 +87,7 @@ FORM *form_clone(
 	int		i;
 
 	if (!(form = (FORM *)malloc(sizeof(FORM)))) {
-		create_error_popup(toplevel, errno, "Can't clone form");
+		create_error_popup(mainwindow, errno, "Can't clone form");
 		return(0);
 	}
 	*form = *parent;
@@ -99,7 +99,7 @@ FORM *form_clone(
 
 	if (form->nitems &&
 	    !(form->items = (ITEM **)malloc(form->size * sizeof(ITEM *)))) {
-		create_error_popup(toplevel, errno, "Can't clone field list");
+		create_error_popup(mainwindow, errno, "Can't clone field list");
 		form->nitems = 0;
 	}
 	for (i=0; i < form->nitems; i++)
@@ -107,7 +107,7 @@ FORM *form_clone(
 
 	if (form->query) {
 		if (!(form->query = (DQUERY *)malloc(form->nqueries * sizeof(DQUERY)))) {
-			create_error_popup(toplevel, errno, "Queries lost");
+			create_error_popup(mainwindow, errno, "Queries lost");
 			form->nqueries = 0;
 		}
 		for (i=0; i < form->nqueries; i++) {
@@ -168,7 +168,7 @@ void form_delete(
 BOOL verify_form(
 	FORM		*form,		/* form to verify */
 	int		*bug,		/* retuirned buggy item # */
-	Widget		shell)		/* error popup parent */
+	QWidget		*shell)		/* error popup parent */
 {
 	int		nitem, ni;	/* item counter */
 	ITEM		*item, *it;	/* item pointer */
@@ -230,14 +230,6 @@ BOOL verify_form(
 		}
 		if (!item->pressed && item->type == IT_BUTTON) {
 			sprintf(msg+i, "%s has no button action\n", name);
-			i += strlen(msg+i);
-		}
-		if (!item->database && item->type == IT_VIEW) {
-			sprintf(msg+i, "%s has no query database\n", name);
-			i += strlen(msg+i);
-		}
-		if (!item->query && item->type == IT_VIEW) {
-			sprintf(msg+i, "%s has no query\n", name);
 			i += strlen(msg+i);
 		}
 		for (nq=0; nq < form->nqueries; nq++) {
@@ -345,7 +337,7 @@ BOOL verify_form(
 
 void form_edit_script(
 	FORM		*form,		/* form to edit */
-	Widget		shell,		/* error popup parent */
+	QWidget		*shell,		/* error popup parent */
 	char		*fname)		/* file name of script (dbase name) */
 {
 	char		path[1024], *p, *q;
@@ -444,7 +436,7 @@ BOOL item_create(
 		if (!(form->items = (ITEM **)(form->items
 					? realloc((void *)form->items, i)
 					: malloc(i)))) {
-			create_error_popup(toplevel, errno,
+			create_error_popup(mainwindow, errno,
 					"Can't create field");
 			return(FALSE);
 		}
@@ -452,7 +444,7 @@ BOOL item_create(
 	}
 							/* allocate item */
 	if (!(item = (ITEM *)malloc(sizeof(ITEM)))) {
-		create_error_popup(toplevel, errno, "Can't create field");
+		create_error_popup(mainwindow, errno, "Can't create field");
 		return(FALSE);
 	}
 	for (i=form->nitems-1; i >= nitem; i--)
@@ -470,11 +462,8 @@ BOOL item_create(
 		item->invisible_if = mystrdup(item->invisible_if);
 		item->skip_if	   = mystrdup(item->skip_if);
 		item->idefault	   = mystrdup(item->idefault);
-		item->pattern	   = mystrdup(item->pattern);
 		item->pressed	   = mystrdup(item->pressed);
 		item->added	   = mystrdup(item->added);
-		item->database	   = mystrdup(item->database);
-		item->query	   = mystrdup(item->query);
 	} else {
 		memset((void *)item, 0, sizeof(ITEM));
 		item->type	   = IT_INPUT;
@@ -482,12 +471,9 @@ BOOL item_create(
 		item->labeljust	   = J_LEFT;
 		item->inputjust	   = J_LEFT;
 		item->column       = 1;
-		item->minlen	   = 1;
 		item->maxlen	   = 100;
 		item->ch_xmax	   = 1;
 		item->ch_ymax	   = 1;
-		item->qsummary	   = TRUE;
-		item->qlast	   = TRUE;
 		item->x 	   = XSNAP(8) + form->xg;
 		item->xs	   = XSNAP(form->xs - 32);
 		item->xm	   = XSNAP(item->xs / 4);
@@ -561,14 +547,9 @@ void item_delete(
 	if (item->invisible_if)	free((void *)item->invisible_if);
 	if (item->skip_if)	free((void *)item->skip_if);
 	if (item->idefault)	free((void *)item->idefault);
-	if (item->pattern)	free((void *)item->pattern);
 	if (item->pressed)	free((void *)item->pressed);
 	if (item->added)	free((void *)item->added);
-	if (item->ch_xexpr)	free((void *)item->ch_xexpr);
-	if (item->ch_yexpr)	free((void *)item->ch_yexpr);
 	if (item->ch_bar)	free((void *)item->ch_bar);
-	if (item->database)	free((void *)item->database);
-	if (item->query)	free((void *)item->query);
 
 	for (i=0; i < item->ch_ncomp; i++) {
 		item->ch_curr = i;
@@ -597,7 +578,7 @@ ITEM *item_clone(
 	int		i;
 
 	if (!(item = (ITEM *)malloc(sizeof(ITEM)))) {
-		create_error_popup(toplevel, errno, "Can't clone field");
+		create_error_popup(mainwindow, errno, "Can't clone field");
 		return(0);
 	}
 	*item = *parent;
@@ -609,13 +590,8 @@ ITEM *item_clone(
 	item->invisible_if = mystrdup(parent->invisible_if);
 	item->skip_if	   = mystrdup(parent->skip_if);
 	item->idefault	   = mystrdup(parent->idefault);
-	item->pattern	   = mystrdup(parent->pattern);
 	item->pressed	   = mystrdup(parent->pressed);
 	item->added	   = mystrdup(parent->added);
-	item->ch_xexpr	   = mystrdup(parent->ch_xexpr);
-	item->ch_yexpr	   = mystrdup(parent->ch_yexpr);
-	item->database	   = mystrdup(parent->database);
-	item->query	   = mystrdup(parent->query);
 	item->ch_bar	   = 0;
 	item->ch_nbars	   = 0;
 

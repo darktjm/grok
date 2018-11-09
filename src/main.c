@@ -6,42 +6,36 @@
  *	main(argc, argv)		Guess.
  *
  * Author: thomas@bitrot.de (Thomas Driemeyer)
- * Minor fixes by Thomas J. Moore
+ * Major changes by Thomas J. Moore; see HISTORY
  */
 
 #include "config.h"
-#include <X11/Xos.h>
+#include <unistd.h>
+#include <locale.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <errno.h>
-#include <Xm/Xm.h>
-#include <X11/StringDefs.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
 #include "version.h"
 
 static void usage(void), mkdir_callback(void), make_grokdir(void);
-static void init_colors(void), init_fonts(void), init_pixmaps(void);
+static void init_pixmaps(void);
 
-Display			*display;	/* everybody uses the same server */
-GC			gc;		/* everybody uses this context */
-GC			xor_gc;		/* XOR gc for rubberbanding */
-XtAppContext		app;		/* application handle */
-Widget			toplevel;	/* top-level shell for icon name */
+QApplication		*app;		/* application handle */
 char			*progname;	/* argv[0] */
-XFontStruct		*font[NFONTS];	/* fonts: FONT_* */
-XmFontList		fontlist[NFONTS];
-Pixel			color[NCOLS];	/* colors: COL_* */
-Pixmap			pixmap[NPICS];	/* common symbols */
+QIcon			pixmap[NPICS];	/* common symbols */
 BOOL			restricted;	/* restricted mode, no form editor */
 
 
-static const char * const fallbacks[] = {
+static const char * const default_qss =
 #include "resource.h"
-	NULL
-};
+;
 
+
+static char rname[1024]; // ugh -- fixed size
 
 /*
  * initialize everything and create the main calendar window
@@ -51,7 +45,7 @@ int main(
 	int		argc,
 	char		*argv[])
 {
-	int		n, i;
+	int		n;
 	char		*formname = 0;
 	char		*tmpl = 0;
 	char		*query	  = 0;
@@ -60,13 +54,14 @@ int main(
 	BOOL		planmode  = FALSE;
 	BOOL		noheader  = FALSE;
 	BOOL		do_export = FALSE;
-	XGCValues	gcval;
 
+	setlocale(LC_ALL, "");
 	if ((progname = strrchr(argv[0], '/')) && progname[1])
 		progname++;
 	else
 		progname = argv[0];
 	restricted = !strcmp(progname, "rgrok");
+	nofork = TRUE; // tjm - debugging for now
 
 	for (n=1; n < argc; n++)			/* options */
 		if (*argv[n] != '-')
@@ -82,10 +77,7 @@ int main(
 		else if (argv[n][2] < 'a' || argv[n][2] > 'z')
 			switch(argv[n][1]) {
 			  case 'd':
-				for (i=0; fallbacks[i]; i++)
-					printf("%s%s\n", progname,
-							 fallbacks[i]);
-				fflush(stdout);
+				puts(default_qss);
 				return(0);
 			  case 'v':
 				fprintf(stderr, "%s: %s\n", progname, VERSION);
@@ -185,30 +177,56 @@ int main(
 		else if (pid > 0)
 			_exit(0);
 	}
-	toplevel = XtAppInitialize(&app, "Grok", NULL, 0,
-#		ifndef XlibSpecificationRelease
-				(Cardinal *)&argc, argv,
-#		else
-				&argc, argv,
-#		endif
-				(String *)fallbacks, NULL, 0);
-	display = XtDisplay(toplevel);
-	set_icon(toplevel, 0);
-	gc     = XCreateGC(display, DefaultRootWindow(display), 0, 0);
-	xor_gc = XCreateGC(display, DefaultRootWindow(display), 0, 0);
-	gcval.function = GXxor;
-	(void)XChangeGC(display, xor_gc, GCFunction, &gcval);
-	XSetForeground(display, xor_gc,
-			WhitePixelOfScreen(DefaultScreenOfDisplay(display)));
+	app = new QApplication(argc, argv);
+	// propagate style sheet prefs down the widget tree
+	QCoreApplication::setAttribute(Qt::AA_UseStyleSheetPropagationInWidgetStyles, true);
+	// Qt Style Sheets are a poor substitute for X resources
+	// But, to make this as much like the old app as possible, I'll
+	// at least make them a little more usable:
+	// There is only one storage location for application-wide defaults,
+	// so calling app->setStyleSheet() overrides the command-line setting
+	// Instead, I append the command-line setting, so it overrides
+	// defaults.
 
-	init_colors();
-	init_fonts();
+	// First, the default qss is loaded.
+	QString qss(default_qss);
+	// Then, the config path is searched for a resource file
+	// This replaces the defaults, so the user can run without any styling
+	strcpy(rname, resolve_tilde((char *)QSS_FN, NULL));
+	if(!access(rname, R_OK) || find_file(rname, QSS_FN, FALSE)) {
+		QFile file(rname);
+		if (file.open(QFile::ReadOnly)) {
+			QTextStream stream(&file);
+			// qss.append(stream.readAll());
+			qss = stream.readAll();
+		} else
+			qWarning() << "Could not load style sheet " << rname;
+	}
+	// Then, the user-supplied style sheet is read.
+	// Since it comes after the defaults/global file, it overrides them
+	if (app->styleSheet().size()) {
+		QString fn(app->styleSheet());
+		// strip off file:///; it's always there
+		// Note that this may change in the future, so I should
+		// probably be more careful.  Problem is, if it isn't
+		// there, I have no idea *what* to expect.
+		fn.remove(0, 8);
+		QFile file(fn);
+		if (file.open(QFile::ReadOnly)) {
+			QTextStream stream(&file);
+			qss.append(stream.readAll());
+		} else
+			qWarning() << "Could not load style sheet " << fn;
+	}
+	app->setStyleSheet(qss);
+
+	// FIXME: setfgcolor(white)
 	init_pixmaps();
 	read_preferences();
-	XSetForeground(display, xor_gc, color[COL_CANVBACK]);
+	// FIXME: setfgcolor(color[COL_CANVBACK])
 
 	create_mainwindow();
-	XtRealizeWidget(toplevel);
+	mainwindow->show();
 
 	make_grokdir();
 
@@ -216,13 +234,12 @@ int main(
 		switch_form(formname);
 	if (query) {
 		query_any(SM_SEARCH, curr_card, query);
-		create_summary_menu(curr_card, w_summary, mainwindow);
+		create_summary_menu(curr_card);
 		curr_card->row = curr_card->query ? curr_card->query[0]
 						  : curr_card->dbase->nrows;
 		fillout_card(curr_card, FALSE);
 	}
-	XtAppMainLoop(app);
-	return(0);
+	return app->exec();
 }
 
 
@@ -260,7 +277,7 @@ static void mkdir_callback(void)
 	(void)chmod(path, 0700);
 	(void)mkdir(path, 0700);
 	if (access(path, X_OK))
-		create_error_popup(toplevel, errno,
+		create_error_popup(mainwindow, errno,
 					"Cannot create directory %s", path);
 }
 
@@ -268,7 +285,7 @@ static void make_grokdir(void)
 {
 	char *path = resolve_tilde((char *)GROKDIR, 0); /* GROKDIR has no trailing / */
 	if (access(path, X_OK))
-		create_query_popup(toplevel, mkdir_callback, 0,
+		create_query_popup(mainwindow, mkdir_callback, 0,
 "Cannot access directory %s\n\n\
 This directory is required to store the grok configuration\n\
 file, and it is the default location for forms and databases.\n\
@@ -287,131 +304,6 @@ figuration changes will not be saved.",
 
 /*------------------------------------ init ---------------------------------*/
 /*
- * read resources and put them into the config struct. This routine is used
- * for getting three types of resources: res_type={XtRInt,XtRBool,XtRString}.
- */
-
-void get_rsrc(
-	void		*ret,
-	const char	*res_name,
-	const char	*res_class_name,
-	const char	*res_type)
-{
-	XtResource	res_list[1];
-
-	res_list->resource_name	  = (char *)res_name;
-	res_list->resource_class  = (char *)res_class_name;
-	res_list->resource_type	  = (char *)res_type;
-	res_list->resource_size	  = sizeof(res_type);
-	res_list->resource_offset = 0;
-	res_list->default_type	  = (char *)res_type;
-	res_list->default_addr	  = 0;
-
-	XtGetApplicationResources(toplevel, ret, res_list, 1, NULL, 0);
-}
-
-
-/*
- * determine all colors, and allocate them. They can then be used by a call
- * to set_color(COL_XXX).
- */
-
-static void init_colors(void)
-{
-	Screen			*screen = DefaultScreenOfDisplay(display);
-	Colormap		cmap;
-	XColor			rgb;
-	int			i, d;
-	char			*c, class_name[256];
-	const char		*n;
-
-	cmap = DefaultColormap(display, DefaultScreen(display));
-	for (i=0; i < NCOLS; i++) {
-		switch (i) {
-		  default:
-		  case COL_STD:		n = "colStd";		d=1;	break;
-		  case COL_BACK:	n = "colBack";		d=0;	break;
-		  case COL_SHEET:	n = "colSheet";		d=0;	break;
-		  case COL_TEXTBACK:	n = "colTextBack";	d=0;	break;
-		  case COL_TOGGLE:	n = "colToggle";	d=1;	break;
-		  case COL_CANVBACK:	n = "colCanvBack";	d=0;	break;
-		  case COL_CANVFRAME:	n = "colCanvFrame";	d=1;	break;
-		  case COL_CANVBOX:	n = "colCanvBox";	d=0;	break;
-		  case COL_CANVSEL:	n = "colCanvSel";	d=1;	break;
-		  case COL_CANVTEXT:	n = "colCanvText";	d=1;	break;
-		  case COL_CHART_AXIS:	n = "colChartAxis";	d=1;	break;
-		  case COL_CHART_GRID:	n = "colChartGrid";	d=1;	break;
-		  case COL_CHART_BOX:	n = "colChartBox";	d=1;	break;
-		  case COL_CHART_0:	n = "colChart0";	d=0;	break;
-		  case COL_CHART_1:	n = "colChart1";	d=0;	break;
-		  case COL_CHART_2:	n = "colChart2";	d=0;	break;
-		  case COL_CHART_3:	n = "colChart3";	d=0;	break;
-		  case COL_CHART_4:	n = "colChart4";	d=0;	break;
-		  case COL_CHART_5:	n = "colChart5";	d=0;	break;
-		  case COL_CHART_6:	n = "colChart6";	d=0;	break;
-		  case COL_CHART_7:	n = "colChart7";	d=0;	break;
-		}
-		strcpy(class_name, n);
-		class_name[0] &= ~('a'^'A');
-		get_rsrc(&c, n, class_name, XtRString);
-		if (!XParseColor(display, cmap, c, &rgb))
-			fprintf(stderr, "%s: unknown color \"%s\" (%s)\n",
-							progname, c, n);
-		else if (!XAllocColor(display, cmap, &rgb))
-			fprintf(stderr, "%s: can't alloc color \"%s\" (%s)\n",
-							progname, c, n);
-		else {
-			color[i] = rgb.pixel;
-			continue;
-		}
-		color[i] = d ? BlackPixelOfScreen(screen)
-			     : WhitePixelOfScreen(screen);
-	}
-}
-
-
-void set_color(
-	int		col)
-{
-	XSetForeground(display, gc, color[col]);
-}
-
-
-/*
- * load all fonts and make them available in the "fonts" struct. They are
- * loaded into the GC as necessary.
- */
-
-static void init_fonts(void)
-{
-	int		i;
-	char		class_name[256];
-	const char	*f;
-
-	for (i=0; i < NFONTS; i++) {
-		switch (i) {
-		  default:
-		  case FONT_STD:	f = "fontList";			break;
-		  case FONT_HELP:	f = "helpFont";			break;
-		  case FONT_HELV:	f = "helvFont";			break;
-		  case FONT_HELV_O:	f = "helvObliqueFont";		break;
-		  case FONT_HELV_S:	f = "helvSmallFont";		break;
-		  case FONT_HELV_L:	f = "helvLargeFont";		break;
-		  case FONT_COURIER:	f = "courierFont";		break;
-		  case FONT_LABEL:	f = "labelFont";		break;
-		}
-		strcpy(class_name, f);
-		class_name[0] &= ~('a'^'A');
-		get_rsrc(&f, f, class_name, XtRString);
-		if (!(font[i] = XLoadQueryFont(display, f)))
-			fatal("can't load font \"%s\"\n", f);
-		if (!(fontlist[i] = XmFontListCreate(font[i], (char *)"cset")))
-			fatal("can't create fontlist \"%s\"\n", f);
-	}
-}
-
-
-/*
  * allocate pixmaps
  */
 
@@ -425,22 +317,7 @@ static int pix_height[NPICS]	  = { bm_left_height, bm_right_height };
 static void init_pixmaps(void)
 {
 	int			p;
-	Colormap		cmap;
-	XColor			rgb;
-	char			*c;
 
-	cmap = DefaultColormap(display, DefaultScreen(display));
-	get_rsrc(&c, "background", "Background", XtRString);
-	if (!XParseColor(display, cmap, c, &rgb))
-		fprintf(stderr, "pixmap error: unknown bkg color \"%s\"\n", c);
-	if (!XAllocColor(display, cmap, &rgb))
-		fprintf(stderr, "pixmap error: can't alloc bkg color \"%s\"\n",
-									c);
 	for (p=0; p < NPICS; p++)
-		if (!(pixmap[p] = XCreatePixmapFromBitmapData(display,
-				DefaultRootWindow(display),
-				(char *)pics[p], pix_width[p], pix_height[p],
-				color[COL_STD], rgb.pixel,
-				DefaultDepth(display,DefaultScreen(display)))))
-			fatal("no memory for pixmaps");
+		pixmap[p].addPixmap(QPixmap::fromImage(QImage(pics[p], pix_width[p], pix_height[p], QImage::Format_Mono)));
 }

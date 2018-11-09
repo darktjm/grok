@@ -5,7 +5,7 @@
  *	read_dbase(form, path)		read dbase into empty dbase struct
  */
 
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -18,7 +18,7 @@
 #else
 #include <dirent.h>
 #endif
-#include <Xm/Xm.h>
+#include <QtWidgets>
 #include "config.h"
 
 #if defined(GROK) || defined(PLANGROK)
@@ -40,7 +40,7 @@ static int	ctimex_next;		/* for generating unique row->ctimex */
 
 static void broken_pipe_handler(int sig)
 {
-	create_error_popup(toplevel, 0,
+	create_error_popup(mainwindow, 0,
 			"Procedural script aborted with signal %d\n", sig);
 	signal(SIGPIPE, SIG_IGN);
 }
@@ -99,7 +99,7 @@ static BOOL write_file(
 	sect = &dbase->sect[nsect];
 	path = sect->path ? sect->path : form->dbase;
 	if (!path || !*path) {
-		create_error_popup(toplevel, 0,
+		create_error_popup(mainwindow, 0,
 			"Database has no name, cannot save to disk");
 		return(FALSE);
 	}
@@ -108,20 +108,20 @@ static BOOL write_file(
 		char cmd[1024];
 		sprintf(cmd, "%s -w %s", path, form->name);
 		if (!(fp = popen(cmd, "w"))) {
-			create_error_popup(toplevel, errno,
+			create_error_popup(mainwindow, errno,
 				"Failed to run shell script %s", cmd);
 			return(FALSE);
 		}
 	} else
 		if (!(fp = fopen(path, "w"))) {
-			create_error_popup(toplevel, errno,
+			create_error_popup(mainwindow, errno,
 				"Failed to create database file %s", path);
 			return(FALSE);
 		}
 	for (r=0; r < dbase->nrows; r++) {
 		if (nsect != dbase->row[r]->section)
 			continue;
-#if 0
+#if 0 /* 1.4.3: always write out all fields */
 		for (hicol=dbase->row[r]->ncolumns-1; hicol > 0; hicol--)
 			if (dbase_get(dbase, r, hicol))
 				break;
@@ -172,7 +172,7 @@ static BOOL write_file(
 	}
 	if (form->proc) {
 		if (pclose(fp)) {
-			create_error_popup(toplevel, errno,
+			create_error_popup(mainwindow, errno,
 				"%s:\nfailed to create database", path);
 			return(FALSE);
 		}
@@ -216,7 +216,7 @@ BOOL read_dbase(
 	BOOL			ret;		/* return code, FALSE=error */
 
 	if (!path || !*path) {
-		create_error_popup(toplevel, 0,
+		create_error_popup(mainwindow, 0,
 			"Database has no name, cannot read from disk");
 		return(FALSE);
 	}
@@ -234,7 +234,7 @@ BOOL read_dbase(
 		}
 	}
 	if (!(ret = find_db_file(dbase, form, path)))
-		create_error_popup(toplevel, 0, "Failed to read %s", path);
+		create_error_popup(mainwindow, 0, "Failed to read %s", path);
 
 	dbase->currsect = -1;
 	dbase->modified = FALSE;
@@ -355,7 +355,7 @@ static BOOL read_file(
 							/* step 2: new sectn */
 	i = (dbase->nsects+1) * sizeof(SECTION);
 	if (!(sect = (SECTION *)(dbase->sect ? realloc(dbase->sect, i) : malloc(i)))) {
-		create_error_popup(toplevel, errno,
+		create_error_popup(mainwindow, errno,
 			"No memory for section %s", path);
 		form->proc ? pclose(fp) : fclose(fp);
 		return(FALSE);
@@ -442,7 +442,7 @@ static BOOL read_file(
 	sect->rdonly   =
 	dbase->rdonly  = form->proc ? FALSE : !!access(path, W_OK);
 	if (error)
-		create_error_popup(toplevel, errno,
+		create_error_popup(mainwindow, errno,
 			"Failed to allocate memory for\ndatabase %s", path);
 	return(!error);
 }
@@ -486,7 +486,7 @@ static BOOL write_tfile(
 		return(TRUE);
 	}
 	if (!(fp = fopen(path, "w"))) {
-		create_error_popup(toplevel, errno,
+		create_error_popup(mainwindow, errno,
 			"Failed to create timestamp file %s", path);
 		return(FALSE);
 	}
@@ -541,7 +541,7 @@ static BOOL read_tfile(
 		}
 	fgetc(fp);
 	if (!feof(fp) || r != dbase->nrows) {
-		create_error_popup(toplevel, 0, "Length of timestamp file %s\n"
+		create_error_popup(mainwindow, 0, "Length of timestamp file %s\n"
 			"does not agree with its database file.\n", path);
 		fclose(fp);
 		for (r=0; r < dbase->nrows; r++)

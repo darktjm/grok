@@ -11,35 +11,28 @@
  */
 
 #include "config.h"
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <Xm/Xm.h>
-#include <Xm/MainW.h>
-#include <Xm/Form.h>
-#include <Xm/Frame.h>
-#include <Xm/LabelP.h>
-#include <Xm/PushBP.h>
-#include <Xm/PushBG.h>
-#include <Xm/ToggleB.h>
-#include <Xm/DrawingA.h>
-#include <Xm/ScrolledW.h>
-#include <Xm/Text.h>
-#include <Xm/Protocols.h>
-#include <X11/StringDefs.h>
+#include <QtWidgets>
 #include <time.h>
 #include "grok.h"
 #include "form.h"
+#include "chart-widget.h"
 #include "proto.h"
 
 static void create_item_widgets(CARD *, int);
-static void mwm_quit_callback
-			(Widget, XtPointer, XmToggleButtonCallbackStruct *);
-static void chart_expose_callback
-			(Widget, XtPointer, XmDrawingAreaCallbackStruct *);
-static void card_callback(Widget, XtPointer, XmToggleButtonCallbackStruct *);
+static void card_callback(QWidget *, CARD *);
 void card_readback_texts(CARD *, int);
 static BOOL store(CARD *, int, const char *);
+
+// Th Card window can be open multiple times, and should self-destruct on
+// close.  The old close callback also freed the card, as below.
+class CardWindow : public QDialog {
+public:
+    CARD *card;
+    ~CardWindow() { free(card); }
+};
 
 
 /*
@@ -58,15 +51,24 @@ void destroy_card_menu(
 	if (!card)
 		return;
 	card_readback_texts((CARD *)card, -1);
-	XtUnmanageChild(XtParent(card->wform));
-	XtDestroyWidget(card->wform);
-	if (card->shell)
-		XtPopdown(card->shell);
+	// Unlike original Motif, I don't ceate a subwidget inside the container
+	// So wform is either the mainwindow's widget or shell
+	if (card->shell) {
+		card->shell->close();
+		delete card->shell; // also deletes wform
+	} else if (card->wform) {
+		// wform won't be deleted, so delete its children instead.
+		if(card->wstat)
+			delete card->wstat;
+		if(card->wcard)
+			delete card->wcard;
+		card->wstat = card->wcard = 0;
+	}
 	for (i=0; i < card->nitems; i++) {
 		card->items[i].w0 = 0;
 		card->items[i].w1 = 0;
 	}
-	card->shell = card->wform = 0;
+	card->wform = card->shell = 0;
 }
 
 
@@ -84,13 +86,11 @@ void destroy_card_menu(
 CARD *create_card_menu(
 	FORM		*form,		/* form that controls layout */
 	DBASE		*dbase,		/* database for callbacks, or 0 */
-	Widget		wform)		/* form widget to install into, or 0 */
+	QWidget		*wform)		/* form widget to install into, or 0 */
 {
 	CARD		*card;		/* new card being allocated */
 	int		xs, ys, ydiv;	/* card size and divider */
-	Arg		args[15];
 	int		n;
-	Atom		closewindow;
 
 							/*-- alloc card --*/
 	n = sizeof(CARD) + sizeof(struct carditem) * form->nitems;
@@ -108,80 +108,58 @@ CARD *create_card_menu(
 	ydiv = pref.scale * form->ydiv;
 							/*-- make form --*/
 	if (wform) {
-		XtUnmanageChild(wform);
-		n = 0;
-		XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);	n++;
-		XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);	n++;
-		XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);	n++;
-		XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);	n++;
-		XtSetArg(args[n], XmNwidth,		xs+6);		n++;
-		XtSetArg(args[n], XmNheight,		ys+6);		n++;
-		XtSetArg(args[n], XmNscrollingPolicy,	XmAUTOMATIC);	n++;
-		XtSetArg(args[n], XmNresizable,		False);		n++;
-		card->wform = XtCreateManagedWidget("wform",
-				xmFormWidgetClass, wform, args, 0);
-		XtManageChild(wform);
+		wform->resize(xs+6, ys+6);
+		wform->setMinimumSize(xs+6, ys+6);
+		card->wform = wform;
 	} else {
-		n = 0;
-		XtSetArg(args[n], XmNdeleteResponse,	XmDO_NOTHING);	n++;
-		XtSetArg(args[n], XmNiconic,		False);		n++;
-		card->shell = XtAppCreateShell("Card", "Grok",
-				applicationShellWidgetClass, display, args, n);
+		CardWindow *cw = new CardWindow;
+		cw->card = card;
+		cw->setAttribute(Qt::WA_DeleteOnClose);
+		card->shell = cw;
+		card->shell->setWindowTitle("Card");
 		set_icon(card->shell, 1);
-		n = 0;
-		XtSetArg(args[n], XmNwidth,		xs+6);		n++;
-		XtSetArg(args[n], XmNheight,		ys+6);		n++;
-		XtSetArg(args[n], XmNresizable,		False);		n++;
-		card->wform = XtCreateManagedWidget("wform",
-				xmFormWidgetClass, card->shell, args, n);
-		XtPopup(card->shell, XtGrabNone);
-		closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
-		XmAddWMProtocolCallback(card->shell, closewindow,
-				(XtCallbackProc)mwm_quit_callback, NULL);
+		card->shell->resize(xs+6, ys+6);
+		card->shell->setMinimumSize(xs+6, ys+6);
+		// This doesn't seem to work; it's probably just a layout hint:
+		// card->shell->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+		// But this does.
+		card->shell->setMaximumSize(xs+6, ys+6);
+		wform = card->wform = card->shell;
+		card->shell->setObjectName("wform");
+		popup_nonmodal(card->shell);
 	}
-	XtManageChild(card->wform);
 	card->wstat = card->wcard = 0;
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	  XmATTACH_FORM);	n++;
 	if (ydiv) {
-	    if (ydiv >= ys) {
-	     XtSetArg(args[n],XmNbottomAttachment,XmATTACH_FORM);	n++;
-	    }
-	    XtSetArg(args[n], XmNleftAttachment,  XmATTACH_FORM);	n++;
-	    XtSetArg(args[n], XmNrightAttachment, XmATTACH_FORM);	n++;
-	    XtSetArg(args[n], XmNwidth,		  xs+6);		n++;
-	    XtSetArg(args[n], XmNheight,	  ydiv);		n++;
-	    XtSetArg(args[n], XmNresizable,	  FALSE);		n++;
-	    card->wstat = XtCreateManagedWidget("staticform",
-			xmFormWidgetClass, card->wform, args, n);
-	    n = 0;
-	    XtSetArg(args[n], XmNtopAttachment,	  XmATTACH_WIDGET);	n++;
-	    XtSetArg(args[n], XmNtopWidget,	  card->wstat);		n++;
-	    XtSetArg(args[n], XmNtopOffset,	  8);			n++;
+	    card->wstat = new QWidget(wform);
+	    card->wstat->resize(xs+6, ydiv);
+	    card->wstat->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+	    card->wstat->setObjectName("staticform");
 	}
 	if (ydiv < ys) {
-	    XtSetArg(args[n], XmNleftAttachment,  XmATTACH_FORM);	n++;
-	    XtSetArg(args[n], XmNrightAttachment, XmATTACH_FORM);	n++;
-	    XtSetArg(args[n], XmNbottomAttachment,XmATTACH_FORM);	n++;
-	    XtSetArg(args[n], XmNwidth,		  xs+6);		n++;
-	    XtSetArg(args[n], XmNheight,	  ys-ydiv+6);		n++;
-	    XtSetArg(args[n], XmNscrollingPolicy, XmAUTOMATIC);		n++;
-	    XtSetArg(args[n], XmNshadowType,	  XmSHADOW_IN);		n++;
-	    XtSetArg(args[n], XmNresizable,	  FALSE);		n++;
-	    card->wcard = XtCreateManagedWidget("cardframe",
-	   		xmFrameWidgetClass, card->wform, args, n);
-	    card->wcard = XtCreateManagedWidget("cardform",
-			xmFormWidgetClass, card->wcard, NULL, 0);
-	    n = 0;
-	    XtSetArg(args[n], XmNwidth,		  xs);			n++;
-	    XtSetArg(args[n], XmNheight,	  ys-ydiv);		n++;
-	    XtSetArg(args[n], XmNhighlightThickness,0);			n++;
-	    (void)XtCreateManagedWidget("",
-			xmLabelWidgetClass, card->wcard, args, n);
+	    QFrame *f = new QFrame(wform);
+	    f->show(); // why is this needed?
+	    f->move(0, ydiv);
+	    f->resize(xs+6, ys-ydiv+6);
+	    f->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+	    f->setLineWidth(3);
+	    f->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+	    f->setObjectName("cardframe");
+	    card->wcard = new QWidget(f);
+	    card->wcard->resize(xs, ys-ydiv);
+	    card->wcard->move(3, 3);
+	    // probably not necessary to set resize policy
+	    // and definitely not necessary to place a dummy label within
+	    card->wcard->setObjectName("cardform");
 	}
 							/*-- create items --*/
 	for (n=0; n < card->nitems; n++)
 		create_item_widgets(card, n);
+	// Weird.  Not only do these need explicit show()s, they need to
+	// be done here, at the end.
+	if(card->wstat)
+		card->wstat->show();
+	if(card->wcard)
+		card->wcard->show();
 	return(card);
 }
 
@@ -191,9 +169,29 @@ CARD *create_card_menu(
  * item in the form. The resulting widgets are stored in the card item.
  */
 
-#define JUST(j) (j==J_LEFT   ? XmALIGNMENT_BEGINNING :	\
-		 j==J_RIGHT  ? XmALIGNMENT_END		\
-			     : XmALIGNMENT_CENTER)
+#define JUST(j) Qt::AlignVCenter | \
+	       (j==J_LEFT   ? Qt::AlignLeft : \
+		j==J_RIGHT  ? Qt::AlignRight \
+			     : Qt::AlignHCenter)
+
+const char * const font_prop[F_NFONTS] = {
+	"helvFont",
+	"helvObliqueFont",
+	"helvSmallFont",
+	"helvLargeFont",
+	"courierFont"
+};
+
+static QLabel *mk_label(QWidget *wform, ITEM &item, int w, int h)
+{
+	QLabel *lab = new QLabel(item.label, wform);
+	lab->setObjectName("label");
+	lab->move(item.x, item.y);
+	lab->resize(w, h);
+	lab->setAlignment(JUST(item.labeljust));
+	lab->setProperty(font_prop[item.labelfont], true);
+	return lab;
+}
 
 static void create_item_widgets(
 	CARD		*card,		/* card the item is added to */
@@ -201,19 +199,8 @@ static void create_item_widgets(
 {
 	ITEM		item;		/* describes type and geometry */
 	struct carditem	*carditem;	/* widget pointers stored here */
-	Widget		wform;		/* static part form, or card form */
-	static int	did_register;	/* drawing area action registered? */
-	static BOOL	have_fonts = FALSE;
-	static XmFontList ftlist[F_NFONTS];
-	Arg		args[20];
-	int		n, i;
-	XmString	label, blank;
+	QWidget		*wform;		/* static part form, or card form */
 	BOOL		editable;
-	XtActionsRec	action;
-	const char * const 	translations =
-		"<Btn1Down>:	chart(down)	ManagerGadgetArm()	\n\
-		 <Btn1Up>:	chart(up)	ManagerGadgetActivate()	\n\
-		 <Btn1Motion>:	chart(motion)	ManagerGadgetButtonMotion()";
 
 	item = *card->form->items[nitem];
 	if (item.y < card->form->ydiv) {		/* static or card? */
@@ -236,311 +223,106 @@ static void create_item_widgets(
 	carditem->w0 = carditem->w1 = 0;
 	if (evalbool(card, item.invisible_if))
 		return;
-	label = item.label ? XmStringCreateSimple(item.label) : 0;
-	blank = XmStringCreateSimple((char *)" ");
 	editable = item.type != IT_PRINT
 			&& (!card->dbase || !card->dbase->rdonly)
 			&& !card->form->rdonly
 			&& !item.rdonly
 			&& !evalbool(card, item.freeze_if);
 
-	if (!have_fonts++)
-		for (n=0; n < F_NFONTS; n++) {
-			switch(n) {
-			  case F_HELV:	   i = FONT_HELV;	break;
-			  case F_HELV_O:   i = FONT_HELV_O;	break;
-			  case F_HELV_S:   i = FONT_HELV_S;	break;
-			  case F_HELV_L:   i = FONT_HELV_L;	break;
-			  case F_COURIER:  i = FONT_COURIER;	break;
-			}
-			ftlist[n] = XmFontListCreate(font[i], (char *)"cset");
-		}
 	switch(item.type) {
 	  case IT_LABEL:			/* a text without function */
-		n = 0;
-		XtSetArg(args[n], XmNx,		 item.x);		   n++;
-		XtSetArg(args[n], XmNy,		 item.y);		   n++;
-		XtSetArg(args[n], XmNwidth,	 item.xs);		   n++;
-		XtSetArg(args[n], XmNheight,	 item.ys);		   n++;
-		XtSetArg(args[n], XmNalignment,	 JUST(item.labeljust));    n++;
-		XtSetArg(args[n], XmNlabelString,label);		   n++;
-		XtSetArg(args[n], XmNfontList,	 ftlist[item.labelfont]);  n++;
-		XtSetArg(args[n], XmNhighlightThickness, 0);		   n++;
-		carditem->w0 = XtCreateManagedWidget("label",
-					xmLabelWidgetClass, wform, args, n);
+		carditem->w0 = mk_label(wform, item, item.xs, item.ys);
 		break;
 
 	  case IT_INPUT:			/* arbitrary line of text */
 	  case IT_PRINT:			/* non-editable text */
 	  case IT_TIME:				/* date and/or time */
-		if (item.xm > 6) {
-		  n = 0;
-		  XtSetArg(args[n], XmNx,	  item.x);		   n++;
-		  XtSetArg(args[n], XmNy,	  item.y);		   n++;
-		  XtSetArg(args[n], XmNwidth,	  item.xm - 6);		   n++;
-		  XtSetArg(args[n], XmNheight,	  item.ys);		   n++;
-		  XtSetArg(args[n], XmNalignment, JUST(item.labeljust));   n++;
-		  XtSetArg(args[n], XmNlabelString,label);		   n++;
-		  XtSetArg(args[n], XmNfontList,  ftlist[item.labelfont]); n++;
-		  XtSetArg(args[n], XmNhighlightThickness, 0);		   n++;
-		  carditem->w1 = XtCreateManagedWidget("label",
-				xmLabelWidgetClass, wform, args, n);
+		if (item.xm > 6)
+		  carditem->w1 = mk_label(wform, item, item.xm - 6, item.ys);
+		{
+		  QLineEdit *le = new QLineEdit(wform);
+		  carditem->w0 = le;
+		  le->setObjectName("input");
+		  le->move(item.x + item.xm, item.y);
+		  le->resize(item.xs - item.xm, item.ys);
+		  le->setAlignment(JUST(item.inputjust));
+		  le->setProperty(font_prop[item.inputfont], true);
+		  le->setMaxLength(item.maxlen?item.maxlen:10);
+		  le->setReadOnly(!editable);
+		  // le->setTextMargins(l, r, 2, 2);
+		  if (editable)
+			set_text_cb(le, card_callback(le, card));
 		}
-		n = 0;
-		XtSetArg(args[n], XmNx,		 item.x  + item.xm);	   n++;
-		XtSetArg(args[n], XmNy,		 item.y);		   n++;
-		XtSetArg(args[n], XmNwidth,	 item.xs - item.xm);	   n++;
-		XtSetArg(args[n], XmNheight,	 item.ys);		   n++;
-		XtSetArg(args[n], XmNalignment,	 JUST(item.inputjust));    n++;
-		XtSetArg(args[n], XmNlabelString,blank);	 	   n++;
-		XtSetArg(args[n], XmNfontList,	 ftlist[item.inputfont]); n++;
-		XtSetArg(args[n], XmNmaxLength,	 item.maxlen?item.maxlen:10);
-									   n++;
-		XtSetArg(args[n], XmNmarginHeight, 2);			   n++;
-		XtSetArg(args[n], XmNeditable,   editable);		   n++;
-		XtSetArg(args[n], XmNpendingDelete, True);		   n++;
-		XtSetArg(args[n], XmNbackground, color[editable ?
-						 COL_TEXTBACK:COL_BACK]);  n++;
-		carditem->w0 = XtCreateManagedWidget("input",
-					xmTextWidgetClass, wform, args, n);
-		if (editable)
-			XtAddCallback(carditem->w0, XmNactivateCallback,
-				(XtCallbackProc)card_callback,(XtPointer)card);
 		break;
 
 	  case IT_NOTE:				/* multi-line text */
-		n = 0;
-		XtSetArg(args[n], XmNx,		 item.x);		   n++;
-		XtSetArg(args[n], XmNy,		 item.y);		   n++;
-		XtSetArg(args[n], XmNwidth,	 item.xs);		   n++;
-		XtSetArg(args[n], XmNheight,	 item.ym);		   n++;
-		XtSetArg(args[n], XmNalignment,	 JUST(item.labeljust));    n++;
-		XtSetArg(args[n], XmNlabelString,label);		   n++;
-		XtSetArg(args[n], XmNfontList,	 ftlist[item.labelfont]);  n++;
-		XtSetArg(args[n], XmNhighlightThickness, 0);		   n++;
-		carditem->w1 = XtCreateManagedWidget("label",
-					xmLabelWidgetClass, wform, args, n);
-		/* Scrolling policy can be AUTOMATIC or APPLICATION_DEFINED */
-		/* AUTOMATIC is broken in that scrolling doesn't follow
-		 * keyboard cursor movement.  Also, if the initial text
-		 * area isn't set to the same size, clicking on non-text
-		 * doesn't work as expected.  Also, if the shadow width is
-		 * not zero when text & scroll area are same size, scroll bars
-		 * will always appear and it will look like there is more
-		 * text than there actually is (fixable by subtracting the
-		 * known width of the shadow from the text widget size).
-		 * Also, the first time it appears it often decides only to
-		 * show the initial clipping region; scrolling scrolls to
-		 * blank areas, and when the size hack isn't done, the
-		 * smaller region is obvious because everything else is
-		 * clipped.  Moving back and forth to several records
-		 * seems to "fix" this.
-		 */
-		/* APPLICATION_DEFINED is broken in that the size passed in
-		 * is applied to the text area, rather than the entire
-		 * widget.  Thus, the scroll bars make the widget larger
-		 * than it should be by an amount that an app probably
-		 * can't portably calculate.  Automatic scrollbar hiding
-		 * doesn't work at all, either, by design.
-		 */
-		/* I have looked at the motif source code and still have
-		 * no idea why cursor tracking doesn't work.  The sizing
-		 * issue is due to VARIABLE's non-overridable resize routine,
-		 * which is skipped for CONSTANT.  I haven't bothered looking
-		 * into why initial clip doesn't work.
-		 * Note that XmNautoShowCursorPosition defaults to TRUE,
-		 * and doesn't affect the cursor tracking issue.
-		 */
-		/* A single XmCreateScrolledText should work here
-		 * but it forces APPLICATION_DEFINED, which is more broken
-		 * in this case (or used to be, but my resize hack works!)
-		 * It also doesn't support setting the text widget's bg color
-		 * at creation time, which is the only time automatic
-		 * foreground color setting seems to apply (i.e., it changes
-		 * the foreground to white from black with the dark background)
-		 * On the other hand, setting it at creation time and then
-		 * resetting only the parent's color makes the scroll bars
-		 * look better, as well as having the desired fg-change.
-		 */
-#define USE_ONE 1
-		n = 0;
-		XtSetArg(args[n], XmNx,		 item.x);		   n++;
-		XtSetArg(args[n], XmNy,		 item.y + item.ym);	   n++;
-		XtSetArg(args[n], XmNwidth,	 item.xs);		   n++;
-		XtSetArg(args[n], XmNheight,	 item.ys - item.ym);	   n++;
-		XtSetArg(args[n], XmNhighlightThickness, 1);		   n++;
-#if !USE_ONE
-		XtSetArg(args[n], XmNshadowThickness, 1);		   n++;
-		carditem->w0 = XtCreateManagedWidget("noteSW",
-					xmScrolledWindowWidgetClass, wform,
-					args, n);
-		n = 0;
-
-#endif
-		XtSetArg(args[n], XmNfontList,	 ftlist[item.inputfont]);  n++;
-		XtSetArg(args[n], XmNeditMode,	 XmMULTI_LINE_EDIT);	   n++;
-		XtSetArg(args[n], XmNeditable,   editable);		   n++;
-		XtSetArg(args[n], XmNmaxLength,	 item.maxlen);		   n++;
-		XtSetArg(args[n], XmNalignment,	 JUST(item.inputjust));    n++;
-		XtSetArg(args[n], XmNbackground, color[editable ?
-						 COL_TEXTBACK:COL_BACK]);  n++;
-#if !USE_ONE
-		XtSetArg(args[n], XmNhighlightThickness, 0);		   n++;
-		XtSetArg(args[n], XmNshadowThickness, 0);		   n++;
-		carditem->w0 = XtCreateWidget("note",
-				xmTextWidgetClass, carditem->w0, args, n);
-#else
-		carditem->w0 = XmCreateScrolledText(wform, (char *)"note",
-					args, n);
-		/* NOTE: COL_BACK isn't really the right color */
-		/* but it looks OK, anyway */
-		n = 0;
-		XtSetArg(args[n], XmNbackground, color[COL_BACK]);  n++;
-		XtSetValues(XtParent(carditem->w0), args, n);
-#endif
+		carditem->w1 = mk_label(wform, item, item.xs, item.ym);
 		{
-			/* try to resize outer frame by resizing contents */
-			/* I could "know" how big the scrollbars and padding
-			 * are, but that would require reimplementing MOtif
-			 * code.  Instead, I use a hacky way to query Motif
-			 * directly */
-			Dimension ih, iw, oh, ow;
-			/* First force a matching resize */
-			XtManageChild(carditem->w0);
-			/* Now read size of parent & child */
-			XtSetArg(args[0], XmNwidth,	 &iw);
-			XtSetArg(args[1], XmNheight,	 &ih);
-			XtGetValues(carditem->w0, args, 2);
-			XtSetArg(args[0], XmNwidth,	 &ow);		   n++;
-			XtSetArg(args[1], XmNheight,	 &oh);		   n++;
-			XtGetValues(XtParent(carditem->w0), args, 2);
-			/* Now adjust inner size so overall fits correctly */
-			XtSetArg(args[0], XmNwidth,	 item.xs - (ow - iw));		   n++;
-			XtSetArg(args[1], XmNheight,	 item.ys - item.ym - (oh - ih));	   n++;
-			XtSetValues(carditem->w0, args, 2);
+		  QTextEdit *te = new QTextEdit(wform);
+		  carditem->w0 = te;
+		  te->setObjectName("note");
+		  te->move(item.x, item.y + item.ym);
+		  te->resize(item.xs, item.ys - item.ym);
+		  te->setProperty(font_prop[item.inputfont], true);
+		  te->setLineWrapMode(QTextEdit::NoWrap);
+		  // tjm - FIXME: need to use a callback to enforce this
+		  // te->setMaxLength(item.maxlen);
+		  te->setAlignment(JUST(item.inputjust));
+		  if (editable)
+			set_mltext_cb(te, card_callback(te, card));
 		}
-		if (editable)
-			XtAddCallback(carditem->w0, XmNactivateCallback,
-				(XtCallbackProc)card_callback,(XtPointer)card);
 		break;
 
 	  case IT_CHOICE:			/* diamond on/off switch */
-	  case IT_FLAG:				/* square on/off switch */
-		n = 0;
-		XtSetArg(args[n], XmNx,		 item.x);		   n++;
-		XtSetArg(args[n], XmNy,		 item.y);		   n++;
-		XtSetArg(args[n], XmNwidth,	 item.xs);		   n++;
-		XtSetArg(args[n], XmNheight,	 item.ys);		   n++;
-		XtSetArg(args[n], XmNalignment,	 JUST(item.labeljust));    n++;
-		XtSetArg(args[n], XmNselectColor,color[COL_TOGGLE]);	   n++;
-		XtSetArg(args[n], XmNlabelString,label);		   n++;
-		XtSetArg(args[n], XmNfontList,	 ftlist[item.labelfont]);  n++;
-		XtSetArg(args[n], XmNhighlightThickness, 1);		   n++;
-		XtSetArg(args[n], XmNindicatorType, item.type == IT_CHOICE ?
-					XmONE_OF_MANY : XmN_OF_MANY);	   n++;
-		carditem->w0 = XtCreateManagedWidget("label",
-				xmToggleButtonWidgetClass, wform,
-				args, n);
-		if (card->dbase && !card->dbase->rdonly
+	  case IT_FLAG: {			/* square on/off switch */
+		  QAbstractButton *b;
+		  if (item.type == IT_CHOICE)
+			  b = new QRadioButton(item.label, wform);
+		  else
+			  b = new QCheckBox(item.label, wform);
+		  carditem->w0 = b;
+		  b->move(item.x, item.y);
+		  b->resize(item.xs, item.ys);
+		  b->setProperty(font_prop[item.labelfont], true);
+		  // Qt doesn't allow label alignment.  Probably for the best.
+		  // b->setAlignment(JUST(item.labeljust));
+		  // seriously, "label"?
+		  b->setObjectName("label");
+		  if (card->dbase && !card->dbase->rdonly
 				&& !card->form->rdonly
 				&& !item.rdonly)
-			XtAddCallback(carditem->w0, XmNvalueChangedCallback,
-				(XtCallbackProc)card_callback,(XtPointer)card);
+			set_button_cb(b, card_callback(b, card));
+		  else
+			b->setEnabled(false); // tjm - added this for sanity
+	  }
 		break;
 
-	  case IT_BUTTON:			/* pressable button */
-		n = 0;
-		XtSetArg(args[n], XmNx,		 item.x);		   n++;
-		XtSetArg(args[n], XmNy,		 item.y);		   n++;
-		XtSetArg(args[n], XmNwidth,	 item.xs);		   n++;
-		XtSetArg(args[n], XmNheight,	 item.ys);		   n++;
-		XtSetArg(args[n], XmNfontList,	 ftlist[item.labelfont]);  n++;
-		XtSetArg(args[n], XmNhighlightThickness, 1);		   n++;
-		XtSetArg(args[n], XmNlabelString,label);		   n++;
-		carditem->w0 = XtCreateManagedWidget("button",
-				xmPushButtonWidgetClass, wform, args, n);
-		XtAddCallback(carditem->w0, XmNactivateCallback,
-				(XtCallbackProc)card_callback,(XtPointer)card);
+	  case IT_BUTTON: {			/* pressable button */
+		QPushButton *b = new QPushButton(item.label, wform);
+		carditem->w0 = b;
+		b->move(item.x, item.y);
+		b->resize(item.xs, item.ys);
+		b->setProperty(font_prop[item.labelfont], true);
+		b->setObjectName("button");
+		set_button_cb(b, card_callback(b, card));
 		break;
+	  }
 
-	  case IT_CHART:			/* chart display */
-		if (!did_register++) {
-			action.string = (char *)"chart";
-			action.proc   = (XtActionProc)chart_action_callback;
-			XtAppAddActions(app, &action, 1);
-		}
-		n = 0;
-		XtSetArg(args[n], XmNx,		 item.x);		   n++;
-		XtSetArg(args[n], XmNy,		 item.y);		   n++;
-		XtSetArg(args[n], XmNwidth,	 item.xs);		   n++;
-		XtSetArg(args[n], XmNheight,	 item.ys);		   n++;
-		XtSetArg(args[n], XmNhighlightThickness, 1);		   n++;
-		XtSetArg(args[n], XmNlabelString,label);		   n++;
-		XtSetArg(args[n], XmNtranslations,
-				XtParseTranslationTable(translations));	   n++;
-		carditem->w0 = XtCreateManagedWidget("chart",
-				xmDrawingAreaWidgetClass, wform, args,n);
-		XtAddCallback(carditem->w0, XmNinputCallback,
-				(XtCallbackProc)card_callback,(XtPointer)card);
-		XtAddCallback(carditem->w0, XmNexposeCallback,
-				(XtCallbackProc)chart_expose_callback,
-							(XtPointer)card);
+	  case IT_CHART: {			/* chart display */
+		GrokChart *c = new GrokChart(wform);
+		c->move(item.x, item.y);
+		c->resize(item.xs, item.ys);
+		// not sure where item.label should go, so I'll just drop it.
+		c->setObjectName("chart");
+		carditem->w0 = c;
+		// callback is built-in event overrides
 		break;
-
-	  case IT_VIEW:				/* database summary & card */
-		break;
+	  }
 	}
-	if (label)
-		XmStringFree(label);
-	XmStringFree(blank);
 }
 
 
 /*-------------------------------------------------- callbacks --------------*/
-/*
- * All of these routines are direct X callbacks.
- */
-
-/*ARGSUSED*/
-static void mwm_quit_callback(
-	Widget				widget,
-	XtPointer			card,
-	XmToggleButtonCallbackStruct	*data)
-{
-	XtPopdown(widget);
-	XtDestroyWidget(widget);
-	free((void *)card);
-}
-
-
-/*
- * a widget with a chart is exposed or otherwise redrawn. Motif can't do
- * this automatically like with all other types of widgets because charts
- * are drawn with raw Xlib. Do it here.
- */
-
-/*ARGSUSED*/
-static void chart_expose_callback(
-	Widget				widget,
-	XtPointer			icard,
-	XmDrawingAreaCallbackStruct	*data)
-{
-	XEvent		dummy;
-	CARD		*card = (CARD *)icard;
-	int		nitem;
-
-	while (XCheckWindowEvent(display, data->window, ExposureMask, &dummy));
-	for (nitem=0; nitem < card->nitems; nitem++)
-		if (widget == card->items[nitem].w0 ||
-		    widget == card->items[nitem].w1)
-			break;
-	if (nitem >= card->nitems ||			/* illegal */
-	    card->dbase == 0	  ||			/* preview dummy card*/
-	    card->row < 0)				/* card still empty */
-		return;
-
-	draw_chart(card, nitem);
-}
 
 
 /*
@@ -552,13 +334,10 @@ static void chart_expose_callback(
  * because of drawing and get their own callback, chart_action_callback.
  */
 
-/*ARGSUSED*/
 static void card_callback(
-	Widget				widget,
-	XtPointer			icard,
-	XmToggleButtonCallbackStruct	*data)
+	QWidget			*widget,
+	CARD			*card)
 {
-	CARD		*card = (CARD *)icard;
 	ITEM		*item;
 	int		nitem, i;
 	const char	*n;
@@ -585,7 +364,7 @@ static void card_callback(
 			    !evalbool(card, card->form->items[i]->skip_if))
 				break;
 		}
-		XmProcessTraversal(card->items[i].w0, XmTRAVERSE_CURRENT);
+		card->items[i].w0->setFocus();
 		card_readback_texts(card, nitem);
 		break;
 
@@ -619,9 +398,6 @@ static void card_callback(
 			if (switch_name) free(switch_name); switch_name = 0;
 			if (switch_expr) free(switch_expr); switch_expr = 0;
 		}
-		break;
-
-	  case IT_VIEW:					/* database summary */
 		break;
 	}
 	fillout_card(card, TRUE);
@@ -736,7 +512,7 @@ static BOOL store(
 		newsum = TRUE;
 	}
 	if (newsum) {
-		create_summary_menu(card, w_summary, mainwindow);
+		create_summary_menu(card);
 		scroll_summary(card);
 	}
 	return(TRUE);
@@ -808,10 +584,9 @@ void fillout_item(
 {
 	BOOL		sens;		/* (de-)sensitize item */
 	register ITEM	*item;		/* describes type and geometry */
-	Widget		w0, w1;		/* input widget(s) in card */
+	QWidget		*w0, *w1;	/* input widget(s) in card */
 	const char	*data;		/* value string in database */
 	const char	*eval;		/* evaluated expression, 0=error */
-	Arg		arg;		/* for (de-) sensitizing */
 
 	w0   = card->items[i].w0;
 	w1   = card->items[i].w1;
@@ -824,9 +599,9 @@ void fillout_item(
 	data = !sens || item->type == IT_BUTTON ? 0 :
 	       dbase_get(card->dbase, card->row, card->form->items[i]->column);
 
-	XtSetArg(arg, XmNsensitive, sens);
-	if (w0) XtSetValues(w0, &arg, 1);
-	if (w1) XtSetValues(w1, &arg, 1);
+	
+	if (w0) w0->setEnabled(sens);
+	if (w1) w1->setEnabled(sens);
 
 	switch(item->type) {
 	  case IT_TIME:
@@ -839,19 +614,18 @@ void fillout_item(
 					item->idefault &&
 					(eval = evaluate(card, item->idefault))
 							? eval : "");
-			if (w0) XmTextSetInsertionPosition(w0, 0);
+			if (w0)
+				dynamic_cast<QLineEdit *>(w0)->setCursorPosition(0);
 		}
 		break;
 
 	  case IT_NOTE:
 		if (!deps && w0) {
-			XtUnmanageChild(w0);
 			print_text_button_s(w0, !sens ? " " : data ? data :
 					item->idefault &&
 					(eval = evaluate(card, item->idefault))
 							? eval : "");
-			XmTextSetInsertionPosition(w0, 0);
-			XtManageChild(w0);
+			dynamic_cast<QTextEdit *>(w0)->textCursor().setPosition(0);
 		}
 		break;
 
@@ -867,9 +641,6 @@ void fillout_item(
 
 	  case IT_CHART:
 		draw_chart(card, i);
-		break;
-
-	  case IT_VIEW:
 		break;
 	}
 }

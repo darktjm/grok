@@ -13,35 +13,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <X11/Xos.h>
-#include <Xm/Xm.h>
-#include <Xm/DialogS.h>
-#include <Xm/Form.h>
-#include <Xm/LabelP.h>
-#include <Xm/LabelG.h>
-#include <Xm/PushBP.h>
-#include <Xm/PushBG.h>
-#include <Xm/Text.h>
-#include <Xm/ToggleB.h>
-#include <Xm/Separator.h>
-#include <Xm/Protocols.h>
+#include <unistd.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
 
-static void done_callback (Widget, int, XmToggleButtonCallbackStruct *);
-static void spool_callback(Widget, int, XmToggleButtonCallbackStruct *);
+static void done_callback (void);
+static void spool_callback(void);
 
 struct pref	pref;		/* global preferences */
 
-static BOOL	have_shell = FALSE;	/* message popup exists if TRUE */
-static Widget	shell;		/* popup menu shell */
-static Widget	w_spoola;	/* ascii spool text */
-static Widget	w_spoolp;	/* ascii spool text */
-static Widget	w_linelen;	/* truncate printer lines */
-static Widget	w_lines;	/* summary lines text */
-static Widget	w_scale;	/* card scale text */
-static BOOL	modified;	/* preferences have changed */
+static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
+static QDialog		*shell;		/* popup menu shell */
+static QLineEdit	*w_spoola;	/* ascii spool text */
+static QLineEdit	*w_spoolp;	/* ascii spool text */
+static QSpinBox		*w_linelen;	/* truncate printer lines */
+static QSpinBox		*w_lines;	/* summary lines text */
+static QDoubleSpinBox	*w_scale;	/* card scale text */
+static BOOL		modified;	/* preferences have changed */
 
 
 /*
@@ -64,28 +54,29 @@ void destroy_preference_popup(void)
 		}
 		p = read_text_button(w_spoolp, 0);
 		if (*p && strcmp(p, pref.pspooler_p)) {
-			free(pref.pspooler_a);
+			free(pref.pspooler_p);
 			pref.pspooler_p = mystrdup(p);
 			modified = TRUE;
 		}
-		p = read_text_button(w_linelen,  0);
-		if ((i = atoi(p)) > 39 && i <= 250) {
+		i = w_linelen->value();
+		if (i > 39 && i <= 250 && pref.linelen != i) {
 			pref.linelen = i;
 			modified = TRUE;
 		}
-		p = read_text_button(w_lines,  0);
-		if ((i = atoi(p)) > 0 && i < 80) {
+		i = w_lines->value();
+		if (i > 0 && i < 80 && pref.sumlines != i) {
 			pref.sumlines = i;
 			modified = TRUE;
 		}
-		p = read_text_button(w_scale,  0);
-		if ((d = atof(p)) > 0.1 && d < 10.0) {
+		// FIXME: since it's fp, it might alwasy seem modified
+		d = w_scale->value();
+		if (d >= 0.1 && d <= 10.0 && d != pref.scale) {
 			pref.scale = d;
 			modified = TRUE;
 		}
-		XtPopdown(shell);
-		XtDestroyWidget(shell);
 		have_shell = FALSE;
+		shell->close();
+		delete shell;
 		if (modified)
 			write_preferences();
 		modified = FALSE;
@@ -109,238 +100,84 @@ static const struct flag { BOOL *value; const char *text; } flags[] = {
 	{ 0,			0					}
 };
 
-static void flag_callback(Widget, struct flag*, XmToggleButtonCallbackStruct*);
+static void flag_callback(const struct flag*, bool);
 
 void create_preference_popup(void)
 {
-	Widget			form, w, sep;
-	Arg			args[20];
-	int			n;
-	Atom			closewindow;
+	QGridLayout		*form;
 	const struct flag	*flag;
+	int			row = 0;
 
 	destroy_preference_popup();
 
-	n = 0;
-	XtSetArg(args[n], XmNdeleteResponse,	XmDO_NOTHING);		n++;
-	XtSetArg(args[n], XmNiconic,		False);			n++;
-	shell = XtAppCreateShell("Grok Preferences", "Grok",
-			applicationShellWidgetClass, display, args, n);
+	// The proper way to ignore delete is to override QWindow::closeEvent()
+	// Instead, I'll do nothing.  It makes more sense to issue a reject
+	// (the default behavior), anyway - tjm
+	shell = new QDialog;
+	shell->setWindowTitle("Grok Preferences");
 	set_icon(shell, 1);
-	form = XtCreateManagedWidget("prefform", xmFormWidgetClass,
-			shell, NULL, 0);
-	XtAddCallback(form, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"pref");
-
+	form = new QGridLayout(shell);
+	bind_help(shell, "pref");
 							/*-- flags --*/
-	for (w=0, flag=flags; flag->value; flag++) {
-	   n = 0;
-	   XtSetArg(args[n], XmNtopAttachment,	w ? XmATTACH_WIDGET
-						  : XmATTACH_FORM);	n++;
-	   XtSetArg(args[n], XmNtopWidget,	w);			n++;
-	   XtSetArg(args[n], XmNtopOffset,	8);			n++;
-	   XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	   XtSetArg(args[n], XmNleftOffset,	16);			n++;
-	   XtSetArg(args[n], XmNselectColor,	color[COL_TOGGLE]);	n++;
-	   XtSetArg(args[n], XmNset,		*flag->value);		n++;
-	   XtSetArg(args[n], XmNhighlightThickness,0);			n++;
-	   w = XtCreateManagedWidget(flag->text,
-			xmToggleButtonWidgetClass, form, args, n);
-	   XtAddCallback(w, XmNvalueChangedCallback,
-			(XtCallbackProc)flag_callback, (XtPointer)flag);
-	   XtAddCallback(w, XmNhelpCallback,
-	  		(XtCallbackProc)help_callback, (XtPointer)"pref");
+	for (flag=flags; flag->value; flag++) {
+		QCheckBox *cb = new QCheckBox(flag->text);
+		form->addWidget(cb, row++, 0, 1, 2);
+		cb->setCheckState(*flag->value ? Qt::Checked : Qt::Unchecked);
+		set_button_cb(cb, flag_callback(flag, c), bool c);
+		// bind_help(cb, "pref"); // same as shell
 	}
 
+
 							/*-- print spooler --*/
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		w);			n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	sep = XtCreateManagedWidget("ps1",
-				xmSeparatorWidgetClass, form, args, n);
+	form->addWidget(mk_separator(), row++, 0, 1, 2);
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		sep);			n++;
-	XtSetArg(args[n], XmNtopOffset,		12);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	16);			n++;
-	w = XtCreateManagedWidget("PostScript print spooler:",
-				xmLabelWidgetClass, form, args, n);
+	form->addWidget(new QLabel("PostScript print spooler:"), row, 0);
+	form->addWidget(w_spoolp = new QLineEdit, row++, 1);
+	w_spoolp->setMinimumWidth(200); // should be enough to set it once
+	set_text_cb(w_spoolp, spool_callback());
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		sep);			n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w);			n++;
-	XtSetArg(args[n], XmNleftOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		200);			n++;
-	XtSetArg(args[n], XmNbackground,	color[COL_TEXTBACK]);	n++;
-	w_spoolp = XtCreateManagedWidget("spoolp",
-				xmTextWidgetClass, form, args, n);
-	XtAddCallback(w_spoolp, XmNactivateCallback,
-				(XtCallbackProc)spool_callback, NULL);
+	form->addWidget(new QLabel("ASCII print spooler:"), row, 0);
+	form->addWidget(w_spoola = new QLineEdit, row++, 1);
+	set_text_cb(w_spoola, spool_callback());
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		w_spoolp);		n++;
-	XtSetArg(args[n], XmNtopOffset,		12);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	16);			n++;
-	w = XtCreateManagedWidget("ASCII print spooler:",
-				xmLabelWidgetClass, form, args, n);
-
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		w_spoolp);		n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNleftAttachment, XmATTACH_OPPOSITE_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w_spoolp);		n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		200);			n++;
-	XtSetArg(args[n], XmNbackground,	color[COL_TEXTBACK]);	n++;
-	w_spoola = XtCreateManagedWidget("spoola",
-				xmTextWidgetClass, form, args, n);
-	XtAddCallback(w_spoola, XmNactivateCallback,
-				(XtCallbackProc)spool_callback, NULL);
-
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		w_spoola);		n++;
-	XtSetArg(args[n], XmNtopOffset,		12);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	16);			n++;
-	w = XtCreateManagedWidget("Printer line length:",
-				xmLabelWidgetClass, form, args, n);
-
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		w_spoola);		n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNleftAttachment, XmATTACH_OPPOSITE_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w_spoola);		n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		200);			n++;
-	XtSetArg(args[n], XmNbackground,	color[COL_TEXTBACK]);	n++;
-	w_linelen = XtCreateManagedWidget("linelen",
-				xmTextWidgetClass, form, args, n);
-	XtAddCallback(w_linelen, XmNactivateCallback,
-				(XtCallbackProc)spool_callback, NULL);
+	form->addWidget(new QLabel("Printer line length:"), row, 0);
+	form->addWidget(w_linelen = new QSpinBox, row++, 1);
+	w_linelen->setRange(40, 250);
+	set_spin_cb(w_linelen, spool_callback());
 
 							/*-- nlines, scale --*/
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		w_linelen);		n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	sep = XtCreateManagedWidget("ps2",
-				xmSeparatorWidgetClass, form, args, n);
+	form->addWidget(mk_separator(), row++, 0, 1, 2);
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		sep);			n++;
-	XtSetArg(args[n], XmNtopOffset,		12);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	16);			n++;
-	w = XtCreateManagedWidget("Summary lines:",
-				xmLabelWidgetClass, form, args, n);
+	form->addWidget(new QLabel("Summary lines:"), row, 0);
+	form->addWidget(w_lines = new QSpinBox, row++, 1);
+	w_lines->setRange(1, 80);
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		sep);			n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNleftAttachment, XmATTACH_OPPOSITE_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w_spoolp);		n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		200);			n++;
-	XtSetArg(args[n], XmNbackground,	color[COL_TEXTBACK]);	n++;
-	w_lines = XtCreateManagedWidget("lines",
-				xmTextWidgetClass, form, args, n);
-
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		w_lines);		n++;
-	XtSetArg(args[n], XmNtopOffset,		12);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	16);			n++;
-	w = XtCreateManagedWidget("Card scaling factor:",
-				xmLabelWidgetClass, form, args, n);
-
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		w_lines);		n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNleftAttachment, XmATTACH_OPPOSITE_WIDGET);	n++;
-	XtSetArg(args[n], XmNleftWidget,	w_spoolp);		n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		200);			n++;
-	XtSetArg(args[n], XmNbackground,	color[COL_TEXTBACK]);	n++;
-	w_scale = XtCreateManagedWidget("scale",
-				xmTextWidgetClass, form, args, n);
+	form->addWidget(new QLabel("Card scaling factor:"), row, 0);
+	form->addWidget(w_scale = new QDoubleSpinBox, row++, 1);
+	w_scale->setRange(0.1, 10.0);
 
 							/*-- buttons --*/
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		w_scale);		n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	sep = XtCreateManagedWidget("ps2",
-				xmSeparatorWidgetClass, form, args, n);
+	form->addWidget(mk_separator(), row++, 0, 1, 2);
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		sep);			n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		80);			n++;
-	w = XtCreateManagedWidget("Done",
-				xmPushButtonWidgetClass, form, args, n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)done_callback, (XtPointer)0);
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"pref_done");
+	QDialogButtonBox *bb = new QDialogButtonBox;
+	form->addWidget(bb, row++, 0, 1, 2);
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		sep);			n++;
-	XtSetArg(args[n], XmNtopOffset,		8);			n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNbottomOffset,	8);			n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNrightWidget,	w);			n++;
-	XtSetArg(args[n], XmNrightOffset,	8);			n++;
-	XtSetArg(args[n], XmNwidth,		80);			n++;
-	w = XtCreateManagedWidget("Help",
-				xmPushButtonWidgetClass, form, args, n);
-	XtAddCallback(w, XmNactivateCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"pref");
-	XtAddCallback(w, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"pref");
+	QPushButton *b = mk_button(bb, "Done", dbbr(Accept));
+	set_button_cb(b, done_callback());
+	bind_help(b, "pref_done");
 
-	XtPopup(shell, XtGrabNone);
-	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
-	XmAddWMProtocolCallback(shell, closewindow,
-			(XtCallbackProc)done_callback, (XtPointer)0);
+	b = mk_button(bb, 0, dbbb(Help));
+	set_button_cb(b, help_callback(shell, "pref"));
+	// bind_help(b, "pref"); // same as shell
+
+	set_dialog_cancel_cb(shell, done_callback());
+	popup_nonmodal(shell);
+
 	print_text_button_s(w_spoola,        pref.pspooler_a);
 	print_text_button_s(w_spoolp,        pref.pspooler_p);
-	print_text_button  (w_linelen, "%d", pref.linelen);
-	print_text_button  (w_lines,   "%d", pref.sumlines);
-	print_text_button  (w_scale,   "%g", pref.scale);
+	w_linelen->setValue(pref.linelen);
+	w_lines->setValue(pref.sumlines);
+	w_scale->setValue(pref.scale);
 	have_shell = TRUE;
 }
 
@@ -350,34 +187,24 @@ void create_preference_popup(void)
  * All of these routines are direct X callbacks.
  */
 
-/*ARGSUSED*/
-static void done_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+static void done_callback(void)
 {
 	destroy_preference_popup();
 }
 
 
-/*ARGSUSED*/
 static void flag_callback(
-	Widget				widget,
-	struct flag			*flag,
-	XmToggleButtonCallbackStruct	*data)
+	const struct flag		*flag,
+	bool				set)
 {
-	*flag->value = data->set;
+	*flag->value = set;
 	if (flag->value == &pref.uniquedb)
 		remake_dbase_pulldown();
 	modified = TRUE;
 }
 
 
-/*ARGSUSED*/
-static void spool_callback(
-	Widget				widget,
-	int				item,
-	XmToggleButtonCallbackStruct	*data)
+static void spool_callback(void)
 {
 	int				i;
 
@@ -387,7 +214,7 @@ static void spool_callback(
 		free(pref.pspooler_p);
 	(void)read_text_button(w_spoola, &pref.pspooler_a);
 	(void)read_text_button(w_spoolp, &pref.pspooler_p);
-	i = atoi(read_text_button(w_linelen, 0));
+	i = w_linelen->value();
 	if (i > 39 && i <= 250)
 		pref.linelen = i;
 	modified = TRUE;
@@ -407,7 +234,7 @@ void write_preferences(void)
 
 	path = resolve_tilde((char *)PREFFILE, 0); /* PREFFILE has no final / */
 	if (!(fp = fopen(path, "w"))) {
-		create_error_popup(toplevel, errno,
+		create_error_popup(mainwindow, errno,
 			"Failed to write to preferences file\n%s", path);
 		return;
 	}

@@ -52,27 +52,6 @@
 %% trouble
 	TROUBLESHOOTING
 
-	*  If windows come up with wrong size, very wide or very tall, check
-	    your X resources (~/.Xdefaults etc) and remove *allowShellResize:
-	    true.
-
-	*  On SGI systems, if the icon doesn't show a picture, copy the icon
-	    picture Grok.icon into your ~/.icons directory. If you don't have
-	    one and don't want one, set the grok*noIcon resource to False in
-	    your ~/.Xdefaults file. It may be necessary to restart 4Dwm to
-	    register the icon after copying it to ~/.icons.
-
-	*  The grok program uses quite a few colormap entries. Although there
-	    is a black&white fallback mode, you may have problems starting other
-	    programs that also need many colormap entries. The only workaround
-	    is to kill grok when you don't need it.
-
-	*  If you have a Linux SuSE 4.4 distribution, remove "grok*ColSheet:
-	    black" from the default /etc/skel/.Xresources file created by SuSE.
-
-	*  If radio and toggle buttons appear gray regardless of the colToggle
-	    resource, make sure that the sgiMode resource is False.
-
 	If you have problems you can't resolve, or if you have suggestions
 	for new features, or porting instructions for new platforms, send mail
 	to me at thomas@bitrot.de. Also check my homepage for new releases:
@@ -136,7 +115,7 @@
 	pulldown, and then pressing on a button or field. Every help window
 	contains a Context button that does the same thing as "On Context".
 %% resources
-	VARIABLES AND X RESOURCES
+	VARIABLES AND QSS
 
 	grok uses the following environment variables:
 
@@ -152,44 +131,95 @@
 
 	   USER is used if the "user" keyword is used in an expression.
 
-	To get a list of default X resources of the "grok" program, run it with
-	the -d option. The output can be directly appended to the .Xdefaults
-	file in your home directory or saved into a file "Grok" in your
-	app-defaults directory. If you install a system wide app-default file
-	make sure that lines do not start with "grok"; otherwise users might
-	not be able to override the setup. Omit the application name or use
-	the application class name "Grok".
+	The entire appearance of the GUI can be changed using a Qt Style
+	Sheet (qss).  To get the default style sheet, run grok with the -d
+	option.  The output can be modified and passed in to grok using the
+	-stylesheet=<file> option, or stored as grok.qss in the database
+	directory or GROK_PATH.  The default style sheet will be prepended
+	to this, so that only the things you want to override need to
+	be present.  If both the command-line option and global file
+	are given, both are appended, but the command-line option's file
+	is last.  When migrating background color resources from the
+	old Motif version of grok, keep in mind that Motif selects a
+	foreground color to contrast with a background color, but Qt does
+	not.  You may need to explicitly set the foreground colors as well.
+	Note also that font specifiers in Qt style sheets are completely
+	different; see the documentation for detauls.  The following
+	list gives the old X resources and their equivalent form in Qt
+	style sheets:
 
-	    noIcon: don't draw anything into the icon. This should be used on
-		SGI systems so that 4Dwm uses the color picture as an icon.
-		The color icon should be moved to ~/.icons/Plan.icon .
+	    The noIcon resource has no equivalent in Qt.  Note that the color
+		   version of the icon is now used by default.  You might
+		   get a similar effect using QWidget { icon: ... }.
 	    background: background color for all menus
+		QWidget { background-color: <color>; }
+		/* note that you probably also have to give fg color: */
+		QWidget { background-color: <color>; color: <color> }
 	    colStd: foreground color for text
+		/* note that grok used to use this for outlining in charts */
+		/* but now it uses colChartBox; see below */
+		*[coloStd="true"] { color: <color>; }
 	    colSheet: background color for help and print-window windows
+		*[colSheet="true"] { color: <color>; }
+		/* colSheet was also used to highlight selected bars */
+		/* this is no longer possible, so instead: */
+		GrokChart { qproperty-hlcolor: <color>; }
 	    colBack: gray background color for uneditable text, and charts
+		*[colBack="true"] { background-color: <color>; }
+		QLineEdit:read-only { background-color: <color>; color: <color>; }
+		QTextEdit:read-only { background-color: <color>; color: <color>; }
 	    colTextBack: pink background color for editable texts
+		QLineEdit { background-color: <color>; color: <color>; }
+		QTextEdit { background-color: <color>; color: <color>; }
 	    colToggle: color of toggle and flag buttons
+		QAbstractButton::indicator:checked, QMenu::indicator:checked {
+		  background-color: <color>; }
 	    colCanvBack: background of card canvas in form editor
+		GrokCanvas { background-color: <color>; }
 	    colCanvFrame: color of item frames in card canvas in form editor
+		GrokCanvas { color: <color>; }
 	    colCanvBox: blue item box color in card canvas in form editor
+		GrokCanvas { qproperty-boxcolor: <color>; }
 	    colCanvSel: yellow for selected items in card canvas in form editor
+		GrokCanvas { qproperty-selcolor: <color>; }
 	    colCanvText: color of text in items in card canvas in form editor
+		GrokCanvas { qproperty-textcolor: <color>; }
 	    colChartAxis: color of X/Y axis and axis labels of charts
+		GrokChart { qproperty-axiscolor: <color>; }
 	    colChartGrid: color of grid lines subdividing charts
+		GrokChart { qproperty-gridcolor: <color>; }
 	    colChartBox: color of outline of bars in charts
+		GrokChart { qproperty-boxcolor: <color>; }
 	    colChart0..7: available colors of chart bars
+		GrokChart { qproperty-color<n>: <color>; }
 	    sgiMode: if False on IRIX 5.x systems, do not use the desktop look
+	        There is no equivalent for Qt.
 	    useSchemes: on IRIX 5.x systems, Lascaux or some other color scheme
+		There is no equivalent for Qt.
 	    menubar*fontList: font for menubar and pulldowns
+		QMenuBar { font: <font>; }
 	    fontList: default font for buttons and titles
+		QWidget { font: <font>; }
 	    helpFont: small font used for help windows
+		*[helpFont="true"] { font: <font> }
 	    helvFont: "Helv" font used in cards if selected in form editor
+		*[helvFont="true"] { font: <font> }
 	    helvObliqueFont: "HelvO" font used in cards if selected in form editor
+		*[helvObliqueFont="true"] { font: <font> }
 	    helvSmallFont: "HelvS" font used in cards if selected in form editor
+		*[helvSmallFont="true"] { font: <font> }
 	    helvLargeFont: "HelvB" font used in cards if selected in form editor
+		*[helvLargeFont="true"] { font: <font> }
 	    courierFont: "Courier" font used in cards if selected in form editor,
 		must be fixed-width, is also used in the summary
+		*[courierFont="true"] { font: <font> }
+		/* Template file name list widget no longer uses courier */
+		QListWidget { font: <font>; }
+		/* Summary no longer uses courier *
+		QTreeWidget { font: <font>; }
 	    labelFont: font used for charts
+	        /* Note:  there is no text in charts, so this is unused. */
+		GrokChart { font: <font> }
 %% help_ctx
 	CONTEXT
 
@@ -250,8 +280,8 @@
 
 	Quit:
 	     Save the current database if it was modified, and exit. This is equivalent
-	     to double-clicking the mwm corner button. Warning - if grok runs
-	     under twm, window manager kills will NOT save, and exit without
+	     to closing the window. Warning - if a grok window is destroyed
+	     rather than closed, grok will NOT save, and exit without
 	     warning.
 
 	Rambo Quit:
@@ -304,8 +334,7 @@
 	before adding a card. The new card will be put into the current
 	section. The card can be moved to another section later with the
 	section popup button to the right of the "Delete" button at the
-	bottom of the main window (this button only appears if grok is
-	compiled with Motif library version 1.2 or greater).
+	bottom of the main window.
 %% pd_sort
 	SORT PULLDOWN
 
@@ -1370,6 +1399,8 @@
 	  n > n         greater than
 	  n <= n       less than or equal
 	  n >= n       greater than or equal
+	  abs (n)       absolute value
+	  int (n)	number truncated to iteger
 	  sqrt (n)      square root
 	  exp (n)       exponential
 	  log (n)        logarithm to base 10
@@ -1384,6 +1415,7 @@
 	  atan2(n,n)  quadrant-aligned arctangent
 	  len (s)        string length
 	  bound(n,n,n)   n1 bounded by n2 and n3
+	  random         a random number in the range [0.0, 1.0]
 
 
 	String Operations: note that string comparisons return strings, and
@@ -1407,12 +1439,16 @@
 	  chop(s)      s without trailing newline
 	  substr(s,n,n)  substring of the s1; n1 is start index and n2 is length
 	  printf (args)   formatted string, args is comma-separated expr list
+	  tr (s, s)     translate first string according to rules in second.
+	                rules are a space-separated list of c=s, where c
+			is replaced by s.  Backslash-substitutions are
+			performed on the rules string.
 
 
-	Variables: variables are letters a through z that can hold strings or
-	numbers. When a variable is assigned to, the result of the assignment
-	is returned. All variables are reset to the empty string (or 0) when a
-	database is loaded from disk.
+	Variables: variables are letters a through z and A through Z that can
+	hold strings or numbers. When a variable is assigned to, the result
+	of the assignment is returned. All lower-case variables are reset to
+	the empty string (or 0) when a 	database is loaded from disk.
 
 	  var              value of variable
 	  var = s        assign string to variable
@@ -1439,26 +1475,47 @@
 	  last                number of last card
 	  avg (_field)    average of field in all cards
 	  qavg (_field)   average of field in current query result
+	  savg (_field)   average of field in all cards of this section
 	  dev (_field)    standard deviation of field in all cards
 	  qdev (_field)   standard deviation of field in current query result
+	  sdev (_field)   standard deviation of field in all cards of this section
 	  min (_field)    minimum value of field in all cards
 	  qmin (_field)   minimum value of field in current query result
+	  smin (_field)   minimum value of field in all cards of this section
 	  max (_field)   maximum value of field in all cards
 	  qmax (_field)  maximum value of field in current query result
+	  smax (_field)  maximum value of field in all cards of this section
 	  sum (_field)   sum of field in all cards
 	  qsum (_field)  sum of field in current query result
+	  ssum (_field)  sum of field in all cards of this section
 	  dbase            name of current database file
 	  form              name of the current file
 	  prevform       name of the previous form file
 	  expand (_field)  returns the mnemonic value of choice and flag fields
 	  expand (_field[n]) same for card n
+	  section        the current card's section
+	                 this is a section number if in numeric context,
+			 and a name in string context
+	  section [n]    the section of card n
 
-	  search("", "")              do nothing
-	  search("", "*")            put all cards in summary
-	  search("", "{expr}")    all cards for which {expr} is not "0" or empty
-	  search("", "(expr)")    all cards for which (expr) is not 0
-	  search("", "string")     all cards that contain search string
-	  search("name", "x")   switch to form "name", then do query "x"
+	  The foreach functions do not return a value, and do not affect
+	  the return value of the expression.  The expression is evaluated
+	  only for side effects.
+
+	  foreach (s)    evaluate the string as an expression for all cards
+	  foreach (s, s) evaluate the second string as an expression for all
+	                 cards where evaluating the first string as an
+			 expression returns true (after stripping spaces,
+			 not blank and first character is not 0, f, or F.
+
+          The switch function only works as an action for buttons:
+
+	  switch("", "")              do nothing
+	  switch("", "*")            put all cards in summary
+	  switch("", "{expr}")    all cards for which {expr} is not "0" or empty
+	  switch("", "(expr)")    all cards for which (expr) is not 0
+	  switch("", "string")     all cards that contain search string
+	  switch("name", "x")   switch to form "name", then do query "x"
 
 
 	Operating System Access
@@ -1481,10 +1538,10 @@
 
 	  time               current time as hh:mm or hh:mm[ap]
 	  time (n)          number as hh:mm or hh:mm[ap]
-	  date               today's date as dd.mm.yy or mm/dd/yy
+	  date               today's date as dd.mm.yy or mm/dd/yy (string)
 	  date (n)         number as dd.mm.yy or mm/dd/yy
 	  duration(n)    number of seconds as hh:mm
-	  date              seconds since January 1, 1970
+	  date              seconds since January 1, 1970 (number)
 	  year (n)         n as four-digit year
 	  month (n)      n as month 1..12
 	  day (n)          n as day 1..31

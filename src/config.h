@@ -36,6 +36,7 @@
 #define GROKDIR		"~/.grok"		/* grok working dir */
 #define PREFFILE	".grokrc"		/* preference file in GROKDIR*/
 #define HELP_FN		"grok.hlp"		/* help text file */
+#define QSS_FN		"grok.qss"		/* global style sheet */
 #define	PSPOOL_A	"lp"			/* default ascii spool string*/
 #define	PSPOOL_P	"lp"			/* default PostScript spool s*/
 

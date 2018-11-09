@@ -6,17 +6,21 @@
  */
 
 #include "config.h"
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <Xm/Xm.h>
+#include <QtWidgets>
+#include "chart-widget.h"
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
 
-static void drawrect(Window, ITEM *, int, int, int, int);
-static void drawbox (Window, ITEM *, int, int, int, int);
+static void drawrect(QPainter &, ITEM *, int, int, int, int);
+static void drawbox (QPainter &, ITEM *, int, int, int, int);
+#define setcolor(c) do { \
+    painter.setBrush()); \
+} while(0)
 
 
 /*
@@ -48,16 +52,28 @@ static double snap(
 #define XPIX(x)   ((int)(((x) - xmin) / (xmax - xmin) * item->xs))
 #define YPIX(y)   ((int)(((y) - ymin) / (ymax - ymin) * item->ys))
 
-static float		xmin, xmax;	/* bounds of all bars in chart */
-static float		ymin, ymax;	/* bounds of all bars in chart */
 
 void draw_chart(
 	CARD		*card,		/* life, the universe, and everything*/
 	int		nitem)		/* # of item in form */
 {
-	int		save_row;	/* save card->row (current card) */
-	Window		win;		/* window on screen to draw into */
 	register ITEM	*item;		/* chart item to draw */
+	GrokChart	*gc;
+
+	if (!card || !card->form || !card->dbase || !card->dbase->nrows)
+		return;
+	item = card->form->items[nitem];
+	if (!item->ch_ncomp)
+		return;
+	gc = dynamic_cast<GrokChart *>(card->items[nitem].w0);
+	gc->card = card;
+	gc->item = item;
+	gc->update();
+}
+
+void GrokChart::paintEvent(QPaintEvent *)
+{
+	int		save_row;	/* save card->row (current card) */
 	register CHART	*chart;		/* describes current component */
 	const char	*res;		/* result of expr evaluation */
 	register BAR	*bar;		/* current bar */
@@ -65,12 +81,8 @@ void draw_chart(
 	int		i;		/* index values */
 	float		f;		/* coordinate in value space */
 
-	if (!card || !card->form || !card->dbase || !card->dbase->nrows)
+	if(!item)
 		return;
-	item = card->form->items[nitem];
-	if (!item->ch_ncomp)
-		return;
-	win = XtWindow(card->items[nitem].w0);
 	save_row = card->row;
 
 	/*
@@ -169,20 +181,20 @@ void draw_chart(
 	/*
 	 * step 2: prepare background
 	 */
-	set_color(COL_BACK);				/* draw background */
-	drawrect(win, item, 0, 0, item->xs, item->ys);
+	// background already painted upon entry
 
-	set_color(COL_CHART_GRID);			/* draw grid lines */
+	QPainter painter(this);
+	painter.setPen(gridcolor);			/* draw grid lines */
 	if (item->ch_xgrid)
 		for (f=snap(xmin, item->ch_xgrid); f < xmax; f+=item->ch_xgrid)
-			drawrect(win, item, XPIX(f), 0, 1, item->ys);
+			drawrect(painter, item, XPIX(f), 0, 1, item->ys);
 	if (item->ch_ygrid)
 		for (f=snap(ymin, item->ch_ygrid); f < ymax; f+=item->ch_ygrid)
-			drawrect(win, item, 0, YPIX(f), item->xs, 1);
+			drawrect(painter, item, 0, YPIX(f), item->xs, 1);
 
-	set_color(COL_CHART_AXIS);			/* draw axes */
-	drawrect(win, item, 0, YPIX(0), item->xs, 1);
-	drawrect(win, item, XPIX(0), 0, 1, item->ys);
+	painter.setPen(axiscolor);			/* draw axes */
+	drawrect(painter, item, 0, YPIX(0), item->xs, 1);
+	drawrect(painter, item, XPIX(0), 0, 1, item->ys);
 
 	/*
 	 * step 3: draw bars
@@ -198,19 +210,21 @@ void draw_chart(
 			int ys = YPIX(snap(bar->value[1] +
 					   bar->value[3], item->ch_ysnap)) - y;
 			chart = &item->ch_comp[c];
+			/* "Fat" means "no border and no gap", I guess */
+			/* except that border is present on selected item */
 			if (!chart->xfat)
 				x++, xs-=2;
 			if (!chart->yfat)
 				y++, ys-=2;
-			set_color(COL_CHART_0 + bar->color % COL_CHART_N);
-			drawrect(win, item, x, y, xs, ys);
+			painter.setPen(fillcolor[bar->color % COL_CHART_N]);
+			drawrect(painter, item, x, y, xs, ys);
 			if (r == save_row || !chart->xfat && !chart->yfat) {
-				set_color(COL_STD);
-				drawbox(win, item, x, y, xs, ys);
+				painter.setPen(boxcolor); // used to be COL_STD
+				drawbox(painter, item, x, y, xs, ys);
 			}
 			if (r == save_row) {
-				set_color(COL_SHEET);
-				drawbox(win, item, x+1, y+1, xs-2, ys-2);
+				painter.setPen(hlcolor); // used to be COL_SHEET
+				drawbox(painter, item, x+1, y+1, xs-2, ys-2);
 			}
 		}
 	}
@@ -232,7 +246,7 @@ void draw_chart(
 	if (xs <= 0 || ys <= 0)	return
 
 static void drawrect(
-	Window		win,
+	QPainter	&painter,
 	ITEM		*item,
 	int		x,
 	int		y,
@@ -240,11 +254,11 @@ static void drawrect(
 	int		ys)
 {
 	CLIP;
-	XFillRectangle(display, win, gc, x, item->ys-ys-y, xs, ys);
+	painter.fillRect(x, item->ys-ys-y, xs, ys, QBrush(painter.pen().color(), Qt::SolidPattern));
 }
 
 static void drawbox(
-	Window		win,
+	QPainter	&painter,
 	ITEM		*item,
 	int		x,
 	int		y,
@@ -252,7 +266,7 @@ static void drawbox(
 	int		ys)
 {
 	CLIP;
-	XDrawRectangle(display, win, gc, x, item->ys-ys-y, xs-1, ys-1);
+	painter.drawRect(x, item->ys-ys-y, xs-1, ys-1);
 }
 
 
@@ -261,7 +275,7 @@ static void drawbox(
  * of the card that produced the bar, or -1 if no bar was hit
  */
 
-static int pick_chart(
+int GrokChart::pick_chart(
 	CARD		*card,		/* life, the universe, and everything*/
 	int		nitem,		/* # of item in form */
 	int		*comp,		/* returned component # */
@@ -313,17 +327,8 @@ static int pick_chart(
  *    fieldval = (pix * (xmax - xmin) / item->xs + xmin - add) / mul
  */
 
-void chart_action_callback(
-	Widget		widget,		/* drawing area */
-	XButtonEvent	*event,		/* X event, contains position */
-	String		*args,		/* what happened, up/down/motion */
-	int		nargs)		/* # of args, must be 1 */
+void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 {
-	static int	nitem;		/* item on which pen was pressed */
-	static int	row, comp;	/* row and column of dragged bar */
-	static int	down_x, down_y;	/* pos where pen was pressed down */
-	static double	x_val, y_val;	/* previous values of fields */
-	static BOOL	moving = FALSE;		/* this is not a selection, move box */
 	ITEM		*item;		/* item being selected or moved */
 	CHART		*chart;		/* chart component being dragged */
 	struct value	*xval, *yval;	/* chart component value (x,y,xs,ys) */
@@ -334,20 +339,26 @@ void chart_action_callback(
 	BOOL		redraw = FALSE;
 	int		i;
 
+	if(event->button() != Qt::NoButton && event->button() != Qt::LeftButton) {
+		event->ignore();
+		return;
+	}
 	for (nitem=0; nitem < curr_card->nitems; nitem++)
-		if (widget == curr_card->items[nitem].w0 ||
-		    widget == curr_card->items[nitem].w1)
+		if (this == curr_card->items[nitem].w0 ||
+		    this == curr_card->items[nitem].w1)
 			break;
 	if (nitem >= curr_card->nitems	||		/* illegal */
 	    curr_card->dbase == 0	||		/* preview dummy card*/
-	    curr_card->row < 0)				/* card still empty */
+	    curr_card->row < 0) {			/* card still empty */
+		event->ignore();
 		return;
+	}
 	item = curr_card->form->items[nitem];
 
-	if (!strcmp(args[0], "down")) {
+	if (press > 0) { // button down
 		moving = FALSE;
-		down_x = event->x;
-		down_y = event->y;
+		down_x = event->x();
+		down_y = event->y();
 		row    = pick_chart(curr_card, nitem, &comp, down_x, down_y);
 		if (row >= 0 && row < curr_card->dbase->nrows) {
 			card_readback_texts(curr_card, -1);
@@ -367,31 +378,38 @@ void chart_action_callback(
 						chart->value[CC_Y].field);
 			y_val = p ? atof(p) : 0;
 		}
+		event->accept();
 		return;
 	}
 
+	// At this point, it's either a relase or a move event
+	// Assume that the press event occured, so comp is valid.
+	// FIXME:  this may not be true, so best to track it better
 	chart = &item->ch_comp[comp];
 	xval  = &chart->value[CC_X];
 	yval  = &chart->value[CC_Y];
 	if (xval->mode != CC_DRAG && yval->mode != CC_DRAG ||
-						xmax <= xmin || ymax <= ymin)
+						xmax <= xmin || ymax <= ymin) {
+		event->ignore();
 		return;
+	}
 
-	if (!strcmp(args[0], "up")) {
+	event->accept();
+	if (press < 0) { // button up
 		if (moving) {
 			print_info_line();
 			fillout_card(curr_card, FALSE);
 		}
 		return;
 	}
-	x = abs(event->x - down_x);
-	y = abs(event->y - down_y);
+	x = abs(event->x() - down_x);
+	y = abs(event->y() - down_y);
 	moving |= x > 3 || y > 3;
 	if (!moving)
 		return;
 
 	if (xval->mode == CC_DRAG && xval->mul != 0) {
-		x = event->x - down_x;
+		x = event->x() - down_x;
 		f = x_val + x * (xmax-xmin) / xval->mul / item->xs;
 		f = snap(f, item->ch_xsnap);
 		sprintf(buf, "%.12lg", f);
@@ -399,7 +417,7 @@ void chart_action_callback(
 		redraw = TRUE;
 	}
 	if (yval->mode == CC_DRAG && yval->mul != 0) {
-		y = event->y - down_y;
+		y = event->y() - down_y;
 		f = y_val + y * (ymax-ymin) / yval->mul / item->ys;
 		f = snap(f, item->ch_ysnap);
 		sprintf(buf, "%.12lg", f);

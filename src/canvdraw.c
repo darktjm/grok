@@ -4,13 +4,11 @@
  * drawn using Xlib calls; items are represented by colored rectangles.
  */
 
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <Xm/Xm.h>
-#include <Xm/DrawingA.h>
-#include <Xm/Protocols.h>
-#include <X11/cursorfont.h>
+#include <QtWidgets>
+#include "canv-widget.h"
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
@@ -21,17 +19,10 @@
 #define DIV_GRIPSZ	8
 #define DIV_GRIPOFF	12
 
-static void quit_callback  (Widget, XtPointer, XmToggleButtonCallbackStruct *);
-static void expose_callback(Widget, XtPointer, XmDrawingAreaCallbackStruct *);
-static void resize_callback(Widget, XtPointer, XmDrawingAreaCallbackStruct *);
-static void canvas_callback(Widget, XButtonEvent *, String *, int);
-static void draw_rubberband(BOOL, int, int, int, int);
-static int  ifont(FONTN);
-
 static BOOL		have_shell = FALSE;	/* week window is being displayed */
 static FORM		*form;		/* current form, registered by create*/
-static Widget		shell;		/* entire window */
-static Widget		canvas;		/* drawing area */
+static GrokCanvas	*shell;		/* entire window */
+#define canvas shell	/* drawing area -- not distinct from shell any more */
 
 
 /*
@@ -42,9 +33,9 @@ static Widget		canvas;		/* drawing area */
 void destroy_canvas_window(void)
 {
 	if (have_shell) {
-		XtPopdown(shell);
-		XtDestroyWidget(shell);
 		have_shell = FALSE;
+		shell->close();
+		delete shell;
 	}
 }
 
@@ -57,52 +48,37 @@ void destroy_canvas_window(void)
  * The form pointer is saved in a static variable because the callbacks
  * also need it, and I think it's easier to understand this way.
  */
+GrokCanvas::GrokCanvas() : moving(FALSE) {
+	// setProperty("colStd", true);
+	setProperty("colCanv", true);
+	// there is no way to obtain fonts via QSS directly, so
+	// create dummy widgets to receive fonts.
+	for(int i = 0; i < F_NFONTS; i++) {
+		font[i] = new QWidget(this);
+		font[i]->hide();
+		font[i]->setProperty(font_prop[i], true);
+	}
+}
 
 void create_canvas_window(
 	FORM		*f)
 {
-	Arg		args[15];
-	int		n;
-	Atom		closewindow;
-	XtActionsRec	action;
-	const char * const	translations =
-		"<Btn1Down>:	canvas(down)	ManagerGadgetArm()	\n\
-		 <Btn1Up>:	canvas(up)	ManagerGadgetActivate()	\n\
-		 <Btn1Motion>:	canvas(motion)	ManagerGadgetButtonMotion()";
-
 	destroy_canvas_window();
 	form = f;
 
-	n = 0;
-	XtSetArg(args[n], XmNdeleteResponse,	XmDO_NOTHING);		n++;
-	XtSetArg(args[n], XmNiconic,		False);			n++;
-	shell = XtAppCreateShell("Form Editor Canvas", "Grok",
-			applicationShellWidgetClass, display, args, n);
+	// Close event is captured by overriding closeEvent().
+	shell = new GrokCanvas;
+	shell->setWindowTitle("Form Editor Canvas");
 	set_icon(shell, 1);
 
-	action.string = (char *)"canvas";
-	action.proc   = (XtActionProc)canvas_callback;
-	XtAppAddActions(app, &action, 1);
+	shell->resize(form->xs, form->ys);
+	shell->setObjectName("canvas"); // there is no separate canvas widget
 
-	n = 0;
-	XtSetArg(args[n], XmNwidth,		form->xs);		n++;
-	XtSetArg(args[n], XmNheight,		form->ys);		n++;
-	XtSetArg(args[n], XmNresizePolicy,	XmRESIZE_ANY);		n++;
-	XtSetArg(args[n], XmNtranslations,
-			XtParseTranslationTable(translations));		n++;
+	// resize callback is captured by overriding resizeEvent()
 
-	canvas = XtCreateManagedWidget("canvas", xmDrawingAreaWidgetClass,
-			shell, args, n);
-	XtAddCallback(canvas, XmNexposeCallback,
-			(XtCallbackProc)expose_callback, (XtPointer)0);
-	XtAddCallback(canvas, XmNresizeCallback,
-			(XtCallbackProc)resize_callback, (XtPointer)0);
-
-	XtPopup(shell, XtGrabNone);
-	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
-	XmAddWMProtocolCallback(shell, closewindow,
-			(XtCallbackProc)quit_callback, (XtPointer)0);
-	set_cursor(canvas, XC_arrow);
+	popup_nonmodal(shell);
+	// As mentioned above, window close callback is now closeEvent().
+	set_cursor(canvas, Qt::ArrowCursor);
 	have_shell = TRUE;
 }
 
@@ -112,79 +88,39 @@ void create_canvas_window(
  * All of these routines are direct X callbacks.
  */
 
-/*ARGSUSED*/
-static void quit_callback(
-	Widget				widget,
-	XtPointer			item,
-	XmToggleButtonCallbackStruct	*data)
+// formerly quit_callback
+void GrokCanvas::closeEvent(QCloseEvent *e)
 {
 	create_error_popup(shell, 0, "%s%s",
 		"Please press the Done button in the main\n",
 		"Form Editor window to remove this window.");
+	e->ignore();
 }
 
 
-/*ARGSUSED*/
-static void expose_callback(
-	Widget				w,
-	XtPointer			data,
-	XmDrawingAreaCallbackStruct	*info)
+// formerly resize_callback
+void GrokCanvas::resizeEvent(QResizeEvent *)
 {
-	XEvent				dummy;
-	while (XCheckWindowEvent(display, info->window, ExposureMask, &dummy));
-	redraw_canvas();
-}
-
-
-/*ARGSUSED*/
-static void resize_callback(
-	Widget				w,
-	XtPointer			data,
-	XmDrawingAreaCallbackStruct	*info)
-{
-	XEvent				dummy;
-	Arg				args[2];
-	Dimension			xs=0, ys=0;
-
-	while (XCheckWindowEvent(display, info->window,
-			ResizeRedirectMask, &dummy));
-	XtSetArg(args[0], XmNwidth,  &xs);
-	XtSetArg(args[1], XmNheight, &ys);
-	XtGetValues(canvas, args, 2);
-	form->xs = xs;
-	form->ys = ys;
-	redraw_canvas();
+	form->xs = size().width();
+	form->ys = size().height();
+	update();
 }
 
 
 /*-------------------------------------------------- dragging ---------------*/
-/*
- * mouse position classifications
- */
-
-typedef enum {
-	M_OUTSIDE = 0,		/* not near any item */
-	M_INSIDE,		/* inside an item, but not near an edge */
-	M_DIVIDER,		/* on grip between static part and card */
-	M_TOP,			/* near top edge */
-	M_BOTTOM,		/* near bottom edge */
-	M_LEFT,			/* near left edge */
-	M_RIGHT,		/* near right edge */
-	M_XMID,			/* near X divider in an input/date/time item */
-	M_YMID			/* near Y divider in a note/view item */
-} MOUSE;
 
 static MOUSE locate_item(int *, int, int);
-static int cursorglyph[] = {
-	XC_X_cursor,
-	XC_fleur,
-	XC_sb_v_double_arrow,
-	XC_top_side,
-	XC_bottom_side,
-	XC_left_side,
-	XC_right_side,
-	XC_sb_h_double_arrow,
-	XC_sb_v_double_arrow
+static Qt::CursorShape cursorglyph[] = {
+	/* no X, so maybe something different? */
+	Qt::CrossCursor,
+	Qt::SizeAllCursor,
+	Qt::SplitVCursor,
+	Qt::SizeVerCursor, /* no side-specific resize cursors, I guess */
+	Qt::SizeVerCursor, /* ditto */
+	Qt::SizeHorCursor, /* ditto */
+	Qt::SizeHorCursor, /* ditto */
+	Qt::SplitHCursor,
+	Qt::SplitVCursor
 };
 
 
@@ -193,45 +129,44 @@ static int cursorglyph[] = {
  * table, with mouse up/down/motion events.
  */
 
-/*ARGSUSED*/
-static void canvas_callback(
-	Widget		w,		/* widget, == canvas */
-	XButtonEvent	*event,		/* X event, contains position */
-	String		*args,		/* what happened, up/down/motion */
-	int		nargs)		/* # of args, must be 1 */
+void GrokCanvas::canvas_callback(
+	QMouseEvent	*event,		/* X event, contains position */
+	int		press)		/* what happened, up/down/motion */
 {
-	static int	nitem;		/* item on which pen was pressed */
-	static MOUSE	mode;		/* what's being moved: M_* */
-	static int	down_x, down_y;	/* pos where pen was pressed down */
-	static int	state;		/* button/modkey mask when pressed */
-	static BOOL	moving = FALSE;		/* this is not a selection, move box */
 	ITEM		*item;		/* item being selected or moved */
 	int		x, y, xs, ys;	/* new item start and size */
 	int		xm, ym;		/* new item midpoint division */
 	int		dx, dy;		/* movement since initial press */
 	int		i, nsel;
 
-	if (!strcmp(args[0], "down")) {
-		down_x = event->x;
-		down_y = event->y;
-		state  = event->state;
-		moving = FALSE;
-		mode   = locate_item(&nitem, event->x, event->y);
-		set_cursor(canvas, cursorglyph[mode]);
+	if(event->button() != Qt::NoButton && event->button() != Qt::LeftButton) {
+		event->ignore();
 		return;
 	}
-	if (!strcmp(args[0], "motion") && (event->state & Button1Mask)
-				       && mode != M_OUTSIDE) {
-		x = abs(event->x - down_x);
-		y = abs(event->y - down_y);
+	if (press > 0) { // button down
+		down_x = event->x();
+		down_y = event->y();
+		state  = event->modifiers();
+		moving = FALSE;
+		mode   = locate_item(&nitem, event->x(), event->y());
+		set_cursor(canvas, cursorglyph[mode]);
+		event->accept();
+		return;
+	}
+	if (!press && (event->buttons() & Qt::LeftButton)
+				       && mode != M_OUTSIDE) { // move
+		x = abs(event->x() - down_x);
+		y = abs(event->y() - down_y);
 		moving |= x > 3 || y > 3;
 	}
 	if (moving) {
-		if (mode == M_OUTSIDE)
+		if (mode == M_OUTSIDE) {
+			event->ignore();
 			return;
+		}
 		if (mode == M_DIVIDER) {
 			x  = 0;
-			y  = event->y;
+			y  = event->y();
 			xs = form->xs;
 			ys = 1;
 		} else {
@@ -242,8 +177,8 @@ static void canvas_callback(
 			ys = item->ys;
 			xm = item->xm;
 			ym = item->ym;
-			dx = event->x - down_x;
-			dy = event->y - down_y;
+			dx = event->x() - down_x;
+			dy = event->y() - down_y;
 			switch(mode) {
 			  case M_INSIDE:  x  += dx; y  += dy;	break;
 			  case M_TOP:	  y  += dy; ys -= dy;	break;
@@ -261,30 +196,31 @@ static void canvas_callback(
 			if (ym > ys)	ym = ys;	ym = XSNAP(ym);
 		}
 	}
-	if (!strcmp(args[0], "motion")) {
-	    if (moving && (event->state & Button1Mask))
+	event->accept();
+	if (!press) { // move
+	    if (moving && (event->buttons() & Qt::LeftButton))
 		switch(mode) {
 		  case M_XMID: draw_rubberband(TRUE, xm+x, y, 1, ys); break;
 		  case M_YMID: draw_rubberband(TRUE, x, ym+y, xs, 1); break;
 		  default:     draw_rubberband(TRUE, x, y, xs, ys);
 	    }
-	} else if (!strcmp(args[0], "up")) {
+	} else if (press < 0) { // button up
 		draw_rubberband(FALSE, 0, 0, 0, 0);
 		if (mode == M_OUTSIDE) {
-			set_cursor(canvas, XC_arrow);
+			set_cursor(canvas, Qt::ArrowCursor);
 			return;
 		}
 		if (mode == M_DIVIDER) {
 			int dy = form->ydiv;
-			form->ydiv = event->y <  0        ? 0 :
-				     event->y >= form->ys ? form->ys-1
-							  : event->y;
+			form->ydiv = event->y() <  0        ? 0 :
+				     event->y() >= form->ys ? form->ys-1
+							  : event->y();
 			form->ydiv = YSNAP(form->ydiv);
 			dy = form->ydiv - dy;
 			for (i=0; i < form->nitems; i++)
 				form->items[i]->y += dy;
 			redraw_canvas();
-			set_cursor(canvas, XC_arrow);
+			set_cursor(canvas, Qt::ArrowCursor);
 			return;
 		}
 		item = form->items[nitem];
@@ -300,7 +236,7 @@ static void canvas_callback(
 			redraw_canvas();
 		} else {					/* selected */
 			readback_formedit();
-			if (state & ShiftMask) {
+			if (state & Qt::ShiftModifier) {
 				item->selected ^= TRUE;		/*... multi */
 				curr_item = nitem;
 			} else {
@@ -313,11 +249,11 @@ static void canvas_callback(
 					curr_item = form->nitems;
 				}
 			}
-			redraw_canvas_item(item);
+			::redraw_canvas_item(item);
 			fillout_formedit();
 			sensitize_formedit();
 		}
-		set_cursor(canvas, XC_arrow);
+		set_cursor(canvas, Qt::ArrowCursor);
 	}
 }
 
@@ -384,8 +320,7 @@ static MOUSE locate_item(
 		     item->type == IT_TIME) && abs(x - item->x - item->xm) < 6)
 			return(M_XMID);
 
-		if ((item->type == IT_VIEW  ||
-		     item->type == IT_CHART ||
+		if ((item->type == IT_CHART ||
 		     item->type == IT_NOTE) && abs(y - item->y - item->ym) < 6)
 			return(M_YMID);
 
@@ -409,27 +344,59 @@ static MOUSE locate_item(
  * must be called in draw-undraw pairs.
  */
 
-static void draw_rubberband(
+void GrokCanvas::draw_rubberband(
 	BOOL		draw,		/* draw or undraw */
 	int		x,		/* position of box */
 	int		y,
 	int		xs,		/* size of box */
 	int		ys)
 {
-	static BOOL	is_drawn = FALSE;	/* TRUE if rubber band exists */
-	static int	lx,ly,lxs,lys;	/* drawn rubberband */
-
-	if (is_drawn) {
-		is_drawn = FALSE;
-		XDrawRectangle(display, XtWindow(canvas), xor_gc,
-						lx, ly, lxs, lys);
-	}
+	draw_rb = draw;
+	--x; --y; ++xs; ++ys;
+	// only erase if it's not where it will be
+	if (rb_is_drawn && (!draw || x != drb_x || y != drb_y || xs != drb_xs || ys != drb_ys))
+		update(drb_x, drb_y, drb_xs, drb_ys);
 	if (!draw)
 		return;
 
-	XDrawRectangle(display, XtWindow(canvas), xor_gc,
-					lx=x-1, ly=y-1, lxs=xs+1, lys=ys+1);
-	is_drawn = TRUE;
+	// only draw if it wasn't there or was erased
+	if (!rb_is_drawn || x != drb_x || y != drb_y || xs != drb_xs || ys != drb_ys)
+		update(rb_x = x, rb_y = y, rb_xs = xs, rb_ys = ys);
+}
+
+// This has to be the last thing in the repaint, as it changes to xor mode
+// FIXME:  This doesn't work right.  Eresure should happen automatically
+//         due to paintEvent(), but it doesn't.
+void GrokCanvas::draw_rubberband(
+	QPainter	&painter,
+	const QRect	&clip)
+{
+	// printf("redraw rubberband: %d %d %d %d\n", clip.x(),
+	//       clip.y(), clip.width(), clip.height());
+#if 0 // since everything is redrawn, no point in erasing old rectangle
+	if (!rb_is_drawn && !draw_rb)
+#else
+	if (!draw_rb)
+#endif
+		return;
+
+	QPen pen(QColor("#ffffff"));
+	//pen.setWidth(2);
+	painter.setPen(pen);
+	painter.setCompositionMode(QPainter::RasterOp_SourceXorDestination);
+#if 0
+	if (rb_is_drawn && clip.intersects(QRect(drb_x, drb_y, drb_xs, drb_ys))) {
+		painter.drawRect(drb_x, drb_y, drb_xs, drb_ys);
+	}
+#endif
+	if (!(rb_is_drawn = draw_rb)) {
+		//painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+		return;
+	}
+
+	// printf("draw rubberband: %d %d %d %d\n", rb_x, rb_y, rb_xs, rb_ys);
+	painter.drawRect(drb_x=rb_x, drb_y=rb_y, drb_xs=rb_xs, drb_ys=rb_ys);
+	//painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
 }
 
 
@@ -440,144 +407,130 @@ static void draw_rubberband(
 
 void redraw_canvas(void)
 {
-	int 		i;
-
 	if (!have_shell)
 		return;
-	set_color(COL_CANVBACK);
-	XFillRectangle(display, XtWindow(canvas), gc, 0,0, form->xs, form->ys);
 
-	for (i=0; i < form->nitems; i++)
-		redraw_canvas_item(form->items[i]);
-
-	set_color(COL_CANVFRAME);
-	XFillRectangle(display, XtWindow(canvas), gc, 0,
-				form->ydiv - DIV_WIDTH/2, form->xs, DIV_WIDTH);
-	XFillRectangle(display, XtWindow(canvas), gc,
-				form->xs - DIV_GRIPOFF - DIV_GRIPSZ/2,
-				form->ydiv - DIV_GRIPSZ/2,
-				DIV_GRIPSZ, DIV_GRIPSZ);
-	set_color(COL_CANVBACK);
-	XFillRectangle(display, XtWindow(canvas), gc,
-				form->xs - DIV_GRIPOFF - DIV_GRIPSZ/2 + 2,
-				form->ydiv - DIV_GRIPSZ/2 + 2,
-				DIV_GRIPSZ - 4, DIV_GRIPSZ - 4);
+	shell->update();
 }
 
+#define setcolor(c) do { \
+    painter.setPen(c); \
+    painter.setBrush(QBrush(c, Qt::SolidPattern)); \
+} while(0)
+#define fillrect(x, y, w, h) painter.fillRect(x, y, w, h, QBrush(painter.pen().color(), Qt::SolidPattern))
 
-void undraw_canvas_item(
-	register ITEM	*item)		/* item to redraw */
+void GrokCanvas::paintEvent(QPaintEvent *e)
 {
-	set_color(COL_CANVBACK);
-	XFillRectangle(display, XtWindow(canvas), gc,
-					item->x, item->y, item->xs, item->ys);
+	int 		i;
+
+	QPainter painter(this);
+	// bg color is already filled by default
+	//painter.setPen(bgcolor());
+	//fillrect(0, 0, form->xs, form->ys);
+	for (i=0; i < form->nitems; i++)
+		redraw_canvas_item(painter, e->rect(), form->items[i]);
+
+	painter.setPen(fgcolor());
+	fillrect(0, form->ydiv - DIV_WIDTH/2, form->xs, DIV_WIDTH);
+	fillrect(form->xs - DIV_GRIPOFF - DIV_GRIPSZ/2,
+		 form->ydiv - DIV_GRIPSZ/2,
+		 DIV_GRIPSZ, DIV_GRIPSZ);
+	painter.setPen(bgcolor());
+	fillrect(form->xs - DIV_GRIPOFF - DIV_GRIPSZ/2 + 2,
+		 form->ydiv - DIV_GRIPSZ/2 + 2,
+		 DIV_GRIPSZ - 4, DIV_GRIPSZ - 4);
+	draw_rubberband(painter, e->rect());
 }
 
 
 static const char * const datatext[NITEMS] = {
-	"None", "", "Print", "Input", "Time", "Note", "", "", "", "Card", "" };
+	"None", "", "Print", "Input", "Time", "Note", "", "", "", "" };
 
-void redraw_canvas_item(
+void GrokCanvas:: redraw_canvas_item(
+	QPainter	&painter,	/* widget into which to draw */
+	const QRect	&clip,		/* redraw clipping region */
 	register ITEM	*item)		/* item to redraw */
 {
-	Window		window = XtWindow(canvas);
 	char		buf[1024];	/* truncated texts */
 	int		xm=-1, ym=-1;	/* middle division pos */
-	int		nfont;		/* font number as FONT_* */
+	int		nfont;		/* font number as F_FONT_* */
 	char		sumcol[20];	/* summary column indicator msg */
 	int		n, i;		/* for chart grid lines */
 
-	if (!have_shell)
+	if (!clip.intersects(QRect(item->x, item->y, item->xs, item->ys)))
 		return;
+	painter.setPen(item->selected ? selcolor : boxcolor);
+	fillrect(item->x, item->y, item->xs, item->ys);
 
-	draw_rubberband(FALSE, 0, 0, 0, 0);
-	set_color(item->selected ? COL_CANVSEL : COL_CANVBOX);
-	XFillRectangle(display, window, gc,
-					item->x, item->y, item->xs, item->ys);
+	painter.setPen(fgcolor());
 
-	set_color(COL_CANVFRAME);
-
-	XDrawRectangle(display, window, gc,
-				item->x, item->y, item->xs-1, item->ys-1);
+	painter.drawRect(item->x, item->y, item->xs-1, item->ys-1);
 	if (item->type == IT_INPUT || item->type == IT_PRINT
 				   || item->type == IT_TIME)
-		XFillRectangle(display, window, gc,
-				item->x + (xm=item->xm), item->y, 1, item->ys);
+		fillrect(item->x + (xm=item->xm), item->y, 1, item->ys);
 
-	if (item->type == IT_CHART || item->type == IT_VIEW
-				   || item->type == IT_NOTE)
-		XFillRectangle(display, window, gc,
-				item->x, item->y + (ym=item->ym), item->xs, 1);
+	if (item->type == IT_CHART || item->type == IT_NOTE)
+		fillrect(item->x, item->y + (ym=item->ym), item->xs, 1);
 
 	if (item->type == IT_CHART) {
 		int ny = 10;
 		int nx = 15 - ny;
-		set_color(COL_CANVBACK);
+		painter.setPen(bgcolor());
 		for (n=1; n < ny; n++) {
 			i = item->y + ym + n * (item->ys - ym) / ny,
-			XDrawLine(display, window, gc,
-						item->x + 1,            i,
-						item->x + item->xs - 2, i);
+			painter.drawLine(item->x + 1,            i,
+					 item->x + item->xs - 2, i);
 		}
 		for (n=1; n < nx; n++) {
 			i = item->x + n * item->xs / nx;
-			XDrawLine(display, window, gc,
-						i, item->y + ym + 1,
-						i, item->y + item->ys - 3);
+			painter.drawLine(i, item->y + ym + 1,
+					 i, item->y + item->ys - 3);
 		}
 	}
 
-	set_color(COL_CANVTEXT);
+	painter.setPen(textcolor);
 	*buf = 0;
 	sprintf(sumcol, item->sumwidth ? ",%d" : "", item->sumcol);
 	if (item->type == IT_CHOICE || item->type == IT_FLAG)
 		sprintf(buf, "[%ld=%s%s] ", item->column,
 				item->flagcode ? item->flagcode : "?", sumcol);
 	strcat(buf, item->label ? item->label : "label");
-	nfont = ifont((FONTN)item->labelfont);
-	truncate_string(buf, xm<0 ? item->xs-4 : xm-4, nfont);
-	XSetFont(display, gc, font[nfont]->fid);
-	XDrawString(display, window, gc,
-			item->x + 3,
-			item->y + ((ym>=0?ym:item->ys)+font[nfont]->ascent)/2,
-			buf, strlen(buf));
+	nfont = item->labelfont;
+	truncate_string(font[nfont], buf, xm<0 ? item->xs-4 : xm-4);
+	painter.setFont(font[nfont]->font());
+	painter.drawText(item->x + 3,
+			 item->y + ((ym>=0?ym:item->ys)+font[nfont]->fontMetrics().ascent())/2,
+			 buf);
 
 	*buf = 0;
 	if (IN_DBASE(item->type))
 		sprintf(buf, "[%ld%s] ", item->column, sumcol);
 	strcat(buf, datatext[item->type]);
 	if (xm > 0 && xm < item->xs) {
-		nfont = ifont((FONTN)item->inputfont);
-		truncate_string(buf, item->xs-xm-4, nfont);
-		XSetFont(display, gc, font[nfont]->fid);
-		XDrawString(display, window, gc,
-			item->x + xm + 3,
-			item->y + (item->ys + font[nfont]->ascent)/2,
-			buf, strlen(buf));
+		nfont = item->inputfont;
+		truncate_string(font[nfont], buf, item->xs-xm-4);
+		painter.setFont(font[nfont]->font());
+		painter.drawText(item->x + xm + 3,
+				 item->y + (item->ys + font[nfont]->fontMetrics().ascent())/2,
+				 buf);
 
 	} else if (ym > 0 && ym < item->ys) {
-		nfont = ifont((FONTN)(item->type == IT_NOTE ? item->inputfont
-						    : item->labelfont));
-		truncate_string(buf, item->xs-4, nfont);
-		XSetFont(display, gc, font[nfont]->fid);
-		XDrawString(display, window, gc,
-			item->x + 3,
-			item->y + ym + (item->ys - ym + font[nfont]->ascent)/2,
-			buf, strlen(buf));
+		nfont = item->type == IT_NOTE ? item->inputfont
+					      : item->labelfont;
+		truncate_string(font[nfont], buf, item->xs-4);
+		painter.setFont(font[nfont]->font());
+		painter.drawText(item->x + 3,
+				 item->y + ym + (item->ys - ym + font[nfont]->fontMetrics().ascent())/2,
+				 buf);
 	}
-	set_color(COL_STD);
+	// this used to set the color to COL_STD, but why?
 }
 
-
-static int ifont(
-	FONTN		fontn)
+void redraw_canvas_item(
+	register ITEM	*item)		/* item to redraw */
 {
-	switch(fontn) {
-	  default:
-	  case F_HELV:		return(FONT_HELV);
-	  case F_HELV_O:	return(FONT_HELV_O);
-	  case F_HELV_S:	return(FONT_HELV_S);
-	  case F_HELV_L:	return(FONT_HELV_L);
-	  case F_COURIER:	return(FONT_COURIER);
-	}
+	if (!have_shell)
+		return;
+	shell->draw_rubberband(FALSE, 0, 0, 0, 0);
+	shell->update(item->x, item->y, item->xs, item->ys);
 }

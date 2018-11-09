@@ -8,19 +8,21 @@
  *	make_summary_line(buf,card,row)	make string describing one card
  */
 
+// tjm - instead of making COURIER text lines that line up due to fixed spacing
+//       this now uses a QTreeWidget with auto-adjusted lines between columns
+//       and a "real" header line.  The old make_summary_line() is still here
+//       for printing, mainly
+
 #include "config.h"
-#include <X11/Xos.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <Xm/Xm.h>
-#include <Xm/List.h>
-#include <Xm/LabelP.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
 
-static void sum_callback(Widget, XtPointer, XmListCallbackStruct *);
+static void sum_callback(int item_posiition);
 
 
 /*
@@ -30,7 +32,7 @@ void destroy_summary_menu(
 	register CARD	*card)		/* card to destroy */
 {
 	if (card->wsummary) {
-		XtDestroyWidget(card->wsummary);
+		delete card->wsummary;
 		card->wsummary = 0;
 	}
 }
@@ -43,73 +45,68 @@ void destroy_summary_menu(
  */
 
 void create_summary_menu(
-	CARD		*card,		/* card with query results */
-	Widget		wform,		/* form widget to install into */
-	Widget		shell)		/* enclosing shell */
+	CARD		*card)		/* card with query results */
 {
 	CARD		dummy;		/* if no card yet, use empty card */
 	char		buf[1024];	/* summary line buffer */
-	XmStringTable	list;		/* string list for summary widget */
-	int		nlines;		/* # of lines, at least pref.sumlines*/
-	Arg		args[15];
-	int		n;
+	int		n, w, h;
 
-	if (!display)
+	if (!mainwindow)
 		return;
 	print_info_line();
 	if (!card)
 		memset((void *)(card = &dummy), 0, sizeof(dummy));
-	if (card->wheader)
-		XtDestroyWidget(card->wheader);
-	if (card->wsummary)
-		XtDestroyWidget(card->wsummary);
-	card->wsummary  = 0;
-	card->wsumshell = shell;
+	card->wsummary  = new QTreeWidget(mainwindow);
+	bind_help(card->wsummary, "summary"); // formerly set in mainwin.c
+	card->wsummary->setItemsExpandable(false);
+	// no decorations should follow from not expandable, but set to be sure
+	card->wsummary->setRootIsDecorated(false);
+	card->wsummary->setUniformRowHeights(true);
+	card->wsummary->setSelectionMode(QAbstractItemView::SingleSelection);
+	card->wsummary->setSelectionBehavior(QAbstractItemView::SelectRows);
 
-	nlines = card->nquery < pref.sumlines ? pref.sumlines : card->nquery;
-	list = (XmStringTable)XtMalloc(nlines * sizeof(XmString *));
-	for (n=0; n < card->nquery; n++) {
-		make_summary_line(buf, card, card->query[n]);
-		list[n] = XmStringCreateSimple(buf);
+	for (n=0; n < card->nquery; n++)
+		make_summary_line(buf, card, card->query[n], card->wsummary);
+	make_summary_line(buf, card, -1, card->wsummary);
+	card->wsummary->header()->setSectionsMovable(false);
+	card->wsummary->header()->setSectionResizeMode(QHeaderView::Fixed);
+	card->wsummary->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	// Fit view to data.  FIXME:  How do I add line-separators?  Or is
+	// increasing paddding all I can do?
+	if (!card->nquery && !*buf) {
+		card->wsummary->header()->hide();
+		w = 400;
+	} else {
+		card->wsummary->resize(10, 10);
+		for(n = 0; n < card->wsummary->columnCount(); n++)
+			card->wsummary->resizeColumnToContents(n);
+		// tjm - FIXME:  How do I get the max line width?
+		w = card->wsummary->verticalScrollBar()->width() +
+			card->wsummary->header()->length();
 	}
-	while (n < nlines)
-		list[n++] = XmStringCreateSimple((char *)" ");
-	nlines = n;
-	make_summary_line(buf, card, -1);
-	strcat(buf, "                                                       ");
-	XtUnmanageChild(wform);
+	card->wsummary->setMinimumWidth(w);
 
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftOffset,	3);			n++;
-	XtSetArg(args[n], XmNfontList,		fontlist[FONT_COURIER]);n++;
-	card->wheader = XtCreateWidget(buf, xmLabelWidgetClass,
-			wform, args, n);
-	n = 0;
-	XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);	n++;
-	XtSetArg(args[n], XmNtopWidget,		card->wheader);		n++;
-	XtSetArg(args[n], XmNbottomAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNrightAttachment,	XmATTACH_FORM);		n++;
-	XtSetArg(args[n], XmNselectionPolicy,	XmBROWSE_SELECT);	n++;
-	XtSetArg(args[n], XmNvisibleItemCount,	pref.sumlines);		n++;
-	XtSetArg(args[n], XmNitemCount,		nlines);		n++;
-	XtSetArg(args[n], XmNitems,		list);			n++;
-	XtSetArg(args[n], XmNfontList,		fontlist[FONT_COURIER]);n++;
-	XtSetArg(args[n], XmNscrollBarDisplayPolicy, XmSTATIC);		n++;
-	card->wsummary = XmCreateScrolledList(wform, (char *)"sumlist",
-			args, n);
-	XtAddCallback(card->wsummary, XmNbrowseSelectionCallback,
-				(XtCallbackProc)sum_callback, (XtPointer)0);
-	XmListSelectPos(card->wsummary, 1, False);
-	XtManageChild(card->wheader);
-	XtManageChild(card->wsummary);
-	XtManageChild(wform);
-
-	for (n=0; n < nlines; n++)
-		XmStringFree(list[n]);
-	XtFree((char *)list);
+	// not sure how to set # of visible lines to pref.sumlines
+	// I'll just measure a row and add the header height.
+	if(!n) {
+		QTreeWidgetItem *twi = new QTreeWidgetItem;
+		twi->setText(0, "QT is a pain in the ass");
+		card->wsummary->addTopLevelItem(twi);
+	}
+	h = card->wsummary->sizeHintForRow(0) * pref.sumlines +
+		card->wsummary->header()->height();
+	if(!n)
+		card->wsummary->clear();
+	card->wsummary->setMinimumHeight(h);
+	card->wsummary->resize(w, h);
+	set_qt_cb(QTreeWidget, itemClicked, card->wsummary,
+		  sum_callback(card->wsummary->indexOfTopLevelItem(item)),
+		  QTreeWidgetItem *item, int col);
+	if(n)
+		scroll_summary(card);
+	delete mainform->replaceWidget(w_summary, card->wsummary);
+	delete w_summary;
+	w_summary = card->wsummary;
 }
 
 
@@ -118,17 +115,14 @@ void create_summary_menu(
  * any, and display the new one.
  */
 
-/*ARGSUSED*/
 static void sum_callback(
-	Widget			widget,
-	XtPointer		item,
-	XmListCallbackStruct	*data)
+	int			item_position)
 {
 	register CARD		*card = curr_card;
 
 	card_readback_texts(card, -1);
-	if (card && data->item_position-1 < card->nquery) {
-		card->qcurr = data->item_position-1;
+	if (card && item_position < card->nquery) {
+		card->qcurr = item_position;
 		card->row   = card->query[card->qcurr];
 		fillout_card(card, FALSE);
 		print_info_line();
@@ -155,7 +149,9 @@ static int compare(
 void make_summary_line(
 	char		*buf,		/* text buffer for result line */
 	CARD		*card,		/* card with query results */
-	int		row)		/* database row */
+	int		row,		/* database row */
+	QTreeWidget	*w,		/* non-0: add line to table widget */
+	int		lrow)		/* >=0: replace row #lrow */
 {
 	static int	nsorted;	/* size of <sorted> array */
 	static ITEM	**sorted;	/* sorted item pointer list */
@@ -165,6 +161,8 @@ void make_summary_line(
 	int		x = 0;		/* index to next free char in buf */
 	int		i;		/* item counter */
 	int		j;		/* char copy counter */
+	QTreeWidgetItem *twi = 0;	
+	int		lcol = 0;
 
 	*buf = 0;
 	if (!card || !card->dbase || !card->form || row >= card->dbase->nrows)
@@ -223,6 +221,11 @@ void make_summary_line(
 		for (j=x; buf[j]; j++)
 			if (buf[j] == '\n')
 				buf[j--] = 0;
+		if(w) {
+			if(!twi)
+				twi = new QTreeWidgetItem;
+			twi->setText(lcol++, buf + x);
+		}
 		x += j = strlen(buf+x);
 		for (; j < item->sumwidth && j < 80; j++)
 			buf[x++] = ' ';
@@ -235,6 +238,16 @@ void make_summary_line(
 	}
 	if (x == 0)
 		sprintf(buf, row < 0 ? "" : "card %d", row);
+	if(w && twi) {
+		if(row < 0)
+			w->setHeaderItem(twi);
+		else if(lrow < 0)
+			w->addTopLevelItem(twi);
+		else {
+			delete w->takeTopLevelItem(lrow);
+			w->insertTopLevelItem(lrow, twi);
+		}
+	}
 }
 
 
@@ -318,18 +331,10 @@ void make_plan_line(
 void scroll_summary(
 	CARD		*card)		/* which card's summary */
 {
-	Arg		args[2];
-	int		top=0, nvis=0;
-
 	if (card->wsummary && card->qcurr < card->nquery) {
-		XtSetArg(args[0], XmNtopItemPosition,  &top);
-		XtSetArg(args[1], XmNvisibleItemCount, &nvis);
-		XtGetValues(card->wsummary, args, 2);
-		if (card->qcurr+1 < top)
-			XmListSetPos(card->wsummary, card->qcurr+1);
-		else if (card->qcurr+1 >= top + nvis)
-			XmListSetBottomPos(card->wsummary, card->qcurr+1);
-		XmListSelectPos(card->wsummary, card->qcurr+1, False);
+		QTreeWidgetItem *twi = card->wsummary->topLevelItem(card->qcurr);
+		card->wsummary->setCurrentItem(twi);
+		card->wsummary->scrollToItem(twi);
 	}
 }
 
@@ -345,13 +350,9 @@ void replace_summary_line(
 	int		row)		/* database row that has changed */
 {
 	char		buf[1024];	/* summary line buffer */
-	XmString	list;		/* string that replaces summary line */
 
 	if (!card || !card->dbase || !card->form || row >= card->dbase->nrows)
 		return;
-	make_summary_line(buf, card, row);
-	list = XmStringCreateSimple(buf);
-	XmListReplaceItemsPos(card->wsummary, &list, 1, card->qcurr+1);
-	XmListSelectPos(card->wsummary, card->qcurr+1, False);
-	XmStringFree(list);
+	make_summary_line(buf, card, row, card->wsummary, card->qcurr);
+	scroll_summary(card);
 }

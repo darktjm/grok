@@ -7,10 +7,9 @@
  */
 
 #include "config.h"
-#include <X11/Xos.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <Xm/Xm.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"

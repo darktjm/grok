@@ -22,9 +22,11 @@ refer to the on-line help pages, and to the PostScript or TeX manual.
 .IP \-h
 List available options.
 .IP \-d
-Print fallback X resources and exit. The output can be appended directly
-to the ~/.Xdefaults file for modification of the geometry, color, and font
-defaults.
+Print default Qt Style Sheet and exit. The output can be written to
+~/.grok/grok.qss or passed in using -stylesheet.  The style sheet
+adjusts fonts, colors, and some other GUI appearance defaults.  The
+grok.qss replaces the defaults, and the command-line option augments and
+overrides the defaults.
 .IP \-v
 Print the program version and patchlevel and exit.
 .IP \-t
@@ -69,9 +71,9 @@ pulldown, or to the PostScript user's manual.
 .LP
 In addition to these options,
 .B grok
-supports the usual X options such as -iconic. The -geometry option should
-not be used to preset a window size; grok determines and frequently adjusts
-its own size.
+supports the usual Qt options such as -stylesheet. The -qwindowgeometry and
+-geometry options should not be used to preset a window size; grok
+determines and frequently adjusts its own size.
 .SH EXAMPLES
 .LP
 \fBgrok\fR

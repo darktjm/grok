@@ -6,38 +6,33 @@
  */
 
 #include "config.h"
-#include <X11/Xos.h>
+#include <unistd.h>
 #include <stdlib.h>
-#include <Xm/Xm.h>
-#include <Xm/MainW.h>
-#include <Xm/Form.h>
-#include <Xm/Frame.h>
-#include <Xm/LabelP.h>
-#include <Xm/PushBP.h>
-#include <Xm/PushBG.h>
-#include <Xm/ToggleB.h>
-#include <Xm/Text.h>
-#include <Xm/Separator.h>
-#include <Xm/RowColumn.h>
-#include <Xm/ScrolledW.h>
-#include <Xm/Protocols.h>
-#include <X11/cursorfont.h>
+#include <QtWidgets>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
 
-static void formedit_callback(Widget, int, XmToggleButtonCallbackStruct *);
+// This window can't be closed.  Probably ought to pop up a dialog
+// like the canvas does.
+class QDialogNoClose : public QDialog {
+    void closeEvent(QCloseEvent *event) {
+	    event->ignore();
+    }
+};
+
+static void formedit_callback(int);
 static int readback_item(int);
 
 static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
-static Widget		shell;		/* popup menu shell */
+static QDialog		*shell;		/* popup menu shell */
 static FORM		*form;		/* current form definition */
 int			curr_item;	/* current item, 0..form.nitems-1 */
 
 char			plan_code[] = "tlwWrecnmsSTA";	/* code 0x260..0x26c */
 
 
-#define ANY 0xfffe
+#define ANY 0xfffe  // all except IT_NULL
 #define ALL (unsigned short)~0U
 #define ITX 1<<IT_INPUT  | 1<<IT_TIME | 1<<IT_NOTE
 #define TXT 1<<IT_PRINT  | ITX
@@ -59,9 +54,10 @@ static struct _template {
 	short	sensitive;	/* when type is n, make sensitive if & 1<<n */
 	int	type;		/* Text, Label, Rradio, Fflag, -line */
 	int	code;		/* code given to (global) callback routine */
-	const char *text;		/* label string */
-	const char *help;		/* label string */
-	Widget	widget;		/* allocated widget */
+	const char *text;	/* label string */
+	const char *help;	/* label string */
+	QWidget	*widget;	/* allocated widget */
+	int	role;		/* for buttons using standard labels */
 } tmpl[] = {
 	{ ALL, 'L',	 0,	"Form name:",		"fe_form",	},
 	{ ALL, 'T',	0x101,	" ",			"fe_form",	},
@@ -82,10 +78,10 @@ static struct _template {
 	{ ALL, 'B',	0x10b,	"Def Help",		"fe_defhelp",	},
 	{ ALL, 'B',	0x10d,	"Debug",		"fe_debug",	},
 	{ ALL, 'B',	0x10e,	"Preview",		"fe_preview",	},
-	{ ALL, 'B',	0x10f,	"Help",			"edit",		},
-	{ ALL, 'B',	0x110,	"Cancel",		"fe_cancel",	},
+	{ ALL, 'B',	0x10f,	NULL,			"edit",		0, dbbb(Help)},
+	{ ALL, 'B',	0x110,	NULL,			"fe_cancel",	0, dbbb(Cancel)},
 	{ ALL, 'B',	0x111,	"Done",			"fe_done",	},
-	{   0, '-',	 0,	" ",			0,		},
+	{ ALL, '-',	 0,	" ",			0,		},
 	{ ALL, 'L',	 0,	"Field",		"fe_buts",	},
 	{ ALL, 'B',	0x112,	"Add",			"fe_add",	},
 	{ ANY, 'B',	0x113,	"Delete",		"fe_delete",	},
@@ -102,9 +98,6 @@ static struct _template {
 	{ ANY, 'r',	IT_FLAG,   "Flag",		"fe_type",	},
 	{ ANY, 'r',	IT_BUTTON, "Button",		"fe_type",	},
 	{ ANY, 'r',	IT_CHART,  "Chart",		"fe_type",	},
-#if 0
-	{ ANY, 'r',	IT_VIEW,   "View",		"fe_type",	},
-#endif
 	{ ANY, 'L',	 0,	"Flags:",		"fe_flags",	},
 	{   0, 'F',	 0,	" ",			0,		},
 	{ BAS, 'f',	0x200,	"Searchable",		"fe_flags",	},
@@ -129,7 +122,7 @@ static struct _template {
 	{ TIM, 'r',	0x20a,	"Time",			"fe_time",	},
 	{ TIM, 'r',	0x20b,	"Date+time",		"fe_time",	},
 	{ TIM, 'r',	0x20c,	"Duration",		"fe_time",	},
-	{   0, '-',	 0,	" ",			0,		},
+	{ ANY, '-',	 0,	" ",			0,		},
 
 	{ ANY, 'L',	 0,	"Label Justification:",	"fe_ljust",	},
 	{   0, 'R',	 0,	" ",			0,		},
@@ -145,7 +138,7 @@ static struct _template {
 	{ ANY, 'r',	0x214,	"Courier",		"fe_lfont",	},
 	{ ANY, 'L',	 0,	"Label text",		"fe_ltxt",	},
 	{ ANY, 'T',	0x21a,	" ",			"fe_ltxt",	},
-	{   0, '-',	 0,	" ",			0,		},
+	{ ANY, '-',	 0,	" ",			0,		},
 
 	{ TXT, 'L',	 0,	"Input Justification:",	"fe_ijust",	},
 	{   0, 'R',	 0,	" ",			0,		},
@@ -160,17 +153,10 @@ static struct _template {
 	{ TXT, 'r',	0x218,	"HelvB",		"fe_ifont",	},
 	{ TXT, 'r',	0x219,	"Courier",		"fe_ifont",	},
 	{ ITX, 'L',	 0,	"Max input length:",	"fe_range",	},
-#if 0
-	{ ITX, 't',	0x21e,	" ",			"fe_range",	},
-#endif
 	{ ITX, 't',	0x21f,	" ",			"fe_range",	},
 	{ IDF, 'L',	 0,	"Input default:",	"fe_def",	},
 	{ IDF, 'T',	0x220,	" ",			"fe_def",	},
-#if 0
-	{ ITX, 'L',	 0,	"Input pattern:",	"fe_pattern",	},
-	{ ITX, 'T',	0x221,	" ",			"fe_pattern",	},
-#endif
-	{   0, '-',	 0,	" ",			0,		},
+	{ TXT, '-',	 0,	" ",			0,		},
 
 	{ BAS, 'L',	 0,	"Calendar interface:",	"fe_plan",	},
 	{   0, 'R',	 0,	" ",			0,		},
@@ -191,7 +177,7 @@ static struct _template {
 	{ BAS, 'r',	0x26c,  "No alarm",		"fe_plan",	},
 	{ BAS, 'L',	 0,	"Shown in calendar if:","fe_plan",	},
 	{ BAS, 'T',	0x228,	" ",			"fe_plan",	},
-	{   0, '-',	 0,	" ",			0,		},
+	{ BAS, '-',	 0,	" ",			0,		},
 
 	{ ANY, 'L',	 0,	"Grayed out if:",	"fe_gray",	},
 	{ ANY, 'T',	0x222,	" ",			"fe_gray",	},
@@ -201,25 +187,25 @@ static struct _template {
 	{ ANY, 'T',	0x224,	" ",			"fe_ro",	},
 	{ ANY, 'L',	 0,	"Skip if:",		"fe_skip",	},
 	{ ANY, 'T',	0x225,	" ",			"fe_skip",	},
-	{   0, '-',	 0,	" ",			0,		},
+	{ BUT, '-',	 0,	" ",			0,		},
 
 	{ BUT, 'L',	 0,	"Action when pressed:",	"fe_press",	},
 	{ BUT, 'T',	0x226,	" ",			"fe_press",	},
 	{ BUT, 'L',	 0,	"Action when added:",	"fe_add",	},
 	{ BUT, 'T',	0x227,	" ",			"fe_add",	},
-	{   0, '-',	 0,	" ",			0,		},
+	{ CHA, '-',	 0,	" ",			0,		},
 
 	{ CHA, 'L',	 0,	"Chart X range:",	"fe_chart",	},
 	{ CHA, 't',	0x280,	" ",			"fe_chart",	},
 	{ CHA, 'l',	 0,	"to",			"fe_chart",	},
 	{ CHA, 't',	0x281,	" ",			"fe_chart",	},
-	{ CHA, 'F',	 0, 	" ",			0,		},
+	{   0, 'F',	 0, 	" ",			0,		},
 	{ CHA, 'f',	0x28c,	"automatic",		"fe_chart",	},
 	{ CHA, 'L',	 0,	"Chart Y range:",	"fe_chart",	},
 	{ CHA, 't',	0x282,	" ",			"fe_chart",	},
 	{ CHA, 'l',	 0,	"to",			"fe_chart",	},
 	{ CHA, 't',	0x283,	" ",			"fe_chart",	},
-	{ CHA, 'F',	 0, 	" ",			0,		},
+	{   0, 'F',	 0, 	" ",			0,		},
 	{ CHA, 'f',	0x28d,	"automatic",		"fe_chart",	},
 	{ CHA, 'L',	 0,	"Chart XY grid every:",	"fe_chart",	},
 	{ CHA, 't',	0x284,	" ",			"fe_chart",	},
@@ -227,14 +213,6 @@ static struct _template {
 	{ CHA, 'L',	 0,	"Chart XY snap every:",	"fe_chart",	},
 	{ CHA, 't',	0x286,	" ",			"fe_chart",	},
 	{ CHA, 't',	0x287,	" ",			"fe_chart",	},
-/*	{ CHA, 'L',	 0,	"Chart X label every:",	"fe_chart",	},
-	{ CHA, 't',	0x288,	" ",			"fe_chart",	},
-	{ CHA, 'l',	 0,	"text:",		"fe_chart",	},
-	{ CHA, 'T',	0x289,	" ",			"fe_chart",	},
-	{ CHA, 'L',	 0,	"Chart Y label every:",	"fe_chart",	},
-	{ CHA, 't',	0x28a,	" ",			"fe_chart",	},
-	{ CHA, 'l',	 0,	"text:",		"fe_chart",	},
-	{ CHA, 'T',	0x28b,	" ",			"fe_chart",	}, */
 	{ CHA, 'L',	 0,	"Chart component:",	0,		},
 	{ CHA, 'B',	0x290,	"Add",			"fe_chart",	},
 	{ CHA, 'B',	0x291,	"Delete",		"fe_chart",	},
@@ -242,9 +220,9 @@ static struct _template {
 	{ CHA, 'B',	0x293,	"Next",			"fe_chart",	},
 	{ CHA, 'B',	0x292,	"Previous",		"fe_chart",	},
 
-	{   0, '{',	 0,	"comps",		0,		},
+	{ CHA, '{',	 0,	"comps",		0,		},
 	{ CHA, 'L',	 0, 	"Component flags",	"fe_chart",	},
-	{ CHA, 'F',	 0, 	" ",			0,		},
+	{   0, 'F',	 0, 	" ",			0,		},
 	{ CHA, 'f',	0x301,	"Line",			"fe_chart",	},
 	{ CHA, 'f',	0x302,	"X fat",		"fe_chart",	},
 	{ CHA, 'f',	0x303,	"Y fat",		"fe_chart",	},
@@ -294,57 +272,16 @@ static struct _template {
 	{ CHA, 't',	0x327,	" ",			"fe_chart",	},
 
 	{ CHA, 'L',	 0,	"X size:",		"fe_chart",	},
-/*	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x330,	"next free",		"fe_chart",	},
-	{ CHA, 'L',	 0,	" ",			"fe_chart",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x331,	"same as previous",	"fe_chart",	},
-	{ CHA, 'L',	 0,	" ",			"fe_chart",	}, */
 	{   0, 'R',	 0,	" ",			0,		},
 	{ CHA, 'r',	0x332,	"expression",		"fe_chart",	},
 	{ CHA, 'T',	0x334,	" ",			"fe_chart",	},
-/*	{ CHA, 'L',	 0,	" ",			"fe_chart",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x333,	"drag field",		"fe_chart",	},
-	{ CHA, 't',	0x335,	" ",			"fe_chart",	},
-	{ CHA, 'l',	 0,	"multiplied by",	"fe_chart",	},
-	{ CHA, 't',	0x336,	" ",			"fe_chart",	},
-	{ CHA, 'l',	 0,	"plus",			"fe_chart",	},
-	{ CHA, 't',	0x337,	" ",			"fe_chart",	}, */
 
 	{ CHA, 'L',	 0,	"Y size:",		"fe_chart",	},
-/*	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x340,	"next free",		"fe_chart",	},
-	{ CHA, 'L',	 0,	" ",			"fe_chart",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x341,	"same as previous",	"fe_chart",	},
-	{ CHA, 'L',	 0,	" ",			"fe_chart",	}, */
 	{   0, 'R',	 0,	" ",			0,		},
 	{ CHA, 'r',	0x342,	"expression",		"fe_chart",	},
 	{ CHA, 'T',	0x344,	" ",			"fe_chart",	},
-/*	{ CHA, 'L',	 0,	" ",			"fe_chart",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x343,	"drag field",		"fe_chart",	},
-	{ CHA, 't',	0x345,	" ",			"fe_chart",	},
-	{ CHA, 'l',	 0,	"multiplied by",	"fe_chart",	},
-	{ CHA, 't',	0x346,	" ",			"fe_chart",	},
-	{ CHA, 'l',	 0,	"plus",			"fe_chart",	},
-	{ CHA, 't',	0x347,	" ",			"fe_chart",	}, */
 
 	{   0, '}',	 0,	" ",			0,		},
-#if 0
-	{   0, '-',	 0,	" ",			0,		},
-
-	{ VIW, 'L',	 0,	"Show query result as:","fe_result",	},
-	{   0, 'F',	 0,	" ",			0,		},
-	{ VIW, 'f',	0x231,	"Summary:",		"fe_result",	},
-	{ VIW, 'f',	0x232,	"first card:",		"fe_result",	},
-	{ VIW, 'f',	0x233,	"last card:",		"fe_result",	},
-	{ VIW, 'L',	 0,	"Database:",		"fe_query",	},
-	{ VIW, 'T',	0x234,	" ",			"fe_query",	},
-	{ VIW, 'L',	 0,	"Query:",		"fe_query",	},
-	{ VIW, 'T',	0x235,	" ",			"fe_query",	},
-#endif
 
 	{   0, ']',	 0,	" ",			0,		},
 	{   0,  0,	 0,	0,			0		},
@@ -361,9 +298,9 @@ static struct _template {
 void destroy_formedit_window(void)
 {
 	if (have_shell) {
-		XtPopdown(shell);
-		XtDestroyWidget(shell);
 		have_shell = FALSE;
+		shell->close();
+		delete shell;
 	}
 }
 
@@ -382,15 +319,14 @@ void create_formedit_window(
 	BOOL			isnew)		/* ok to change form name */
 {
 	struct _template	*tp;
-	int			len;		/* width of first column */
-	WidgetClass		wclass;
-	String			cback;
-	Widget			cform, outerform=0, innerform=0;
-	Widget			scroll=0, chart=0;
-	Widget			top, left, prev=0, prevline=0;
-	Arg			args[30];
-	long			t, n;
-	Atom			closewindow;
+	int			n, len, off;	/* width of first column */
+	QBoxLayout		*vform, *hform = 0;
+	QButtonGroup		*bg=0;
+	QFrame			*chart=0;
+	QScrollArea		*scroll=0;
+	QWidget			*w=0, *scroll_w=0;
+	QVBoxLayout		*scroll_l, *chart_l;
+	long			t;
 
 	if (def && have_shell && def == form)		/* same as before */
 		return;
@@ -412,173 +348,169 @@ void create_formedit_window(
 		sensitize_formedit();			/* re-use window */
 		return;
 	}
-	n = 0;
-	XtSetArg(args[n], XmNdeleteResponse,	XmDO_NOTHING);		n++;
-	XtSetArg(args[n], XmNiconic,		False);			n++;
-	shell = XtAppCreateShell("Form Editor", "Grok",
-			applicationShellWidgetClass, display, args, n);
+	// Non-closable dialog
+	// Probably ought to make this cancel, like other dialogs
+	// or at least pop up a message, like canvas
+	shell = new QDialogNoClose;
+	shell->setWindowTitle("Form Editor");
 	set_icon(shell, 1);
 
-	cform = XtCreateWidget("editform", xmFormWidgetClass,
-			shell, NULL, 0);
-	XtAddCallback(cform, XmNhelpCallback,
-			(XtCallbackProc)help_callback, (XtPointer)"edit");
+	// FIXME:  this needs a custom layout, because subwidgets within the
+	//         form disrupt the layout process.  Even Xm-grok got it wrong,
+	//         by indenting by the frame border width
+	// For now, I'm going to just repeat what grok did, as I don't want
+	// to waste time figuring out how layouts work at such a deep level.
+	vform = new QVBoxLayout(shell);
+	add_layout_qss(vform, "editform");
+	bind_help(shell, "edit");
+	w = shell;
+	scroll = new QScrollArea;
+        chart = new QFrame;
+	chart_l = new QVBoxLayout(chart);
+	add_layout_qss(chart_l, "chartform");
+	int chart_margin = chart_l->margin();
+	int ml, mr, mt, mb;
+	chart->getContentsMargins(&ml, &mr, &mt, &mb);
+	chart_margin += ml;
 
-	for (len=0, tp=tmpl; tp->type; tp++)
+	scroll_w = w = new QWidget;
+	scroll_l = new QVBoxLayout(w);
+	add_layout_qss(scroll_l, "escrform");
+	int scroll_margin = scroll_l->margin();
+	scroll->getContentsMargins(&ml, &mr, &mt, &mb);
+	scroll_margin += ml;
+
+	for (off=len=0, tp=tmpl; tp->type; tp++) {
 		if (tp->type == 'L') {
-			n = strlen_in_pixels(tp->text, FONT_HELV_S);
+			// tjm - FIXME: make sure these are actually styled
+			// they are attached to their parent here in the
+			// hopes of improved styling support, such as
+			// inheriting from their parent
+			tp->widget = new QLabel(tp->text, w);
+			n = strlen_in_pixels(tp->widget, tp->text) + off;
 			if (n > len)
 				len = n;
-		}
-	for (t=0, tp=tmpl; tp->type; tp++, t++) {
-		n = 0;
-		switch(tp->type) {
-		  case ']':
-			XtManageChild(cform);
-			XtManageChild(scroll);
-			cform = outerform;
-			prev  = scroll;
-			continue;
-		  case '}':
-			XtManageChild(cform);
-			XtManageChild(chart);
-			cform = innerform;
-			prev  = chart;
-			continue;
-		  case 'L':
-		  case '-':
-		  case '[':
-		  case '{':
-			top  = prevline = prev;
-			left = 0;
-			break;
-		  default:
-			top  = prevline;
-			left = prev;
-		}
-		if (top) {
-		   XtSetArg(args[n], XmNtopAttachment,	XmATTACH_WIDGET);  n++;
-		   XtSetArg(args[n], XmNtopWidget,	top);		   n++;
-		} else {
-		   XtSetArg(args[n], XmNtopAttachment,	XmATTACH_FORM);	   n++;
-		}
-		if (left) {
-		   XtSetArg(args[n], XmNleftAttachment,	XmATTACH_WIDGET);  n++;
-		   XtSetArg(args[n], XmNleftWidget,	left);		   n++;
-		   XtSetArg(args[n], XmNleftOffset,	8);		   n++;
-		} else {
-		   XtSetArg(args[n], XmNleftAttachment,	XmATTACH_FORM);	   n++;
-		   XtSetArg(args[n], XmNleftOffset,	8);		   n++;
-		}
-		if (tp->type == 'T' || tp->type == 't' || tp->type == 'L') {
-		   XtSetArg(args[n], XmNalignment,  XmALIGNMENT_BEGINNING);n++;
-		}
-		if (tp->type == 'T' || tp->type == '-') {
-		   XtSetArg(args[n], XmNrightAttachment,XmATTACH_FORM);	   n++;
-		}
-		if (tp->type == 'B') {
-		   XtSetArg(args[n], XmNwidth,		90);		   n++;
-		}
-		if (tp->type == 't') {
-		   XtSetArg(args[n], XmNwidth,		100);		   n++;
-		   XtSetArg(args[n], XmNtopOffset,	2);		   n++;
-		}
-		if (tp->code == 0x101 && !isnew) {
-		   XtSetArg(args[n], XmNrightOffset,	8);		   n++;
-		   XtSetArg(args[n], XmNtopOffset,	2);		   n++;
-		   XtSetArg(args[n], XmNeditable,	FALSE);		   n++;
-		} else if (tp->type == 'T' || tp->type == 't') {
-		   XtSetArg(args[n], XmNrightOffset,	8);		   n++;
-		   XtSetArg(args[n], XmNbackground,   color[COL_TEXTBACK]);n++;
-		   XtSetArg(args[n], XmNtopOffset,	2);		   n++;
-		} else {
-		   XtSetArg(args[n], XmNtopOffset,	6);		   n++;
-		   XtSetArg(args[n], XmNhighlightThickness, 1);		   n++;
-		}
-		if (tp->type == 'L') {
-		   XtSetArg(args[n], XmNwidth,		len+4);		   n++;
-		}
-		if (tp->type == 'F' || tp->type == 'R') {
-		   XtSetArg(args[n], XmNpacking,	XmPACK_TIGHT);	   n++;
-		   XtSetArg(args[n], XmNspacing,	4);		   n++;
-		}
-		if (tp->type == 'f' || tp->type == 'r') {
-		   XtSetArg(args[n], XmNfillOnSelect,	True);		   n++;
-		   XtSetArg(args[n], XmNselectColor,	color[COL_TOGGLE]);n++;
-		   cback = XmNvalueChangedCallback;
-		} else
-		   cback = XmNactivateCallback;
-		if (tp->type == 'f') {
-		   XtSetArg(args[n], XmNindicatorType,	XmN_OF_MANY);	   n++;
-		}
-		if (tp->type == 'r') {
-		   XtSetArg(args[n], XmNindicatorType,	XmONE_OF_MANY);	   n++;
-		}
-		if (tp->type == '[') {
-		   XtSetArg(args[n], XmNscrollingPolicy,XmVARIABLE);	   n++;
-		   XtSetArg(args[n], XmNbottomAttachment,XmATTACH_FORM);   n++;
-		   XtSetArg(args[n], XmNbottomOffset,	8);		   n++;
-		   XtSetArg(args[n], XmNrightAttachment,XmATTACH_FORM);	   n++;
-		   XtSetArg(args[n], XmNrightOffset,	8);		   n++;
-		   XtSetArg(args[n], XmNheight,		480);		   n++;
-		}
-		if (tp->type == '{') {
-		   XtSetArg(args[n], XmNshadowType,	XmSHADOW_IN);	   n++;
-		   XtSetArg(args[n], XmNbottomAttachment,XmATTACH_FORM);   n++;
-		   XtSetArg(args[n], XmNleftAttachment, XmATTACH_FORM);    n++;
-		   XtSetArg(args[n], XmNrightAttachment,XmATTACH_FORM);	   n++;
-		   XtSetArg(args[n], XmNrightOffset,	8);		   n++;
-		   XtSetArg(args[n], XmNleftOffset,	8);		   n++;
-		   XtSetArg(args[n], XmNbottomOffset,	8);		   n++;
-		}
-		XtSetArg(args[n],    XmNfontList, fontlist[FONT_HELV_S]);  n++;
-
-		switch(tp->type) {
-		  case '-': wclass = xmSeparatorWidgetClass;		break;
-		  case 'L': wclass = xmLabelWidgetClass;			break;
-		  case 'l': wclass = xmLabelWidgetClass;			break;
-		  case 't': wclass = xmTextWidgetClass;			break;
-		  case 'T': wclass = xmTextWidgetClass;			break;
-		  case 'R': wclass = xmRowColumnWidgetClass;		break;
-		  case 'F': wclass = xmRowColumnWidgetClass;		break;
-		  case 'f': wclass = xmToggleButtonWidgetClass;		break;
-		  case 'r': wclass = xmToggleButtonWidgetClass;		break;
-		  case '[': wclass = xmScrolledWindowWidgetClass;	break;
-		  case '{': wclass = xmFrameWidgetClass;			break;
-		  case 'B': wclass = xmPushButtonWidgetClass;		break;
-		}
-		tp->widget =
-		prev = XtCreateManagedWidget(tp->text, wclass, cform, args, n);
-		if (tp->code && !strchr("RFl", tp->type))
-			XtAddCallback(prev, cback, (XtCallbackProc)
-					formedit_callback, (XtPointer)t);
-		if (tp->help)
-			XtAddCallback(prev, XmNhelpCallback, (XtCallbackProc)
-					help_callback, (XtPointer)tp->help);
-		if (tp->type == '[') {
-			XtUnmanageChild(prev);
-			outerform = cform;
-			scroll = prev;
-			prev   = 0;
-			cform  = XtCreateWidget("escrform",
-					xmFormWidgetClass, scroll, NULL, 0);
-		}
-		if (tp->type == '{') {
-			XtUnmanageChild(prev);
-			innerform = cform;
-			chart  = prev;
-			prev   = 0;
-			cform  = XtCreateWidget("chartform",
-					xmFormWidgetClass, chart, NULL, 0);
+		} else if(tp->type == '[') {
+			off += scroll_margin;
+			w = scroll;
+		} else if(tp->type == '{') {
+			off += chart_margin;
+			w = chart;
 		}
 	}
-	XtManageChild(cform);
+	off=0;
+	for (t=0, tp=tmpl; tp->type; tp++, t++) {
+		switch(tp->type) {
+		    case 'L':
+			// FIXME:  Use QStyle::SH_FormLayout* style hints
+			// In particular, SH_FormLayoutLabelAlignment
+			if(hform)
+				hform->addStretch(0);
+			vform->addLayout((hform = new QHBoxLayout));
+			add_layout_qss(hform, NULL);
+			hform->addWidget((w = tp->widget));
+			// this should be enough to force alignment
+			// if not, there's something wrong with len computation
+			w->setMinimumWidth(len-off+4);
+			// Then again, I don't want it stretching at all.
+			// Hopefully this works as intended.
+			w->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+			break;
+		    case 'l':
+			hform->addWidget((w = new QLabel(tp->text)));
+			break;
+		    case 'T':
+		    case 't':
+			hform->addWidget((w = new QLineEdit()));
+			if (tp->type == 't')
+				w->setMinimumWidth(100);
+			break;
+		    case 'F':
+		    case 'R':
+			{
+				QHBoxLayout *l = new QHBoxLayout;
+				hform->addLayout(l);
+				add_layout_qss(l, NULL);
+				l->setSpacing(4);
+				hform = l;
+				w = 0;
+			}
+			if(tp->type == 'R')
+				bg = new QButtonGroup(shell);
+			break;
+		    case 'f':
+			hform->addWidget((w = new QCheckBox(tp->text)));
+			break;
+		    case 'r':
+			{
+				QRadioButton *r = new QRadioButton(tp->text);
+				hform->addWidget((w = r));
+				bg->addButton(r);
+			}
+			break;
+		    case 'B':
+			// Xm-grok used 90 here, but I'll use 80 everywhere
+			hform->addWidget((w = mk_button(NULL, tp->text,
+							tp->role)));
+			break;
+		    case '-':
+			vform->addWidget((w = mk_separator()));
+			break;
+		    case '[':
+			off += scroll_margin;
+			vform->addWidget(scroll);
+			vform = scroll_l;
+			// In Xmgrok, the viewport itself has a sunken border
+			// FIXME:  This is a guess at doing it in Qt.
+			// If that doesn't work, try area->viewport()->...
+			// If that doesn't work, try area->setViewport(QFrame)
+#if 0
+			{
+				QFrame *f = new QFrame;
+				scroll->setViewport(f);
+				f->setLineWidth(4);
+				f->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+				// Can't do the following; protected
+				scroll->setViewportMargins(QMargins(4, 4, 4, 4));
+			}
+#endif
+			scroll->setMinimumHeight(480);
+			scroll->setObjectName(tp->text);
+			break;
+		    case ']':
+			scroll->setWidget(scroll_w);
+			scroll_w->show();
+			break;
+		    case '{':
+			off += chart_margin;
+			w = chart;
+			vform->addWidget(chart);
+			vform = chart_l;
+			chart->setLineWidth(4);
+			chart->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+			chart->setObjectName(tp->text);
+			break;
+		    case '}':
+			break;
+		}
+
+		if(w && tp->type != '-')
+			w->setProperty("helvSmallFont", true);
+
+		tp->widget = w;
+
+		if(tp->type == 't' || tp->type == 'T')
+			set_text_cb(w, formedit_callback(t));
+		else if(tp->type == 'r' || tp->type == 'f' || tp->type == 'B')
+			set_button_cb(w, formedit_callback(t));
+
+		if(w && tp->help)
+			bind_help(w, tp->help);
+	}
 	sensitize_formedit();
 	fillout_formedit();
-	XtPopup(shell, XtGrabNone);
-	closewindow = XmInternAtom(display, (char *)"WM_DELETE_WINDOW", False);
-	XmAddWMProtocolCallback(shell, closewindow,
-			(XtCallbackProc)formedit_callback, (XtPointer)0);
+	popup_nonmodal(shell);
+	set_dialog_cancel_cb(shell, formedit_callback(0));
 	have_shell = TRUE;
 }
 
@@ -589,24 +521,24 @@ void create_formedit_window(
  * current type. The procedural edit button is an exception, its
  * sensitivity is determined as a special case because it doesn't
  * depend on the item type.
+ *
+ * tjm - now I just hide stuff instead of desensitizing
  */
 
 void sensitize_formedit(void)
 {
-	Arg			args;
 	struct _template	*tp;
 	int			mask;
 	ITEM			*item;
 
 	item = curr_item >= form->nitems ? 0 : form->items[curr_item];
 	mask = 1 << (item ? item->type : IT_NULL);
-	for (tp=tmpl; tp->type; tp++) 
+	for (tp=tmpl; tp->type; tp++)
 		if (tp->sensitive) {
-			XtSetArg(args, XmNsensitive,
+			tp->widget->setEnabled(
 				tp->code == 0x106 ? form->proc :
-				tp->code == 0x113 ? item != 0 :
-				tp->sensitive & mask ? True : False);
-			XtSetValues(tp->widget, &args, 1);
+				tp->code == 0x113 ? item != 0 : true);
+			tp->widget->setVisible(tp->sensitive & mask);
 		}
 }
 
@@ -653,7 +585,7 @@ static void fillout_formedit_widget(
 	register ITEM		*item;
 	register CHART		*chart;
 	CHART			nullchart;
-	Widget			w = tp->widget;
+	QWidget			*w = tp->widget;
 
 	if (tp->code < 0x100 || tp->code > 0x107) {
 		if (!form->items || curr_item >= form->nitems ||
@@ -676,7 +608,7 @@ static void fillout_formedit_widget(
 	  case 0x114: set_toggle(w, form->syncable);			break;
 	  case 0x105: set_toggle(w, form->proc);
 		      fillout_formedit_widget_by_code(0x106);		break;
-	  case 0x106: XtVaSetValues(w, XmNsensitive, form->proc, NULL);	break;
+	  case 0x106: w->setEnabled(form->proc);			break;
 
 	  case IT_LABEL:
 	  case IT_PRINT:
@@ -686,7 +618,6 @@ static void fillout_formedit_widget(
 	  case IT_CHOICE:
 	  case IT_FLAG:
 	  case IT_BUTTON:
-	  case IT_VIEW:
 	  case IT_CHART:
 		      set_toggle(w, item->type == tp->code);		break;
 
@@ -735,7 +666,6 @@ static void fillout_formedit_widget(
 		      sensitize_formedit();
 		      break;
 
-	  case 0x21e: print_text_button(w, "%d", item->minlen);		break;
 	  case 0x21f: print_text_button(w, "%d", item->maxlen);		break;
 	  case 0x206: print_text_button(w, "%d", item->sumcol);		break;
 	  case 0x207: print_text_button(w, "%d", item->sumwidth);	break;
@@ -745,7 +675,6 @@ static void fillout_formedit_widget(
 	  case 0x236: print_text_button_s(w, item->flagtext);		break;
 	  case 0x21a: print_text_button_s(w, item->label);		break;
 	  case 0x220: print_text_button_s(w, item->idefault);		break;
-	  case 0x221: print_text_button_s(w, item->pattern);		break;
 
 	  case 0x222: print_text_button_s(w, item->gray_if);		break;
 	  case 0x223: print_text_button_s(w, item->invisible_if);	break;
@@ -764,10 +693,6 @@ static void fillout_formedit_widget(
 	  case 0x285: print_text_button(w, "%g", item->ch_ygrid);	break;
 	  case 0x286: print_text_button(w, "%g", item->ch_xsnap);	break;
 	  case 0x287: print_text_button(w, "%g", item->ch_ysnap);	break;
-	  case 0x288: print_text_button(w, "%g", item->ch_xlabel);	break;
-	  case 0x28a: print_text_button(w, "%g", item->ch_ylabel);	break;
-	  case 0x289: print_text_button_s(w, item->ch_xexpr);		break;
-	  case 0x28b: print_text_button_s(w, item->ch_yexpr);		break;
 	  case 0x28c: set_toggle(w, item->ch_xauto);			break;
 	  case 0x28d: set_toggle(w, item->ch_yauto);			break;
 	  case 0x294: print_button(w, item->ch_ncomp ? "%d of %d" : "none",
@@ -798,29 +723,11 @@ static void fillout_formedit_widget(
 	  case 0x326: print_text_button(w, "%g", chart->value[1].mul);	break;
 	  case 0x327: print_text_button(w, "%g", chart->value[1].add);	break;
 
-	  case 0x330: set_toggle(w, chart->value[2].mode == CC_NEXT);	break;
-	  case 0x331: set_toggle(w, chart->value[2].mode == CC_SAME);	break;
 	  case 0x332: set_toggle(w, chart->value[2].mode == CC_EXPR);	break;
-	  case 0x333: set_toggle(w, chart->value[2].mode == CC_DRAG);	break;
 	  case 0x334: print_text_button_s(w, chart->value[2].expr);	break;
-	  case 0x335: print_text_button(w, "%d", chart->value[2].field);break;
-	  case 0x336: print_text_button(w, "%g", chart->value[2].mul);	break;
-	  case 0x337: print_text_button(w, "%g", chart->value[2].add);	break;
 
-	  case 0x340: set_toggle(w, chart->value[3].mode == CC_NEXT);	break;
-	  case 0x341: set_toggle(w, chart->value[3].mode == CC_SAME);	break;
 	  case 0x342: set_toggle(w, chart->value[3].mode == CC_EXPR);	break;
-	  case 0x343: set_toggle(w, chart->value[3].mode == CC_DRAG);	break;
 	  case 0x344: print_text_button_s(w, chart->value[3].expr);	break;
-	  case 0x345: print_text_button(w, "%d", chart->value[3].field);break;
-	  case 0x346: print_text_button(w, "%g", chart->value[3].mul);	break;
-	  case 0x347: print_text_button(w, "%g", chart->value[3].add);	break;
-
-	  case 0x234: print_text_button_s(w, item->database);		break;
-	  case 0x235: print_text_button_s(w, item->query);		break;
-	  case 0x231: set_toggle(w, item->qsummary);			break;
-	  case 0x232: set_toggle(w, item->qfirst);			break;
-	  case 0x233: set_toggle(w, item->qlast);			break;
 	}
 }
 
@@ -831,11 +738,8 @@ static void fillout_formedit_widget(
  * routines are direct X callbacks.
  */
 
-/*ARGSUSED*/
 static void formedit_callback(
-	Widget				widget,
-	int				indx,
-	XmToggleButtonCallbackStruct	*data)
+	int				indx)
 {
 	switch(readback_item(indx)) {
 	  case 1:
@@ -892,7 +796,7 @@ static int readback_item(
 	struct _template	*tp = &tmpl[indx];
 	register ITEM		*item = 0, *ip;
 	register CHART		*chart = 0;
-	Widget			w = tp->widget;
+	QWidget			*w = tp->widget;
 	int			code, i;
 	BOOL			all = FALSE; /* redraw oll or one? */
 
@@ -995,7 +899,6 @@ static int readback_item(
 	  case IT_CHOICE:
 	  case IT_FLAG:
 	  case IT_BUTTON:
-	  case IT_VIEW:
 	  case IT_CHART:
 	 	      item->type = (ITYPE)tp->code;
 		      all = TRUE;
@@ -1085,7 +988,6 @@ static int readback_item(
 	  case 0x20b: item->timefmt = T_DATETIME;	all = TRUE;	break;
 	  case 0x20c: item->timefmt = T_DURATION;	all = TRUE;	break;
 
-	  case 0x21e: item->minlen   = atoi(read_text_button(w, 0));	break;
 	  case 0x21f: item->maxlen   = atoi(read_text_button(w, 0));	break;
 	  case 0x206: item->sumcol   = atoi(read_text_button(w, 0));	break;
 	  case 0x207: item->sumwidth = atoi(read_text_button(w, 0));	break;
@@ -1095,7 +997,6 @@ static int readback_item(
 	  case 0x236: (void)read_text_button(w, &item->flagtext);	break;
 	  case 0x21a: (void)read_text_button(w, &item->label);		break;
 	  case 0x220: (void)read_text_button(w, &item->idefault);	break;
-	  case 0x221: (void)read_text_button(w, &item->pattern);	break;
 
 	  case 0x222: (void)read_text_button(w, &item->gray_if);	break;
 	  case 0x223: (void)read_text_button(w, &item->invisible_if);	break;
@@ -1114,10 +1015,6 @@ static int readback_item(
 	  case 0x285: item->ch_ygrid  = atof(read_text_button(w, 0));	break;
 	  case 0x286: item->ch_xsnap  = atof(read_text_button(w, 0));	break;
 	  case 0x287: item->ch_ysnap  = atof(read_text_button(w, 0));	break;
-	  case 0x288: item->ch_xlabel = atof(read_text_button(w, 0));	break;
-	  case 0x28a: item->ch_ylabel = atof(read_text_button(w, 0));	break;
-	  case 0x289: (void)read_text_button(w, &item->ch_xexpr);	break;
-	  case 0x28b: (void)read_text_button(w, &item->ch_yexpr);	break;
 	  case 0x28c: item->ch_xauto ^= TRUE;				break;
 	  case 0x28d: item->ch_yauto ^= TRUE;				break;
 
@@ -1152,33 +1049,15 @@ static int readback_item(
 	  case 0x326: chart->value[1].mul= atof(read_text_button(w, 0));break;
 	  case 0x327: chart->value[1].add= atof(read_text_button(w, 0));break;
 
-	  case 0x330: chart->value[2].mode = CC_NEXT;			break;
-	  case 0x331: chart->value[2].mode = CC_SAME;			break;
 	  case 0x332: chart->value[2].mode = CC_EXPR;			break;
-	  case 0x333: chart->value[2].mode = CC_DRAG;			break;
 	  case 0x334: (void)read_text_button(w, &chart->value[2].expr);	break;
-	  case 0x335: chart->value[2].field=atof(read_text_button(w,0));break;
-	  case 0x336: chart->value[2].mul= atof(read_text_button(w, 0));break;
-	  case 0x337: chart->value[2].add= atof(read_text_button(w, 0));break;
 
-	  case 0x340: chart->value[3].mode = CC_NEXT;			break;
-	  case 0x341: chart->value[3].mode = CC_SAME;			break;
 	  case 0x342: chart->value[3].mode = CC_EXPR;			break;
 	  case 0x343: chart->value[3].mode = CC_DRAG;			break;
 	  case 0x344: (void)read_text_button(w, &chart->value[3].expr);	break;
 	  case 0x345: chart->value[3].field=atof(read_text_button(w,0));break;
 	  case 0x346: chart->value[3].mul= atof(read_text_button(w, 0));break;
 	  case 0x347: chart->value[3].add= atof(read_text_button(w, 0));break;
-
-	  case 0x234: (void)read_text_button(w, &item->database);	break;
-	  case 0x235: (void)read_text_button(w, &item->query);		break;
-	  case 0x231: item->qsummary ^= TRUE;				break;
-	  case 0x232: item->qfirst   ^= TRUE;
-	 	      item->qlast     = FALSE;
-		      fillout_formedit_widget_by_code(0x233);		break;
-	  case 0x233: item->qlast    ^= TRUE;
-	 	      item->qfirst    = FALSE;
-		      fillout_formedit_widget_by_code(0x232);		break;
 	}
 
 	/*
