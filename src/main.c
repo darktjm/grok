@@ -319,5 +319,5 @@ static void init_pixmaps(void)
 	int			p;
 
 	for (p=0; p < NPICS; p++)
-		pixmap[p].addPixmap(QPixmap::fromImage(QImage(pics[p], pix_width[p], pix_height[p], QImage::Format_Mono)));
+		pixmap[p].addPixmap(QBitmap::fromData(QSize(pix_width[p], pix_height[p]), pics[p]));
 }

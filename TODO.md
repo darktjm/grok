@@ -44,10 +44,6 @@ Unless otherwise stated, assume 0% complete:
 	than the color. This might cure the issue of colors
 	overriding all graphics when set.
 
-      - Bitmaps are broken (icon, left/right buttons).  I'll probably
-        have to load them with Qt Resources.  Also, need to use the
-	color icon as app icon.
-
       - I haven't done enough testing yet.  In particular, all places
         you can close a window need to be verified, as some
 	dialogs have been crashing for no apparent reason.

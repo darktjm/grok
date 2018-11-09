@@ -37,9 +37,9 @@ static const char about_message[] =
 	"Version " VERSION "\n"
 	"Compiled " __DATE__ "\n\n"
 	"Author: Thomas Driemeyer <thomas@bitrot.de>\n"
-	"With minor fixes by Thomas J. Moore\n\n"
+	"Qt port, fixes, and enhancements by Thomas J. Moore\n\n"
 	"Homepage: http://www.bitrot.de/grok.html\n"
-	"Or, maybe https://bitbucket.org/darktjm/grok\n";
+	"Better yet, https://bitbucket.org/darktjm/grok\n";
 
 void create_about_popup(void)
 {

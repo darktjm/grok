@@ -161,3 +161,5 @@ version 1.6, released ???
       rethought, anyway.  I have no intention of re-implementing gdchart
       here.  Note that ch_label, ch_xexpr, ch_yexpr, will no longer be written to/read
       from the .gf file.
+  * Now uses color application icon.  The old icon is still there for
+    reference, but I'm not even going to bother packaging it.

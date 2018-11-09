@@ -37,7 +37,13 @@
 #include "form.h"
 #include "proto.h"
 #include "version.h"
+#if 1
+#define static static const
+#include "Grok.xpm"
+#undef static
+#else
 #include "bm_icon.h"
+#endif
 
 
 
@@ -382,8 +388,13 @@ void set_icon(
 	int			sub)		/* 0=main, 1=submenu */
 {
 	static QIcon icon;
-	if(icon.isNull())
-		icon.addPixmap(QPixmap::fromImage(QImage(bm_icon_bits, bm_icon_width, bm_icon_height, QImage::Format_Mono)));
+	if(icon.isNull()) {
+#if 1
+		icon.addPixmap(QPixmap(Grok));
+#else
+		icon.addPixmap(QBitmap::fromData(QSize(bm_icon_width, bm_icon_height), bm_icon_bits));
+#endif
+	}
 	/* there is only 1 icon, so sub is actually ignored */
 	shell->setWindowIcon(icon);
 }
