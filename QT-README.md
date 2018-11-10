@@ -165,3 +165,12 @@ it's impossible to know how or when QSS overrides properties set by
 direct function calls or styles.  This is much like how layouts work
 in Qt: everything is hidden, and it's virtually impossible to tell
 what is called, and when.
+
+Then again, it's not possible to set a lot of low-level things in Qt,
+because it's "handled by the style", which in turn can't be queried
+itself.  For example, text widget cursor color appears to always be
+thin and black in GTK+3, eliminating the possibility of dark-colored
+widgets.  Not only can't the color be set in QSS, I don't think it can
+be set anywhere in Qt except by modifiying the renderer itself.
+
+

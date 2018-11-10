@@ -13,7 +13,8 @@ Unless otherwise stated, assume 0% complete:
 	largest button).  Adding stretch factors does not help.
 	Even when the summary isn't obnoxiously wide, the
 	window doesn't resize to a narrow version on database
-	load.  resize(minimumSize()) after adjustSize() does nothing,
+	switch (but it does do so on initial load, for some reason).
+	resize(minimumSize()) after adjustSize() does nothing,
 	at least after the first time.
 
       - Ctrl-Q doesn't work.  Is it bound by Qt elsewhere?
@@ -23,45 +24,21 @@ Unless otherwise stated, assume 0% complete:
 	in one place.  Saving and restoring the position after
 	adjustSize() does nothing, so maybe it's being moved elsewhere.
 
-      - The layout of the form item editor needs tweaking.  At the very
-	least, the chart options do not seem to have the right label
-	width.  Also, I should probably use SH_FormLayoutLabelAlignment.
-	Also, items in the scroll area are too wide, or the scroll area is
-	too narrow, depending on how you look at it.
-
-      - Rubberbands in the form editor canvas are not erased properly.
-	The paintEvent has the correct clipping region to redraw over
-	the rubber band, but it doesn't, for some reason.  Maybe it
-	has to do with what's causing the previous issue.
-
-      - When setting colors to inverse of the default, text widgets'
-	cursors are invisible.  I'm not sure that's settable via QSS.
-      
-      - The default background color is different in Xm (perhaps it's
-	Motif's universal default, and not specified anywhere).  For
-	now, I've disabled setting the default background color in the
-	built-in QSS, since it's dangerous, anyway.  QSS sucks.
-
-      - Neither the next/prev buttons nor the summary widget are the
-	background color.  The latter probably just requires adding
-	QTreeWidget to the list of widgets to recolor, although I don't
-	understand why inheritance doesn't work.  The former requires
-	more work.  I'm not sure where to get the color form, anyway.
-
-      - None of the text editors/displays seem to be the right size.
-	Maybe I need to polish() the widgets before computing their
-	sizes.
-
-      - Shadows look awful in frames whose color was set with QSS.
-	This needs to be done by setting the palette rather
-	than the color. This might cure the issue of colors
-	overriding all graphics when set.  For this, I've just removed
-	the global background-color/color settings in the built-in QSS
-	for now.
-
       - I haven't done enough testing yet.  In particular, all places
 	you can close a window need to be verified, as some
 	dialogs have been crashing for no apparent reason.
+
+    - The layout of the form item editor needs tweaking.  At the very
+      least, the chart options do not seem to have the right
+      label width.  Also, I should probably use
+      SH_FormLayoutLabelAlignment. Also, items in the scroll
+      area are too wide, or the scroll area is too narrow,
+      depending on how you look at it.
+
+    - Add a coloer setter QSS similar to the layer one that only sets
+      the palette rather than overriding the style as well.  Either
+      that, or move some of those aux QSS settings into the preferences
+      editor.  QSS sucks.
 
     - Make the GUI less rigid via layout helpers.  Note that I have
       run into at least one Qt anti-feature in this regard:  It is

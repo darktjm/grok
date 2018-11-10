@@ -141,6 +141,25 @@ version 1.6, released ???
     Everything looks and works a little differently.  In particular,
     X11-style resources are gone.  However, the underlying applicaiton
     is still pretty much the same as with 1.5.
+    * Qt Syle Sheets can now be used for styling instead of X
+      resources.  There is a built-in style sheet, which is overridden
+      by grok.qss in any of the standard locations (e.g. you can delete
+      the built-in qss by creating a 0-length grok.qss), and can be
+      augmented by -stylesheet=<file> on the command-line.
+    * Summary header is now absorbed into summary list widget, meaning
+      that fixed-width fonts are not relied on for alignment
+    * Context help becomes "What's This?".  It looks pretty ugly, and
+      probably needs configuration.
+    * GUI numeric inputs have become Qt "Spin Boxes", which ensure that
+      input is numeric, and also allows adjustment with arrows.  This
+      can't be done automatically for database fields, because there is
+      no indicator of type on inputs.
+    * Instead of just disabling irrelevant widgets in the form item editor
+      form, the new GUI actually hides those widgets.  For example, the
+      only time you see the huge chart options section is when editing a
+      chart item.
+    * Item type is now a popup menu button, so more item types can be
+      added without the list extending infinitely to the right.
   * by sheer coiincidence, fixed a few buffer overflow bugs
   * fixed some missing/wrong docs while adding qt-related info
   * removed #if 0-d features; if they haven't been implemented since 2001,
@@ -161,5 +180,5 @@ version 1.6, released ???
       rethought, anyway.  I have no intention of re-implementing gdchart
       here.  Note that ch_label, ch_xexpr, ch_yexpr, will no longer be written to/read
       from the .gf file.
-  * Now uses color application icon.  The old icon is still there for
+  * Now uses the color application icon.  The old icon is still there for
     reference, but I'm not even going to bother packaging it.

@@ -201,8 +201,8 @@ void GrokCanvas::canvas_callback(
 	if (!press) { // move
 	    if (moving && (event->buttons() & Qt::LeftButton))
 		switch(mode) {
-		  case M_XMID: draw_rubberband(TRUE, xm+x, y, 1, ys); break;
-		  case M_YMID: draw_rubberband(TRUE, x, ym+y, xs, 1); break;
+		  case M_XMID: draw_rubberband(TRUE, xm+x, y, 1, ys, false); break;
+		  case M_YMID: draw_rubberband(TRUE, x, ym+y, xs, 1, false); break;
 		  default:     draw_rubberband(TRUE, x, y, xs, ys);
 	    }
 	} else if (press < 0) { // button up
@@ -350,56 +350,24 @@ void GrokCanvas::draw_rubberband(
 	int		x,		/* position of box */
 	int		y,
 	int		xs,		/* size of box */
-	int		ys)
+	int		ys,
+	bool		isrect)		/* is it a rectangle or line? */
 {
-	draw_rb = draw;
-	--x; --y; ++xs; ++ys;
-	// only erase if it's not where it will be
-	if (rb_is_drawn && (!draw || x != drb_x || y != drb_y || xs != drb_xs || ys != drb_ys))
-		update(drb_x, drb_y, drb_xs, drb_ys);
-	if (!draw)
-		return;
-
-	// only draw if it wasn't there or was erased
-	if (!rb_is_drawn || x != drb_x || y != drb_y || xs != drb_xs || ys != drb_ys)
-		update(rb_x = x, rb_y = y, rb_xs = xs, rb_ys = ys);
-}
-
-// This has to be the last thing in the repaint, as it changes to xor mode
-// FIXME:  This doesn't work right.  Eresure should happen automatically
-//         due to paintEvent(), but it doesn't.
-void GrokCanvas::draw_rubberband(
-	QPainter	&painter,
-	const QRect	&clip)
-{
-	// printf("redraw rubberband: %d %d %d %d\n", clip.x(),
-	//       clip.y(), clip.width(), clip.height());
-#if 0 // since everything is redrawn, no point in erasing old rectangle
-	if (!rb_is_drawn && !draw_rb)
-#else
-	if (!draw_rb)
-#endif
-		return;
-
-	QPen pen(QColor("#ffffff"));
-	//pen.setWidth(2);
-	painter.setPen(pen);
-	painter.setCompositionMode(QPainter::RasterOp_SourceXorDestination);
-#if 0
-	if (rb_is_drawn && clip.intersects(QRect(drb_x, drb_y, drb_xs, drb_ys))) {
-		painter.drawRect(drb_x, drb_y, drb_xs, drb_ys);
-	}
-#endif
-	if (!(rb_is_drawn = draw_rb)) {
-		//painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+	if (!draw) {
+		if (rb) {
+			delete rb;
+			rb = NULL;
+		}
 		return;
 	}
 
-	// printf("draw rubberband: %d %d %d %d\n", rb_x, rb_y, rb_xs, rb_ys);
-	painter.drawRect(drb_x=rb_x, drb_y=rb_y, drb_xs=rb_xs, drb_ys=rb_ys);
-	//painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
-}
+	if (!rb)
+		rb = new QRubberBand(isrect ? QRubberBand::Rectangle : QRubberBand::Line, this);
 
+	rb->show();
+	rb->move(x, y);
+	rb->resize(xs, ys);
+}
 
 /*-------------------------------------------------- drawing ----------------*/
 /*
@@ -436,7 +404,6 @@ void GrokCanvas::paintEvent(QPaintEvent *e)
 	fillrect(form->xs - DIV_GRIPOFF - DIV_GRIPSZ/2 + 2,
 		 form->ydiv - DIV_GRIPSZ/2 + 2,
 		 DIV_GRIPSZ - 4, DIV_GRIPSZ - 4);
-	draw_rubberband(painter, e->rect());
 }
 
 

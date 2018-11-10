@@ -43,25 +43,15 @@ class GrokCanvas : public QDialog {
     void mouseMoveEvent(QMouseEvent *e) { canvas_callback(e, 0); }
     void closeEvent(QCloseEvent *e);
     void resizeEvent(QResizeEvent *);
-    // need to do rubber band indirectly, so store here and call repaint()
-  private:
-    // Is the rubber band already drawn?
-    bool rb_is_drawn = FALSE;
-    // If so, these are its location
-    int drb_x, drb_y, drb_xs, drb_ys;
-    // Should a rubber band currently be drawn?
-    bool draw_rb = FALSE;
-    // If so, here's where it should go
-    int rb_x, rb_y, rb_xs, rb_ys;
-    // In the painter, draw the rubber band if draw_rb.
-    void draw_rubberband(QPainter &painter, const QRect &clip);
+    QRubberBand *rb = 0; // current rubber band
   public:
     void draw_rubberband(
 	BOOL		draw,		/* draw or undraw */
 	int		x,		/* position of box */
 	int		y,
 	int		xs,		/* size of box */
-	int		ys);
+	int		ys,
+	bool		isrect = true); /* is it a rectngle or line? */
   private:
     // formerly statics in canvas_callback()
     int		nitem;		/* item on which pen was pressed */
