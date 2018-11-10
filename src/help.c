@@ -99,12 +99,14 @@ void help_callback(
 	text_w->setProperty("helpFont", true);
 	text_w->setReadOnly(true);
 	text_w->setLineWrapMode(QTextEdit::NoWrap);
-	text_w->setMinimumWidth(text_w->fontMetrics().size(0, "M").width() * 60);
-	text_w->setMinimumHeight(text_w->fontMetrics().height() * (nlines + 1));
 	text_w->setLineWrapMode(QTextEdit::NoWrap);
 	text_w->setText(message);
 	text_w->setProperty("colSheet", true);
 	text_w->setProperty("colStd", true);
+	text_w->ensurePolished();
+	// size(0, "M").width() -> averageCharWidth()
+	text_w->setMinimumWidth(text_w->fontMetrics().averageCharWidth() * 60);
+	text_w->setMinimumHeight(text_w->fontMetrics().height() * (nlines + 1));
 	// bind_help(text_w, "help"); // already in shell
 
 	form->addWidget(bb);

@@ -162,13 +162,16 @@ void create_edit_popup(
 							/*-- text --*/
 	text = new QTextEdit;
 	form->addWidget(text);
-	text->resize(80, 24);
 	text->setReadOnly(readonly);
 	text->setProperty("courierFont", true);
 	text->setLineWrapMode(QTextEdit::NoWrap);
 	if (initial && *initial)
 		print_text_button_s(text, *initial);
 	text->setProperty("colSheet", true);
+	text->ensurePolished();
+	// size(0, "M").width() -> averageCharWidth()
+	text->setMinimumWidth(text->fontMetrics().averageCharWidth() * 80);
+	text->setMinimumHeight(text->fontMetrics().height() * 24);
 
 	form->addLayout(buttons);
 

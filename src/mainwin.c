@@ -352,11 +352,12 @@ void resize_mainwindow(void)
 	mainwindow->resize(xs + 2*2 + 2*16, win_ys + ys + 2*3);
 #else
 	// FIXME: window moves -- saving & restoring position doesn't help
+	// I'll probably have to override mainwindow->move().
 	QPoint pos(mainwindow->pos());
 	mainwindow->adjustSize();
 	mainwindow->move(pos);
 	// FIXME: window is too wide -- setting to "minimum size" doesn't work
-	//mainwindow->resize(mainwindow->minimumSize());
+	// except for the first time
 	mainwindow->resize(mainwindow->minimumSize());
 #endif
 }

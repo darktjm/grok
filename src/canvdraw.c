@@ -55,8 +55,9 @@ GrokCanvas::GrokCanvas() : moving(FALSE) {
 	// create dummy widgets to receive fonts.
 	for(int i = 0; i < F_NFONTS; i++) {
 		font[i] = new QWidget(this);
-		font[i]->hide();
 		font[i]->setProperty(font_prop[i], true);
+		font[i]->ensurePolished();
+		font[i]->hide();
 	}
 }
 

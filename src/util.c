@@ -425,6 +425,7 @@ void truncate_string(
 	register char	*string,	/* string to truncate */
 	register int	len)		/* max len in pixels */
 {
+	w->ensurePolished();
 	const QFontMetrics &fs(w->fontMetrics());
 	QString str(string);
 	int slen = str.size();
@@ -449,8 +450,8 @@ int strlen_in_pixels(
 	QWidget		*w,		/* widget string will show in */
 	const char	*string)	/* string to truncate */
 {
-	const QFontMetrics &fs(w->fontMetrics());
-	return fs.boundingRect(string).width();
+	w->ensurePolished();
+	return w->fontMetrics().boundingRect(string).width();
 }
 
 

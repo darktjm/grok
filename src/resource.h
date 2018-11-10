@@ -5,7 +5,12 @@
 "/* Note that setting this globally (using QWidget) causes strange behavior.*/\n"
 "/* QWidget { background-color: #a0a0a0; color: black; } */\n"
 "/* Even setting this for these few things makes things uugly, so just don't */\n"
-"/* QMainWindow, QDialog, QMenu { background-color: #a0a0a0; color: black; } */\n"
+// Why doesn't pretty much everything inherit from the first two?
+// I have AA_UseStyleSHeetPropagationInWIdgetStyles set, but it doesn't
+// seem to do anything.
+"/* QMainWindow, QDialog, QMenu, .QWidget, .QFrame, QTreeWidget {\n"
+"     background-color: #a0a0a0; color: black;\n"
+"} */\n"
 "/* And menus in the default style no longer highlight */\n"
 "/* QMenu:selected, QMenu::tearoff:selected { background-color: black; color: #a0a0a0; } */\n"
 "/* Former colStd:  standard foreground */\n"

@@ -48,6 +48,23 @@ const char		plan_code[] = "tlwWrecnmsSTA";	/* code 0x260..0x26c */
 #define VIW 1<<IT_VIEW
 #define CHA 1<<IT_CHART
 
+static const struct {
+    int type;
+    const char *name;
+} item_types[] = {
+	{ IT_INPUT,  "Input"	},
+	{ IT_TIME,   "Time"	},
+	{ IT_NOTE,   "Note"	},
+	{ IT_LABEL,  "Label"	},
+	{ IT_PRINT,  "Print"	},
+	{ IT_CHOICE, "Choice"	},
+	{ IT_FLAG,   "Flag"	},
+	{ IT_BUTTON, "Button"	},
+	{ IT_CHART,  "Chart"	}
+};
+#define N_ITEM_TYPES (int)(sizeof(item_types)/sizeof(item_types[0]))
+
+
 /*
  * next free: 108-10a,114 (global), 237 (field), 30b (chart component)
  */
@@ -91,16 +108,7 @@ static struct _template {
 	{   0, '[',	 0,	"attrs",		0,		},
 
 	{ ANY, 'L',	 0,	   "Field type:",	"fe_type",	},
-	{   0, 'R',	 0,	   " ",			0,		},
-	{ ANY, 'r',	IT_INPUT,  "Input",		"fe_type",	},
-	{ ANY, 'r',	IT_TIME,   "Time",		"fe_type",	},
-	{ ANY, 'r',	IT_NOTE,   "Note",		"fe_type",	},
-	{ ANY, 'r',	IT_LABEL,  "Label",		"fe_type",	},
-	{ ANY, 'r',	IT_PRINT,  "Print",		"fe_type",	},
-	{ ANY, 'r',	IT_CHOICE, "Choice",		"fe_type",	},
-	{ ANY, 'r',	IT_FLAG,   "Flag",		"fe_type",	},
-	{ ANY, 'r',	IT_BUTTON, "Button",		"fe_type",	},
-	{ ANY, 'r',	IT_CHART,  "Chart",		"fe_type",	},
+	{ ANY, 'I',  IT_LABEL,	   " ",			"fe_type",	},
 	{ ANY, 'L',	 0,	"Flags:",		"fe_flags",	},
 	{   0, 'F',	 0,	" ",			0,		},
 	{ BAS, 'f',	0x200,	"Searchable",		"fe_flags",	},
@@ -447,6 +455,13 @@ void create_formedit_window(
 			// sb->setDecimal(10);
 			break;
 		    }
+		    case 'I': {
+			    QComboBox *cb = new QComboBox;
+			    for(n = 0; n < N_ITEM_TYPES; n++)
+				    cb->addItem(item_types[n].name);
+			    hform->addWidget((w = cb));
+			    break;
+		    }
 		    case 'F':
 		    case 'R':
 			{
@@ -507,12 +522,14 @@ void create_formedit_window(
 			off += chart_margin;
 			w = chart;
 			vform->addWidget(chart);
+			vform->addStretch(0); // don't spread form out
 			vform = chart_l;
 			chart->setLineWidth(4);
 			chart->setFrameStyle(QFrame::Panel | QFrame::Sunken);
 			chart->setObjectName(tp->text);
 			break;
 		    case '}':
+			vform->addStretch(0); // don't spread form out
 			break;
 		}
 
@@ -527,6 +544,8 @@ void create_formedit_window(
 			set_spin_cb(w, formedit_callback(t));
 		else if(tp->type == 'r' || tp->type == 'f' || tp->type == 'B')
 			set_button_cb(w, formedit_callback(t));
+		else if(tp->type == 'I')
+			set_popup_cb(w, formedit_callback(t), int, i);
 
 		if(w && tp->help)
 			bind_help(w, tp->help);
@@ -564,11 +583,10 @@ void sensitize_formedit(void)
 				tp->code == 0x113 ? item != 0 : true);
 			tp->widget->setVisible(tp->sensitive & mask);
 		}
-	// Without explicit adjustSize(), there are huge gaps in form
+	// Without explicit adjustSize(), there may be huge gaps in form
 	if(chart->isVisible())
 		chart->adjustSize();
 	scroll_w->adjustSize();
-	
 }
 
 
@@ -642,15 +660,12 @@ static void fillout_formedit_widget(
 	  case 0x106: w->setEnabled(form->proc);			break;
 
 	  case IT_LABEL:
-	  case IT_PRINT:
-	  case IT_INPUT:
-	  case IT_TIME:
-	  case IT_NOTE:
-	  case IT_CHOICE:
-	  case IT_FLAG:
-	  case IT_BUTTON:
-	  case IT_CHART:
-		      set_toggle(w, item->type == tp->code);		break;
+		  for(int n = 0; n < NITEMS; n++)
+			  if(item_types[n].type == item->type) {
+				  dynamic_cast<QComboBox *>(w)->setCurrentIndex(n);
+				  break;
+			  }
+		  break;
 
 	  case 0x210:
 	  case 0x211:
@@ -926,15 +941,7 @@ static int readback_item(
 	 	      return(0);
 
 	  case IT_LABEL:
-	  case IT_PRINT:
-	  case IT_INPUT:
-	  case IT_TIME:
-	  case IT_NOTE:
-	  case IT_CHOICE:
-	  case IT_FLAG:
-	  case IT_BUTTON:
-	  case IT_CHART:
-	 	      item->type = (ITYPE)tp->code;
+	 	      item->type = (ITYPE)item_types[dynamic_cast<QComboBox *>(tp->widget)->currentIndex()].type;
 		      all = TRUE;
 		      break;
 
