@@ -269,7 +269,11 @@ static void create_item_widgets(
 		  // tjm - FIXME: need to use a callback to enforce this
 		  // te->setMaxLength(item.maxlen);
 		  te->setAlignment(JUST(item.inputjust));
-		  if (editable)
+		  te->setReadOnly(!editable);
+		  // QSS doesn't support :read-only for QTextEdit
+		  if (!editable)
+			te->setProperty("readOnly", true);
+		   else
 			set_mltext_cb(te, card_callback(te, card));
 		}
 		break;

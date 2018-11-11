@@ -110,13 +110,13 @@ void create_mainwindow()
 	menu->setTearOffEnabled(true);
 	bind_help(menu, "pd_file");
 	menu->addAction("&Find && select", [=](){file_pulldown(0);},
-			QKeySequence("Ctrl+F"));
+			Qt::CTRL|Qt::Key_F);
 	menu->addAction("&Print...", [=](){file_pulldown(1);},
-			QKeySequence("Ctrl+P"));
+			Qt::CTRL|Qt::Key_P);
 	menu->addAction("&Export", [=](){file_pulldown(2);},
-			QKeySequence("Ctrl+E"));
+			Qt::CTRL|Qt::Key_E);
 	menu->addAction("P&references...", [=](){file_pulldown(3);},
-			QKeySequence("Ctrl+R"));
+			Qt::CTRL|Qt::Key_R);
 	submenu = menu->addMenu("F&orm editor");
 	if (restricted)
 		submenu->setEnabled(false);
@@ -127,10 +127,10 @@ void create_mainwindow()
 	submenu->addAction("Create, use current as &template...", [=](){newform_pulldown(2);});
 	menu->addAction("&About...", [=](){file_pulldown(5);});
 	menu->addAction("&Save", [=](){file_pulldown(6);},
-			QKeySequence("Ctrl+S"));
+			Qt::CTRL|Qt::Key_S);
 	menu->addAction("&Quit", [=](){file_pulldown(7);},
 			// FIXME:  Qt is ignoring Ctrl+Q
-			QKeySequence("Ctrl+Q"));
+			Qt::CTRL|Qt::Key_Q);
 	menu->addAction("Rambo Quit", [=](){file_pulldown(8);});
 	
 	dbpulldown = menu = menubar->addMenu("&Database");
@@ -155,16 +155,16 @@ void create_mainwindow()
 	menu->setTearOffEnabled(true);
 
 	menu->addAction("On &context", [=](){help_pulldown(0);},
-			QKeySequence("Ctrl+H"));
+			Qt::CTRL|Qt::Key_H);
 	menu->addAction("Current &database", [=](){help_pulldown(1);},
-			QKeySequence("Ctrl+D"));
+			Qt::CTRL|Qt::Key_D);
 	menu->addSeparator();
 	menu->addAction("&Introduction", [=](){help_pulldown(2);});
 	menu->addAction("&Getting help", [=](){help_pulldown(3);});
 	menu->addAction("&Troubleshooting", [=](){help_pulldown(4);});
 	menu->addAction("&Files and programs", [=](){help_pulldown(5);});
 	menu->addAction("&Expression grammar", [=](){help_pulldown(6);},
-			QKeySequence("Ctrl+G"));
+			Qt::CTRL|Qt::Key_G);
 	menu->addAction("&Variables and X Resources", [=](){});
 
 	w = new QWidget;
@@ -356,8 +356,12 @@ void resize_mainwindow(void)
 	QPoint pos(mainwindow->pos());
 	mainwindow->adjustSize();
 	mainwindow->move(pos);
-	// FIXME: window is too wide -- setting to "minimum size" doesn't work
-	// except for the first time
+	// FIXME: window is too large -- setting to "minimum size" doesn't work
+	// except randomly (almost always the first time).  Even switching
+	// to the same form will randomly resize it to something much larger
+	//
+	// Sometimes it appears as though it's toggling between some large
+	// size and the correct size.  WTF?
 	mainwindow->resize(mainwindow->minimumSize());
 #endif
 }

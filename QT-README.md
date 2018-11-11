@@ -172,5 +172,10 @@ itself.  For example, text widget cursor color appears to always be
 thin and black in GTK+3, eliminating the possibility of dark-colored
 widgets.  Not only can't the color be set in QSS, I don't think it can
 be set anywhere in Qt except by modifiying the renderer itself.
-
-
+Similarly, QPlatformTheme has a lot of useful information that could
+be used to e.g. set standard shortcuts, standard labels, standard
+layouts, etc., but it is hidden in a private structure.  It seems like
+the creators of a so-called portable toolkit have made it as hard as
+possible to actually make portable applications.  Then again, maybe
+I'm missing something.  Like using XML and/or designer to define all
+the user interface, as it seems to want (not gonna happen).

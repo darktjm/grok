@@ -1,32 +1,31 @@
 Unless otherwise stated, assume 0% complete:
 
-  - Use Qt5 instead of Motif.  This is now about 70%
-    complete: it works similarly to the old interface, but it
-    could use some work:
+  - Use Qt5 instead of Motif.  This is now about 80% complete:  it
+    works similarly to the old interface, but it could use some work:
 
     - Fix critical bugs:
 
-      - The main window is too wide.  I don't know how to portably set
-	the width of the summary list.  With buttons and GTK+
-	styling, it's even worse, because the letter buttons
-	all want to be the same size (i.e., the size of the
-	largest button).  Adding stretch factors does not help.
-	Even when the summary isn't obnoxiously wide, the
-	window doesn't resize to a narrow version on database
-	switch (but it does do so on initial load, for some reason).
-	resize(minimumSize()) after adjustSize() does nothing,
-	at least after the first time.
+      - Main window sizing issues:
 
-      - Ctrl-Q doesn't work.  Is it bound by Qt elsewhere?
+        - The summary list is too wide.  The right-most column almost
+	  always extends too far, and I don't know how to shrink it.
 
-      - When the main window resizes after a database is loaded, it
-	not only resizes the window, but also moves it.  It should stay
-	in one place.  Saving and restoring the position after
-	adjustSize() does nothing, so maybe it's being moved elsewhere.
+        - The window doesn't resize to a narrow version on database
+	  switch (but it does do so on initial load and
+	  randomly, for some reason). resize(minimumSize())
+	  after adjustSize() does help, but not enough.  Even
+	  "switching" to the same database produces random results.
 
-      - I haven't done enough testing yet.  In particular, all places
-	you can close a window need to be verified, as some
-	dialogs have been crashing for no apparent reason.
+        - When the main window resizes after a database switch, it
+	  not only resizes the window, but also moves it.  It should
+	  stay in one place.  Saving and restoring the position after
+	  adjustSize() does nothing, so maybe it's being moved
+	  elsewhere.
+
+      - Ctrl-Q doesn't work.  All the other menu shortcuts seem fine.
+        Is it bound by Qt elsewhere?
+
+    - Some shortcuts, such as ^G and ^Q, should be made global.
 
     - The layout of the form item editor needs tweaking.  At the very
       least, the chart options do not seem to have the right
@@ -35,7 +34,7 @@ Unless otherwise stated, assume 0% complete:
       area are too wide, or the scroll area is too narrow,
       depending on how you look at it.
 
-    - Add a coloer setter QSS similar to the layer one that only sets
+    - Add a color setter QSS similar to the layer one that only sets
       the palette rather than overriding the style as well.  Either
       that, or move some of those aux QSS settings into the preferences
       editor.  QSS sucks.
@@ -50,9 +49,22 @@ Unless otherwise stated, assume 0% complete:
     - Translation of GUI labels.  Maybe even an option to provide
       translation on database values (or at least database labels).
 
-    - Date/Time edit popups; maybe spinboxes for numbers (note: I now
-      use spinboxes for all main GUI numbers, mainly to do format and
-      range enforcement)
+    - Numeric inputs (with spinboxes and min/max and int/float).  I
+      have already converted the numeric inputs in grok's GUI to
+      spinboxes.  This requires a new field and/or flag (I prefer
+      field, since the GUI is cluttered enough as is).  It is not
+      possible to know if a field is currently numeric.  It's just in
+      how it is used.
+
+    - Date/Time edit popups.  Qt's QDateTime and related widgets might
+      work, but they have a few flaws:  the spinner disappears if the
+      date popup is present, and the spinner at least relies on the
+      fixed format of the field to select which part of the date/time
+      to modify.  My old HTML GUI added a time field directly to the
+      calendar popup, which seems best.  I haven't experimented much
+      with them, though, so maybe it's at least possible to support
+      grok's parser for input, even if only to be immediately changed
+      to the fixed format.
 
     - Make some of the more global look & feel preferences available
       in the preferences dialog.  Fine-tuning can still be done with
@@ -63,7 +75,11 @@ Unless otherwise stated, assume 0% complete:
       to eliminate that itself.  In fact, it'd be nice if it were
       possible to build without rtti, but Qt adds its own rtti to
       every moc-compiled class (and has its own version of dynamic_cast),
-      so that's not happening.
+      so that's not happening.  Well, Qt claims that it doesn't use
+      rtti, but they really just mean that they use their own instead
+      of the language-defined one.  They say something about crossing
+      dynamic link library boudaries, but I think that may be a
+      Windows/MSVC-only issue.
 
     - Document the "standard" Qt options, especially given that they
       seem to only be documented in the QApplication/QGuiApplication
@@ -73,9 +89,9 @@ Unless otherwise stated, assume 0% complete:
     instead.  This matches what most other applications do.  Also,
     make database switches (at least via the GUI) make saves optional,
     as well.  Maybe keep modified databases in memory so that
-    programatic switches don't auto-save, either.  After an expression
-    or template that does programatic switches finishes, pop up a
-    message indicating that there are unsaved changes in other
+    programatic switches don't need to auto-save, either.  After an
+    expression or template that does programatic switches finishes,
+    pop up a message indicating that there are unsaved changes in other
     databases.
 
   - Minor attempts at supporting UTF-8.  This is about 20% complete.
@@ -110,7 +126,7 @@ Unless otherwise stated, assume 0% complete:
     - elt(a, n) -> returns string element #n of "array" a; blank if
       out-of-bounds.  Index is 0-based.  Returned value has escaped
       escape characters and value separators unescaped.
-      
+
       Alternatively, maybe a[n], but then field values would need to be
       in curly braces, e.g. `{_name}[n]` or `"a|b"[1]`.
 
@@ -119,7 +135,7 @@ Unless otherwise stated, assume 0% complete:
       just appending a separator folled by the value in that the value
       is escaped properly.  Positive out-of-bounds n will fill the gap
       with blank values.
-      
+
       Alternatively, maybe a[n] = ..., but that isn't as intuitive,
       since it doesn't actually modify a, but instead returns the
       value of a with its nth element replaced.  Like above, field
@@ -150,7 +166,7 @@ Unless otherwise stated, assume 0% complete:
     In addition, templates' FOREACH directive understands arrays:
 
     - \\{FOREACH [v a} -> step over values of a, setting variable v
-    
+
        Alternately, \\{FOREACH [a} \\{ELT} to avoid using a variable,
        but then it wouldn't be possible to use the element value in
        expressions.  This could be solved by using the elt special
@@ -170,9 +186,6 @@ Unless otherwise stated, assume 0% complete:
       values.  The GUI grays out these fields and instead provides a
       pushbutton to edit them in an expandable list, similar to the
       "Queries" editor.
-
-    - note: since I'm adding field types, make field type radio
-      group into such a widget as well.
 
    - Radio groups:  displayed as a grid of radio buttons surrounded by
      a frame.  Otherwise just like the above item.
@@ -248,7 +261,10 @@ Unless otherwise stated, assume 0% complete:
     automatically generated text templates, and support Export to pipe
     (e.g. 1st character is vertical bar) for "printing".  Making it a
     combo box with the defined printers would sort of compensate for
-    losing those preferences, I guess.
+    losing those preferences, I guess.  Note that the overstrike feature
+    isn't possible with current expressions, so a function to that
+    effect would need to be added, unless regex stuff is done first
+    (e.g. bold == gsub(s, ".", "\\0\008\\0"))
 
     - Maybe support "transient" templates, which aren't saved to files.
       This is to compensate for lack of an SQL command line.
@@ -364,7 +380,7 @@ Unless otherwise stated, assume 0% complete:
   - Labeled frames.  These would also always be pushed to the back in
     the form editor GUI unless explicitly selected, and the interior
     within the form editor is transparent as well.  Come to think of
-    it, there are no horizontal separator lines, labeeld or not, either.
+    it, there are no horizontal separator lines, labeled or not, either.
 
   - Tabs.  These do more damage to the ability to see the entire
     record's information at a glance than anything above.
@@ -396,7 +412,7 @@ Unless otherwise stated, assume 0% complete:
     read-only.
 
   - Regular expression functions (POSIX EXTENDED or perl?) in expressions:
-  
+
     - match(s, e) -> true (or position+1) if e is in s.
 
     - sub(s, e, r) -> replace first occurrence of e with r.  r supports
@@ -404,14 +420,15 @@ Unless otherwise stated, assume 0% complete:
 
     - gsub(s, e, r) -> replace all occurrences of e with r.
 
-  - An string expression to execute to validate a field.  Returns
+  - A string expression to execute to validate a field.  Returns
     blank or a message to tell the user the field is invalid.  The
     validator should run whenever the field is done editing as well as
     whenever the record is left/about to be saved (even if the field
     wasn't edited; this way, dependent fields can validate each other)
     Although I don't like doing it this way, this is one way to do the
     non-blank/unuqueness checks instead of adding more configuration
-    options.
+    options.  Maybe have a way to execute the validator against all
+    existing data.
 
   - Save/restore database as tar file.  Maybe look into the
     (nonexistent?) sync feature a little more.
@@ -447,6 +464,12 @@ Unless otherwise stated, assume 0% complete:
     per-item config options must be present.  I think that maybe charts
     should be popups, either static or via QChartView in some way,
     rather than forcing them onto the static region of the card.
+
+  - Maybe this is an opportunity to make grok scriptable while
+    running, like the old Amiga AREXX port.  I guess dbus would be the
+    modern equivalent.  Most simple would be to just execute a random
+    string and return the string result.  However, an array to retrieve
+    the current search results would be nice as well.
 
   - Use lua instead of a custom language for querying and templates and
     pretty much everything else (and a per-db startup script and

@@ -510,7 +510,7 @@ void add_layout_qss(
     QObject::connect(dynamic_cast<_t *>(_w), QOverload<_p>::of(&_t::_sig), [=](__VA_ARGS__){ _f; })
 #define set_button_cb(_w, _f, ...) \
     set_qt_cb(QAbstractButton, clicked, _w, _f, __VA_ARGS__)
-#define set_text_cb(_w, _f) set_qt_cb(QLineEdit, returnPressed, _w, _f)
+#define set_text_cb(_w, _f) set_qt_cb(QLineEdit, editingFinished, _w, _f)
 #define set_mltext_cb(_w, _f) set_qt_cb(QTextEdit, textChanged, _w, _f)
 #define set_spin_cb(_w, _f) set_qt_cb(QAbstractSpinBox, editingFinished, _w, _f)
 #define set_dialog_cancel_cb(_w, _f) set_qt_cb(QDialog, rejected, _w, _f)

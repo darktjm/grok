@@ -98,6 +98,8 @@ void help_callback(
 	form->addWidget(text_w);
 	text_w->setProperty("helpFont", true);
 	text_w->setReadOnly(true);
+	// QSS doesn't support :read-only for QTextEdit
+	text_w->setProperty("readOnly", true);
 	text_w->setLineWrapMode(QTextEdit::NoWrap);
 	text_w->setLineWrapMode(QTextEdit::NoWrap);
 	text_w->setText(message);

@@ -24,7 +24,8 @@
 "*[colBack=\"true\"] { background-color: #b4b4b4; }\n"
 /*   Background of read-only text widgets in card form */
 "QLineEdit:read-only { background-color: #b4b4b4; color: black; }\n"
-"QTextEdit:read-only { background-color: #b4b4b4; color: black; }\n"
+"/* BUG: QTextEdit's read-only flag is not detectable by :ready-only */\n"
+"QTextEdit[readOnly=\"true\"] { background-color: #b4b4b4; color: black; }\n"
 "/* Former colSheet:  paper-like text scroll areas */\n"
 /*   Background of help text */
 /*   Background of text editor text */

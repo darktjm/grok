@@ -163,6 +163,9 @@ void create_edit_popup(
 	text = new QTextEdit;
 	form->addWidget(text);
 	text->setReadOnly(readonly);
+	// QSS doesn't support :read-only for QTextEdit
+	if (readonly)
+		text->setProperty("readOnly", true);
 	text->setProperty("courierFont", true);
 	text->setLineWrapMode(QTextEdit::NoWrap);
 	if (initial && *initial)

@@ -123,15 +123,16 @@ void create_query_window(
 							/*-- infotext -- */
 	info = new QTextEdit();
 	info->setLineWrapMode(QTextEdit::NoWrap);
-	wform->addWidget(info);
 	info->setReadOnly(true);
-	// FIXME:  only a guess as to how to make this 2 rows high
-	print_text_button_s(info, "M");
-	w->setMinimumHeight(info->sizeHint().height() * 2);
+	// QSS doesn't support :read-only for QTextEdit
+	info->setProperty("readOnly", true);
+	info->ensurePolished();
+	info->setMinimumHeight(info->fontMetrics().height() * 2);
+	wform->addWidget(info);
 
 							/*-- scroll --*/
 
-	w = qlist = new QTableWidget(NCOLUMNS, 3);
+	w = qlist = new QTableWidget(3, NCOLUMNS);
 	qlist->setShowGrid(false);
 	qlist->setWordWrap(false);
 	qlist->horizontalHeader()->setStretchLastSection(true);
@@ -157,34 +158,35 @@ void create_query_window(
  * they are set to being the default.
  */
 
-static short cell_xs   [NCOLUMNS] = { 30, 30, 200, 1000 };
+// 1000 for the last widget was way too much, and scrolled to the right
+static short cell_xs   [NCOLUMNS] = { 30, 30, 200, 200 };
 static QStringList cell_name = { "on", "def", "Name", "Query Expression"};
 
 static void set_row_widgets(int y)
 {
 	int x;
 	register DQUERY	*dq = &form->query[y];
-	bool blank = y > form->nqueries;
+	bool blank = y >= form->nqueries;
 
 	QCheckBox *cb = new QCheckBox;
 	if (!blank)
 		cb->setCheckState(dq->suspended ? Qt::Unchecked : Qt::Checked);
-	qlist->setCellWidget(0, y, cb);
+	qlist->setCellWidget(y, 0, cb);
 	QRadioButton *rb = new QRadioButton;
 	if (!blank)
-		rb->setDown(y == form->autoquery);
-	qlist->setCellWidget(1, y, rb);
+		rb->setChecked(y == form->autoquery);
+	qlist->setCellWidget(y, 1, rb);
 	QLineEdit *t = new QLineEdit;
 	if (!blank && dq->name)
 		t->setText(dq->name);
-	qlist->setCellWidget(2, y, t);
+	qlist->setCellWidget(y, 2, t);
 	t = new QLineEdit;
 	if (!blank && dq->query)
 		t->setText(dq->query);
-	qlist->setCellWidget(3, y, t);
+	qlist->setCellWidget(y, 3, t);
 
 	for(x = 0; x < NCOLUMNS; x++) {
-		QWidget *w = qlist->cellWidget(x, y);
+		QWidget *w = qlist->cellWidget(y, x);
 		if(x > 1)
 			set_text_cb(w, list_callback(w, x, y));
 		else
@@ -350,12 +352,17 @@ static void list_callback(
 	int				i;
 	register DQUERY	*dq = &form->query[y];
 	char *string = 0;
-	bool onblank = y >= form->nqueries;
+	bool onblank = y >= form->nqueries, wasblank = onblank;
 
 	if(x > 1) {
 		const QString &qs = dynamic_cast<QLineEdit *>(w)->text();
 		if(qs.size())
 			string = qstrdup(qs);
+	}
+	if (onblank && (string || (x == 1 && checked))) {
+		(void)add_dquery(form);
+		dq = &form->query[y];
+		onblank = false;
 	}
 	switch(x) {
 	    case 0:
@@ -371,27 +378,28 @@ static void list_callback(
 				if(i < y)
 					y--;
 			} else
-				dynamic_cast<QRadioButton *>(qlist->cellWidget(x, i))->setDown(false);
-			if(onblank) {
-				(void)add_dquery(form);
-				set_row_widgets(y + 1);
-				onblank = false;
-			}
+				dynamic_cast<QRadioButton *>(qlist->cellWidget(i, x))->setChecked(false);
 		}
 		break;
 	    case 2:					/* name */
-		if (dq->name)
-			free(dq->name);
-		dq->name = string;
+		if (!onblank) {
+			if (dq->name)
+				free(dq->name);
+			dq->name = string;
+		}
 		break;
 	    case 3:					/* query expr */
-		if (dq->query)
-			free(dq->query);
-		dq->query = string;
+		if (!onblank) {
+			if (dq->query)
+				free(dq->query);
+			dq->query = string;
+		}
 		break;
 	}
-	if(!onblank && remove_if_blank(y))
-		onblank = true;
+	if (!onblank && !(onblank = remove_if_blank(y)) && wasblank) {
+		qlist->setRowCount(form->nqueries + 1);
+		set_row_widgets(form->nqueries);
+	}
 
 	// FIXME:  this needs to be in a click-callback as well
 	del->setEnabled(!onblank);
