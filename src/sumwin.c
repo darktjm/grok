@@ -22,7 +22,7 @@
 #include "form.h"
 #include "proto.h"
 
-static void sum_callback(int item_posiition);
+static void sum_callback(void);
 
 
 /*
@@ -99,11 +99,15 @@ void create_summary_menu(
 		card->wsummary->clear();
 	card->wsummary->setMinimumHeight(h);
 	card->wsummary->resize(w, h);
-	set_qt_cb(QTreeWidget, itemClicked, card->wsummary,
-		  sum_callback(card->wsummary->indexOfTopLevelItem(item)),
-		  QTreeWidgetItem *item, int col);
-	if(n)
+	set_qt_cb(QTreeWidget, itemSelectionChanged, card->wsummary,
+		  sum_callback());
+	if(n) {
 		scroll_summary(card);
+		if(card->qcurr >= 0 && card->qcurr < card->nquery) {
+			card->row = card->query[card->qcurr];
+			fillout_card(card, FALSE);
+		}
+	}
 	delete mainform->replaceWidget(w_summary, card->wsummary);
 	delete w_summary;
 	w_summary = card->wsummary;
@@ -115,13 +119,25 @@ void create_summary_menu(
  * any, and display the new one.
  */
 
-static void sum_callback(
-	int			item_position)
+static int selected_item(CARD *card)
 {
+	QList<QTreeWidgetItem *> sel = card->wsummary->selectedItems();
+	if (sel.empty())
+		return -1;
+	return card->wsummary->indexOfTopLevelItem(sel.first());
+}
+
+static void sum_callback(void)
+{
+	int			item_position;
 	register CARD		*card = curr_card;
 
+	if (!card)
+		return;
 	card_readback_texts(card, -1);
-	if (card && item_position < card->nquery) {
+	item_position = selected_item(card);
+	if (item_position < card->nquery && item_position >= 0 &&
+	    item_position != card->qcurr) {
 		card->qcurr = item_position;
 		card->row   = card->query[card->qcurr];
 		fillout_card(card, FALSE);
@@ -222,8 +238,12 @@ void make_summary_line(
 			if (buf[j] == '\n')
 				buf[j--] = 0;
 		if(w) {
-			if(!twi)
-				twi = new QTreeWidgetItem;
+			if(!twi) {
+				if(row >= 0 && lrow >= 0)
+					twi = w->topLevelItem(lrow);
+				else
+					twi = new QTreeWidgetItem;
+			}
 			twi->setText(lcol++, buf + x);
 		}
 		x += j = strlen(buf+x);
@@ -243,10 +263,6 @@ void make_summary_line(
 			w->setHeaderItem(twi);
 		else if(lrow < 0)
 			w->addTopLevelItem(twi);
-		else {
-			delete w->takeTopLevelItem(lrow);
-			w->insertTopLevelItem(lrow, twi);
-		}
 	}
 }
 
@@ -333,7 +349,8 @@ void scroll_summary(
 {
 	if (card->wsummary && card->qcurr < card->nquery) {
 		QTreeWidgetItem *twi = card->wsummary->topLevelItem(card->qcurr);
-		card->wsummary->setCurrentItem(twi);
+		if (selected_item(card) != card->qcurr)
+			card->wsummary->setCurrentItem(twi);
 		card->wsummary->scrollToItem(twi);
 	}
 }

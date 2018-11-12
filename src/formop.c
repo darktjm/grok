@@ -138,11 +138,13 @@ void form_delete(
 	for (i=0; i < form->nitems; i++)
 		item_delete(form, i);
 
+	if (form->items)	free((void *)form->items);
 	if (form->path)		free((void *)form->path);
 	if (form->name)		free((void *)form->name);
 	if (form->dbase)	free((void *)form->dbase);
 	if (form->comment)	free((void *)form->comment);
 	if (form->help)		free((void *)form->help);
+	if (form->planquery)	free((void *)form->planquery);
 	if (form->query) {
 		for (i=0; i < form->nqueries; i++) {
 			dq = &form->query[i];
@@ -456,6 +458,7 @@ BOOL item_create(
 		(void)memcpy(item, form->items[nitem+1], sizeof(ITEM));
 		item->name	   = mystrdup(item->name);
 		item->flagcode	   = mystrdup(item->flagcode);
+		item->flagtext	   = mystrdup(item->flagtext);
 		item->label	   = mystrdup(item->label);
 		item->gray_if	   = mystrdup(item->gray_if);
 		item->freeze_if	   = mystrdup(item->freeze_if);
@@ -504,9 +507,14 @@ BOOL item_create(
 	}
 							/* find unused column*/
 	item->column = 0;
-	if (item->type == IT_CHOICE || item->type == IT_FLAG)
+	if (item->type == IT_CHOICE || item->type == IT_FLAG) {
+		if (item->flagcode)
+			free(item->flagcode);
 		item->flagcode = 0;
-	else {
+		if (item->flagtext)
+			free(item->flagtext);
+		item->flagtext = 0;
+	} else {
 		if (IN_DBASE(item->type)) {
 			n = form->nitems;
 			for (i=0; i < n; i++)
@@ -542,6 +550,7 @@ void item_delete(
 	if (item->name)		free((void *)item->name);
 	if (item->label)	free((void *)item->label);
 	if (item->flagcode)	free((void *)item->flagcode);
+	if (item->flagtext)	free((void *)item->flagtext);
 	if (item->gray_if)	free((void *)item->gray_if);
 	if (item->freeze_if)	free((void *)item->freeze_if);
 	if (item->invisible_if)	free((void *)item->invisible_if);
@@ -550,6 +559,7 @@ void item_delete(
 	if (item->pressed)	free((void *)item->pressed);
 	if (item->added)	free((void *)item->added);
 	if (item->ch_bar)	free((void *)item->ch_bar);
+	
 
 	for (i=0; i < item->ch_ncomp; i++) {
 		item->ch_curr = i;
@@ -585,6 +595,7 @@ ITEM *item_clone(
 	item->name	   = mystrdup(parent->name);
 	item->label	   = mystrdup(parent->label);
 	item->flagcode	   = mystrdup(parent->flagcode);
+	item->flagtext	   = mystrdup(parent->flagtext);
 	item->gray_if	   = mystrdup(parent->gray_if);
 	item->freeze_if	   = mystrdup(parent->freeze_if);
 	item->invisible_if = mystrdup(parent->invisible_if);

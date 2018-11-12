@@ -876,6 +876,7 @@ static int readback_item(
 		      item_deselect(form);
 		      (void)item_create(form, curr_item);
 		      form->items[curr_item]->selected = TRUE;
+		      item = 0; // skip item adjustment below
 		      all = TRUE;
 		      break;
 
@@ -886,6 +887,7 @@ static int readback_item(
 				    curr_item--;
 				else
 				    item_deselect(form);
+		      item = 0; // skip item adjustment below
 	 	      all = TRUE;
 		      break;
 

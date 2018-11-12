@@ -165,7 +165,7 @@ void create_mainwindow()
 	menu->addAction("&Files and programs", [=](){help_pulldown(5);});
 	menu->addAction("&Expression grammar", [=](){help_pulldown(6);},
 			Qt::CTRL|Qt::Key_G);
-	menu->addAction("&Variables and X Resources", [=](){});
+	menu->addAction("&Variables and QSS", [=](){help_pulldown(7);});
 
 	w = new QWidget;
 	mainwindow->setCentralWidget(w);
@@ -778,6 +778,7 @@ void switch_form(
 			form_delete(curr_card->form);
 			free((void *)curr_card->form);
 		}
+		query_none(curr_card);
 		free((void *)curr_card);
 		curr_card = 0;
 	}

@@ -22,6 +22,24 @@ Unless otherwise stated, assume 0% complete:
 	  adjustSize() does nothing, so maybe it's being moved
 	  elsewhere.
 
+	- Selection in the summary window is sometimes ignored (actually,
+	  I think it gets reverted when it thinks the db is modified).
+	  The original Motif GUI did that sometimes, too.  Also, it
+	  occasionally crashes when popping around.  Maybe events are
+	  being generated before having been fully processed?
+
+	- As expected, letter buttons still don't work
+	
+	- file dialog is always GTK+.  Is there a way to make it
+	  "native QT"?
+
+        - Memory leaks:
+
+	  - on parse error, any string yylvals leak
+	  
+	  - valgrid tells me at least one form def leaks, but I can't
+	    see where
+
       - Ctrl-Q doesn't work.  All the other menu shortcuts seem fine.
         Is it bound by Qt elsewhere?
 
@@ -48,6 +66,7 @@ Unless otherwise stated, assume 0% complete:
 
     - Translation of GUI labels.  Maybe even an option to provide
       translation on database values (or at least database labels).
+      This makes some sort of automatic layout almost necessary.
 
     - Numeric inputs (with spinboxes and min/max and int/float).  I
       have already converted the numeric inputs in grok's GUI to
@@ -392,6 +411,14 @@ Unless otherwise stated, assume 0% complete:
       a tabbed window in the editor window as well.  Widgets added
       within the bounds of the tab window are added to the currently
       selected tab.
+      
+      - Alternately, take advantage of invisible_if's now dynamic
+        behavior.  Just add a "hide now" button next to invisible_if
+	that hides this item and any item with the exact same hide
+	expression.  That way, you can design overlapping widgets
+	without interference (and, unfortunately, without guidance).
+	Alternatevely, add a tearable menu of all invisible_if
+	expressions for fast switching between "tabs"
 
     - As a special form of the foriegn key feature:  one-to-one
       relationships.  Each tab corresponds to a child table, and within

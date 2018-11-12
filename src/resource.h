@@ -29,7 +29,7 @@
 "/* Former colSheet:  paper-like text scroll areas */\n"
 /*   Background of help text */
 /*   Background of text editor text */
-"*[colSheet=\"true\"] { background-color: #f0f0f0; color: black; }\n"
+"*[colSheet=\"true\"], QTextEdit[colSheet=\"true\"] { background-color: #f0f0f0; color: black; }\n"
 "/* Formerly colSheet, but can't be any more for technical reasons */\n"
 /*   Foreground color of inner border around selected bar in bar chart */
 "GrokChart { qproperty-hlcolor: #f0f0f0; }\n"

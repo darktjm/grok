@@ -208,10 +208,6 @@ static void spool_callback(void)
 {
 	int				i;
 
-	if (pref.pspooler_a)
-		free(pref.pspooler_a);
-	if (pref.pspooler_p)
-		free(pref.pspooler_p);
 	(void)read_text_button(w_spoola, &pref.pspooler_a);
 	(void)read_text_button(w_spoolp, &pref.pspooler_p);
 	i = w_linelen->value();
@@ -312,8 +308,8 @@ void read_preferences(void)
 		if (!strcmp(key, "pformat"))	pref.pformat	 = *p;
 		if (!strcmp(key, "pqual"))	pref.pquality	 = *p;
 		if (!strcmp(key, "pdevice"))	pref.pdevice	 = *p;
-		if (!strcmp(key, "pspoola"))	pref.pspooler_a	 = mystrdup(p);
-		if (!strcmp(key, "pspoolp"))	pref.pspooler_p	 = mystrdup(p);
+		if (!strcmp(key, "pspoola"))	{ free(pref.pspooler_a); pref.pspooler_a	 = mystrdup(p); }
+		if (!strcmp(key, "pspoolp"))	{ free(pref.pspooler_p); pref.pspooler_p	 = mystrdup(p); }
 		if (!strcmp(key, "pfile"))	pref.pfile	 = mystrdup(p);
 		if (!strcmp(key, "linelen"))	pref.linelen	 = atoi(p);
 	}

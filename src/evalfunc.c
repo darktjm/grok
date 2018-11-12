@@ -633,6 +633,20 @@ struct arg *f_addarg(
  * says "%100000s".
  */
 
+static void free_args(
+	struct arg	*arg)
+{
+	struct arg	*t;
+
+	while(arg) {
+		t = arg->next;
+		if(arg->value)
+			free(arg->value);
+		free(arg);
+		arg = t;
+	}
+}
+
 char *f_printf(
 	struct arg	*arg)
 {
@@ -645,10 +659,14 @@ char *f_printf(
 	char		cbuf[100];	/* control substring, [0] is '%' */
 	int		i;
 
-	if (!arg || !*arg->value)
+	if (!arg)
 		return(0);
 	argp = arg->next;
 	fmt  = arg->value;
+	if (!fmt || !*fmt) {
+		free_args(arg);
+		return(0);
+	}
 	while (*fmt) {
 		if (*fmt == '\\' && fmt[1]) {
 			fmt++;

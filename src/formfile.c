@@ -201,7 +201,6 @@ BOOL read_form(
 	ITEM			*item = 0;	/* item pointer, 0=form hdr */
 	int			i;		/* item counter */
 	CHART			*chart = 0;	/* next chart component */
-	CHART			nullchart;	/* if chart keyword missing */
 
 	path = resolve_tilde(path, "gf");
 	if (!(fp = fopen(path, "r"))) {
@@ -210,8 +209,6 @@ BOOL read_form(
 		return(FALSE);
 	}
 	form_delete(form);
-	if (form->path)
-		free(form->path);
 	form->path = mystrdup(path);
 	for (;;) {
 		if (!fgets(line, 1023, fp))
@@ -233,7 +230,7 @@ BOOL read_form(
 				form_delete(form);
 				return(FALSE);
 			}
-			chart = &nullchart;
+			chart = NULL;
 			item  = form->items[form->nitems-1];
 			item->selected = FALSE;
 			item->ch_curr  = 0;
@@ -383,28 +380,28 @@ BOOL read_form(
 								sizeof(CHART));
 			}
 			else if (!strcmp(key, "chart"))
-					chart = chart == &nullchart ?
+					chart = !chart ?
 						item->ch_comp : chart+1;
-			else if (!strcmp(key, "_ch_type"))
+			else if (chart && !strcmp(key, "_ch_type"))
 					chart->line = atoi(p);
-			else if (!strcmp(key, "_ch_fat"))
+			else if (chart && !strcmp(key, "_ch_fat"))
 					sscanf(p, "%d %d", &chart->xfat,
 							   &chart->yfat);
-			else if (!strcmp(key, "_ch_excl"))
+			else if (chart && !strcmp(key, "_ch_excl"))
 					STORE(chart->excl_if, p);
-			else if (!strcmp(key, "_ch_color"))
+			else if (chart && !strcmp(key, "_ch_color"))
 					STORE(chart->color, p);
-			else if (!strcmp(key, "_ch_label"))
+			else if (chart && !strcmp(key, "_ch_label"))
 					STORE(chart->label, p);
-			else if (!strncmp(key, "_ch_mode", 8))
+			else if (chart && !strncmp(key, "_ch_mode", 8))
 					chart->value[key[8]-'0'].mode =atoi(p);
-			else if (!strncmp(key, "_ch_field", 9))
+			else if (chart && !strncmp(key, "_ch_field", 9))
 					chart->value[key[9]-'0'].field=atoi(p);
-			else if (!strncmp(key, "_ch_mul", 7))
+			else if (chart && !strncmp(key, "_ch_mul", 7))
 					chart->value[key[7]-'0'].mul = atof(p);
-			else if (!strncmp(key, "_ch_add", 7))
+			else if (chart && !strncmp(key, "_ch_add", 7))
 					chart->value[key[7]-'0'].add = atof(p);
-			else if (!strncmp(key, "_ch_expr", 8))
+			else if (chart && !strncmp(key, "_ch_expr", 8))
 					STORE(chart->value[key[8]-'0'].expr,p);
 #if 0
 			else

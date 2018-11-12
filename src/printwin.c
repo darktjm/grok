@@ -166,7 +166,7 @@ static void print_callback(void)
 {
 	if (pref.pdevice == 'F') {
 		int ret;
-		QFileDialog *d = new QFileDialog(shell, "pfile");
+		QFileDialog *d = new QFileDialog(shell, "Select printing output file");
 		d->setAcceptMode(QFileDialog::AcceptSave);
 		set_file_dialog_cb(d, file_print_callback(d, fn), fn);
 		ret = d->exec();

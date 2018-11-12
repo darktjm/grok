@@ -170,13 +170,13 @@ sections are selected, all cards are considered.
 
 <P>The <TT>switch</TT> statement is legal only in <I>Action when
 pressed</I> expressions for Button-type fields in the form editor. It
-does nothing except as action for a button in a card. It switches grok
-to a new form as if the Database pulldown had been used (see the Editing
-Forms chapter for details about the difference between <I>databases</I>
-and <I>forms</I>. The first argument is the new form name, the second
-argument is the query expression or search string that determines which
-cards are displayed in the summary initially. The possible combinations
-are:
+does nothing until the button expression evaluation is finished. It
+then switches grok to a new form as if the Database pulldown had been
+used (see the Editing Forms chapter for details about the difference
+between <I>databases</I> and <I>forms</I>. The first argument is the
+new form name, the second argument is the query expression or search
+string that determines which cards are displayed in the summary
+initially. The possible combinations are:
 
 <UL>
 <LI><TT>switch("", "")</TT><BR>

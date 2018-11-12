@@ -78,6 +78,7 @@ void dbase_delete(
 		for (c=row->ncolumns-1; c >= 0; c--)
 			if (row->data[c])
 				free(row->data[c]);
+		free(row);
 	}
 	if (dbase->row)
 		free(dbase->row);

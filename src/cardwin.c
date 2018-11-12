@@ -22,7 +22,7 @@
 #include "proto.h"
 
 static void create_item_widgets(CARD *, int);
-static void card_callback(QWidget *, CARD *);
+static void card_callback(int, CARD *, bool f = false);
 void card_readback_texts(CARD *, int);
 static BOOL store(CARD *, int, const char *);
 
@@ -194,6 +194,85 @@ static QLabel *mk_label(QWidget *wform, ITEM &item, int w, int h)
 	return lab;
 }
 
+// Qt in its glorious wisdom provides no signals related to focus, so
+// I have to override the low-level event handler(s)
+
+#define OVERRIDE_INIT(c,i) {\
+	ITEM *ip; \
+	if (c && (ip = c->form->items[i]) && \
+	    ip->skip_if && *ip->skip_if) { \
+		card = c; \
+		item = i; \
+	} else \
+		card = NULL; \
+}
+
+#define OVERRIDE_FOCUS(p) \
+	int item; \
+	CARD *card; \
+	bool refocusing = false; /* avoid refocus loop */ \
+	void focus_init(CARD *c, int i) { card = c; item = i; } \
+	void focusInEvent(QFocusEvent *e) { \
+		Qt::FocusReason r = e->reason(); \
+		if(card && !refocusing && \
+		   (r == Qt::TabFocusReason || r == Qt::BacktabFocusReason) && \
+		   evalbool(card, card->form->items[item]->skip_if)) { \
+			e->accept(); \
+			refocusing = true; \
+			QWidget *w = this; \
+			while(1) { \
+				if(r == Qt::TabFocusReason) \
+					w = w->nextInFocusChain(); \
+				else \
+					w = w->previousInFocusChain(); \
+				if(!w) { \
+					refocusing = false; \
+					return; \
+				} \
+				if(w->focusPolicy() & Qt::TabFocus) { \
+					w->setFocus(r); \
+					refocusing = false; \
+					return; \
+				} \
+			} \
+		} \
+		p::focusInEvent(e); \
+	}
+
+struct CardLineEdit : public QLineEdit {
+	CardLineEdit(CARD *c, int i, QWidget *p) : QLineEdit(p) OVERRIDE_INIT(c,i)
+	OVERRIDE_FOCUS(QLineEdit)
+};
+
+struct CardTextEdit : public QTextEdit {
+	// Unlike others, this always needs card & item
+	// Evaluating a blank skip_if is at least fast.
+	CardTextEdit(CARD *c, int i, QWidget *p) : QTextEdit(p), item(i), card(c) {}
+	OVERRIDE_FOCUS(QTextEdit)
+	// There is no equivalent to QLineEdit's editingFinished, so at least
+	// do something when focus is lost.
+	// FIXME:  This probably gets called if it gets skipped due to skip_if
+	void focusOutEvent(QFocusEvent *e) {
+		QTextEdit::focusOutEvent(e);
+		card_callback(item, card, true);
+	}
+};
+
+struct CardRadioButton : public QRadioButton {
+	CardRadioButton(CARD *c, int i, const QString &s, QWidget *p) : QRadioButton(s, p) OVERRIDE_INIT(c,i)
+	OVERRIDE_FOCUS(QRadioButton)
+};
+
+struct CardCheckBox : public QCheckBox {
+	CardCheckBox(CARD *c, int i, const QString &s, QWidget *p) : QCheckBox(s, p) OVERRIDE_INIT(c,i)
+	OVERRIDE_FOCUS(QCheckBox)
+};
+
+struct CardPushButton : public QPushButton {
+	CardPushButton(CARD *c, int i, const QString &s, QWidget *p) : QPushButton(s, p) OVERRIDE_INIT(c,i)
+	OVERRIDE_FOCUS(QPushButton)
+};
+
 static void create_item_widgets(
 	CARD		*card,		/* card the item is added to */
 	int		nitem)		/* number of item being added */
@@ -222,8 +301,6 @@ static void create_item_widgets(
 
 	carditem = &card->items[nitem];
 	carditem->w0 = carditem->w1 = 0;
-	if (evalbool(card, item.invisible_if))
-		return;
 	editable = item.type != IT_PRINT
 			&& (!card->dbase || !card->dbase->rdonly)
 			&& !card->form->rdonly
@@ -241,7 +318,7 @@ static void create_item_widgets(
 		if (item.xm > 6)
 		  carditem->w1 = mk_label(wform, item, item.xm - 6, item.ys);
 		{
-		  QLineEdit *le = new QLineEdit(wform);
+		  QLineEdit *le = new CardLineEdit(card, nitem, wform);
 		  carditem->w0 = le;
 		  le->setObjectName("input");
 		  le->move(item.x + item.xm, item.y);
@@ -251,15 +328,20 @@ static void create_item_widgets(
 		  le->setMaxLength(item.maxlen?item.maxlen:10);
 		  le->setReadOnly(!editable);
 		  // le->setTextMargins(l, r, 2, 2);
-		  if (editable)
-			set_text_cb(le, card_callback(le, card));
+		  if (editable) {
+			// Make this update way too often, just like IT_NOTE.
+			set_qt_cb(QLineEdit, textChanged, le,
+				  card_callback(nitem, card, false));
+			// But only update dependent widgets when done
+			set_text_cb(le, card_callback(nitem, card, true));
+		  }
 		}
 		break;
 
 	  case IT_NOTE:				/* multi-line text */
 		carditem->w1 = mk_label(wform, item, item.xs, item.ym);
 		{
-		  QTextEdit *te = new QTextEdit(wform);
+		  QTextEdit *te = new CardTextEdit(card, nitem, wform);
 		  carditem->w0 = te;
 		  te->setObjectName("note");
 		  te->move(item.x, item.y + item.ym);
@@ -273,8 +355,12 @@ static void create_item_widgets(
 		  // QSS doesn't support :read-only for QTextEdit
 		  if (!editable)
 			te->setProperty("readOnly", true);
-		   else
-			set_mltext_cb(te, card_callback(te, card));
+		   else {
+			// This updates way too often:  every character.
+			set_qt_cb(QTextEdit, textChanged, te, card_callback(nitem, card, false));
+			// But there is no equivalent to editingFinished here
+			// Instead, focusOutEvent is overridden above.
+		   }
 		}
 		break;
 
@@ -282,9 +368,9 @@ static void create_item_widgets(
 	  case IT_FLAG: {			/* square on/off switch */
 		  QAbstractButton *b;
 		  if (item.type == IT_CHOICE)
-			  b = new QRadioButton(item.label, wform);
+			  b = new CardRadioButton(card, nitem, item.label, wform);
 		  else
-			  b = new QCheckBox(item.label, wform);
+			  b = new CardCheckBox(card, nitem, item.label, wform);
 		  carditem->w0 = b;
 		  b->move(item.x, item.y);
 		  b->resize(item.xs, item.ys);
@@ -296,20 +382,20 @@ static void create_item_widgets(
 		  if (card->dbase && !card->dbase->rdonly
 				&& !card->form->rdonly
 				&& !item.rdonly)
-			set_button_cb(b, card_callback(b, card));
+			set_button_cb(b, card_callback(nitem, card, c), bool c);
 		  else
 			b->setEnabled(false); // tjm - added this for sanity
 	  }
 		break;
 
 	  case IT_BUTTON: {			/* pressable button */
-		QPushButton *b = new QPushButton(item.label, wform);
+		QPushButton *b = new CardPushButton(card, nitem, item.label, wform);
 		carditem->w0 = b;
 		b->move(item.x, item.y);
 		b->resize(item.xs, item.ys);
 		b->setProperty(font_prop[item.labelfont], true);
 		b->setObjectName("button");
-		set_button_cb(b, card_callback(b, card));
+		set_button_cb(b, card_callback(nitem, card));
 		break;
 	  }
 
@@ -336,22 +422,19 @@ static void create_item_widgets(
  * column of that row that is referenced by the item. Redraw the entire
  * card (because a Choice item turns off other Choice items). This is
  * used for all item types except charts, which are more complicated
- * because of drawing and get their own callback, chart_action_callback.
+ * because of drawing and use built-in event overrides instead of a
+ * callback.
  */
 
 static void card_callback(
-	QWidget			*widget,
-	CARD			*card)
+	int			nitem,
+	CARD			*card,
+	bool			flag)
 {
 	ITEM		*item;
-	int		nitem, i;
 	const char	*n;
-	char		*o;
+	bool		redraw = true;
 
-	for (nitem=0; nitem < card->nitems; nitem++)
-		if (widget == card->items[nitem].w0 ||
-		    widget == card->items[nitem].w1)
-			break;
 	if (nitem >= card->nitems ||			/* illegal */
 	    card->dbase == 0	  ||			/* preview dummy card*/
 	    card->row < 0)				/* card still empty */
@@ -362,33 +445,34 @@ static void card_callback(
 	  case IT_INPUT:				/* arbitrary input */
 	  case IT_TIME:					/* date and/or time */
 	  case IT_NOTE:					/* multi-line text */
-		i = (nitem+1) % card->form->nitems;
-		for (; i != nitem; i=(i+1)%card->form->nitems) {
-			int t = card->form->items[i]->type;
-			if ((t == IT_INPUT || t == IT_TIME || t == IT_NOTE) &&
-			    !evalbool(card, card->form->items[i]->skip_if))
-				break;
-		}
-		card->items[i].w0->setFocus();
+		// Note:  there used to be code here to advance via skip_if.
+		// The code was never called in 1.5/OpenMotif-2.3.8, and
+		// seriously broke the Qt version when I replaced the signal
+		// with one that actually gets generated.
+		// Now I respect skip_if on all fields via tab intercepts
 		card_readback_texts(card, nitem);
+		redraw = flag;
 		break;
 
 	  case IT_CHOICE:				/* diamond on/off */
-		if (!store(card, nitem, item->flagcode))
+		// flag should always be true, since radio buttons don't toggle
+		// however, this callback may be accidentally invoked when
+		// the other choices get unchecked
+		if (!flag || !store(card, nitem, item->flagcode))
 			return;
 		break;
 
 	  case IT_FLAG:					/* square on/off */
 		if (!(n = item->flagcode))
 			return;
-		o = dbase_get(card->dbase, card->row,
-					   card->form->items[nitem]->column);
-		if (!store(card, nitem, !o || strcmp(n, o) ? n : 0))
+		// Old code toggled database value directly.  Now it
+		// respects the state of the GUI.
+		if (!store(card, nitem, flag ? n : 0))
 			return;
 		break;
 
 	  case IT_BUTTON:				/* pressable button */
-		if (item->pressed) {
+		if ((redraw = item->pressed)) {
 			if (switch_name) free(switch_name); switch_name = 0;
 			if (switch_expr) free(switch_expr); switch_expr = 0;
 			n = evaluate(card, item->pressed);
@@ -405,7 +489,8 @@ static void card_callback(
 		}
 		break;
 	}
-	fillout_card(card, TRUE);
+	if (redraw)
+		fillout_card(card, TRUE);
 }
 
 
@@ -578,7 +663,9 @@ void fillout_card(
 		for (i=0; i < card->nitems; i++)
 			fillout_item(card, i, deps);
 	}
-	remake_section_popup(FALSE);
+	// only rebuild if doing a full rebuild
+	if (!deps)
+		remake_section_popup(FALSE);
 }
 
 
@@ -587,7 +674,7 @@ void fillout_item(
 	int		i,		/* item index */
 	BOOL		deps)		/* if TRUE, dependencies only */
 {
-	BOOL		sens;		/* (de-)sensitize item */
+	BOOL		sens, vis;	/* (de-)sensitize item */
 	register ITEM	*item;		/* describes type and geometry */
 	QWidget		*w0, *w1;	/* input widget(s) in card */
 	const char	*data;		/* value string in database */
@@ -596,12 +683,25 @@ void fillout_item(
 	w0   = card->items[i].w0;
 	w1   = card->items[i].w1;
 	item = card->form->items[i];
+	// FIXME:  Should above-div items always be excluded, like sens?
+	vis = !item->invisible_if ||
+	       card->dbase && card->row >= 0
+			   && card->row < card->dbase->nrows
+			   && !evalbool(card, item->invisible_if);
+	if (w0) w0->setVisible(vis);
+	if (w1) w1->setVisible(vis);
+
+	// FIXME:  Should above-div items always be excluded?
+	// FIXME:  Should IT_LABELs be disabled when no data is loaded?
 	sens = item->type == IT_BUTTON && !item->gray_if ||
 	       item->y < card->form->ydiv ||
 	       card->dbase && card->row >= 0
 			   && card->row < card->dbase->nrows
 			   && !evalbool(card, item->gray_if);
-	data = !sens || item->type == IT_BUTTON ? 0 :
+	// FIXME:  not pulling in data here causes databsae to be modified
+	//         to the blank data.  Besides, I actually want it to
+	//         show the data on disabled (but not invisible) fields
+	data = /* !vis || !sens || item->type == IT_BUTTON ? 0 : */
 	       dbase_get(card->dbase, card->row, card->form->items[i]->column);
 
 	
@@ -610,23 +710,25 @@ void fillout_item(
 
 	switch(item->type) {
 	  case IT_TIME:
-		if (sens)
+		// if (sens)
 			data = format_time_data(data, item->timefmt);
 
 	  case IT_INPUT:
 		if (!deps) {
-			print_text_button_s(w0, !sens ? " " : data ? data :
+			print_text_button_s(w0, /* !sens ? " " : */ data ? data :
 					item->idefault &&
 					(eval = evaluate(card, item->idefault))
 							? eval : "");
+#if 0 // this gets called every time a character changes, so don't mess with the cursor
 			if (w0)
 				dynamic_cast<QLineEdit *>(w0)->setCursorPosition(0);
+#endif
 		}
 		break;
 
 	  case IT_NOTE:
 		if (!deps && w0) {
-			print_text_button_s(w0, !sens ? " " : data ? data :
+			print_text_button_s(w0, /* !sens ? " " : */ data ? data :
 					item->idefault &&
 					(eval = evaluate(card, item->idefault))
 							? eval : "");

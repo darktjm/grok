@@ -265,11 +265,19 @@ static void set_w_text(QWidget *w, QString &string)
 	else if((l = dynamic_cast<QLabel *>(w)))
 		l->setText(string);
 	else if((le = dynamic_cast<QLineEdit *>(w))) {
-		le->setText(string);
-		le->setCursorPosition(string.size());
+		if (le->text() != string) {
+			le->setText(string);
+#if 0 // actually, this seems pointless and annoying, especially if the widget scrolls.
+			le->setCursorPosition(string.size());
+#endif
+		}
 	} else if((te = dynamic_cast<QTextEdit *>(w))) {
-		te->setPlainText(string);
-		te->textCursor().setPosition(string.size());
+		if (te->toPlainText() != string) {
+			te->setPlainText(string);
+#if 0 // actually, this seems pointless and annoying, especially if the widget scrolls.
+			te->textCursor().setPosition(string.size());
+#endif
+		}
 	}
 }
 
@@ -305,8 +313,10 @@ void set_toggle(
 	QWidget			*w,
 	BOOL			set)
 {
-	if (w)
-		dynamic_cast<QAbstractButton *>(w)->setChecked(set);
+	// Don't generate an event of any kind if it's already set correctly
+	QAbstractButton *b = dynamic_cast<QAbstractButton *>(w);
+	if (b && b->isChecked() != !!set)
+		b->setChecked(set);
 }
 
 

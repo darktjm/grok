@@ -22,7 +22,8 @@ static void	f_free	(char  *s)  { if (s) free((void *)s); }
 static char    *f_str	(double d)  { char buf[100]; sprintf(buf,"%.12lg",d);
 					return(mystrdup(buf)); }
 static int	f_cmp	(char  *s,
-			 char  *t)  { return(strcmp(s?s:"", t?t:"")); }
+			 char  *t)  { int r = strcmp(s?s:"", t?t:"");
+				      f_free(s); f_free(t); return r;}
 
 static char    *getsvar	(int    v)  { char buf[100], *r = var[v].string;
 					if (var[v].numeric) { sprintf(r = buf,
@@ -101,7 +102,8 @@ string	: STRING			{ $$ = $1; }
 					  $$ = setsvar(v, r); }
 	| VAR '=' string		{ $$ = setsvar($1, $3);}
 	| '(' number ')'		{ $$ = f_str($2); }
-	| string '?' string ':' string	{ $$ = f_num($1) ? $3 : $5; }
+	| string '?' string ':' string	{ bool c = f_num($1); $$ = c ? $3 : $5;
+					  if (c) f_free($5); else f_free($3);}
 	| string '<' string		{ $$ = f_str((double)
 							(f_cmp($1, $3) <  0));}
 	| string '>' string		{ $$ = f_str((double)
@@ -138,7 +140,8 @@ string	: STRING			{ $$ = $1; }
 						mystrdup(section_name(
 						    yycard->dbase,
 						    yycard->dbase->currsect));}
-	| SECTION_ '[' number ']'	{ $$ = mystrdup(section_name(
+	| SECTION_ '[' number ']'	{ $$ = !yycard || !yycard->dbase ? 0 :
+						mystrdup(section_name(
 						    yycard->dbase,
 						    f_section($3))); }
 	| FORM_				{ $$ = yycard && yycard->form
@@ -155,9 +158,9 @@ string	: STRING			{ $$ = $1; }
 					{ char *name = $3, *expr = $5;
 					  f_free(switch_name);
 					  f_free(switch_expr);
-					  switch_name = mystrdup(name);
-					  switch_expr = mystrdup(expr);
-					  f_free(name); f_free(expr); $$ = 0; }
+					  switch_name = name;
+					  switch_expr = expr; 
+					  $$ = 0; }
 	| FOREACH '(' string ')'	{ f_foreach(0, $3); $$ = 0; }
 	| FOREACH '(' string ',' string ')'
 					{ f_foreach($3, $5); $$ = 0; }
@@ -297,9 +300,9 @@ number	: NUMBER			{ $$ = $1; }
 						yycard->dbase->currsect : 0; }
 	| SECTION_ '[' number ']'	{ $$ = f_section($3); }
 	| DATE				{ $$ = time(0); }
-	| DATE  '(' string ')'		{ $$ = parse_datetimestring($3); }
-	| TIME  '(' string ')'		{ $$ = parse_timestring($3, FALSE); }
-	| DURATION '(' string ')'	{ $$ = parse_timestring($3, TRUE); }
+	| DATE  '(' string ')'		{ $$ = $3 ? parse_datetimestring($3) : 0; f_free($3);}
+	| TIME  '(' string ')'		{ $$ = $3 ? parse_timestring($3, FALSE) : 0; f_free($3);}
+	| DURATION '(' string ')'	{ $$ = $3 ? parse_timestring($3, TRUE) : 0; f_free($3);}
 	| YEAR  '(' number ')'		{ const time_t t = $3;
 					  $$ = localtime(&t)->tm_year; }
 	| MONTH '(' number ')'		{ const time_t t = $3;
