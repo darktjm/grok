@@ -135,7 +135,7 @@ void form_delete(
 
 	if (!form)
 		return;
-	for (i=0; i < form->nitems; i++)
+	for (i=form->nitems - 1; i >= 0; --i)
 		item_delete(form, i);
 
 	if (form->items)	free((void *)form->items);

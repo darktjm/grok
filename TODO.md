@@ -37,9 +37,6 @@ Unless otherwise stated, assume 0% complete:
 
 	  - on parse error, any string yylvals leak
 	  
-	  - valgrid tells me at least one form def leaks, but I can't
-	    see where
-
       - Ctrl-Q doesn't work.  All the other menu shortcuts seem fine.
         Is it bound by Qt elsewhere?
 
