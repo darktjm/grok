@@ -383,8 +383,6 @@ static void create_item_widgets(
 				&& !card->form->rdonly
 				&& !item.rdonly)
 			set_button_cb(b, card_callback(nitem, card, c), bool c);
-		  else
-			b->setEnabled(false); // tjm - added this for sanity
 	  }
 		break;
 

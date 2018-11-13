@@ -26,19 +26,6 @@ static void sum_callback(void);
 
 
 /*
- */
-
-void destroy_summary_menu(
-	register CARD	*card)		/* card to destroy */
-{
-	if (card->wsummary) {
-		delete card->wsummary;
-		card->wsummary = 0;
-	}
-}
-
-
-/*
  * create a summary in a list widget, based on the card struct. Some query
  * must have been done earlier, so that card->query is defined. Install the
  * summary in form widget wform.
@@ -50,56 +37,58 @@ void create_summary_menu(
 	CARD		dummy;		/* if no card yet, use empty card */
 	char		buf[1024];	/* summary line buffer */
 	int		n, w, h;
+	QTreeWidget	*newsum;
 
 	if (!mainwindow)
 		return;
 	print_info_line();
 	if (!card)
 		memset((void *)(card = &dummy), 0, sizeof(dummy));
-	card->wsummary  = new QTreeWidget(mainwindow);
-	bind_help(card->wsummary, "summary"); // formerly set in mainwin.c
-	card->wsummary->setItemsExpandable(false);
+	card->wsummary = NULL;
+	newsum  = new QTreeWidget(mainwindow);
+	bind_help(newsum, "summary"); // formerly set in mainwin.c
+	newsum->setItemsExpandable(false);
 	// no decorations should follow from not expandable, but set to be sure
-	card->wsummary->setRootIsDecorated(false);
-	card->wsummary->setUniformRowHeights(true);
-	card->wsummary->setSelectionMode(QAbstractItemView::SingleSelection);
-	card->wsummary->setSelectionBehavior(QAbstractItemView::SelectRows);
+	newsum->setRootIsDecorated(false);
+	newsum->setUniformRowHeights(true);
+	newsum->setSelectionMode(QAbstractItemView::SingleSelection);
+	newsum->setSelectionBehavior(QAbstractItemView::SelectRows);
 
 	for (n=0; n < card->nquery; n++)
-		make_summary_line(buf, card, card->query[n], card->wsummary);
-	make_summary_line(buf, card, -1, card->wsummary);
-	card->wsummary->header()->setSectionsMovable(false);
-	card->wsummary->header()->setSectionResizeMode(QHeaderView::Fixed);
-	card->wsummary->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+		make_summary_line(buf, card, card->query[n], newsum);
+	make_summary_line(buf, card, -1, newsum);
+	newsum->header()->setSectionsMovable(false);
+	newsum->header()->setSectionResizeMode(QHeaderView::Fixed);
+	newsum->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 	// Fit view to data.  FIXME:  How do I add line-separators?  Or is
 	// increasing paddding all I can do?
 	if (!card->nquery && !*buf) {
-		card->wsummary->header()->hide();
+		newsum->header()->hide();
 		w = 400;
 	} else {
-		card->wsummary->resize(10, 10);
-		for(n = 0; n < card->wsummary->columnCount(); n++)
-			card->wsummary->resizeColumnToContents(n);
+		newsum->resize(10, 10);
+		for(n = 0; n < newsum->columnCount(); n++)
+			newsum->resizeColumnToContents(n);
 		// tjm - FIXME:  How do I get the max line width?
-		w = card->wsummary->verticalScrollBar()->width() +
-			card->wsummary->header()->length();
+		w = newsum->verticalScrollBar()->width() +
+			newsum->header()->length();
 	}
-	card->wsummary->setMinimumWidth(w);
+	newsum->setMinimumWidth(w);
 
 	// not sure how to set # of visible lines to pref.sumlines
 	// I'll just measure a row and add the header height.
 	if(!n) {
 		QTreeWidgetItem *twi = new QTreeWidgetItem;
 		twi->setText(0, "QT is a pain in the ass");
-		card->wsummary->addTopLevelItem(twi);
+		newsum->addTopLevelItem(twi);
 	}
-	h = card->wsummary->sizeHintForRow(0) * pref.sumlines +
-		card->wsummary->header()->height();
+	h = newsum->sizeHintForRow(0) * pref.sumlines +
+		newsum->header()->height();
 	if(!n)
-		card->wsummary->clear();
-	card->wsummary->setMinimumHeight(h);
-	card->wsummary->resize(w, h);
-	set_qt_cb(QTreeWidget, itemSelectionChanged, card->wsummary,
+		newsum->clear();
+	newsum->setMinimumHeight(h);
+	newsum->resize(w, h);
+	set_qt_cb(QTreeWidget, itemSelectionChanged, newsum,
 		  sum_callback());
 	if(n) {
 		scroll_summary(card);
@@ -108,9 +97,9 @@ void create_summary_menu(
 			fillout_card(card, FALSE);
 		}
 	}
-	delete mainform->replaceWidget(w_summary, card->wsummary);
+	delete mainform->replaceWidget(w_summary, newsum);
 	delete w_summary;
-	w_summary = card->wsummary;
+	w_summary = card->wsummary = newsum;
 }
 
 
@@ -132,7 +121,7 @@ static void sum_callback(void)
 	int			item_position;
 	register CARD		*card = curr_card;
 
-	if (!card)
+	if (!card || !card->wsummary)
 		return;
 	card_readback_texts(card, -1);
 	item_position = selected_item(card);

@@ -413,10 +413,11 @@ Unless otherwise stated, assume 0% complete:
       selected tab.
       
       - Alternately, take advantage of invisible_if's now dynamic
-        behavior.  Just add a "hide now" button next to invisible_if
-	that hides this item and any item with the exact same hide
-	expression.  That way, you can design overlapping widgets
-	without interference (and, unfortunately, without guidance).
+        behavior.  Just add a "hide now" button next to
+	invisible_if that hides this item and any item with
+	the exact same hide expression in the canvas.  That
+	way, you can design overlapping widgets without
+	interference (and, unfortunately, without guidance).
 	Alternatevely, add a tearable menu of all invisible_if
 	expressions for fast switching between "tabs"
 
