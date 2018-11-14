@@ -76,6 +76,10 @@ You can see my development in progress on my bitbucket page:
 
 > <https://bitbucket.org/darktjm/grok>
 
+You can see the tags (releases) on the download page:
+
+> <https://bitbucket.org/darktjm/grok/downloads/?tab=tags>
+
 You may also wish to check out some of the other files included in
 this project, such as my notes on the QT port (QT-README.md), my
 current plans (TODO.md) and the high-level change list (HISTORY).
