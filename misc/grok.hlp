@@ -52,6 +52,21 @@
 %% trouble
 	TROUBLESHOOTING
 
+	*  The Qt port has some known sizing-related bugs on which I
+	   am making no progress.  The fix for all of these is to manually
+	   move and resize the window after loading a database, if needed.
+
+           *  Qt often moves the main window when it resizies it after a
+	      databse load.
+
+	   *  Randomly, the window will end up too big after a database
+	      load.
+
+	   *  The summary list widget has a too-large minimum size, leaving
+	      a blank area at the end of the line.  This can't be fixed
+	      by maual resizing, contrary to the statement above, but it
+	      is generally a small enough excess that it doesn't matter.
+
 	*  Qt does not like synthetic key events.  Bugs have been reported
 	   and fixed, but there are still issues.  For example, I bind
 	   Ctrl-Q in FVWM in some windows.  This causes grok to ignore

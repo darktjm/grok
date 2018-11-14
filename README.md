@@ -90,7 +90,7 @@ manual, but that was not in the above-mentioned archive.
 Copyright:
 ---------
 
-rok is Copyrighted by Thomas Driemeyer, 1993-2001. License
+Grok is Copyrighted by Thomas Driemeyer, 1993-2001. License
 to copy, publish, and distribute is granted to everyone provided that
 three conditions are met:
 

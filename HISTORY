@@ -145,6 +145,10 @@ version 1.5.1, SVN ID 494, released 26.10.18
   * code now compiles with g++
   * other minor cleanups that may make this break in ancient unix
 
+Sub-minor revisions to the below may be released due to my inability
+to move tags to different locations, and consist purely of minor
+tweaks I forgot for the previous tagged release.
+
 version 2.0, released 11.14.18
 
   * updated README to be more like old one (but renamed to README.md)
@@ -194,3 +198,4 @@ version 2.0, released 11.14.18
       from the .gf file.
   * Now uses the color application icon.  The old icon is still there for
     reference, but I'm not even going to bother packaging it.
+
