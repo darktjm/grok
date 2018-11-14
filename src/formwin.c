@@ -435,7 +435,7 @@ void create_formedit_window(
 			break;
 		    case 'T':
 		    case 't':
-			hform->addWidget((w = new QLineEdit()));
+			hform->addWidget((w = new QLineEdit()), 1);
 			if (tp->type == 't')
 				w->setMinimumWidth(100);
 			break;

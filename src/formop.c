@@ -549,6 +549,7 @@ void item_delete(
 
 	if (item->name)		free((void *)item->name);
 	if (item->label)	free((void *)item->label);
+	if (item->sumprint)	free((void *)item->sumprint);
 	if (item->flagcode)	free((void *)item->flagcode);
 	if (item->flagtext)	free((void *)item->flagtext);
 	if (item->gray_if)	free((void *)item->gray_if);
@@ -594,6 +595,7 @@ ITEM *item_clone(
 	*item = *parent;
 	item->name	   = mystrdup(parent->name);
 	item->label	   = mystrdup(parent->label);
+	item->sumprint	   = mystrdup(parent->sumprint);
 	item->flagcode	   = mystrdup(parent->flagcode);
 	item->flagtext	   = mystrdup(parent->flagtext);
 	item->gray_if	   = mystrdup(parent->gray_if);
