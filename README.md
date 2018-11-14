@@ -1,84 +1,23 @@
-Graphical Resource Organizer Kit
-================================
-
-This is a generic personal database application.  My first
-introduction to the concept came from [Fiasco on the Amiga](
-http://aminet.net/search?name=fiasco), even though it's likely grok
-came first.  Unlike Fiasco, grok is for UNIX, and is also free
-software.  Since I actually implemented a database using it, I have
-verified that it works with OpenMotif 2.3.8 on Linux.  I make no
-guarantees for any other target.  I have adequately addressed (but not
-fully fixed) a few bugs I found.  You can obtain the last Motif
-version I created of this application at
-
-> <https://bitbucket.org/darktjm/grok/get/xmbase_grok-1.5.1.tar.bz2>
-
-This is the last official release of grok I know of ([xmbase_grok 1.5
-from 23 May 2001](
-ftp://ftp.fu-berlin.de/pub/unix/graphics/grok/xmbase_grok-1.5.tar.gz))
-with a few extra fixes (and I have taken the liberty to update the
-version to 1.5.1).  See the original README below for information on
-the original and its author (who no longer acknowledges its existence
-on his own site); I take no credit for this application.
-
-I was working on my own, similar application (inspired mostly by
-Fiasco and a generic HTML-based database access program I wrote and
-maintained for a commercial entity around the same time these two
-projects died), but have made no progress.  Instead, I decided to make
-more substantial changes to grok.  For one, I have changed the GUI
-toolkit from Motif to Qt.  This makes the "xm" part of the name no
-longer relevant, and the binary name never changed, anyway, so I've
-renamed it back to grok.  I will release a tarball (tentatively named
-1.6, although I might change that to 2.0 by the time I'm ready) when
-most of what I consider critical bugs have been fixed.  See TODO.md
-for what I have planned.
-
-Among other things, the move to Qt5 now depends on Qt5 (tested with
-5.11.2) instead of Motif (obviously) and has different build
-instructions:
-
->     cd src; qmake && make && sudo make install
-
-Note that if you want to install into a different root (e.g. when
-generating a package), use `INSTALL_TARGET` instead of the traditional
-`DESTDIR`:
-
->     make install INSTALL_TARGET=/tmp/pkg
-
-All of my modifications to this source, as represented by the SCM
-changes at <https://bitbucket.org/darktjm/grok/> are granted to the
-public domain. Keep in mind that the original author may not
-appreciate email about this version; instead, post issues at
-<https://bitbucket.org/darktjm/grok/issues>.  Once the TODO.md list has
-been pared down a bit, I will shorten and reformat this document to be
-more like the original.
-
-I have decided to include the orignal README verbatim (with formatting
-changes to support markdown) below:
-
-xmbase-grok - Graphical Resource Organizer Kit
-----------------------------------------------
+grok - Graphical Resource Organizer Kit
+=======================================
 
 For people who don't read long READMEs, I'll describe compilation and
 installation first:
 
-  - edit Makefile and change GLIB and GBIN if the program and support files
-     should be installed in a directory other than /usr/local/{bin,lib}.
-  - run "make" and choose a system from the list
-  - run "make *sys*"
-  - run "grok" and choose a database from the Database pulldown
-  - if you don't like grok, delete this directory and the ~/.grok directory
-  - run "make install"
-  - copy ../demo/* to ~/.grok
-  - if your system is an SGI, copy ../misc/Grok.icon to ~/.icons/Grok.icon
+>     # install Qt5 (this was tested with 5.11.2)
+>     cd src; qmake && make
+>     # if you want to install it now:
+>     sudo make install
+>     # if you want to install it later:
+>     make install INSTALL_TARGET=/install/root
 
-You need Motif, LessTif (see http://www.lesstif.org) 0.88.0 or later, or
-OpenMotif (see http://www.openmotif.org) to compile grok.
+If you don't like the default installation locations, edit grok.pro.
+In particular, the PREFIX variable is the installation root.
 
 ---------------------------------------
 
-xmbase-grok, formerly just called "grok", is a simple database manager
-and UI builder that can -
+grok, formerly called "xmbase-grok", before which it was called
+"grok", is a simple database manager and UI builder that can -
 
   *  keep phone and address lists (like a rolodex)
   *  store phone call logs
@@ -106,32 +45,48 @@ The distribution contains sample applications and sample databases in the
 in addition to the ones from ~/.grok. This is meant to allow experimenting
 with grok without having to copy files to one's home directory.
 
-The grok executable and the grok.help file should be copied to the GBIN
-and GLIB directory listed in the makefile used, respectively (default is
-/usr/local/bin and /usr/local/lib), although any other place in the search
-path ($PATH) will also work. Run "make install" to install grok. In
-addition, the distribution contains a PostScript user manual "Manual.ps"
-that should be copied to a safe place, or printed. The TeX sources for
-Manual.ps are in the doc directory.
+Bug reports to <https://bitbucket.org/darktjm/grok/issues>.  I will
+likely ignore bug reports from anonymous users, since it's impossible
+to reply to them, so you may need to create an Atlassian/bitbucket
+account before reporting.  Don't forget to include the version number
+as printed by "grok -v". If you have new applications (forms) that
+would be of general interest, I'd appreciate to get a copy for
+inclusion in the next release.  You can also bug thomas@bitrot.de if
+you like, but he is not responsible for any changes that I made.
 
-Bug reports to thomas@bitrot.de. Don't forget to include the
-version number as printed by "grok -v". If you have new applications
-(forms) that would be of general interest, I'd appreciate to get a copy
-for inclusion in the next release.
+This application is a continuation of xmbase-grok, originally written
+by Thomas Driemeyer.  That application used Motif instead of Qt.  I
+made some changes to the latest version I found, released 23 May 2001:
 
-The main archive for grok is
+>   <ftp://ftp.fu-berlin.de/pub/unix/graphics/grok/xmbase_grok-1.5.tar.gz>
 
->   <ftp://ftp.fu-berlin.de/pub/unix/graphics/grok/>
+The first checkin of this project is an exact copy of this archive.  I
+initially made changes to address issues I noticed while using grok
+with my own databsae, and released those changes as "1.5.1":
 
-To subscribe to the plan mailing list, send a mail with "subscribe grok"
-in the message body (not the subject) to majordomo@bitrot.de. The list
-carries a low volume and is mainly used for announcements and patches.
+> <https://bitbucket.org/darktjm/grok/get/xmbase_grok-1.5.1.tar.bz2>
 
+That corresponds to the git tag `xmbase_grok-1.5.1`, and is the last
+version I released using Motif.  It builds at least on Linux using
+OpenMotif 2.3.8.  It turned out that additional changes were made by
+Thomas Driemeyer (up to version 1.5.4), but I have no intention of
+merging these changes with the Motif version.
+
+You can see my development in progress on my bitbucket page:
+
+> <https://bitbucket.org/darktjm/grok>
+
+You may also wish to check out some of the other files included in
+this project, such as my notes on the QT port (QT-README.md), my
+current plans (TODO.md) and the high-level change list (HISTORY).
+You can also see the HTML documentation in the doc directory.  The
+original README (now absorbed here) mentioned a PostScript/LaTeX
+manual, but that was not in the above-mentioned archive.
 
 Copyright:
 ---------
 
-xmbase-grok is Copyrighted by Thomas Driemeyer, 1993-2001. License
+rok is Copyrighted by Thomas Driemeyer, 1993-2001. License
 to copy, publish, and distribute is granted to everyone provided that
 three conditions are met:
 
@@ -155,8 +110,7 @@ There are no implied or expressed warranties for grok. I do not claim it
 is good for anything whatsoever, and if you lose your precious data or
 your cat dies this is entirely your problem.
 
-Note: as per the license, I hereby notify all who read this that I,
-Thomas J. Moore, have made changes to this distribution; see the
-HISTORY file for details.  I don't really feel like trying to report
-the bug fixes upstream, given that the author's primary web site has
-no mention of grok any more.
+Additional changes were made by Thomas J. Moore.  All changes by that
+author, as represented by the SCM changes at
+<https://bitbucket.org/darktjm/grok/> are granted to the public
+domain.

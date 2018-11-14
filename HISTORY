@@ -145,8 +145,9 @@ version 1.5.1, SVN ID 494, released 26.10.18
   * code now compiles with g++
   * other minor cleanups that may make this break in ancient unix
 
-version 2.0, released ???
+version 2.0, released 11.14.18
 
+  * updated README to be more like old one (but renamed to README.md)
   * added a substantial todo list, in case I don't abandon this soon
   * replaced Motif with Qt; bye bye systems that don't support it
     Everything looks and works a little differently.  In particular,
@@ -171,7 +172,7 @@ version 2.0, released ???
       chart item.
     * Item type is now a popup menu button, so more item types can be
       added without the list extending infinitely to the right.
-  * by sheer coiincidence, fixed a few buffer overflow bugs
+  * by sheer coincidence, fixed a few buffer overflow bugs
   * fixed some missing/wrong docs while adding qt-related info
   * removed #if 0-d features; if they haven't been implemented since 2001,
     they probably never will:

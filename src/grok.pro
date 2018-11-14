@@ -6,11 +6,6 @@ TARGET = grok
 # Replacement for old GBIN/GLIB
 PREFIX = $$[QT_INSTALL_PREFIX]
 
-# this is for the original grok
-#CONFIG += x11
-#LIBS += -lXm -lXt
-
-# this is for the qt-based grok
 QT = core gui widgets
 
 # This probably can't be done portably
