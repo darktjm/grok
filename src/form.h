@@ -178,6 +178,7 @@ typedef struct item {
 	int	xm, ym;		/* if multipart item, relative pos of split */
 	int	sumwidth;	/* width in summary listing if IN_DBASE */
 	int	sumcol;		/* column # in summary listing if IN_DBASE */
+	char	*sumprint;	/* if nz, show this in summary if IN_DBASE */
 	long	column;		/* database column #, 0 is first */
 	BOOL	search;		/* queries search this item */
 	BOOL	rdonly;		/* user cannot change this field */
@@ -258,7 +259,7 @@ typedef struct form {
 	char	*dbase;		/* referenced database filename */
 	char	*comment;	/* user-defined comment */
 	char	*help;		/* help text */
-	char	cdelim;		/* column delimiter in database file */
+	unsigned char cdelim;	/* column delimiter in database file */
 	BOOL	rdonly;		/* don't allow writing to database */
 	BOOL	proc;		/* procedural */
 	BOOL	syncable;	/* keep timestamp files */

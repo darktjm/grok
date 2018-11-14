@@ -118,6 +118,17 @@ version 1.5, released 23.5.01
     were not reset. Fix by Fredy Paquet <fredy@gilera.opag.ch>
   * the default year was incorrect, it defaulted to 2000 instead of 2001
 
+----- Note: The following was patched in from the actual, official
+----- 1.5.4, but no other changes were merged.
+ 
+version 1.5.1, released 10.5.03
+
+  * field separators > 0x7f, such as \377, did not work. Fixed.
+
+version 1.5.4
+
+  * Show in summary: an expression to mangle fields for summary view
+
 -----  All releases below this line are by Thomas J. Moore,
 -----  https://bitbucket.org/darktjm/grok/
 -----  If tarballs aren't availble, look for the appropriate SVN ID.

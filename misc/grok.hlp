@@ -1147,6 +1147,17 @@
 	are usually too unmnemonic for the summary. Note that if the database
 	is sorted by this column, it is sorted by the database string and not
 	the string in the summary.
+%% fe_sump
+       SHOW IN SUMMARY
+
+       If the item is shown in the summary (the length in the summary is
+       greater than 0), grok will normally show the string in the database.
+       If an expression is entered in the "show in summary" string, the
+       expression will be evaluated and shown instead. For example, a phone
+       number field may specify to show the phoen number, unless it is empty
+       in which case the mobile phone number should be shown:
+
+       Show in summary: {_phone ? _phone : _mobile}
 %% fe_plan
 	PLAN INTERFACE
 

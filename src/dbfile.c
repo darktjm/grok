@@ -334,7 +334,7 @@ static BOOL read_file(
 	register char		*buf, *p;	/* buffer for one item */
 	register int		bindex = 0;	/* next free byte in buf */
 	int			bsize;		/* size of buf in bytes */
-	char			c, c0;		/* next char from file */
+	unsigned char		c, c0;		/* next char from file */
 	BOOL			error;		/* in TRUE, abort */
 	ITEM			*item;		/* for time/date conversion */
 	int			i;

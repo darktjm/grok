@@ -61,7 +61,6 @@ int main(
 	else
 		progname = argv[0];
 	restricted = !strcmp(progname, "rgrok");
-	nofork = TRUE; // tjm - debugging for now
 
 	for (n=1; n < argc; n++)			/* options */
 		if (*argv[n] != '-')
@@ -253,7 +252,7 @@ static void usage(void)
 	fprintf(stderr, "       %s -x form template ['query']\n", progname);
 	fprintf(stderr, "    Options:\n%s%s%s%s%s%s%s%s%s\n",
 			"\t-h\tprint this help text\n",
-			"\t-d\tdump fallback app-defaults and exit\n",
+			"\t-d\tdump fallback Qt Style Sheet and exit\n",
 			"\t-v\tprint version string\n",
 			"\t-t\tprint cards matching query to stdout\n",
 			"\t-T\tsame as -t without header line\n",

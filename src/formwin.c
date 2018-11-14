@@ -119,6 +119,8 @@ static struct _template {
 	{ ANY, 't',	0x204,	" ",			"fe_int",	},
 	{ BAS, 'L',	 0,	"Database column:",	"fe_column",	},
 	{ BAS, 'i',	0x205,	" ",			"fe_column",	},
+	{ BAS, 'L',	 0,	"Show in summary:",	"fe_sump",	},
+	{ BAS, 'T',	0x229,	" ",			"fe_sump",	},
 	{ BAS, 'L',	 0,	"Summary column:",	"fe_sum",	},
 	{ BAS, 'i',	0x206,	" ",			"fe_sum",	},
 	{ BAS, 'l',	 0,	"Width in summary:",	"fe_sum",	},
@@ -730,6 +732,7 @@ static void fillout_formedit_widget(
 	  case 0x226: print_text_button_s(w, item->pressed);		break;
 	  case 0x227: print_text_button_s(w, item->added);		break;
 	  case 0x228: print_text_button_s(w, form->planquery);		break;
+	  case 0x229: print_text_button_s(w, item->sumprint);		break;
 
 	  case 0x280: set_dsb_value(w, item->ch_xmin);			break;
 	  case 0x281: set_dsb_value(w, item->ch_xmax);			break;
@@ -1049,6 +1052,7 @@ static int readback_item(
 	  case 0x226: (void)read_text_button(w, &item->pressed);	break;
 	  case 0x227: (void)read_text_button(w, &item->added);		break;
 	  case 0x228: (void)read_text_button(w, &form->planquery);	break;
+	  case 0x229: (void)read_text_button(w, &item->sumprint);	break;
 
 	  case 0x280: item->ch_xmin   = get_dsb_value(w);			break;
 	  case 0x281: item->ch_xmax   = get_dsb_value(w);			break;

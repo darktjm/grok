@@ -65,6 +65,9 @@ Unless otherwise stated, assume 0% complete:
     - Translation of GUI labels.  Maybe even an option to provide
       translation on database values (or at least database labels).
       This makes some sort of automatic layout almost necessary.
+      Note that the official 1.5.3 had partial German translation,
+      but I will probably want to use more standard translation
+      methods (e.g. LANG= instead of a pulldown, .po[t] files)
 
     - Numeric inputs (with spinboxes and min/max and int/float).  I
       have already converted the numeric inputs in grok's GUI to

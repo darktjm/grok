@@ -104,6 +104,7 @@ BOOL write_form(
 		fprintf(fp, "mid        %d %d\n",	item->xm, item->ym);
 		fprintf(fp, "sumwid     %d\n",		item->sumwidth);
 		fprintf(fp, "sumcol     %d\n",		item->sumcol);
+		fprintf(fp, "sumprint   %s\n",		STR(item->sumprint));
 		fprintf(fp, "column     %ld\n",		item->column);
 		fprintf(fp, "search     %d\n",		item->search);
 		fprintf(fp, "rdonly     %d\n",		item->rdonly);
@@ -311,6 +312,8 @@ BOOL read_form(
 					item->sumwidth = atoi(p);
 			else if (!strcmp(key, "sumcol"))
 					item->sumcol = atoi(p);
+			else if (!strcmp(key, "sumprint"))
+					STORE(item->sumprint, p);
 			else if (!strcmp(key, "column"))
 					item->column = atoi(p);
 			else if (!strcmp(key, "search"))

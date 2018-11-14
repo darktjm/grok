@@ -189,37 +189,46 @@ void make_summary_line(
 		item = sorted[i];
 		if (!IN_DBASE(item->type) || item->sumwidth < 1)
 			continue;
-		data = row<0 ? item->type==IT_CHOICE ? item->name : item->label
-			     : dbase_get(card->dbase, row, item->column);
+		if (row >= 0 && item->sumprint) {
+			int saved_row = card->row;
+			card->row = row;
+			data = evaluate(card, item->sumprint);
+			card->row = saved_row;
+		} else {
+			data = row<0 ? item->type==IT_CHOICE ? item->name
+							     : item->label
+				     : dbase_get(card->dbase,row,item->column);
 
-		if (row < 0 && data && data[j = strlen(data)-1] == ':') {
-			strncpy(databuf, data, sizeof(databuf));
-			databuf[j] = 0;
-			databuf[sizeof(databuf)-1] = 0;
-			data = databuf;
+			if (row < 0 && data && data[j=strlen(data)-1] == ':') {
+				strncpy(databuf, data, sizeof(databuf));
+				databuf[j] = 0;
+				databuf[sizeof(databuf)-1] = 0;
+				data = databuf;
+			}
+			if (item->type == IT_CHOICE && row < 0) {
+				for (j=0; j < i; j++)
+					if (item->sumcol == sorted[j]->sumcol)
+						break;
+				if (j < i)
+					continue;
+			}
+			if (item->type == IT_CHOICE && row >= 0 &&
+			    (!data || !item->flagcode
+				   || strcmp(data,item->flagcode))){
+				for (j=i+1; j < card->form->nitems; j++)
+					if(!strcmp(item->name,sorted[j]->name))
+						break;
+				if (j < card->form->nitems)
+					continue;
+				data = 0;
+			}
+			if ((item->type == IT_CHOICE || item->type == IT_FLAG)
+				    && item->flagtext && item->flagcode && data
+				    && !strcmp(data, item->flagcode))
+				data = item->flagtext;
+			if (item->type == IT_TIME && row >= 0)
+				data = format_time_data(data, item->timefmt);
 		}
-		if (item->type == IT_CHOICE && row < 0) {
-			for (j=0; j < i; j++)
-				if (item->sumcol == sorted[j]->sumcol)
-					break;
-			if (j < i)
-				continue;
-		}
-		if (item->type == IT_CHOICE && row >= 0 &&
-		    (!data || !item->flagcode || strcmp(data,item->flagcode))){
-			for (j=i+1; j < card->form->nitems; j++)
-				if (!strcmp(item->name, sorted[j]->name))
-					break;
-			if (j < card->form->nitems)
-				continue;
-			data = 0;
-		}
-		if ((item->type == IT_CHOICE || item->type == IT_FLAG)
-			    && item->flagtext && item->flagcode && data
-			    && !strcmp(data, item->flagcode))
-			data = item->flagtext;
-		if (item->type == IT_TIME && row >= 0)
-			data = format_time_data(data, item->timefmt);
 		if (data)
 			strncpy(buf+x, data, 80);
 		buf[x + item->sumwidth] = 0;
