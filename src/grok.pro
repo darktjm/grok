@@ -57,26 +57,9 @@ SOURCES += canvdraw.c cardwin.c chart.c chartdrw.c convert.c dbase.c dbfile.c \
 
 YACCSOURCES += parser.y
 HEADERS = bm_icon.h bm_left.h bm_right.h config.h form.h grok.h proto.h \
-          resource.h version.h layout-qss.h chart-widget.h canv-widget.h
+          resource.h version.h layout-qss.h chart-widget.h canv-widget.h \
+	  ../misc/Grok.xpm
 
-# FIXME: just drop Grok.icon already and replace w/ xpm
-#        and use that instead of bm_icon.h
-# making a "compiler" for icons seems to be the only way to both
-# do the conversion during make and install it correctly
-iconvert.output = ${QMAKE_FILE_BASE}.xpm
-iconvert.commands = convert ${QMAKE_FILE_NAME} ${QMAKE_FILE_OUT}
-iconvert.input = ICON_FILES
-iconvert.variable_out = QMAKE_ICONS
-iconvert.CONFIG += target_predeps
-QMAKE_EXTRA_COMPILERS += iconvert
-ICON_FILES += ../misc/Grok.icon
-
-# desktop file, on the other hand, can be generated directly in the target
-desktop.extra = desktop-file-install --set-name=Grok --set-icon=Grok \
-                          --set-comment="Graphical Resource Organizer Kit" \
-			  --add-cateogry=Office --copy-name-to-generic-name \
-			  --dir=$${PREFIX}/share/applications
-desktop.path = $${PREFIX}/share/applications
 
 target.path = $${PREFIX}/bin
 help.files = ../misc/grok.hlp
@@ -86,5 +69,7 @@ man.path = $${PREFIX}/share/man/man1
 doc.path = $${PREFIX}/share/doc
 doc.files = ../README.md ../TODO.md ../HISTORY ../demo
 icon.path = $${PREFIX}/share/icons
-icon.files = Grok.xpm
+icon.files = ../misc/Grok.xpm
+desktop.path = $${PREFIX}/share/applications
+desktop.files = grok.desktop
 INSTALLS += target help man doc icon desktop

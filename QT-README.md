@@ -179,3 +179,11 @@ the creators of a so-called portable toolkit have made it as hard as
 possible to actually make portable applications.  Then again, maybe
 I'm missing something.  Like using XML and/or designer to define all
 the user interface, as it seems to want (not gonna happen).
+
+As a side issue, I had to jump through extra hoops to get gentoo to
+provide me with debug information, even though it should have been as
+simple as adding debug to the USE flags.  Not only did I have to add
+the nostrip FEATURE, but I had to explicitly add -ggdb3 to CXXFLAGS. 
+This is also a failing of the Qt build itself, and compiling with
+OPTION+=debug should, but doesn't, do that automatically (or maybe
+it's because of gentoo's attempts at integrating CXXFLAGS).

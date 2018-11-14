@@ -129,7 +129,6 @@ void create_mainwindow()
 	menu->addAction("&Save", [=](){file_pulldown(6);},
 			Qt::CTRL|Qt::Key_S);
 	menu->addAction("&Quit", [=](){file_pulldown(7);},
-			// FIXME:  Qt is ignoring Ctrl+Q
 			Qt::CTRL|Qt::Key_Q);
 	menu->addAction("Rambo Quit", [=](){file_pulldown(8);});
 	
@@ -353,9 +352,9 @@ void resize_mainwindow(void)
 #else
 	// FIXME: window moves -- saving & restoring position doesn't help
 	// I'll probably have to override mainwindow->move().
-	QPoint pos(mainwindow->pos());
+	// QPoint pos(mainwindow->pos());
 	mainwindow->adjustSize();
-	mainwindow->move(pos);
+	// mainwindow->move(pos);
 	// FIXME: window is too large -- setting to "minimum size" doesn't work
 	// except randomly (almost always the first time).  Even switching
 	// to the same form will randomly resize it to something much larger

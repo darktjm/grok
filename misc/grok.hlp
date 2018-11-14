@@ -52,6 +52,12 @@
 %% trouble
 	TROUBLESHOOTING
 
+	*  Qt does not like synthetic key events.  Bugs have been reported
+	   and fixed, but there are still issues.  For example, I bind
+	   Ctrl-Q in FVWM in some windows.  This causes grok to ignore
+	   Ctrl-Q for the "Quit" menu shortcut.  The shortcuts are currently
+	   hard-coded into the application.
+
 	If you have problems you can't resolve, or if you have suggestions
 	for new features, or porting instructions for new platforms, send mail
 	to me at thomas@bitrot.de. Also check my homepage for new releases:

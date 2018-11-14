@@ -39,7 +39,7 @@
 #include "version.h"
 #if 1
 #define static static const
-#include "Grok.xpm"
+#include "../misc/Grok.xpm"
 #undef static
 #else
 #include "bm_icon.h"

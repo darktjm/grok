@@ -134,7 +134,7 @@ version 1.5.1, SVN ID 494, released 26.10.18
   * code now compiles with g++
   * other minor cleanups that may make this break in ancient unix
 
-version 1.6, released ???
+version 2.0, released ???
 
   * added a substantial todo list, in case I don't abandon this soon
   * replaced Motif with Qt; bye bye systems that don't support it

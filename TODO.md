@@ -22,24 +22,25 @@ Unless otherwise stated, assume 0% complete:
 	  adjustSize() does nothing, so maybe it's being moved
 	  elsewhere.
 
-	- Selection in the summary window is sometimes ignored (actually,
-	  I think it gets reverted when it thinks the db is modified).
-	  The original Motif GUI did that sometimes, too.  Also, it
-	  occasionally crashes when popping around.  Maybe events are
-	  being generated before having been fully processed?
+    - Selection in the summary window is sometimes ignored (actually,
+      I think it gets reverted when it thinks the db is
+      modified). The original Motif GUI did that sometimes, too.
+      Also, it occasionally crashes when popping around.  Maybe
+      events are being generated before having been fully
+      processed?
 
-	- As expected, letter buttons still don't work
+    - As expected, letter buttons still don't work
 	
-	- file dialog is always GTK+.  Is there a way to make it
-	  "native QT"?
+    - file dialog is always GTK+.  Is there a way to make it "native QT"?
 
-        - Memory leaks:
+    - Memory leaks:
 
-	  - on parse error, any string yylvals leak
+      - on parse error, any string yylvals leak
+      
+      - I should probably test the memory leak fixes I made a little
+	better to ensure no crashing, but I'm too lazy.  I'll fix them
+	when I encounter problems.
 	  
-      - Ctrl-Q doesn't work.  All the other menu shortcuts seem fine.
-        Is it bound by Qt elsewhere?
-
     - Some shortcuts, such as ^G and ^Q, should be made global.
 
     - The layout of the form item editor needs tweaking.  At the very
@@ -49,7 +50,7 @@ Unless otherwise stated, assume 0% complete:
       area are too wide, or the scroll area is too narrow,
       depending on how you look at it.
 
-    - Add a color setter QSS similar to the layer one that only sets
+    - Add a color setter QSS similar to the layout one that only sets
       the palette rather than overriding the style as well.  Either
       that, or move some of those aux QSS settings into the preferences
       editor.  QSS sucks.
@@ -97,9 +98,9 @@ Unless otherwise stated, assume 0% complete:
       dynamic link library boudaries, but I think that may be a
       Windows/MSVC-only issue.
 
-    - Document the "standard" Qt options, especially given that they
-      seem to only be documented in the QApplication/QGuiApplication
-      constructor fuction documentation.
+    - Document the "standard" Qt command-line options, especially
+      given that they seem to only be documented in the
+      QApplication/QGuiApplication constructor fuction documentation.
 
   - Remove Rambo Quit, and make Quit and window-close work like that
     instead.  This matches what most other applications do.  Also,
@@ -127,7 +128,7 @@ Unless otherwise stated, assume 0% complete:
     `{mutable; _name = "hello"}` or `(mutable, _size = 0)`.  Off the
     top of my head, the only things which should be mutable by default
     are the foreach non-condition expression, button actions, and
-    standalone expressions in templates.  Its a saftey feature, not a
+    standalone expressions in templates.  It's a saftey feature, not a
     security feature.
 
   - Interpretation of strings as arrays.  Each database has a
@@ -264,7 +265,9 @@ Unless otherwise stated, assume 0% complete:
     indicate multi-field uniqueness, though, so that will have to
     be unenforced, unless the uniqueness flag is a number instead of
     just a flag.  In that case, multiple uniqueness groups can be made,
-    where 0/blank indicates non-unique.
+    where 0/blank indicates non-unique.  Perhaps not just numbers, but
+    bits, so a list of numbers isn't needed if a field is part of
+    multiple groups.
 
   - Have "s in s" return the location of the first string in the
     second, plus one to keep it boolean.
@@ -280,7 +283,7 @@ Unless otherwise stated, assume 0% complete:
     losing those preferences, I guess.  Note that the overstrike feature
     isn't possible with current expressions, so a function to that
     effect would need to be added, unless regex stuff is done first
-    (e.g. bold == gsub(s, ".", "\\0\008\\0"))
+    (e.g. bold == `gsub(s, ".", "\\0\008\\0")`)
 
     - Maybe support "transient" templates, which aren't saved to files.
       This is to compensate for lack of an SQL command line.

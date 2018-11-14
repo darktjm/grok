@@ -44,9 +44,12 @@ class LayoutQSS : public QWidget {
     LayoutQSS(QLayout *nl) : l(nl), gl(dynamic_cast<QGridLayout *>(nl)),
                                 fl(dynamic_cast<QFormLayout *>(nl)) {
 	hide();
-	setEnabled(false);
-	resize(0, 0);
-	setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+	// hide() should be enough.
+	// setEnabled(false);
+	// this is unnecessary, and triggers a parent resize for some reason
+	// even though I didn't set parent...
+	// resize(0, 0);
+	// setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 	if(l)
 		setObjectName(l->objectName());
     }

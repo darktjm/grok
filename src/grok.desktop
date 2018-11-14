@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=grok
+Type=Application
+Comment=Graphical Resource Organizer Kit
+Exec=grok
+TryExec=grok
+Icon=Grok
+Categories=Office;
