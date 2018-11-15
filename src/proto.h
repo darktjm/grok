@@ -214,6 +214,8 @@ struct arg *f_addarg(
 	char		*value);	/* argument to append to list */
 char *f_printf(
 	struct arg	*arg);
+int re_match(char *s, char *e);
+char *re_sub(char *s, char *e, char *r, bool all);
 
 /*---------------------------------------- formfile.c ------------*/
 
@@ -370,6 +372,7 @@ const char *eval_template(
 const char *substitute_setup(
 	char		**array,	/* where to store substitutions */
 	char		*instr);	/* x=y x=y ... command string */
+void backslash_subst(char *);
 
 /*---------------------------------------- templwin.c ------------*/
 

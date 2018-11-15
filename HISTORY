@@ -199,3 +199,9 @@ version 2.0, released 11.14.18
   * Now uses the color application icon.  The old icon is still there for
     reference, but I'm not even going to bother packaging it.
 
+Version 2.1
+    * The conditional expressions (Grayed out if,  ...) are now combo
+      boxes, to make it easier to set groups of widgets to the same
+      expression (not that copy/paste doesn't work well, too)
+    * Added regular expression functions match, sub, gsub.  Also, since
+      backslash-substitution isn't done anywhere else (except "), bsub.

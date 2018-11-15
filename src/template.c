@@ -244,7 +244,6 @@ BOOL delete_template(
 
 static char html_subst[] = "<=&lt; >=&gt; &=&amp; \n=<BR>";
 static const char *eval_command(char *, BOOL *);
-static void backslash_subst(char *);
 static const char *putstring(const char *);
 
 struct forstack { long offset; int num; int nquery; int *query; };

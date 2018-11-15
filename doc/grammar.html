@@ -89,6 +89,9 @@ precedences. Bitwise operations operate on 32 bits only.
 in braces <TT>{...}</TT> if <TT>&amp;&amp;</TT> or <TT>||</TT> or other
 numerical operators are used on the result.
 
+<P>Regular expressions are QRegularExpression objects, which claim to
+be identical to those described <A HREF="http://pcre.org/pcre.txt">here</A>.
+
 <P><TABLE WIDTH="100%" CELLPADDING=4 BORDER=0 CELLSPACING=4>
 <TR BGCOLOR=#a0a0e0><TH>operator<TH>type<TH>operation
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>{</TT><B>s</B><TT>}</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>String
@@ -107,6 +110,10 @@ numerical operators are used on the result.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>substr(</TT><B>s</B>, <B>n</B>, <B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Return a substring of the first string. The first number is the start index and the second the length. A negative index counts from the end.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>printf(</TT><I>args</I><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Format and return a string; <I>args</I> is a comma-separated list of expressions. Compound expressions must be enclosed in <TT>(&nbsp;)</TT> or <TT>{&nbsp;}</TT>.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>tr(</TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Transform characters in the first string according to substitutinos in the second.  The second string consists of space-separated <B>c</B><TT>=</TT><B>s</B> expressions; all occurrences of <B>c</B> will be replaced by <B>s</B>.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>bsub(</TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Interpret backslash-escapes in <B>s</B>.  Octal escapes, n, r, and t are as with C.  All others directly escape the next character.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>sub(</TT><B>s</B><TT>, </TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Return the first string, with the first match of the regular expression in the second string replaced by the third string.  The third string may have <TT>\0</TT> .. <TT>\9</TT> and <TT>\{</TT><B>n</B><TT>}</TT> to insert subexpressions; any other backslash escapes the next character. 
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>gsub(</TT><B>s</B><TT>, </TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Return the first string, with all matches of the regular expression in the second string replaced by the third string.  The third string may have <TT>\0</TT> .. <TT>\9</TT> and <TT>\{</TT><B>n</B><TT>}</TT> to insert subexpressions; any other backslash escapes the next character.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>match(</TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B>, <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Return the offset in the first string, plus one, of the first occurrence of the regular expression pattern specified by the second string.
 </TABLE>
 
 

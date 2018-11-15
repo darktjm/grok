@@ -442,15 +442,6 @@ Unless otherwise stated, assume 0% complete:
     other words, while visiting children, the parent form's fields are
     read-only.
 
-  - Regular expression functions (POSIX EXTENDED or perl?) in expressions:
-
-    - match(s, e) -> true (or position+1) if e is in s.
-
-    - sub(s, e, r) -> replace first occurrence of e with r.  r supports
-      \n for subexpression references.
-
-    - gsub(s, e, r) -> replace all occurrences of e with r.
-
   - A string expression to execute to validate a field.  Returns
     blank or a message to tell the user the field is invalid.  The
     validator should run whenever the field is done editing as well as

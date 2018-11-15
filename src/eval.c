@@ -205,6 +205,10 @@ static const struct symtab { const char *name; int token; } symtab[] = {
 			{ "beep",	BEEP	},
 			{ "error",	ERROR	},
 			{ "foreach",	FOREACH	},
+			{ "match",	MATCH	},
+			{ "sub",	SUB	},
+			{ "gsub",	GSUB	},
+			{ "bsub",	BSUB	},
 			{ 0,		0	}
 };
 

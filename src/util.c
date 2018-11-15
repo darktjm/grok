@@ -259,12 +259,14 @@ static void set_w_text(QWidget *w, QString &string)
 	QLabel			*l;
 	QLineEdit		*le;
 	QTextEdit		*te;
+	QComboBox		*cb;
 
 	if((b = dynamic_cast<QPushButton *>(w)))
 		b->setText(string);
 	else if((l = dynamic_cast<QLabel *>(w)))
 		l->setText(string);
-	else if((le = dynamic_cast<QLineEdit *>(w))) {
+	else if((le = dynamic_cast<QLineEdit *>(w)) ||
+		((cb = dynamic_cast<QComboBox *>(w)) && (le = cb->lineEdit()))) {
 		if (le->text() != string) {
 			le->setText(string);
 #if 0 // actually, this seems pointless and annoying, especially if the widget scrolls.
@@ -339,9 +341,12 @@ static char *readbutton(
 
 	if (w) {
 		QLineEdit		*le;
+		QComboBox		*cb;
 		int			s = 0, e, i;
 		if((le = dynamic_cast<QLineEdit *>(w)))
 			string = le->text();
+		else if((cb = dynamic_cast<QComboBox *>(w)))
+			string = cb->currentText();
 		else
 			string = dynamic_cast<QTextEdit *>(w)->toPlainText();
 		e = string.size();

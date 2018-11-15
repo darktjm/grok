@@ -1475,6 +1475,17 @@
 	                rules are a space-separated list of c=s, where c
 			is replaced by s.  Backslash-substitutions are
 			performed on the rules string.
+	  bsub(s)	Perform simple backslash-escape substitution on s.
+	  		Recognized escapes are \<octal>, \n, \t, \r.  All
+			others just escape the next character.
+	  match(s, s)	Returns the offset, plus one, of the regular expression
+			of the second string in the first string.
+	  sub(s, s, s)  Returns the first string, with the first
+			occurrence of the regular expression in the second
+			string replaced by the third string.  The third
+			string supports \0 .. \9 and \{n} to refer to
+			subexpressions in the regular expression.
+	  gsub(s, s, s) Like sub(s, s, s), except all occurrences are replaced.
 
 
 	Variables: variables are letters a through z and A through Z that can

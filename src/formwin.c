@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <float.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <QtWidgets>
 #include "grok.h"
 #include "form.h"
@@ -78,6 +79,7 @@ static struct _template {
 	const char *help;	/* label string */
 	QWidget	*widget;	/* allocated widget */
 	int	role;		/* for buttons using standard labels */
+				/* also, offset of text field for combos */
 } tmpl[] = {
 	{ ALL, 'L',	 0,	"Form name:",		"fe_form",	},
 	{ ALL, 'T',	0x101,	" ",			"fe_form",	},
@@ -193,13 +195,13 @@ static struct _template {
 	{ BAS, '-',	 0,	" ",			0,		},
 
 	{ ANY, 'L',	 0,	"Grayed out if:",	"fe_gray",	},
-	{ ANY, 'T',	0x222,	" ",			"fe_gray",	},
+	{ ANY, 'C',	0x222,	" ",			"fe_gray",	0, offsetof(ITEM, gray_if) },
 	{ ANY, 'L',	 0,	"Invisible if:",	"fe_inv",	},
-	{ ANY, 'T',	0x223,	" ",			"fe_inv",	},
+	{ ANY, 'C',	0x223,	" ",			"fe_inv",	0, offsetof(ITEM, invisible_if) },
 	{ ANY, 'L',	 0,	"Read-only if:",	"fe_ro",	},
-	{ ANY, 'T',	0x224,	" ",			"fe_ro",	},
+	{ ANY, 'C',	0x224,	" ",			"fe_ro",	0, offsetof(ITEM, freeze_if) },
 	{ ANY, 'L',	 0,	"Skip if:",		"fe_skip",	},
-	{ ANY, 'T',	0x225,	" ",			"fe_skip",	},
+	{ ANY, 'C',	0x225,	" ",			"fe_skip",	0, offsetof(ITEM, skip_if) },
 	{ BUT, '-',	 0,	" ",			0,		},
 
 	{ BUT, 'L',	 0,	"Action when pressed:",	"fe_press",	},
@@ -301,7 +303,6 @@ static struct _template {
 	{   0, ']',	 0,	" ",			0,		},
 	{   0,  0,	 0,	0,			0		},
 };
-
 
 /*-------------------------------------------------- create window ----------*/
 /*
@@ -439,6 +440,12 @@ void create_formedit_window(
 			if (tp->type == 't')
 				w->setMinimumWidth(100);
 			break;
+		    case 'C': {
+			QComboBox *cb = new QComboBox;
+			cb->setEditable(true);
+			hform->addWidget((w = cb), 1);
+			break;
+		    }
 		    case 'i': {
 			QSpinBox *sb = new QSpinBox;
 			hform->addWidget((w = sb));
@@ -548,6 +555,8 @@ void create_formedit_window(
 			set_button_cb(w, formedit_callback(t));
 		else if(tp->type == 'I')
 			set_popup_cb(w, formedit_callback(t), int, i);
+		else if(tp->type == 'C')
+			set_combo_cb(w, formedit_callback(t));
 
 		if(w && tp->help)
 			bind_help(w, tp->help);
@@ -568,6 +577,7 @@ void create_formedit_window(
  * depend on the item type.
  *
  * tjm - now I just hide stuff instead of desensitizing
+ *       also, refill combo boxes
  */
 
 void sensitize_formedit(void)
@@ -578,13 +588,28 @@ void sensitize_formedit(void)
 
 	item = curr_item >= form->nitems ? 0 : form->items[curr_item];
 	mask = 1 << (item ? item->type : IT_NULL);
-	for (tp=tmpl; tp->type; tp++)
+	for (tp=tmpl; tp->type; tp++) {
 		if (tp->sensitive) {
 			tp->widget->setEnabled(
 				tp->code == 0x106 ? form->proc :
 				tp->code == 0x113 ? item != 0 : true);
 			tp->widget->setVisible(tp->sensitive & mask);
 		}
+		if (tp->type == 'C') {
+			QStringList sl;
+			int n;
+			QComboBox *cb = reinterpret_cast<QComboBox *>(tp->widget);
+			for(n = 0; n < form->nitems; n++) {
+				char *s = *(char **)((char *)form->items[n] + tp->role);
+				if(s && *s && !sl.contains(s))
+					sl.append(s);
+			}
+			QString s = cb->currentText();
+			cb->clear();
+			cb->addItems(sl);
+			cb->setEditText(s);
+		    }
+	}
 	// Without explicit adjustSize(), there may be huge gaps in form
 	if(chart->isVisible())
 		chart->adjustSize();
@@ -630,6 +655,10 @@ void fillout_formedit_widget_by_code(
 #define set_sb_value(w, v) dynamic_cast<QSpinBox *>(w)->setValue(v)
 #define set_dsb_value(w, v) dynamic_cast<QDoubleSpinBox *>(w)->setValue(v)
 
+// Prevent events triggered by filling out to cause a readback
+// FIXME: I should do this a better way.
+static ITEM *filling_item = 0;
+
 static void fillout_formedit_widget(
 	struct _template	*tp)
 {
@@ -641,7 +670,9 @@ static void fillout_formedit_widget(
 	if (tp->code < 0x100 || tp->code > 0x107) {
 		if (!form->items || curr_item >= form->nitems ||
 		    !(tp->sensitive & (1 << form->items[curr_item]->type))) {
-			if (tp->type == 'T' || tp->type == 't' || tp->type == 'i' || tp->type == 'd')
+			if (tp->type == 'T' || tp->type == 't' ||
+			    tp->type == 'i' || tp->type == 'd' ||
+			    tp->type == 'C')
 				print_text_button_s(w, "");
 			return;
 		}
@@ -650,6 +681,7 @@ static void fillout_formedit_widget(
 		if (!chart)
 			memset((void *)(chart = &nullchart), 0, sizeof(CHART));
 	}
+	filling_item = item;
 	switch(tp->code) {
 	  case 0x101: print_text_button_s(w, form->name);		break;
 	  case 0x102: print_text_button_s(w, form->dbase);		break;
@@ -778,6 +810,7 @@ static void fillout_formedit_widget(
 	  case 0x342: set_toggle(w, chart->value[3].mode == CC_EXPR);	break;
 	  case 0x344: print_text_button_s(w, chart->value[3].expr);	break;
 	}
+	filling_item = NULL;
 }
 
 
@@ -817,7 +850,9 @@ void readback_formedit(void)
 
 	if (curr_item < form->nitems)
 		for (t=0, tp=tmpl; tp->type; tp++, t++)
-			if (tp->type == 'T' || tp->type == 't' || tp->type == 'i' || tp->type == 'd')
+			if (tp->type == 'T' || tp->type == 't' ||
+			    tp->type == 'i' || tp->type == 'd' ||
+			    tp->type == 'C')
 				(void)readback_item(t);
 }
 
@@ -857,6 +892,8 @@ static int readback_item(
 		chart = &item->ch_comp[item->ch_curr];
 	}
 	if (!chart && (tp->code & 0x300) == 0x300)
+		return(0);
+	if (item == filling_item)
 		return(0);
 
 	switch(tp->code) {

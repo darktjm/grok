@@ -60,7 +60,8 @@ void init_variables(void) { int i; for (i=0; i < 26; i++) setsvar(i, 0); }
 %token		DATE TIME DURATION EXPAND
 %token		YEAR MONTH DAY HOUR MINUTE SECOND LEAP JULIAN
 %token		SECTION_ DBASE_ FORM_ PREVFORM SWITCH THIS LAST DISP FOREACH
-%token		HOST USER UID GID SYSTEM ACCESS BEEP ERROR PRINTF
+%token		HOST USER UID GID SYSTEM ACCESS BEEP ERROR PRINTF MATCH SUB
+%token		GSUB BSUB
 
 %left ',' ';'
 %right '?' ':'
@@ -178,6 +179,10 @@ string	: STRING			{ $$ = $1; }
 	| EXPAND '(' FIELD '[' number ']' ')'
 					{ $$ = f_expand($3, $5); }
 	| PRINTF '(' args ')'		{ $$ = f_printf($3); }
+	| MATCH '(' string ',' string ')' { $$ = f_str(re_match($3, $5)); }
+	| SUB '(' string ',' string ',' string ')' { $$ = re_sub($3, $5, $7, false); }
+	| GSUB '(' string ',' string ',' string ')' { $$ = re_sub($3, $5, $7, true); }
+	| BSUB '(' string ')'		{ $$ = $3; if($3) backslash_subst($3); }
 	| BEEP				{ app->beep(); $$ = 0; }
 	| ERROR '(' args ')'		{ char *s = f_printf($3);
 					  create_error_popup(mainwindow, 0, s);
@@ -281,6 +286,7 @@ number	: NUMBER			{ $$ = $1; }
 					  $$ = a < b ? b : a > c ? c : a; }
 	| LEN   '(' string ')'		{ char *a=$3; $$ = a ? f_len(a) : 0;
 								f_free(a); }
+	| MATCH '(' string ',' string ')' { $$ = re_match($3, $5); }
 	| SQRT  '(' number ')'		{ $$ = sqrt(abs($3));  }
 	| EXP   '(' number ')'		{ $$ = exp($3); }
 	| LOG   '(' number ')'		{ double a=$3; $$ = a<=0 ? 0:log10(a);}

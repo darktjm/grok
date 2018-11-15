@@ -716,3 +716,110 @@ char *f_printf(
 	*bp = 0;
 	return(mystrdup(buf));
 }
+
+// The following use QRegularExpression rather than POSIX EXTENDED as I
+// usually prefer for portability.  QRegularExpression is "perl-compatible".
+
+bool re_check(QRegularExpression &re, char *e)
+{
+    bool ret = re.isValid();
+    if(!ret) {
+	char *msg = qstrdup(QString("Error in regular expression '") +
+			    QString(e ? e : "") + QString("': ") +
+			    re.errorString());
+	create_error_popup(mainwindow, 0, msg);
+	free(msg);
+    }
+    if(e)
+	free(e);
+    return ret;
+}
+
+// Find e in s, returning offset in s + 1 (0 == no match).
+// Both e and s are freed.
+int re_match(char *s, char *e)
+{
+    if(!e || !*e) {
+	if(e)
+	    free(e);
+	if(s)
+	    free(s);
+	return 1;
+    }
+    QRegularExpression re(e ? e : "");
+    if(!re_check(re, e)) {
+	if(s)
+	    free(s);
+	return 0;
+    }
+    QRegularExpressionMatch m = re.match(s ? s : "");
+    if(s)
+	free(s);
+    return m.capturedStart() + 1;
+}
+
+// Replace e in s with r.  If all is true, advance and repeat while possible
+// r can contain \0 .. \9 and \{n} for subexpression replacmeents
+char *re_sub(char *s, char *e, char *r, bool all)
+{
+    QRegularExpression re(e ? e : "");
+    if(!re_check(re, e)) {
+	if(r)
+	    free(r);
+	return s;
+    }
+    QString res;
+    QString str(s ? s : "");
+    if(s)
+	free(s);
+    int off = 0;
+    QRegularExpressionMatchIterator iter = re.globalMatch(str);
+    while(iter.hasNext()) {
+	const QRegularExpressionMatch &m = iter.next();
+	if(off > m.capturedStart())
+	    continue;
+	if(off != m.capturedStart())
+	    res.append(str.midRef(off, m.capturedStart() - off));
+	QString rstr(r ? r : "");
+	int roff = 0, bsloc;
+	while((bsloc = rstr.indexOf('\\', roff)) >= 0) {
+	    int expr = -1;
+	    if(bsloc == rstr.size() - 1)
+		break;
+	    if(rstr[bsloc + 1].isDigit()) {
+		expr = rstr[bsloc + 1].toLatin1() - '0';
+		rstr.remove(bsloc, 2);
+	    } else if(rstr[bsloc + 1] == '{') {
+		int eloc = rstr.indexOf('}', bsloc + 2);
+		if(eloc >= 0) {
+		    expr = 0;
+		    int i;
+		    for(i = bsloc + 2; i < eloc; i++) {
+			if(!rstr[i].isDigit()) {
+			    expr = -1;
+			    break;
+			} else
+			    expr = expr * 10 + rstr[i].toLatin1() - '0';
+		    }
+		}
+		if(expr >= 0)
+		    rstr.remove(bsloc, eloc - bsloc + 1);
+	    }
+	    if(expr < 0) {
+		rstr.remove(bsloc, 1);
+		roff = bsloc + 1;
+	    } else {
+		rstr.insert(bsloc, m.capturedRef(expr));
+		roff = bsloc + m.capturedLength(expr);
+	    }
+	}
+	res.append(rstr);
+	off = m.capturedEnd() + 1;
+	if(!all)
+	    break;
+    }
+    res.append(str.midRef(off));
+    if(r)
+	free(r);
+    return qstrdup(res);
+}
