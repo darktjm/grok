@@ -205,3 +205,6 @@ Version 2.1
       expression (not that copy/paste doesn't work well, too)
     * Added regular expression functions match, sub, gsub.  Also, since
       backslash-substitution isn't done anywhere else (except "), bsub.
+    * Added string length operator #
+    * Added string-as-array/set support: esc ## s[] s[]->v toset |+ |- |*
+      and foreach() and \{FOREACH} for arrays & sets.

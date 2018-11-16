@@ -136,19 +136,6 @@ Unless otherwise stated, assume 0% complete:
 
   - Make array separator & escape char a form option (form def file, GUI)
 
-  - Make templates' FOREACH directive understands arrays:
-
-    - \\{FOREACH [v a} -> step over values of a, setting variable v
-
-       Alternately, \\{FOREACH [a} \\{ELT} to avoid using a variable,
-       but then it wouldn't be possible to use the element value in
-       expressions.  This could be solved by using the elt special
-       token as above.
-
-    - \\{FOREACH [+v a} -> step over non-blank values of a, setting v
-
-       Alternately, \\{FOREACH [+a} \\{ELT} as above.
-
   - Use binary searches in lexer (kw and pair_)
 
   - Cycle gadgets/popup menus/whatever the platform calls it to

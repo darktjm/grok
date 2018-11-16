@@ -25,20 +25,29 @@ static int	f_cmp	(char  *s,
 			 char  *t)  { int r = strcmp(s?s:"", t?t:"");
 				      f_free(s); f_free(t); return r;}
 
-char    *getsvar	(int    v)  { char buf[100], *r = var[v].string;
+static char    *getsvar	(int    v)  { char buf[100], *r = var[v].string;
 					if (var[v].numeric) { sprintf(r = buf,
 							"%g", var[v].value); }
 					return(mystrdup(r)); }
-double   getnvar	(int    v)  { return(var[v].numeric ? var[v].value :
+static double   getnvar	(int    v)  { return(var[v].numeric ? var[v].value :
 					var[v].string?atof(var[v].string):0);}
-char    *setsvar	(int    v,
+static char    *setsvar	(int    v,
 			 char  *s)  { f_free(var[v].string);
 					var[v].numeric = FALSE;
 					return(mystrdup(var[v].string = s)); }
-double   setnvar	(int    v,
+static double   setnvar	(int    v,
 			 double d)  { (void)setsvar(v, 0);
 					var[v].numeric = TRUE;
 					return(var[v].value = d); }
+void set_var(int v, const char *s)
+{
+    f_free(var[v].string);
+    if(s && *s)
+	var[v].string = strdup(s);
+    else
+	var[v].string = NULL;
+    var[v].numeric = FALSE;
+}
 
 void init_variables(void) { int i; for (i=0; i < 26; i++) setsvar(i, 0); }
 

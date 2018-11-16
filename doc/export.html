@@ -156,6 +156,16 @@ can be put into lines of their own without in troducing unwanted newlines.
 	menu is used. It is recommended to not use query expressions
 	because they make the -x command-line option less useful.<P>
 
+<LI><TT>\{FOREACH [</TT><I>var</I> <I>expr</I><TT>}</TT> <I>text</I> <TT>\{END}</TT><BR>
+    <TT>\{FOREACH [+</TT><I>var</I> <I>expr</I><TT>}</TT> <I>text</I> <TT>\{END}</TT><BR>
+	The text between the <TT>FOREACH</TT> and <TT>END</TT> commands
+	is executed once for every element of the array given by
+	<I>expr</I>, in much the same way as database iteration above.
+	For each iteration, the array element is assigned to <I>var</I>
+	before evaluating <I>text</I>.  The variable name (<I>var</I>)
+	may optionally be prefixed with a plus-sign (<TT>+</TT>) to only
+	evaluate <I>text</I> for non-empty array elements.<P>
+
 <LI><TT>\{IF</TT> <I>expr</I><TT>}</TT> <I>text</I> <TT>\{ENDIF}</TT><BR>
 	Conditional expressions evaluate text only if the expression
 	<I>expr</I> is true. Otherwise <I>text</I> is ignored. The

@@ -155,12 +155,7 @@ extern BOOL	assigned;		/* did a field assignment */
 /*---------------------------------------- parser.y ------------*/
 extern int parserparse(void);
 void init_variables(void);
-char    *getsvar	(int    v);
-double   getnvar	(int    v);
-char    *setsvar	(int    v,
-			 char  *s);
-double   setnvar	(int    v,
-			 double d);
+void set_var(int v, const char *s);
 
 /*---------------------------------------- evalfunc.c ------------*/
 

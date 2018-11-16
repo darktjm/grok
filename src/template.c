@@ -246,7 +246,7 @@ static char html_subst[] = "<=&lt; >=&gt; &=&amp; \n=<BR>";
 static const char *eval_command(char *, BOOL *);
 static const char *putstring(const char *);
 
-struct forstack { long offset; int num; int nquery; int *query; };
+struct forstack { long offset; int num; int nquery; int *query; char *array; };
 
 enum opcode { O_EXPR, O_IF, O_ENDIF, O_FOREACH,
 	      O_END, O_QUIT, O_FILE, O_SUBST };
@@ -450,6 +450,52 @@ static const char *eval_command(
 		if (forlevel == NEST-1)
 			return("FOREACH nested too deep");
 
+		if (*p == '[') {
+			/* array foreach is not like the others.. */
+			p++;
+		        while (ISSPACE(*p)) p++;
+			bool nonblank = *p == '+';
+			if(nonblank) {
+				p++;
+				while (ISSPACE(*p)) p++;
+			}
+			if(!isalpha(*p))
+				return "Array FOREACH must specify variable";
+			sp = &forstack[++forlevel];
+			sp->offset = ftell(ifp);
+			/* nquery -> variable + 1 */
+			/*           or -(variable + 1) if nonblank */
+			sp->nquery = *p >= 'a' ? *p - 'a' : *p + 26 - 'A';
+			if(nonblank)
+				sp->nquery = -(sp->nquery + 1);
+			else
+				sp->nquery++;
+			sp->query  = NULL;
+			p++;
+		        while (ISSPACE(*p)) p++;
+			sp->array = mystrdup(evaluate(curr_card, p));
+			{
+				char sep, esc;
+				get_cur_arraysep(&sep, &esc);
+				int begin, after = -1;
+				do {
+					next_aelt(sp->array, &begin, &after, sep, esc);
+				} while(after >= 0 && begin == after &&
+					sp->nquery < 0);
+				if(after < 0)
+					forskip++;
+				else {
+					int var = (sp->nquery < 0 ? -sp->nquery : sp->nquery) - 1;
+					char c = sp->array[after];
+					*unescape(sp->array + begin, sp->array + begin, after - begin, esc) = 0;
+					set_var(var, strdup(sp->array + begin));
+					// no need to re-escape and re-store value
+					sp->array[after] = c;
+				}
+				sp->num = after;
+			}
+			break;
+		}
 		if (*p) {
 			query_any(SM_SEARCH, curr_card, p);
 			nq = curr_card->nquery;
@@ -480,6 +526,30 @@ static const char *eval_command(
 		if (forlevel < 0)
 			return("END without FOREACH");
 		sp = &forstack[forlevel];
+		if(!sp->query) {
+			char sep, esc;
+			get_cur_arraysep(&sep, &esc);
+			int begin, after = sp->num;
+			do {
+				next_aelt(sp->array, &begin, &after, sep, esc);
+			} while(after >= 0 && begin == after &&
+				sp->nquery < 0);
+			if(after < 0) {
+				if(sp->array)
+					free(sp->array);
+				forlevel--;
+			} else {
+				int var = (sp->nquery < 0 ? -sp->nquery : sp->nquery) - 1;
+				char c = sp->array[after];
+				*unescape(sp->array + begin, sp->array + begin, after - begin, esc) = 0;
+				set_var(var, strdup(sp->array + begin));
+				// no need to re-escape and re-store value
+				sp->array[after] = c;
+				fseek(ifp, sp->offset, SEEK_SET);
+				sp->num = after;
+			}
+			break;
+		}
 		if (++sp->num < sp->nquery) {
 			curr_card->row = sp->query[sp->num];
 			fseek(ifp, sp->offset, SEEK_SET);

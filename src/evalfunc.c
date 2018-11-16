@@ -1020,11 +1020,11 @@ void f_foreachelt(
 	    if(begin == after && nonblank)
 		continue;
 	    if(begin == after)
-		setsvar(var, NULL);
+		set_var(var, NULL);
 	    else {
 		char c = array[after];
 		*unescape(array + begin, array + begin, after - begin, esc) = 0;
-		free(setsvar(var, strdup(array + begin)));
+		set_var(var, strdup(array + begin));
 		// no need to re-escape and re-store value
 		array[after] = c;
 	    }
