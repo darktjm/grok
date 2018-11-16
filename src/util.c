@@ -133,7 +133,7 @@ char *resolve_tilde(
 				*q = *path;
 			path++;
 			*q = 0;
-			if (pw = getpwnam(pathbuf))
+			if ((pw = getpwnam(pathbuf)))
 				home = pw->pw_dir;
 		}
 		if (!home) {
@@ -146,7 +146,7 @@ char *resolve_tilde(
 		path = pathbuf;
 	}
 	for (i=strlen(path)-1; i > 0; )
-		if (path[i] == '/' || path[i] == '.' && path[i-1] == '/')
+		if (path[i] == '/' || (path[i] == '.' && path[i-1] == '/'))
 			path[i--] = 0;
 		else
 			break;
@@ -351,7 +351,7 @@ static char *readbutton(
 			string = dynamic_cast<QTextEdit *>(w)->toPlainText();
 		e = string.size();
 		if (skipblank) {
-			while(s < e && string[s] == ' ' || string[s] == '\t')
+			while(s < e && (string[s] == ' ' || string[s] == '\t'))
 				s++;
 			if (noblanks)
 				for (i = 0; i < e; i++)
@@ -397,10 +397,10 @@ char *read_text_button_noblanks(QWidget *w, char **ptr)
  * set icon for the application or a shell.
  */
 
-/* FIXME: change this to use Grok.xpm instead */
+/*ARGSUSED*/
 void set_icon(
 	QWidget			*shell,
-	int			sub)		/* 0=main, 1=submenu */
+UNUSED	int			sub)		/* 0=main, 1=submenu */
 {
 	static QIcon icon;
 	if(icon.isNull()) {

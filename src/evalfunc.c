@@ -445,9 +445,9 @@ char *f_system(
 	close(fd1_save);
 	close(fd2_save);
 							/* error messages */
-	if (fp = fopen(errpath, "r")) {
+	if ((fp = fopen(errpath, "r"))) {
 		(void)fseek(fp, 0, 2);
-		if (size = ftell(fp)) {
+		if ((size = ftell(fp))) {
 			rewind(fp);
 			sprintf(data, "Command failed: %s\n", cmd);
 			i = strlen(data);
@@ -461,9 +461,9 @@ char *f_system(
 	}
 							/* result */
 	*data = 0;
-	if (fp = fopen(outpath, "r")) {
+	if ((fp = fopen(outpath, "r"))) {
 		(void)fseek(fp, 0, 2);
-		if (size = ftell(fp)) {
+		if ((size = ftell(fp))) {
 			rewind(fp);
 			if (size > (int)sizeof(data)-1)
 				size = sizeof(data)-1;

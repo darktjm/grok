@@ -60,7 +60,7 @@ const char *evaluate(
 {
 	if (!exp)
 		return(0);
-	if (!*exp || *exp != '(' && *exp != '{' && *exp != '$')
+	if (!*exp || (*exp != '(' && *exp != '{' && *exp != '$'))
 		return(exp);
 	if (yyret)
 		free((void *)yyret);
@@ -91,7 +91,7 @@ const char *subeval(
 	BOOL		saved_assigned = assigned;
 	if (!exp || *errormsg) // refuse to continue on errors
 		return(0);
-	if (!*exp || *exp != '(' && *exp != '{' && *exp != '$')
+	if (!*exp || (*exp != '(' && *exp != '{' && *exp != '$'))
 		return(exp);
 	if (yyret)
 		free((void *)yyret);
@@ -160,8 +160,8 @@ void f_foreach(
 
 
 #define ISDIGIT(c) ((c)>='0' && (c)<='9')
-#define ISSYM_B(c) ((c)>='a' && (c)<='z' || (c)>='A' && (c)<='Z')
-#define ISSYM(c)   ((c)>='0' && (c)<='9' || (c)=='_' || ISSYM_B(c))
+#define ISSYM_B(c) (((c)>='a' && (c)<='z') || ((c)>='A' && (c)<='Z'))
+#define ISSYM(c)   (ISDIGIT(c) || (c)=='_' || ISSYM_B(c))
 
 static const char *pair_l  = "=!<><>&|+/-*%|&.+--#|||";
 static const char *pair_r  = "====<>&|========+->#+*-";
@@ -284,7 +284,7 @@ int Xparserlex(void)
 	if (!*yytext)						/* eof */
 		return(0);
 								/* number */
-	if (ISDIGIT(*yytext) || *yytext == '.' && ISDIGIT(yytext[1])) {
+	if (ISDIGIT(*yytext) || (*yytext == '.' && ISDIGIT(yytext[1]))) {
 		char *ptr;
 		parserlval.dval = strtod(yytext, &ptr);
 		yytext = ptr;

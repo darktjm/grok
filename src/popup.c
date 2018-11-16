@@ -133,16 +133,15 @@ void create_query_popup(
  * the named card. This is called from the Help pulldown in the main menu.
  */
 
-static const char info_message[] = "\n\
-  Form name:  %s\n\
-  Form path:  %s\n\
-  Form comment:  %s\n\n\
-  Default query:  %s\n\n\
-  Database name:  %s%s%s\n\
-  Database size:  %d cards,  %d columns\n\n\
-  Help information:\n%s\n\n\
-  Sections:\
-";
+static const char info_message[] = "\n"
+"  Form name:  %s\n"
+"  Form path:  %s\n"
+"  Form comment:  %s\n\n"
+"  Default query:  %s\n\n"
+"  Database name:  %s%s%s\n"
+"  Database size:  %d cards,  %d columns\n\n"
+"  Help information:\n%s\n\n"
+"  Sections:";
 
 void create_dbase_info_popup(
 	CARD		*card)
@@ -165,8 +164,8 @@ void create_dbase_info_popup(
 					? form->query[form->autoquery].name
 					: "(none)",
 		form  && form->dbase	? form->dbase	      : "(none)",
-		dbase && dbase->rdonly ||
-		form  && form->rdonly	? " (read-only)"      : "",
+		(dbase && dbase->rdonly) ||
+		(form  && form->rdonly)	? " (read-only)"      : "",
 		form  && form->proc	? " (procedural)"     : "",
 		dbase			? dbase->nrows	      : 0,
 		dbase			? dbase->maxcolumns-1 : 0,

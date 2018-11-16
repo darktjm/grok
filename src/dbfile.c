@@ -129,7 +129,7 @@ static BOOL write_file(
 		hicol=dbase->row[r]->ncolumns-1;
 #endif
 		for (c=0; c <= hicol; c++) {
-			if (value = dbase_get(dbase, r, c)) {
+			if ((value = dbase_get(dbase, r, c))) {
 				for (i=form->nitems-1; i >= 0; i--) {
 					item = form->items[i];
 					if (item->column == c)
@@ -228,7 +228,7 @@ BOOL read_dbase(
 	if (*path != '/' && *path != '~' && form->path) {
 		char *p;
 		strcpy(pathbuf, form->path);
-		if (p = strrchr(pathbuf, '/')) {
+		if ((p = strrchr(pathbuf, '/'))) {
 			strcpy(p+1, path);
 			path = pathbuf;
 		}

@@ -27,7 +27,9 @@ CONFIG += yacc
 # bison works correctly, and is reentrant version 3.2.1 (and probably eariler)
 QMAKE_YACC = bison -y
 
-QMAKE_CXXFLAGS += -Wno-unused-parameter -Wno-switch -Wno-misleading-indentation -Wno-parentheses -Wno-missing-field-initializers -Wno-cast-function-type
+# this warning is way too much of a pain in the ass to "fix"
+# FIXME: I should probably make this dependent on g++, but I don't know how
+QMAKE_CXXFLAGS += -Wno-missing-field-initializers
 
 # compile C as if it were C++ so I don't have to rename all the sources
 # it should be possible to override extensions to do the same, but no
@@ -54,13 +56,12 @@ SOURCES += canvdraw.c cardwin.c chart.c chartdrw.c convert.c dbase.c dbfile.c \
 	   main.c mainwin.c popup.c prefwin.c print.c printwin.c query.c \
 	   querywin.c sectwin.c sumwin.c template.c templmk.c templwin.c \
 	   util.c
-
 YACCSOURCES += parser.y
 HEADERS = bm_icon.h bm_left.h bm_right.h config.h form.h grok.h proto.h \
           resource.h version.h layout-qss.h chart-widget.h canv-widget.h \
 	  ../misc/Grok.xpm
 
-
+# Install target; should probably depend on unix but right now, everything does
 target.path = $${PREFIX}/bin
 help.files = ../misc/grok.hlp
 help.path = $${PREFIX}/share/grok

@@ -105,7 +105,7 @@ void GrokChart::paintEvent(QPaintEvent *)
 				memset((void *)bar, 0, sizeof(BAR));
 				continue;
 			}
-			if (res = evaluate(card, chart->color))
+			if ((res = evaluate(card, chart->color)))
 				bar->color = atoi(res) & 7;
 			for (i=0; i < 4; i++)
 				switch(chart->value[i].mode) {
@@ -218,7 +218,7 @@ void GrokChart::paintEvent(QPaintEvent *)
 				y++, ys-=2;
 			painter.setPen(fillcolor[bar->color % COL_CHART_N]);
 			drawrect(painter, item, x, y, xs, ys);
-			if (r == save_row || !chart->xfat && !chart->yfat) {
+			if (r == save_row || (!chart->xfat && !chart->yfat)) {
 				painter.setPen(boxcolor); // used to be COL_STD
 				drawbox(painter, item, x, y, xs, ys);
 			}
@@ -388,7 +388,7 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 	chart = &item->ch_comp[comp];
 	xval  = &chart->value[CC_X];
 	yval  = &chart->value[CC_Y];
-	if (xval->mode != CC_DRAG && yval->mode != CC_DRAG ||
+	if ((xval->mode != CC_DRAG && yval->mode != CC_DRAG) ||
 						xmax <= xmin || ymax <= ymin) {
 		event->ignore();
 		return;

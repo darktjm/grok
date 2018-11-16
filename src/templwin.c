@@ -19,7 +19,7 @@
 #define NLINES	15		/* number of lines in list widget */
 
 static void button_callback(int code);
-static void file_export_callback(QDialog *d, const QString &file);
+static void file_export_callback(const QString &file);
 
 static void mklist(void);
 static void editfile(char *);
@@ -107,7 +107,7 @@ void create_templ_popup(void)
 
 	for (mp=menu; mp->type; mp++) {
 	    switch(mp->type) {
-	      case 'B': hb = new QDialogButtonBox;
+	      case 'B': hb = new QDialogButtonBox; FALLTHROUGH
 	      case 'b':
 	      case 'q': {
 		      w = mk_button(hb, mp->text, mp->role);
@@ -158,7 +158,7 @@ void create_templ_popup(void)
  * put the current list of templates into the template list widget
  */
 
-static void save_cb(int seq, char *name)
+static void save_cb(UNUSED int seq, char *name)
 {
 	list->addItem(name);
 	list_nlines++;
@@ -205,7 +205,7 @@ static BOOL do_export(void)
 	if (!get_list_seq())
 		return(FALSE);
 
-	if (err = exec_template(pref.xfile, 0, pref.xlistpos, curr_card)) {
+	if ((err = exec_template(pref.xfile, 0, pref.xlistpos, curr_card))) {
 		create_error_popup(shell, 0, "Export failed:\n%s", err);
 		return(FALSE);
 	}
@@ -248,7 +248,7 @@ static void button_callback(
 	{
 		QFileDialog *d = new QFileDialog(shell, "xfile");
 		d->setAcceptMode(QFileDialog::AcceptSave);
-		set_file_dialog_cb(d, file_export_callback(d, fn), fn);
+		set_file_dialog_cb(d, file_export_callback(fn), fn);
 		// close does a reject by default, so no extra callback needed
 		d->exec();
 		delete d;
@@ -270,7 +270,6 @@ static void button_callback(
 /*-------------------------------- browse callbacks -------------------------*/
 
 static void file_export_callback(
-	QDialog		*d,
 	const QString	&filename)
 {
 	struct menu			*mp;

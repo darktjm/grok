@@ -188,13 +188,20 @@ void GrokCanvas::canvas_callback(
 			  case M_RIGHT:	  xs += dx;		break;
 			  case M_XMID:	  xm  = item->xm + dx;	break;
 			  case M_YMID:	  ym  = item->ym + dy;	break;
+			  default: ;
 			}
-			if (x  < 0)	x  = 0;		x  = XSNAP(x);
-			if (y  < 0)	y  = 0;		y  = XSNAP(y);
-			if (xs < 0)	xs = 0;		xs = XSNAP(xs);
-			if (ys < 0)	ys = 0;		ys = XSNAP(ys);
-			if (xm > xs)	xm = xs;	xm = XSNAP(xm);
-			if (ym > ys)	ym = ys;	ym = XSNAP(ym);
+			if (x  < 0)	x  = 0;
+			x  = XSNAP(x);
+			if (y  < 0)	y  = 0;
+			y  = XSNAP(y);
+			if (xs < 0)	xs = 0;
+			xs = XSNAP(xs);
+			if (ys < 0)	ys = 0;
+			ys = XSNAP(ys);
+			if (xm > xs)	xm = xs;
+			xm = XSNAP(xm);
+			if (ym > ys)	ym = ys;
+			ym = XSNAP(ym);
 		}
 	}
 	event->accept();

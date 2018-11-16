@@ -50,8 +50,9 @@ void destroy_help_popup(void)
  * look up the help text for <topic> and create a window containing the text.
  */
 
+/*ARGSUSED*/
 void help_callback(
-	QWidget			*parent,
+UNUSED	QWidget			*parent,
 	const char		*topic)
 {
 	static QTextEdit	*text_w;

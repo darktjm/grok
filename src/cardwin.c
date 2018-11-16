@@ -407,6 +407,8 @@ static void create_item_widgets(
 		// callback is built-in event overrides
 		break;
 	  }
+	  case IT_NULL:
+	  case NITEMS: ;
 	}
 }
 
@@ -471,8 +473,9 @@ static void card_callback(
 
 	  case IT_BUTTON:				/* pressable button */
 		if ((redraw = item->pressed)) {
-			if (switch_name) free(switch_name); switch_name = 0;
-			if (switch_expr) free(switch_expr); switch_expr = 0;
+			if (switch_name) free(switch_name);
+			if (switch_expr) free(switch_expr);
+			switch_name = switch_expr = 0;
 			n = evaluate(card, item->pressed);
 			if (switch_name) {
 				switch_form(switch_name);
@@ -482,10 +485,12 @@ static void card_callback(
 				search_cards(SM_SEARCH, card, switch_expr);
 			if (n && *n)
 				(void)system(n);
-			if (switch_name) free(switch_name); switch_name = 0;
-			if (switch_expr) free(switch_expr); switch_expr = 0;
+			if (switch_name) free(switch_name);
+			if (switch_expr) free(switch_expr);
+			switch_name = switch_expr = 0;
 		}
 		break;
+	  default: ;
 	}
 	if (redraw)
 		fillout_card(card, TRUE);
@@ -558,6 +563,7 @@ void card_readback_texts(
 			(void)store(card, nitem, buf);
 			if (which >= 0)
 				fillout_item(card, nitem, FALSE);
+		  default: ;
 		}
 	}
 }
@@ -683,19 +689,19 @@ void fillout_item(
 	item = card->form->items[i];
 	// FIXME:  Should above-div items always be excluded, like sens?
 	vis = !item->invisible_if ||
-	       card->dbase && card->row >= 0
+	      (card->dbase && card->row >= 0
 			   && card->row < card->dbase->nrows
-			   && !evalbool(card, item->invisible_if);
+			   && !evalbool(card, item->invisible_if));
 	if (w0) w0->setVisible(vis);
 	if (w1) w1->setVisible(vis);
 
 	// FIXME:  Should above-div items always be excluded?
 	// FIXME:  Should IT_LABELs be disabled when no data is loaded?
-	sens = item->type == IT_BUTTON && !item->gray_if ||
+	sens = (item->type == IT_BUTTON && !item->gray_if) ||
 	       item->y < card->form->ydiv ||
-	       card->dbase && card->row >= 0
-			   && card->row < card->dbase->nrows
-			   && !evalbool(card, item->gray_if);
+	       (card->dbase && card->row >= 0
+			    && card->row < card->dbase->nrows
+			    && !evalbool(card, item->gray_if));
 	// FIXME:  not pulling in data here causes databsae to be modified
 	//         to the blank data.  Besides, I actually want it to
 	//         show the data on disabled (but not invisible) fields
@@ -710,7 +716,7 @@ void fillout_item(
 	  case IT_TIME:
 		// if (sens)
 			data = format_time_data(data, item->timefmt);
-
+		FALLTHROUGH
 	  case IT_INPUT:
 		if (!deps) {
 			print_text_button_s(w0, /* !sens ? " " : */ data ? data :
@@ -747,5 +753,9 @@ void fillout_item(
 	  case IT_CHART:
 		draw_chart(card, i);
 		break;
+	  case IT_BUTTON: /* nothing to do */
+	  case IT_LABEL: /* nothing to do */
+	  case IT_NULL:
+	  case NITEMS: ;
 	}
 }

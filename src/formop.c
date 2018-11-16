@@ -346,8 +346,8 @@ void form_edit_script(
 
 	if (!fname || !*fname) {
 		create_error_popup(shell, 0,
-"Please specify a database name first.\n\
-The database name will be used as script name.");
+"Please specify a database name first.\n"
+"The database name will be used as script name.");
 		return;
 	}
 	form->proc = TRUE;

@@ -562,7 +562,7 @@ void add_layout_qss(
 #define set_file_dialog_cb(_w, _f, _v) set_qt_cb(QFileDialog, fileSelected, \
 	                                         _w, _f, const QString &_v)
 #define set_popup_cb(_w, _f, _t, _v) \
-    set_qt_cb_ov1(QComboBox, currentIndexChanged, _t, _w, _f, _t _v)
+    set_qt_cb_ov1(QComboBox, currentIndexChanged, _t, _w, _f, UNUSED _t _v)
 #define set_combo_cb(_w, _f) set_qt_cb(QComboBox, currentTextChanged, _w, _f)
 // Make the calls needed to pop up a non-modal dialog (use exec for modal)
 void popup_nonmodal(QDialog *d);

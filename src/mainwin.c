@@ -810,9 +810,9 @@ void switch_form(
 		strcpy(name, formname);
 		if (*name >= 'a' && *name <= 'z')
 			*name += 'A' - 'a';
-		if (p = strrchr(name, '.'))
+		if ((p = strrchr(name, '.')))
 			*p = 0;
-		if (p = strrchr(name, '/'))
+		if ((p = strrchr(name, '/')))
 			p++;
 		else
 			p = name;
@@ -1346,7 +1346,7 @@ static void add_card(
 				dbase_put(dbase, card->row, item->column,
 				     mystrdup(evaluate(card, item->idefault)));
 		}
-	if (card->qcurr = card->nquery)
+	if ((card->qcurr = card->nquery)) {
 		if (!(newq = (int *)realloc(card->query, card->dbase->nrows *
 								sizeof(int*))))
 			create_error_popup(mainwindow, errno,
@@ -1355,6 +1355,7 @@ static void add_card(
 			card->query = newq;
 			card->query[card->nquery++] = card->row;
 		}
+	}
 	dbase_sort(card, pref.sortcol, pref.revsort);
 	create_summary_menu(card);
 	fillout_card(card, FALSE);

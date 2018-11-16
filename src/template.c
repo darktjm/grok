@@ -68,7 +68,7 @@ char *get_template_path(
 				       : templates[seq - NBUILTINS];
 	path = (char *)allocate(strlen(card->form->path) + 1 + strlen(name) + 1);
 	strcpy(path, card->form->path);
-	if (p = strrchr(path, '.'))
+	if ((p = strrchr(path, '.')))
 		strcpy(p, ".tm");
 	if (access(path, F_OK))
 		mkdir(path, 0777);
@@ -185,7 +185,7 @@ char *copy_template(
 
 	tar = get_template_path(tar, 0, card);
 	if (seq < NBUILTINS) {
-		if (err = (*builtins[seq].func)(tar, builtins[seq].mode))
+		if ((err = (*builtins[seq].func)(tar, builtins[seq].mode)))
 			create_error_popup(shell, 0,
 					"Failed to create %s:\n%s", tar, err);
 	} else {
@@ -297,7 +297,7 @@ const char *eval_template(
 
 	default_row   = curr_card->row;
 	default_query = 0;
-	if (default_nquery = curr_card->nquery) {
+	if ((default_nquery = curr_card->nquery)) {
 		default_query = (int *)allocate(default_nquery * sizeof(int));
 		memcpy(default_query, curr_card->query,
 					 default_nquery * sizeof(int));
@@ -328,8 +328,11 @@ const char *eval_template(
 			}
 			if (!bracelevel) {
 				word[indx] = 0;
-				if (p = eval_command(word, &eat_nl)) {
-					sprintf(word, "%s line %d: %s",
+				if ((p = eval_command(word, &eat_nl))) {
+					if (!strcmp(p, "QUIT"))
+						*word = 0;
+					else
+						sprintf(word, "%s line %d: %s",
 							iname, line, p);
 					break;
 				}
@@ -356,7 +359,7 @@ const char *eval_template(
 			if (!n_false_if && !forskip && word[0] &&
 						(word[0] != '\n' || !eat_nl)) {
 				word[1] = 0;
-				if (p = putstring(word)) {
+				if ((p = putstring(word))) {
 					sprintf(word, "%s line %d: %s",
 							iname, line, p);
 					break;
@@ -365,13 +368,14 @@ const char *eval_template(
 			eat_nl = FALSE;
 		}
 	}
-	if (feof(ifp))
+	if (feof(ifp)) {
 		if (n_true_if || n_false_if)
 			sprintf(word, "%s EOF: %d unterminated IF",
 					iname, n_true_if + n_false_if);
 		else if (forlevel > -1 || forskip)
 			sprintf(word, "%s EOF: unterminated FOREACH",
 					iname);
+	}
 	fclose(ifp);
 	if (ofp)
 		fclose(ofp);
@@ -587,9 +591,14 @@ static const char *eval_command(
 		cmd[1] = 0;
 		if(!pc)
 			return "error in expression";
-		while (cmd[0] = *pc++)
-			if (err = putstring(subst[(unsigned char)cmd[0]] ? subst[(unsigned char)cmd[0]] : cmd))
+		while ((cmd[0] = *pc++))
+			if ((err = putstring(subst[(unsigned char)cmd[0]] ? subst[(unsigned char)cmd[0]] : cmd)))
 				return(err);
+		break;
+	
+	  case O_QUIT:
+		if (!forskip && !n_false_if)
+			return "QUIT";
 	}
 	return(0);
 }
@@ -676,11 +685,12 @@ void backslash_subst(
 static const char *putstring(
 	const char	*text)		/* string to export */
 {
-	if (!ofp)
+	if (!ofp) {
 		if (!outname)
 			ofp = stdout;
 		else if (!(ofp = fopen(outname, "w")))
 			return("Failed to create export file");
+	}
 	fputs(text, ofp);
 	return(0);
 }

@@ -65,3 +65,11 @@
 #else
 #define XM_VA_SEPARATOR XmVaSEPARATOR,
 #endif
+
+#ifdef __GNUC__
+#define FALLTHROUGH __attribute__((fallthrough));
+#define UNUSED __attribute__((unused))
+#else
+#define FALLTHRUGH /*FALLTHROUGH*/
+#define UNUSED
+#endif

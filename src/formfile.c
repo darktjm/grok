@@ -24,7 +24,6 @@ static DQUERY *add_dquery(FORM *fp) {return(0);}
 static void remake_dbase_pulldown(void) {}
 #endif
 
-#define STR(s) (s ? s : "")
 #define STORE(t,s) do{if(t)free((void*)t);t=(s)&&*(s)?mystrdup(s):0;}while(0)
 
 static const char * const itemname[NITEMS] = {
@@ -65,22 +64,34 @@ BOOL write_form(
 			"Failed to create form file %s", path);
 		return(FALSE);
 	}
-	fprintf(fp, "grok\n");
-	fprintf(fp, "name       %s\n",		STR(form->name));
-	fprintf(fp, "dbase      %s\n",		STR(form->dbase));
-	fprintf(fp, "comment    %s\n",		STR(form->comment));
-	fprintf(fp, "cdelim     %s\n",		to_octal(form->cdelim));
-	fprintf(fp, "rdonly     %d\n",		form->rdonly);
-	fprintf(fp, "proc       %d\n",		form->proc);
-	fprintf(fp, "syncable   %d\n",		form->syncable);
-	fprintf(fp, "grid       %d %d\n",	form->xg, form->yg);
-	fprintf(fp, "size       %d %d\n",	form->xs, form->ys);
-	fprintf(fp, "divider    %d\n",		form->ydiv);
-	fprintf(fp, "autoq      %d\n",		form->autoquery);
-	fprintf(fp, "planquery  %s\n",		STR(form->planquery));
+	/* don't write values that are at the default (see set_form_defaults()) */
+	/* if default is not 0, add arg to macro to check default */
+#define write_str(prop, val) do { if(val) fprintf(fp, prop "%s\n", val); } while(0)
+#define write_int(prop, val, ...) do { if(val __VA_ARGS__) fprintf(fp, prop "%ld\n", (long)(val)); } while(0)
+#define write_2int(prop, val1, val2) \
+    do { if(val1 || val2) fprintf(fp, prop "%ld %ld\n", (long)(val1), (long)(val2)); } while(0)
+#define write_2intc(prop, val1, chk1, val2, chk2) \
+    do { if(val1 chk1 || val2 chk2) fprintf(fp, prop "%ld %ld\n", (long)(val1), (long)(val2)); } while(0)
+#define write_2float(prop, val1, val2) \
+    do { if(val1 || val2) fprintf(fp, prop "%g %g\n", val1, val2); } while(0)
+#define write_2floatc(prop, val1, chk1, val2, chk2) \
+    do { if(val1 chk1 || val2 chk2) fprintf(fp, prop "%g %g\n", val1, val2); } while(0)
+	fputs("grok\n", fp);
+	write_str("name       ", form->name);
+	write_str("dbase      ", form->dbase);
+	write_str("comment    ", form->comment);
+	write_str("cdelim     ", to_octal(form->cdelim)); /* always written */
+	write_int("rdonly     ", form->rdonly);
+	write_int("proc       ", form->proc);
+	write_int("syncable   ", form->syncable, != TRUE);
+	write_2intc("grid       ", form->xg, != 4, form->yg, != 4);
+	write_2intc("size       ", form->xs, != 400, form->ys, != 200);
+	write_int("divider    ", form->ydiv);
+	write_int("autoq      ", form->autoquery, != -1);
+	write_str("planquery  ", form->planquery);
 
 	for (p=form->help; p && *p; ) {
-		fprintf(fp, "help\t'");
+		fputs("help\t'", fp);
 		while (*p && *p != '\n')
 			fputc(*p++, fp);
 		fputc('\n', fp);
@@ -90,73 +101,80 @@ BOOL write_form(
 	for (dq=form->query, i=0; i < form->nqueries; i++, dq++) {
 		if (!dq->name && !dq->query)
 			continue;
-		fprintf(fp, "query_s    %d\n",		dq->suspended);
-		fprintf(fp, "query_n    %s\n",		STR(dq->name));
-		fprintf(fp, "query_q    %s\n",		STR(dq->query));
+		/* reader relies on query_s being present, so always write */
+		write_int("query_s    ", dq->suspended, || true);
+		write_str("query_n    ", dq->name);
+		write_str("query_q    ", dq->query);
 	}
 	for (i=0; i < form->nitems; i++) {
 		item = form->items[i];
-		fprintf(fp, "\nitem\n");
-		fprintf(fp, "type       %s\n",		itemname[item->type]);
-		fprintf(fp, "name       %s\n",		STR(item->name));
-		fprintf(fp, "pos        %d %d\n",	item->x,  item->y);
-		fprintf(fp, "size       %d %d\n",	item->xs, item->ys);
-		fprintf(fp, "mid        %d %d\n",	item->xm, item->ym);
-		fprintf(fp, "sumwid     %d\n",		item->sumwidth);
-		fprintf(fp, "sumcol     %d\n",		item->sumcol);
-		fprintf(fp, "sumprint   %s\n",		STR(item->sumprint));
-		fprintf(fp, "column     %ld\n",		item->column);
-		fprintf(fp, "search     %d\n",		item->search);
-		fprintf(fp, "rdonly     %d\n",		item->rdonly);
-		fprintf(fp, "nosort     %d\n",		item->nosort);
-		fprintf(fp, "defsort    %d\n",		item->defsort);
-		fprintf(fp, "timefmt    %d\n",		item->timefmt);
-		fprintf(fp, "code       %s\n",		STR(item->flagcode));
-		fprintf(fp, "codetxt    %s\n",		STR(item->flagtext));
-		fprintf(fp, "label      %s\n",		STR(item->label));
-		fprintf(fp, "ljust      %d\n",		item->labeljust);
-		fprintf(fp, "lfont      %d\n",		item->labelfont);
-		fprintf(fp, "gray       %s\n",		STR(item->gray_if));
-		fprintf(fp, "freeze     %s\n",		STR(item->freeze_if));
-		fprintf(fp, "invis      %s\n",	      STR(item->invisible_if));
-		fprintf(fp, "skip       %s\n",		STR(item->skip_if));
-		fprintf(fp, "default    %s\n",		STR(item->idefault));
-		fprintf(fp, "maxlen     %d\n",		item->maxlen);
-		fprintf(fp, "ijust      %d\n",		item->inputjust);
-		fprintf(fp, "ifont      %d\n",		item->inputfont);
-		fprintf(fp, "p_act      %s\n",		STR(item->pressed));
-		fprintf(fp, "a_act      %s\n",		STR(item->added));
+		fputs("\nitem\n", fp);
+		/* see item_create() for defaults */
+		write_str("type       ", itemname[item->type]); /* always written */
+		/* following 4 have dynamic defaults, so they're always written */
+		write_str("name       ", item->name ? item->name : "");
+		write_2intc("pos        ", item->x,  || true, item->y, || true);
+		write_2intc("size       ", item->xs, || true, item->ys, || true);
+		write_2intc("mid        ", item->xm, || true, item->ym, || true);
+		write_int("sumwid     ", item->sumwidth);
+		write_int("sumcol     ", item->sumcol);
+		write_str("sumprint   ", item->sumprint);
+		write_int("column     ", item->column, || true); /* dynamic default */
+		write_int("search     ", item->search);
+		write_int("rdonly     ", item->rdonly);
+		write_int("nosort     ", item->nosort);
+		write_int("defsort    ", item->defsort);
+		write_int("timefmt    ", item->timefmt);
+		write_str("code       ", item->flagcode);
+		write_str("codetxt    ", item->flagtext);
+		write_str("label      ", item->label);
+		write_int("ljust      ", item->labeljust, != J_LEFT);
+		write_int("lfont      ", item->labelfont);
+		write_str("gray       ", item->gray_if);
+		write_str("freeze     ", item->freeze_if);
+		write_str("invis      ", item->invisible_if);
+		write_str("skip       ", item->skip_if);
+		write_str("default    ", item->idefault);
+		write_int("maxlen     ", item->maxlen, != 100);
+		write_int("ijust      ", item->inputjust, != J_LEFT);
+		write_int("ifont      ", item->inputfont);
+		write_str("p_act      ", item->pressed);
+		write_str("a_act      ", item->added);
 		if (item->plan_if)
 		    fprintf(fp, "plan_if    %c\n",	item->plan_if);
 
-		fprintf(fp, "ch_xrange  %g %g\n",	item->ch_xmin,
-							item->ch_xmax);
-		fprintf(fp, "ch_yrange  %g %g\n",	item->ch_ymin,
-							item->ch_ymax);
-		fprintf(fp, "ch_auto    %d %d\n",	item->ch_xauto,
-							item->ch_yauto);
-		fprintf(fp, "ch_grid    %g %g\n",	item->ch_xgrid,
-							item->ch_ygrid);
-		fprintf(fp, "ch_snap    %g %g\n",	item->ch_xsnap,
-							item->ch_ysnap);
-		fprintf(fp, "ch_ncomp   %d\n",		item->ch_ncomp);
+		write_2floatc("ch_xrange  ", item->ch_xmin,,
+					     item->ch_xmax, != 1.0);
+		write_2floatc("ch_yrange  ", item->ch_ymin,,
+					     item->ch_ymax, != 1.0);
+		write_2int("ch_auto    ", item->ch_xauto,
+					  item->ch_yauto);
+		write_2float("ch_grid    ",	item->ch_xgrid,
+						item->ch_ygrid);
+		write_2float("ch_snap    ",	item->ch_xsnap,
+						item->ch_ysnap);
+		write_int("ch_ncomp   ", item->ch_ncomp);
 
 		for (c=0; c < item->ch_ncomp; c++) {
 		    chart = &item->ch_comp[c];
-		    fprintf(fp, "chart\n");
-		    fprintf(fp, "_ch_type   %d\n",	chart->line);
-		    fprintf(fp, "_ch_fat    %d %d\n",	chart->xfat,
+		    fputs("chart\n", fp);
+		    write_int("_ch_type   ", chart->line);
+		    write_2int("_ch_fat    ", chart->xfat,
 							chart->yfat);
-		    fprintf(fp, "_ch_excl   %s\n",	STR(chart->excl_if));
-		    fprintf(fp, "_ch_color  %s\n",	STR(chart->color));
-		    fprintf(fp, "_ch_label  %s\n",	STR(chart->label));
+		    write_str("_ch_excl   ", chart->excl_if);
+		    write_str("_ch_color  ", chart->color);
+		    write_str("_ch_label  ", chart->label);
 		    for (v=0; v < 4; v++) {
 			struct value *val = &chart->value[v];
-			fprintf(fp, "_ch_mode%d  %d\n",	v, val->mode);
-			fprintf(fp, "_ch_expr%d  %s\n",	v, STR(val->expr));
-			fprintf(fp, "_ch_field%d %d\n",	v, val->field);
-			fprintf(fp, "_ch_mul%d   %g\n",	v, val->mul);
-			fprintf(fp, "_ch_add%d   %g\n",	v, val->add);
+#define write_chval(f, t) do { \
+    if(val->f) \
+	fprintf(fp, "_ch_" #f "%d  " t "\n", v, val->f); \
+} while(0)
+			write_chval(mode, "%d");
+			write_chval(expr, "%s");
+			write_chval(field, "%d");
+			write_chval(mul, "%g");
+			write_chval(add, "%g");
 		    }
 		}
 	}
@@ -167,18 +185,18 @@ BOOL write_form(
 	if (access(path, F_OK) && errno == ENOENT) {
 		if (!(fp = fopen(path, "w"))) {
 			create_error_popup(mainwindow, errno,
-"The form was created successfully, but the\n\
-database file %s cannot be created.\n\
-No cards can be entered into the new Form.\n\nProblem: ", path);
+"The form was created successfully, but the\n"
+"database file %s cannot be created.\n"
+"No cards can be entered into the new Form.\n\nProblem: ", path);
 			return(FALSE);
 		}
 		fclose(fp);
 	}
 	if (access(path, R_OK)) {
 		create_error_popup(mainwindow, errno,
-"The form was created successfully, but the\n\
-database file %s exists but is not readable.\n\
-No cards can be entered into the new Form.\n\nProblem: ", path);
+"The form was created successfully, but the\n"
+"database file %s exists but is not readable.\n"
+"No cards can be entered into the new Form.\n\nProblem: ", path);
 		return(FALSE);
 	}
 	return(TRUE);
@@ -264,7 +282,7 @@ BOOL read_form(
 			else if (!strcmp(key, "planquery"))
 					STORE(form->planquery, p);
 			else if (!strcmp(key, "query_s")) {
-				if (dq = add_dquery(form))
+				if ((dq = add_dquery(form)))
 					dq->suspended = *p != '0';
 			} else if (!strcmp(key, "query_n")) {
 				if (dq)
@@ -274,12 +292,12 @@ BOOL read_form(
 					STORE(dq->query, p);
 			} else if (!strcmp(key, "help") && *p++ == '\'') {
 				if (form->help) {
-					if (form->help = (char *)realloc(form->help,
+					if ((form->help = (char *)realloc(form->help,
 							   strlen(form->help) +
-							   strlen(p) + 2))
+							   strlen(p) + 2)))
 						strcat(form->help, p);
 				} else {
-					if (form->help = (char *)malloc(strlen(p) + 2))
+					if ((form->help = (char *)malloc(strlen(p) + 2)))
 						strcpy(form->help, p);
 				}
 				if (form->help)
@@ -377,7 +395,7 @@ BOOL read_form(
 					sscanf(p, "%g %g", &item->ch_xsnap,
 							   &item->ch_ysnap);
 			else if (!strcmp(key, "ch_ncomp")) {
-					if (item->ch_ncomp = atoi(p))
+					if ((item->ch_ncomp = atoi(p)))
 						item->ch_comp =
 							(CHART *)calloc(item->ch_ncomp,
 								sizeof(CHART));

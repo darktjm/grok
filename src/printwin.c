@@ -18,7 +18,7 @@
 static void cancel_callback	(void);
 static void print_callback	(void);
 static void config_callback	(char *, char,bool);
-static void file_print_callback	(QDialog *,const QString &);
+static void file_print_callback	(const QString &);
 
 static BOOL	have_shell = FALSE;	/* message popup exists if TRUE */
 static QDialog	*shell;		/* popup menu shell */
@@ -168,7 +168,7 @@ static void print_callback(void)
 		int ret;
 		QFileDialog *d = new QFileDialog(shell, "Select printing output file");
 		d->setAcceptMode(QFileDialog::AcceptSave);
-		set_file_dialog_cb(d, file_print_callback(d, fn), fn);
+		set_file_dialog_cb(d, file_print_callback(fn), fn);
 		ret = d->exec();
 		delete d;
 		if(ret == QDialog::Rejected)
@@ -180,7 +180,6 @@ static void print_callback(void)
 
 
 static void file_print_callback(
-	QDialog		*d,
 	const QString	&filename)
 {
 	if (!filename.size()) {

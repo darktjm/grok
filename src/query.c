@@ -44,7 +44,7 @@ int match_card(
 	register char	*p, *q;		/* copy and comparison pointers */
 	int		i;		/* search string index */
 
-	if (!string || *string == '*' && !string[1])
+	if (!string || (*string == '*' && !string[1]))
 		return(TRUE);
 	else if (*string == '(' || *string == '{')
 		return(expr_matches_card(card, string));
@@ -68,7 +68,7 @@ void query_any(
 	CARD		*card,		/* database and form */
 	const char	*string)	/* query string */
 {
-	if (!string || *string == '*' && !string[1])
+	if (!string || (*string == '*' && !string[1]))
 		query_all(card);
 	else if (*string == '(' || *string == '{')
 		query_eval(mode, card, string);
@@ -152,15 +152,18 @@ void query_search(
 			}
 			if (mode == SM_INQUERY)
 				break;
+			FALLTHROUGH
 		  case SM_WIDEN:
 			if (mask && mask[card->row]) {
 				card->query[card->nquery++] = card->row;
 				continue;
 			}
+			FALLTHROUGH
 		  case SM_NARROW:
 			if (!mask || !mask[card->row])
 				continue;
 			break;
+		  default: /* SEARCH FIND NMODES */ ;
 		}
 		if (search_matches_card(card, search))
 			card->query[card->nquery++] = card->row;
@@ -179,7 +182,7 @@ void query_search(
 
 void query_letter(
 	CARD		*card,		/* database and form */
-	int		letter)		/* 0=0..9, 1..26=a..z, 27=all */
+	int		letter)		/* 0..25=a..z, 26=misc, 27=all */
 {
 	int		r;		/* row counter */
 	char		*data;		/* database string to test */
@@ -263,6 +266,7 @@ void query_eval(
 				card->query[card->nquery++] = card->row;
 				continue;
 			}
+		  default: /* SEARCH WINDEN_INQUERY FIND NMODES */ ;
 		}
 		match = expr_matches_card(card, expr);
 		if (match < 0)
@@ -362,6 +366,6 @@ static int expr_matches_card(
 
 	if (!(val = evaluate(card, expr)))
 		return(-1);
-	while (*val == ' ' || *val == '\t') val++; \
+	while (*val == ' ' || *val == '\t') val++;
 	return(*val && *val != '0' && *val != 'f' && *val != 'F');
 }

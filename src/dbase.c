@@ -227,7 +227,7 @@ BOOL dbase_put(
 	if (data && !*data)
 		data = 0;
 	p = row->data[ncolumn];
-	if (!data && !p || data && p && !strcmp(data, row->data[ncolumn]))
+	if ((!data && !p) || (data && p && !strcmp(data, row->data[ncolumn])))
 	    	return(FALSE);
 	if (row->data[ncolumn])
 		free(row->data[ncolumn]);

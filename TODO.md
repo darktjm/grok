@@ -30,17 +30,17 @@ Unless otherwise stated, assume 0% complete:
       processed?
 
     - As expected, letter buttons still don't work
-	
+
     - file dialog is always GTK+.  Is there a way to make it "native QT"?
 
     - Memory leaks:
 
       - on parse error, any string yylvals leak
-      
+
       - I should probably test the memory leak fixes I made a little
 	better to ensure no crashing, but I'm too lazy.  I'll fix them
 	when I encounter problems.
-	  
+
     - Some shortcuts, such as ^G and ^Q, should be made global.
 
     - The layout of the form item editor needs tweaking.  At the very
@@ -108,16 +108,42 @@ Unless otherwise stated, assume 0% complete:
   - Remove Rambo Quit, and make Quit and window-close work like that
     instead.  This matches what most other applications do.  Also,
     make database switches (at least via the GUI) make saves optional,
-    as well.  Maybe keep modified databases in memory so that
-    programatic switches don't need to auto-save, either.  After an
-    expression or template that does programatic switches finishes,
-    pop up a message indicating that there are unsaved changes in other
-    databases.
+    as well.  Since button actions are the only way other than the
+    menu to switch databases, this should be prtty easy.
 
-  - Minor attempts at supporting UTF-8.  This is about 20% complete.
+  - Make an easy way to access fields in other databases.  This is
+    almost a prerequisite for foreign key support.  This makes the
+    above item a little more complicated, as multiple modified
+    databases may be in play.  It is also not currently possible to
+    set an alternate sort order or search string.  Only foreach/FOREACH
+    have the ability to alter the search string temporarily, but not the
+    search order.  Database name is relative to same path as current
+    database, or, if not there, first one in search path.  Absolute
+    paths are allowed, but should be discouraged.
+
+    - Maybe an additional foreach() parameter gives the sort field
+      and +/- order, like foreach("x", +_field[, +_field2 ...]).
+
+    - Maybe similar to foreach(), have a function that executes an
+      expression in the context of a new database.  Like foreach(),
+      return values must be set in variables or other side effects;
+      indb(dbname, search, expr).  Or, add an optional first argument
+      prefixed by a char, like the sort thing above:
+      foreach(:"databse"[, "search"], "expr")
+
+  - Minor attempts at supporting UTF-8.  This was going somewhere in
+    the IUP port, but I have abandoned this and it is at 0% again.
     I don't like the idea of using QChar everywhere, and I definitely
     don't like the idea of converting to/from QByteArrays, but there's
     not much else I can do.
+
+    At the least, if the current locale isn't UTF-8, the current locale
+    should be supported.  Otherwise, a scan of data should make it
+    obvious if it isn't UTF-8, and an option should be provided to
+    convert to UTF-8.
+
+    Multi-byte delimiters must be supported.  Anything that scans one
+    character at a time needs to be re-evaluated.
 
   - Support non-mutable expressions.  As mentioned below, it's
     possible to do mass edits with mutating search expressions.  For
@@ -330,7 +356,7 @@ Unless otherwise stated, assume 0% complete:
       a tabbed window in the editor window as well.  Widgets added
       within the bounds of the tab window are added to the currently
       selected tab.
-      
+
       - Alternately, take advantage of invisible_if's now dynamic
         behavior.  Just add a "hide now" button next to
 	invisible_if that hides this item and any item with
@@ -340,7 +366,7 @@ Unless otherwise stated, assume 0% complete:
 	Alternatevely, add a tearable menu of all invisible_if
 	expressions for fast switching between "tabs"
 
-    - As a special form of the foriegn key feature:  one-to-one
+    - As a special form of the foreign key feature:  one-to-one
       relationships.  Each tab corresponds to a child table, and within
       is displayed the full edit form of the child table, with parent
       key reference fields removed.  When a new parent record is

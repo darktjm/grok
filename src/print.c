@@ -80,6 +80,7 @@ void print(void)
 
 	  case 'W':
 		sprintf(file = path, "/usr/tmp/grok%d", getpid());
+		FALLTHROUGH
 
 	  case 'F':
 		if (!(fp = fopen(file, "w"))) {
@@ -111,11 +112,12 @@ void print(void)
 
 	  case 'e':
 	  	for (n=0; n < curr_card->dbase->nrows; n++)
-			if (SECT_OK(curr_card->dbase, n))
+			if (SECT_OK(curr_card->dbase, n)) {
 				if (pref.pquality == 'P')
 					print_card_p(fp, n);
 				else
 					print_card_a(fp, n);
+			}
 		break;
 
 	  case 'A':
@@ -203,8 +205,9 @@ static void print_head_a(
  * no trailer for ascii
  */
 
+/*ARGSUSED*/
 static void print_tail_a(
-	FILE		*fp)		/* file or spooler to print to */
+UNUSED	FILE		*fp)		/* file or spooler to print to */
 {
 }
 
@@ -349,18 +352,21 @@ static void print_card_a(
 
 
 /*----------------------------------------------------- PostScript ----------*/
+/*ARGSUSED*/
 static void print_head_p(
-	FILE		*fp)		/* file or spooler to print to */
+UNUSED	FILE		*fp)		/* file or spooler to print to */
 {
 }
 
+/*ARGSUSED*/
 static void print_tail_p(
-	FILE		*fp)		/* file or spooler to print to */
+UNUSED	FILE		*fp)		/* file or spooler to print to */
 {
 }
 
+/*ARGSUSED*/
 static void print_card_p(
-	FILE		*fp,		/* file or spooler to print to */
-	int		num)		/* card number to print */
+UNUSED	FILE		*fp,		/* file or spooler to print to */
+UNUSED	int		num)		/* card number to print */
 {
 }

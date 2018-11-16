@@ -922,11 +922,12 @@ static int readback_item(
 
 	  case 0x113: item_deselect(form);
 		      item_delete(form, curr_item);
-		      if (curr_item >= form->nitems)
+		      if (curr_item >= form->nitems) {
 				if (curr_item)
 				    curr_item--;
 				else
 				    item_deselect(form);
+		      }
 		      item = 0; // skip item adjustment below
 	 	      all = TRUE;
 		      break;

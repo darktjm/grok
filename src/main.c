@@ -86,6 +86,7 @@ int main(
 				break;
 			  case 'T':
 				noheader = TRUE;
+				FALLTHROUGH
 			  case 't':
 				ttymode  = TRUE;
 				break;
@@ -164,7 +165,7 @@ int main(
 			fprintf(stderr,"%s: %s: no match\n",progname,formname);
 			_exit(0);
 		}
-		if (p = exec_template(0, tmpl, 0, curr_card))
+		if ((p = exec_template(0, tmpl, 0, curr_card)))
 			fprintf(stderr, "%s %s: %s\n", progname, formname, p);
 		fflush(stdout);
 		_exit(0);
@@ -285,18 +286,18 @@ static void make_grokdir(void)
 	char *path = resolve_tilde((char *)GROKDIR, 0); /* GROKDIR has no trailing / */
 	if (access(path, X_OK))
 		create_query_popup(mainwindow, mkdir_callback, 0,
-"Cannot access directory %s\n\n\
-This directory is required to store the grok configuration\n\
-file, and it is the default location for forms and databases.\n\
-If you are running grok for the first time and intend to use it\n\
-regularly, press OK now and copy all files from the grokdir\n\
-demo directory in the grok distribution into %s .\n\
-\n\
-If you want to experiment with grok first, press Cancel. If\n\
-you have a grokdir directory in the directory you started\n\
-grok from, it will be used in place of %s, but you may\n\
-not be able to create new forms and databases, and con-\n\
-figuration changes will not be saved.",
+"Cannot access directory %s\n\n"
+"This directory is required to store the grok configuration\n"
+"file, and it is the default location for forms and databases.\n"
+"If you are running grok for the first time and intend to use it\n"
+"regularly, press OK now and copy all files from the grokdir\n"
+"demo directory in the grok distribution into %s .\n"
+"\n"
+"If you want to experiment with grok first, press Cancel. If\n"
+"you have a grokdir directory in the directory you started\n"
+"grok from, it will be used in place of %s, but you may\n"
+"not be able to create new forms and databases, and con-\n"
+"figuration changes will not be saved.",
 						path, GROKDIR, GROKDIR);
 }
 
