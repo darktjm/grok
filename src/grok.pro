@@ -10,8 +10,8 @@ QT = core gui widgets
 
 # This probably can't be done portably
 # Both qmake and the shell strip quotes from this
-DEFINES += LIB='\'"$${PREFIX}/share"\''
-
+#DEFINES += LIB=\\\"$${PREFIX}/share\\\"
+DEFINES += "LIB=\"\\\"$${PREFIX}/share\\\"\""
 # Needed for private interface to retrieve standard button names
 INCLUDEPATH += $$[QT_INSTALL_HEADERS]/QtGui/$$QT_VERSION \
 	       $$[QT_INSTALL_HEADERS]/QtGui/$$QT_VERSION/QtGui \
@@ -26,10 +26,6 @@ CONFIG += yacc
 #QMAKE_YACC = byacc
 # bison works correctly, and is reentrant version 3.2.1 (and probably eariler)
 QMAKE_YACC = bison -y
-
-# this warning is way too much of a pain in the ass to "fix"
-# FIXME: I should probably make this dependent on g++, but I don't know how
-QMAKE_CXXFLAGS += -Wno-missing-field-initializers
 
 # compile C as if it were C++ so I don't have to rename all the sources
 # it should be possible to override extensions to do the same, but no

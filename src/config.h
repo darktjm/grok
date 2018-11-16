@@ -69,6 +69,8 @@
 #ifdef __GNUC__
 #define FALLTHROUGH __attribute__((fallthrough));
 #define UNUSED __attribute__((unused))
+/* This warning is way too much trouble to "fix" */
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #else
 #define FALLTHRUGH /*FALLTHROUGH*/
 #define UNUSED
