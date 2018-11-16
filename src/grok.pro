@@ -19,8 +19,13 @@ INCLUDEPATH += $$[QT_INSTALL_HEADERS]/QtGui/$$QT_VERSION \
 	       $$[QT_INSTALL_HEADERS]/QtCore/$$QT_VERSION/QtCore
 
 CONFIG += yacc
-# default yacc (bison?) defines yyparse with C linkage, but I use C++
-QMAKE_YACC = byacc
+# default yacc on gentoo defines yyparse with C linkage, but I use C++
+# http://dinosaur.compilertools.net/#yacc  version 1.9.1
+# byacc works correctly, but isn't reentrant (even with -P and YYPURE=1)
+# https://invisible-island.net/byacc/byacc.html version 20180609
+#QMAKE_YACC = byacc
+# bison works correctly, and is reentrant version 3.2.1 (and probably eariler)
+QMAKE_YACC = bison -y
 
 QMAKE_CXXFLAGS += -Wno-unused-parameter -Wno-switch -Wno-misleading-indentation -Wno-parentheses -Wno-missing-field-initializers -Wno-cast-function-type
 

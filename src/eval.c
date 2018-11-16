@@ -19,7 +19,6 @@ static char	*yyexpr;		/* first char read by lexer */
 static char	*yytext;		/* next char to be read by lexer */
 char		*yyret;			/* returned string (see parser.y) */
 static char	errormsg[2000];		/* error message if any, or "" */
-static char	extramsg[1000];		/* extra error message details */
 CARD		*yycard;		/* database for which to evaluate */
 char		*switch_name;		/* if switch statement was found, */
 char		*switch_expr;		/* .. name to switch to and expr */
@@ -37,10 +36,15 @@ void parsererror(
 {
 	if (!*errormsg) {
 		sprintf(errormsg,
-"Problem with search expression\n%s:\n%.80s in column %d near '%.4s'\n%s",
-				yyexpr, msg, (int)(yytext - yyexpr), yytext, extramsg);
+"Problem with search expression\n%s:\n%.80s in column %d near '%.4s'\n",
+				yyexpr, msg, (int)(yytext - yyexpr), yytext);
 		fprintf(stderr, "%s: %s\n", progname, errormsg);
 	}
+}
+
+bool eval_error(void)
+{
+    return !!*errormsg;
 }
 
 
@@ -61,7 +65,6 @@ const char *evaluate(
 	if (yyret)
 		free((void *)yyret);
 	*errormsg = 0;
-	*extramsg = 0;
 	assigned  = 0;
 	yytext =
 	yyexpr = mystrdup(exp);
@@ -78,11 +81,49 @@ const char *evaluate(
 	return(yyret ? yyret : "");
 }
 
+/* For foreach(): evaluate the string and restore parser state */
+/* This relies on parserparse() being reentrant, which may not be true */
+const char *subeval(
+	const char	*exp)
+{
+	char		*saved_text = yytext;
+	char		*saved_expr = yyexpr;
+	BOOL		saved_assigned = assigned;
+	if (!exp || *errormsg) // refuse to continue on errors
+		return(0);
+	if (!*exp || *exp != '(' && *exp != '{' && *exp != '$')
+		return(exp);
+	if (yyret)
+		free((void *)yyret);
+
+	yytext = yyexpr = strdup(exp);
+	assigned  = 0;
+	yyret  = 0;
+
+	(void)parserparse();
+
+	free((void *)yyexpr);
+	assigned   |= saved_assigned;
+	yytext	    = saved_text;
+	yyexpr	    = saved_expr;
+	return(yyret ? yyret : "");
+}
+
 BOOL evalbool(
 	CARD		*card,
 	const char	*exp)
 {
 	if (!(exp = evaluate(card, exp)))
+		return(FALSE);
+	while (*exp == ' ' || *exp == '\t')
+		exp++;
+	return(*exp && *exp != '0' && *exp != 'f' && *exp != 'F');
+}
+
+BOOL subevalbool(
+	const char	*exp)
+{
+	if (!(exp = subeval(exp)))
 		return(FALSE);
 	while (*exp == ' ' || *exp == '\t')
 		exp++;
@@ -102,17 +143,12 @@ void f_foreach(
 {
 	register DBASE	*dbase	    = yycard->dbase;
 	int		saved_row   = yycard->row;
-	char		*saved_text = yytext;
-	char		*saved_expr = yyexpr;
-	char		*saved_ret  = yyret;
-	BOOL		saved_assigned = assigned;
 
-	saved_text = saved_expr = saved_ret = 0;
-	if (expr)
+	if (expr && !eval_error())
 		for (yycard->row=0; yycard->row < dbase->nrows; yycard->row++){
-			if (!cond || evalbool(yycard, cond))
-				evaluate(yycard, expr);
-			if (*errormsg)
+			if (!cond || subevalbool(cond))
+				subeval(expr);
+			if (eval_error())
 				break;
 	}
 	if (cond)
@@ -120,10 +156,6 @@ void f_foreach(
 	if (expr)
 		free(expr);
 	yycard->row = saved_row;
-	assigned   |= saved_assigned;
-	yytext	    = saved_text;
-	yyexpr	    = saved_expr;
-	yyret	    = saved_ret;
 }
 
 
@@ -131,10 +163,11 @@ void f_foreach(
 #define ISSYM_B(c) ((c)>='a' && (c)<='z' || (c)>='A' && (c)<='Z')
 #define ISSYM(c)   ((c)>='0' && (c)<='9' || (c)=='_' || ISSYM_B(c))
 
-static const char *pair_l  = "=!<><>&|+/-*%|&.+-";
-static const char *pair_r  = "====<>&|========+-";
+static const char *pair_l  = "=!<><>&|+/-*%|&.+--#|||";
+static const char *pair_r  = "====<>&|========+->#+*-";
 static const short value[] = { EQ, NEQ, LE, GE, SHL, SHR, AND, OR,
-			 PLA, DVA, MIA, MUA, MOA, ORA, ANA, APP, INC, DEC_ };
+			 PLA, DVA, MIA, MUA, MOA, ORA, ANA, APP, INC, DEC_,
+			 AAS, ALEN, UNION, INTERSECT, DIFF};
 
 static const struct symtab { const char *name; int token; } symtab[] = {
 			{ "this",	THIS	},
@@ -209,6 +242,8 @@ static const struct symtab { const char *name; int token; } symtab[] = {
 			{ "sub",	SUB	},
 			{ "gsub",	GSUB	},
 			{ "bsub",	BSUB	},
+			{ "esc",	ESC	},
+			{ "toset",	TOSET	},
 			{ 0,		0	}
 };
 
@@ -230,7 +265,7 @@ int parserlex(void)
 	  case STRING:	printf("== string \"%s\"\n", yylval.sval);	break;
 	  case SYMBOL:	printf("== symbol \"%s\"\n", yylval.sval);	break;
 	  case VAR:	printf("== var %c\n", yylval.ival +
-				(yylval.ival < 26 ? 'a' : 'A'-26);	break;
+				(yylval.ival < 26 ? 'a' : 'A'-26));	break;
 	  case FIELD:	printf("== field %d\n", yylval.ival);		break;
 	  default:	printf("== token %d\n", t);			break;
 	}

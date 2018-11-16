@@ -12,7 +12,8 @@ installation first:
 >     make install INSTALL_TARGET=/install/root
 
 If you don't like the default installation locations, edit grok.pro.
-In particular, the PREFIX variable is the installation root.
+In particular, the PREFIX variable is the installation root.  You may
+also need to tweak the yacc-related configuration.
 
 ---------------------------------------
 

@@ -260,6 +260,7 @@ typedef struct form {
 	char	*comment;	/* user-defined comment */
 	char	*help;		/* help text */
 	unsigned char cdelim;	/* column delimiter in database file */
+	unsigned char asep, aesc;  /* string array delimiter and how to escape it */
 	BOOL	rdonly;		/* don't allow writing to database */
 	BOOL	proc;		/* procedural */
 	BOOL	syncable;	/* keep timestamp files */

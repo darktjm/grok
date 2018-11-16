@@ -134,56 +134,9 @@ Unless otherwise stated, assume 0% complete:
     standalone expressions in templates.  It's a saftey feature, not a
     security feature.
 
-  - Interpretation of strings as arrays.  Each database has a
-    configurable separator (different from the field separator, and by
-    default a vertical bar), as well as a configurable escape
-    character (backslash by default; can't be same as separator or
-    blank values would not be possible; also unrelated to the use of
-    backslashes to escape values within the database).  A C API is
-    provided for internal use, and the following functions are added
-    to grok's expression language:
+  - Make array separator & escape char a form option (form def file, GUI)
 
-    - elt(a, n) -> returns string element #n of "array" a; blank if
-      out-of-bounds.  Index is 0-based.  Returned value has escaped
-      escape characters and value separators unescaped.
-
-      Alternatively, maybe a[n], but then field values would need to be
-      in curly braces, e.g. `{_name}[n]` or `"a|b"[1]`.
-
-    - elt(a, n, s) -> return array created by modifying a, setting
-      element #n to s.  Negative n appends s to n, which differs from
-      just appending a separator folled by the value in that the value
-      is escaped properly.  Positive out-of-bounds n will fill the gap
-      with blank values.
-
-      Alternatively, maybe a[n] = ..., but that isn't as intuitive,
-      since it doesn't actually modify a, but instead returns the
-      value of a with its nth element replaced.  Like above, field
-      values would also have to be in curly braces, e.g.
-      `_name={_name}[n]=v`.
-
-    - alen(a) -> returns the number of elements in a.  Note that a blank
-      string is ambiguous; it returns a length of 1 (element 0 is a
-      blank string).  Alternatively, #a.
-
-    - foreach(var, a, e) -> evaluate expression in string e for all elements
-      in array a, assigning the element value to var before evaluating e.
-      I'm still debating on whether or not var is a variable name or a
-      string containing a variable name.  In either case, I could allow
-      a + prefix to indicate non-blank, like with FOREACH below.
-      Alternatively, a special token (say, elt without parentheses) is
-      always the name of the inner-most element.  That would eliminate
-      the first parameter, causing a conflict with the
-      foreach(record..) functions.  This could be resolved by renaming
-      the function to aforeach or foreachelt.  The + could then prefix
-      the array argument rather than the var argument.
-
-    - foreach(var, a, c, e) -> evaluate expression in string e for all
-      elements in array a for which the boolean string c is true,
-      assigning the element value to var before evaluating c or e.
-      See above comments about var.
-
-    In addition, templates' FOREACH directive understands arrays:
+  - Make templates' FOREACH directive understands arrays:
 
     - \\{FOREACH [v a} -> step over values of a, setting variable v
 
@@ -195,6 +148,8 @@ Unless otherwise stated, assume 0% complete:
     - \\{FOREACH [+v a} -> step over non-blank values of a, setting v
 
        Alternately, \\{FOREACH [+a} \\{ELT} as above.
+
+  - Use binary searches in lexer (kw and pair_)
 
   - Cycle gadgets/popup menus/whatever the platform calls it to
     replace radio boxes.  Basically looks like a pushbutton with a
@@ -215,32 +170,6 @@ Unless otherwise stated, assume 0% complete:
      predefined values, the Input default field is overloaded as an
      array with index 0 being the actual default, and subsequent values
      being displayed in the combo dropdown.
-
-  - Interpretation of string arrays as sets.  An array is a set if and
-    only if there are no blank values (an empty string is interpreted
-    as an empty set), no duplicated values, and the values are sorted
-    (it doesn't matter what the sort order is, just so it is
-    consistent, so probably a locale-independent byte value ordering).
-    Functions are added to the internal expressions to support this:
-
-    - toset(a) -> returns the array value converted into a set by
-      removing blank values and duplicates and sorting the array.
-
-    - inset(a, s) -> true if s is in set a.  False if s is blank, and
-      otherwise undefined if a is not a set.  Alternatively, return
-      the element number + 1 if s is in set a.  Alternatively, make it
-      an operator like in.  Alternatiely, add an intersect function
-      or operator, making this a two-step process: `a intersect s != ""`
-
-    - addset(a, s) -> returns a set which contains s and all the
-      elements of a.  Undefined if a is not a set.  Alternatively,
-      union(a, b) gives union of sets a and b.  Alternatively, make
-      union an operator.
-
-    - delset(a, s) -> returns a set which contains all the elements of a
-      except for s, if present.  Undefined if a is not a set.
-      Alternately, call it without and make the second argument a set
-      as well.  Possibly make it an operator.
 
   - Add multi-select list widgets, whose value is a set.  Otherwise,
     same as Cycle gadgets above.
@@ -501,6 +430,17 @@ Unless otherwise stated, assume 0% complete:
     to compensate for the lack of them (including "group by",
     which returns a table indexed by the grouping columns).  This does
     not mean that I will reconsider IUP for the GUI toolkit.
+
+  - Use whatever Qt provides for designer-designed GUIs.  Probably give
+    every action and major widget a name, and map that to the
+    user-supplied GUI file.  That's probably the only way I'll ever be
+    able to support Android or other small displays, at least:  complete
+    GUI overrides.  This will probably also require use of the "Qt
+    Resource" facility to store the default GUI layouts in the binary.
+
+  - Support automated layout by sorting the form's widgets and laying
+    them out in a grid, instead.  Probalby also necessary in order to
+    support Android or other small displays.
 
   - Port to another OS.  Easiest would probably be Mac, if it weren't
     for the fact that I have no Mac to test on and dropped my Apple

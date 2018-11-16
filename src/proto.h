@@ -128,14 +128,19 @@ void edit_file(
 const char *evaluate(
 	CARD		*card,
 	const char	*exp);
+bool eval_error(void); // true if last evaluate() encountered an error
 BOOL evalbool(
 	CARD		*card,
+	const char	*exp);
+const char *subeval(
+	const char	*exp);
+BOOL subevalbool(
 	const char	*exp);
 void f_foreach(
 	char		*cond,
 	char		*expr);
-int yylex(void);
-void yyerror(
+int parserlex(void);
+void parsererror(
 	const char *msg);
 int yywrap(void);
 
@@ -149,10 +154,16 @@ extern BOOL	assigned;		/* did a field assignment */
 
 /*---------------------------------------- parser.y ------------*/
 extern int parserparse(void);
+void init_variables(void);
+char    *getsvar	(int    v);
+double   getnvar	(int    v);
+char    *setsvar	(int    v,
+			 char  *s);
+double   setnvar	(int    v,
+			 double d);
 
 /*---------------------------------------- evalfunc.c ------------*/
 
-void init_variables(void);
 double f_num(
 	char		*s);
 double f_sum(				/* sum */
@@ -216,6 +227,43 @@ char *f_printf(
 	struct arg	*arg);
 int re_match(char *s, char *e);
 char *re_sub(char *s, char *e, char *r, bool all);
+// count aoccurrences of c-chars in s
+int countchars(const char *s, char *c);
+// remove esc from s, keeping following char.  Returns end of d.
+// negative len -> strlen(s)
+char *unescape(char *d, const char *s, int len, char esc);
+// Add esc in front of esc and toesc-chars in s.  Returns end of d.
+// negative len -> strlen(s)
+// Don't forget that s will grow (use countchars() to see how much)
+char *escape(char *d, const char *s, int len, char esc, char *toesc);
+char *f_esc(char *s, char *e);
+int f_alen(char *array);
+char *f_elt(char *array, int n);
+char *f_setelt(char *array, int n, char *val);
+void f_foreachelt(
+	int		var,
+	char		*array,
+	char		*cond,
+	char		*expr,
+	bool		nonblank);
+char *f_toset(char *a);
+char *f_union(char *a, char *b);
+char *f_intersect(char *a, char *b);
+char *f_setdiff(char *a, char *b);
+
+/* get loaded form's separator information */
+void get_cur_arraysep(char *sep, char *esc);
+/* assumes end is no a separator; start search at -1.
+   Returns -1 for begin @ end */
+void next_aelt(char *array, int *begin, int *after, char sep, char esc);
+int stralen(char *array, char sep, char esc);
+void find_elt(char *array, int n, int *begin, int *after, char sep, char esc);
+char *set_elt(char *array, int n, char *val);
+// convert a to a set in-place
+void toset(char *a, char sep, char esc);
+// find escaped elt e of length len in non-empty set a
+bool findelt(char *a, char *s, int len, int *begin, int *after, char sep, char esc);
+
 
 /*---------------------------------------- formfile.c ------------*/
 

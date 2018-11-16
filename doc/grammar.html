@@ -78,6 +78,7 @@ precedences. Bitwise operations operate on 32 bits only.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>atan(</TT><B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Arctangent of a number, tan<SUP>-1</SUP>&nbsp;<I>x</I>
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>atan2(</TT><B>n</B>, <B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Quadrant-aligned arc tangent
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>len(</TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Length of a string
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>#</TT><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Length of a string
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>bound(</TT><B>n</B>, <B>n</B>, <B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The first number bounded by a minimum (second number) and a maximum (third number)
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>random</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A random number in the range of [0.0, 1.0]
 </TABLE>
@@ -114,6 +115,7 @@ be identical to those described <A HREF="http://pcre.org/pcre.txt">here</A>.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>sub(</TT><B>s</B><TT>, </TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Return the first string, with the first match of the regular expression in the second string replaced by the third string.  The third string may have <TT>\0</TT> .. <TT>\9</TT> and <TT>\{</TT><B>n</B><TT>}</TT> to insert subexpressions; any other backslash escapes the next character. 
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>gsub(</TT><B>s</B><TT>, </TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Return the first string, with all matches of the regular expression in the second string replaced by the third string.  The third string may have <TT>\0</TT> .. <TT>\9</TT> and <TT>\{</TT><B>n</B><TT>}</TT> to insert subexpressions; any other backslash escapes the next character.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>match(</TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B>, <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Return the offset in the first string, plus one, of the first occurrence of the regular expression pattern specified by the second string.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>esc(</TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Returns the first string, with any characters in the second string prefixed by the first character in the second string
 </TABLE>
 
 
@@ -337,6 +339,55 @@ string; this convention is useful for blank date fields.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>julian(</TT><B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Extract the julian date 0..365 from a time
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>leap(</TT><B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>1 if the time is in a leap year, or 0 otherwise
 </TABLE>
+
+<A NAME="gi">
+<H2>Array Operations</H2>
+
+<P>Strings can be interpreted as arrays of strings, with array elements
+separated by a delimiter.  Occurrences of the delimiter within element
+values must also be escaped, along with the escape character itself.
+The following functions support this interpretation.  Each form has a
+global array delimiter (by default a vertical bar (<TT>|</TT>) and a
+global array element escape character (by default the backslash
+(<TT>\</TT>).  The delimiter and escape characters must be different
+from each other, or else it would be impossible to represent empty
+array elements.
+
+<P>Reading array elements outside of its boundaries returns an empty
+value.  Writing to array elements past the end fills missing values
+with blanks.  Writing to a negative index appends to the end
+(regardless of the actual negative value).  Note that appending to an
+empty string sets element 1, not element 0, since an empty string is
+interpreted as an array of one blank value.
+
+<P>An array may also be further restricted by calling it a set.  An
+empty set is an empty string, i.e. a one-element array whose only
+element is blank.  A non-empty set is an array with no blank or
+repeated elements, and whose elements are sorted in a system-defined
+sort order.  Note that performing set operations on an invalid set
+has unpredictable, likely invalid results.  A set containing a single
+element can be created using <TT>esc(</TT><B>s</B><TT>)</TT>.  This
+can be then added or removed from a set using the union and difference
+operators, and tested for using the intersection, followed by a
+comparison to the empty string (<B>s</B><TT> |*
+esc(</TT><B>s</B><TT>)!=""</TT>)
+
+<P><TABLE WIDTH="100%" CELLPADDING=4 BORDER=0 CELLSPACING=4>
+<TR BGCOLOR=#a0a0e0><TH>operator<TH>type<TH>operation
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>esc(</TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B>, <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Returns <B>s</B> with all array delimiters and escape characters prefixed by the array escape character.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>##</TT><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B>, <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of elements in array <B>s</B>
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B><TT>[</TT><B>n</B><TT>]</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Array element <B>n</B> of array <B>s</B>, properly unescaped.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B><TT>[</TT><B>n</B><TT>] -> </TT><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Returns an array which replaces element <B>n</B> in the array specified by the first string with the second string, properly escaped.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0>foreach(<I>var</I><TT>, </TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Evaluate the third string for every array element in the second string, assiging the element to <I>var</I> first.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0>foreach(<I>var</I><TT>, +</TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Evaluate the third string for every non-blank array element in the second string, assiging the element to <I>var</I> first.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0>foreach(<I>var</I><TT>, </TT><B>s</B><TT>, </TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Evaluate the third string for every array element in the third string for which the second string evaluates to true, assigning the element to <I>var</I> first.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0>foreach(<I>var</I><TT>, +</TT><B>s</B><TT>, </TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Evaluate the third string for every non-blank array element in the third string for which the second string evaluates to true, assigning the element to <I>var</I> first.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>toset(</TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Returns array <B>s</B> converted into a valid set.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TT>|+</TT> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The union of the elements in the operand sets.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TT>|*</TT> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The intersection of the elements in the operand sets.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TT>|-</TT> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A set containint elments in the first set but not in the second.
+</TABLE>
+
 
 <A NAME="gh">
 <H2>Examples</H2>

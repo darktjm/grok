@@ -25,33 +25,35 @@ static int	f_cmp	(char  *s,
 			 char  *t)  { int r = strcmp(s?s:"", t?t:"");
 				      f_free(s); f_free(t); return r;}
 
-static char    *getsvar	(int    v)  { char buf[100], *r = var[v].string;
+char    *getsvar	(int    v)  { char buf[100], *r = var[v].string;
 					if (var[v].numeric) { sprintf(r = buf,
 							"%g", var[v].value); }
 					return(mystrdup(r)); }
-static double   getnvar	(int    v)  { return(var[v].numeric ? var[v].value :
+double   getnvar	(int    v)  { return(var[v].numeric ? var[v].value :
 					var[v].string?atof(var[v].string):0);}
-static char    *setsvar	(int    v,
+char    *setsvar	(int    v,
 			 char  *s)  { f_free(var[v].string);
 					var[v].numeric = FALSE;
 					return(mystrdup(var[v].string = s)); }
-static double   setnvar	(int    v,
+double   setnvar	(int    v,
 			 double d)  { (void)setsvar(v, 0);
 					var[v].numeric = TRUE;
 					return(var[v].value = d); }
 
 void init_variables(void) { int i; for (i=0; i < 26; i++) setsvar(i, 0); }
+
 %}
 
 %union { int ival; double dval; char *sval; struct arg *aval; }
-%type	<dval>	number
+%type	<dval>	number numarg
 %type	<sval>	string
 %type	<aval>	args
+%type	<ival>	plus
 %token	<dval>	NUMBER
 %token	<sval>	STRING SYMBOL
 %token	<ival>	FIELD VAR
-%token		EQ NEQ LE GE SHR SHL AND OR IN
-%token		PLA MIA MUA MOA DVA ANA ORA INC DEC_ APP
+%token		EQ NEQ LE GE SHR SHL AND OR IN UNION INTERSECT DIFF
+%token		PLA MIA MUA MOA DVA ANA ORA INC DEC_ APP AAS ALEN
 %token		AVG DEV AMIN AMAX SUM
 %token		QAVG QDEV QMIN QMAX QSUM
 %token		SAVG SDEV SMIN SMAX SSUM
@@ -61,11 +63,12 @@ void init_variables(void) { int i; for (i=0; i < 26; i++) setsvar(i, 0); }
 %token		YEAR MONTH DAY HOUR MINUTE SECOND LEAP JULIAN
 %token		SECTION_ DBASE_ FORM_ PREVFORM SWITCH THIS LAST DISP FOREACH
 %token		HOST USER UID GID SYSTEM ACCESS BEEP ERROR PRINTF MATCH SUB
-%token		GSUB BSUB
+%token		GSUB BSUB ESC TOSET
 
+%left 's' /* Force a shift; i.e., prefer longer versions */
 %left ',' ';'
 %right '?' ':'
-%right PLA MIA MUA MOA DVA ANA ORA APP '='
+%right PLA MIA MUA MOA DVA ANA ORA APP '=' AAS
 %left OR
 %left AND
 %left '|'
@@ -75,10 +78,11 @@ void init_variables(void) { int i; for (i=0; i < 26; i++) setsvar(i, 0); }
 %left EQ NEQ
 %left '<' '>' LE GE
 %left SHL SHR
-%left '-' '+'
+%left '-' '+' UNION DIFF INTERSECT
 %left '*' '/' '%'
-%nonassoc '!' '~' UMINUS
+%nonassoc '!' '~' UMINUS '#' ALEN
 %left '.'
+%left '['
 
 %start stmt
 
@@ -94,7 +98,7 @@ string	: STRING			{ $$ = $1; }
 					  if (s) strcpy(r, s); f_free(s);
 					  if (t) strcat(r, t); f_free(t);
 					  $$ = r; }
-	| VAR				{ $$ = getsvar($1); }
+	| VAR %prec 's'			{ $$ = getsvar($1); }
 	| VAR APP string		{ int v=$1;
 					  char *s=getsvar(v), *t=$3, *r=
 					     (char *)malloc(f_len(s)+f_len(t)+1); *r=0;
@@ -118,11 +122,19 @@ string	: STRING			{ $$ = $1; }
 	| string GE  string		{ $$ = f_str((double)
 							(f_cmp($1, $3) >= 0));}
 	| string IN  string		{ $$ = f_str((double)f_instr($1, $3));}
-	| FIELD				{ $$ = f_field($1, yycard->row); }
-	| FIELD '[' number ']'		{ $$ = f_field($1, $3); }
+	| ESC '(' string ',' string ')'	{ if($5) $$ = f_esc($3, $5); else $$ = $3; }
+	| ESC '(' string ')'		{ $$ = f_esc($3, NULL); }
+	| string '[' number ']' 		{ $$ = f_elt($1, $3); }
+	| string '[' number ']' AAS string  { $$ = f_setelt($1, $3, $6); }
+	| string UNION  string		{ $$ = f_union($1, $3); }
+	| string INTERSECT  string	{ $$ = f_intersect($1, $3);}
+	| string DIFF  string		{ $$ = f_setdiff($1, $3);}
+	| TOSET '(' string ')'		{ $$ = f_toset($3); }
+	| FIELD %prec 's'			{ $$ = f_field($1, yycard->row); }
+	| FIELD '[' number ']' 		{ $$ = f_field($1, $3); }
 	| FIELD '=' string		{ $$ = f_assign($1, yycard->row, $3);
 					  assigned = 1; }
-	| FIELD '[' number ']' '=' string
+	| FIELD '[' number ']' '=' string 
 					{ $$ = f_assign($1, $3, $6);
 					  assigned = 1; }
 	| SYSTEM '(' string ')'		{ $$ = f_system($3); }
@@ -131,17 +143,17 @@ string	: STRING			{ $$ = $1; }
 					  if (n && s[n-1]=='\n') s[n-1] = 0; }
 					  $$ = s; }
 	| TR '(' string ',' string ')'	{ $$ = f_tr($3, $5); }
-	| SUBSTR '(' string ',' number ',' number ')'
+	| SUBSTR '(' string ',' numarg ',' number ')'
 					{ $$ = f_substr($3, (int)$5, (int)$7);}
 	| HOST				{ char s[80]; if (gethostname(s, 80))
 					  *s=0; s[80-1]=0; $$ = mystrdup(s); }
 	| USER				{ $$ = mystrdup(getenv("USER")); }
 	| PREVFORM			{ $$ = mystrdup(prev_form); }
-	| SECTION_			{ $$ = !yycard || !yycard->dbase ? 0 :
+	| SECTION_ %prec 's'		{ $$ = !yycard || !yycard->dbase ? 0 :
 						mystrdup(section_name(
 						    yycard->dbase,
 						    yycard->dbase->currsect));}
-	| SECTION_ '[' number ']'	{ $$ = !yycard || !yycard->dbase ? 0 :
+	| SECTION_ '[' number ']' 	{ $$ = !yycard || !yycard->dbase ? 0 :
 						mystrdup(section_name(
 						    yycard->dbase,
 						    f_section($3))); }
@@ -165,6 +177,10 @@ string	: STRING			{ $$ = $1; }
 	| FOREACH '(' string ')'	{ f_foreach(0, $3); $$ = 0; }
 	| FOREACH '(' string ',' string ')'
 					{ f_foreach($3, $5); $$ = 0; }
+	| FOREACH '(' VAR ',' plus string ',' string ')'
+					{ f_foreachelt($3, $6, 0, $8, $5); $$ = 0; }
+	| FOREACH '(' VAR ',' plus string ',' string ',' string ')'
+					{ f_foreachelt($3, $6, $8, $10, $5); $$ = 0; }
 	| TIME				{ $$ = mystrdup(mktimestring
 						(time(0), FALSE)); }
 	| DATE				{ $$ = mystrdup(mkdatestring
@@ -193,33 +209,36 @@ args	: string			{ $$ = f_addarg(0, $1); }
 	| args ',' string		{ $$ = f_addarg($1, $3); }
 	;
 
-number	: NUMBER			{ $$ = $1; }
+number	: numarg			{ $$ = $1; }
+        | number ',' numarg		{ $$ = $3; }
+
+numarg	: NUMBER			{ $$ = $1; }
 	| '{' string '}'		{ $$ = f_num($2); }
 	| '(' number ')'		{ $$ = $2; }
 	| FIELD				{ $$ = f_num(f_field($1,yycard->row));}
 	| FIELD '[' number ']'		{ $$ = f_num(f_field($1, $3)); }
-	| FIELD '=' number		{ f_free(f_assign($1, yycard->row,
+	| FIELD '=' numarg		{ f_free(f_assign($1, yycard->row,
 					  f_str($$ = $3))); assigned = 1; }
-	| FIELD '[' number ']' '=' number
+	| FIELD '[' number ']' '=' numarg
 					{ f_free(f_assign($1, $3,
 					  f_str($$ = $6))); assigned = 1; }
 	| VAR				{ $$ = getnvar($1); }
-	| VAR '=' number		{ $$ = setnvar($1, $3); }
-	| VAR PLA number		{ int v = $1;
+	| VAR '=' numarg		{ $$ = setnvar($1, $3); }
+	| VAR PLA numarg		{ int v = $1;
 					  $$ = setnvar(v, getnvar(v) + $3); }
-	| VAR MIA number		{ int v = $1;
+	| VAR MIA numarg		{ int v = $1;
 					  $$ = setnvar(v, getnvar(v) - $3); }
-	| VAR MUA number		{ int v = $1;
+	| VAR MUA numarg		{ int v = $1;
 					  $$ = setnvar(v, getnvar(v) * $3); }
-	| VAR DVA number		{ int v = $1; double d=$3; if(d==0)d=1;
+	| VAR DVA numarg		{ int v = $1; double d=$3; if(d==0)d=1;
 					  $$ = setnvar(v, getnvar(v) / d); }
-	| VAR MOA number		{ int v = $1; double d=$3; if(d==0)d=1;
+	| VAR MOA numarg		{ int v = $1; double d=$3; if(d==0)d=1;
 					  $$ = setnvar(v, (double)((int)
 							  getnvar(v)%(int)d));}
-	| VAR ANA number		{ int v = $1;
+	| VAR ANA numarg		{ int v = $1;
 					  $$ = setnvar(v, (double)((int)$3 &
 							  (int)getnvar(v))); }
-	| VAR ORA number		{ int v = $1;
+	| VAR ORA numarg		{ int v = $1;
 					  $$ = setnvar(v, (double)((int)$3 |
 							  (int)getnvar(v))); }
 	| VAR INC			{ int v = $1;
@@ -230,31 +249,30 @@ number	: NUMBER			{ $$ = $1; }
 					  $$ = setnvar(v, getnvar(v) + 1); }
 	| DEC_ VAR			{ int v = $2;
 					  $$ = setnvar(v, getnvar(v) - 1); }
-	| '-' number %prec UMINUS	{ $$ = - $2; }
-	| '!' number			{ $$ = ! $2; }
-	| '~' number			{ $$ = ~ (int)$2; }
-	| number '&' number		{ $$ = (int)$1 &  (int)$3; }
-	| number '^' number		{ $$ = (int)$1 ^  (int)$3; }
-	| number '|' number		{ $$ = (int)$1 |  (int)$3; }
-	| number SHL number		{ $$ = (int)$1 << (int)$3; }
-	| number SHR number		{ $$ = (int)$1 >> (int)$3; }
-	| number '%' number		{ int i=$3; if (i==0) i=1;
+	| '-' numarg %prec UMINUS	{ $$ = - $2; }
+	| '!' numarg			{ $$ = ! $2; }
+	| '~' numarg			{ $$ = ~ (int)$2; }
+	| numarg '&' numarg		{ $$ = (int)$1 &  (int)$3; }
+	| numarg '^' numarg		{ $$ = (int)$1 ^  (int)$3; }
+	| numarg '|' numarg		{ $$ = (int)$1 |  (int)$3; }
+	| numarg SHL numarg		{ $$ = (int)$1 << (int)$3; }
+	| numarg SHR numarg		{ $$ = (int)$1 >> (int)$3; }
+	| numarg '%' numarg		{ int i=$3; if (i==0) i=1;
 					  $$ = (int)$1 % i; }
-	| number '+' number		{ $$ = $1 +  $3; }
-	| number '-' number		{ $$ = $1 -  $3; }
-	| number '*' number		{ $$ = $1 *  $3; }
-	| number '/' number		{ double d=$3; if (d==0) d=1;
+	| numarg '+' numarg		{ $$ = $1 +  $3; }
+	| numarg '-' numarg		{ $$ = $1 -  $3; }
+	| numarg '*' numarg		{ $$ = $1 *  $3; }
+	| numarg '/' numarg		{ double d=$3; if (d==0) d=1;
 					  $$ = $1 /  d; }
-	| number '<' number		{ $$ = $1 <  $3; }
-	| number '>' number		{ $$ = $1 >  $3; }
-	| number EQ  number		{ $$ = $1 == $3; }
-	| number NEQ number		{ $$ = $1 != $3; }
-	| number LE  number		{ $$ = $1 <= $3; }
-	| number GE  number		{ $$ = $1 >= $3; }
-	| number AND number		{ $$ = $1 && $3; }
-	| number OR  number		{ $$ = $1 || $3; }
-	| number '?' number ':' number	{ $$ = $1 ?  $3 : $5; }
-	| number ',' number		{ $$ = $3; }
+	| numarg '<' numarg		{ $$ = $1 <  $3; }
+	| numarg '>' numarg		{ $$ = $1 >  $3; }
+	| numarg EQ  numarg		{ $$ = $1 == $3; }
+	| numarg NEQ numarg		{ $$ = $1 != $3; }
+	| numarg LE  numarg		{ $$ = $1 <= $3; }
+	| numarg GE  numarg		{ $$ = $1 >= $3; }
+	| numarg AND numarg		{ $$ = $1 && $3; }
+	| numarg OR  numarg		{ $$ = $1 || $3; }
+	| numarg '?' number ':' numarg	{ $$ = $1 ?  $3 : $5; }
 	| THIS				{ $$ = yycard && yycard->row > 0 ?
 					       yycard->row : 0; }
 	| LAST				{ $$ = yycard && yycard->dbase ?
@@ -281,17 +299,19 @@ number	: NUMBER			{ $$ = $1; }
 	| SSUM  '(' FIELD ')'		{ $$ = f_ssum($3); }
 	| ABS   '(' number ')'		{ $$ = abs($3); }
 	| INT   '(' number ')'		{ $$ = (int)($3); }
-	| BOUND '(' number ',' number ',' number ')'
+	| BOUND '(' numarg ',' numarg ',' number ')'
 					{ register double a=$3, b=$5, c=$7;
 					  $$ = a < b ? b : a > c ? c : a; }
 	| LEN   '(' string ')'		{ char *a=$3; $$ = a ? f_len(a) : 0;
 								f_free(a); }
+	| '#' string			{ $$ = $2 ? f_len($2) : 0; f_free($2); }
+	| ALEN string			{ $$ = f_alen($2); }
 	| MATCH '(' string ',' string ')' { $$ = re_match($3, $5); }
 	| SQRT  '(' number ')'		{ $$ = sqrt(abs($3));  }
 	| EXP   '(' number ')'		{ $$ = exp($3); }
 	| LOG   '(' number ')'		{ double a=$3; $$ = a<=0 ? 0:log10(a);}
 	| LN    '(' number ')'		{ double a=$3; $$ = a<=0 ? 0:log(a); }
-	| POW   '(' number ',' number ')'
+	| POW   '(' numarg ',' number ')'
 					{ $$ = pow($3, $5); }
 	| RANDOM			{ $$ = drand48(); }
 	| SIN   '(' number ')'		{ $$ = sin($3); }
@@ -300,7 +320,7 @@ number	: NUMBER			{ $$ = $1; }
 	| ASIN  '(' number ')'		{ $$ = asin($3); }
 	| ACOS  '(' number ')'		{ $$ = acos($3); }
 	| ATAN  '(' number ')'		{ $$ = atan($3); }
-	| ATAN2 '(' number ',' number ')'
+	| ATAN2 '(' numarg ',' number ')'
 					{ $$ = atan2($3, $5); }
 	| SECTION_			{ $$ = yycard && yycard->dbase ?
 						yycard->dbase->currsect : 0; }
@@ -333,4 +353,7 @@ number	: NUMBER			{ $$ = $1; }
 					  $$ = a ? access(a, (int)$5) : 0;
 					  f_free(a); }
 	;
+
+plus	: { $$ = 0; }
+	| '+' { $$ = 1; }
 %%

@@ -1446,6 +1446,7 @@
 	  atan (n)      arctangent
 	  atan2(n,n)  quadrant-aligned arctangent
 	  len (s)        string length
+	  # s            string length
 	  bound(n,n,n)   n1 bounded by n2 and n3
 	  random         a random number in the range [0.0, 1.0]
 
@@ -1486,6 +1487,49 @@
 			string supports \0 .. \9 and \{n} to refer to
 			subexpressions in the regular expression.
 	  gsub(s, s, s) Like sub(s, s, s), except all occurrences are replaced.
+	  esc(s, s)     Returns the first string with all characters in the
+	                second string prefixed by the first character
+		        in the second string.
+
+
+        Strings as arrays: a string may be interpreted as an array of
+	strings, stored as the elements, spearated by a separator.
+	Occurrences of the separator or the escape character are prefixed
+	by the escape character.  An empty string is ambiguous; it is
+	interpreted as a 1-element array with a blank value.
+	
+	esc(s)         Escape s like an array element
+	## s           Number of array elements in s
+	s [ n ]        Array elemnt #n of s (0-based), (unescaped)
+	s [ n ] -> v   Return array where element #n is set to v (escaped).
+	               If n is larger than ## s, blanks are inserted
+	               If n is negative, append.  Note that appending to
+		       an empty string will set element 1, not element 0.
+		       Trailing blank elements are also trimmed after adding v
+	foreach ( var, s, s )
+	               Evaluate third argument for each element in array
+		       given by second argument, setting var to the current
+		       element before evaluation.
+	foreach ( var, + s, s )
+	               The same as above, but only for non-blank elements
+	foreach ( var, s, s, s )
+	               Evaluate fourth argument for each element in array
+		       given by second argument when evaluating the third
+		       argument returns true, setting var to the current
+		       element before evaluation.
+	foreach ( var, + s, s, s )
+	               The same as above, but only for non-blank elements
+
+
+        Arrays as sets: sets are arrays with no blank or duplicate
+	elements, sorted by an internal sorter.  A single-element set can
+	be made using esc(s).  To test for the presence of e in s, use
+	s |* esc(e) != ""
+
+	toset (s)      Returns array s converted to a valid set
+	s |+ s         Returns the union of two sets.
+	s |* s         Returns the intersection of two sets.
+        s |- s         Returns the first set, with all elements in second removed
 
 
 	Variables: variables are letters a through z and A through Z that can
