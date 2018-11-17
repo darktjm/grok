@@ -1,109 +1,125 @@
 Unless otherwise stated, assume 0% complete:
 
-  - Use Qt5 instead of Motif.  This is now about 80% complete:  it
-    works similarly to the old interface, but it could use some work:
+  - URGENT:  Create new form is currently broken.
 
-    - Fix critical bugs:
+  - Main window sizing issues:
 
-      - Main window sizing issues:
+    - The summary list is too wide.  The right-most column almost
+      always extends too far, and I don't know how to shrink it.
 
-        - The summary list is too wide.  The right-most column almost
-	  always extends too far, and I don't know how to shrink it.
+    - The window doesn't resize to a narrow version on database switch
+      (but it does do so on initial load and randomly, for some
+      reason). resize(minimumSize()) after adjustSize() does
+      help, but not enough.  Even "switching" to the same
+      database produces random results.
 
-        - The window doesn't resize to a narrow version on database
-	  switch (but it does do so on initial load and
-	  randomly, for some reason). resize(minimumSize())
-	  after adjustSize() does help, but not enough.  Even
-	  "switching" to the same database produces random results.
+    - When the main window resizes after a database switch, it not
+      only resizes the window, but also moves it.  It should
+      stay in one place.  Saving and restoring the position
+      after adjustSize() does nothing, so maybe it's being moved
+      elsewhere.
 
-        - When the main window resizes after a database switch, it
-	  not only resizes the window, but also moves it.  It should
-	  stay in one place.  Saving and restoring the position after
-	  adjustSize() does nothing, so maybe it's being moved
-	  elsewhere.
+  - Selection in the summary window is sometimes ignored (actually, I
+    think it gets reverted when it thinks the db is modified). The
+    original Motif GUI did that sometimes, too. Also, it
+    occasionally crashes when popping around.  Maybe events are
+    being generated before having been fully processed?
 
-    - Selection in the summary window is sometimes ignored (actually,
-      I think it gets reverted when it thinks the db is
-      modified). The original Motif GUI did that sometimes, too.
-      Also, it occasionally crashes when popping around.  Maybe
-      events are being generated before having been fully
-      processed?
+  - As expected, letter buttons still don't work. The first press works,
+    but subsequent presses go all weird.
 
-    - As expected, letter buttons still don't work
+  - file dialog is always GTK+.  Is there a way to make it "native QT"?
 
-    - file dialog is always GTK+.  Is there a way to make it "native QT"?
+  - on parse error, any string yylvals leak
 
-    - Memory leaks:
+  - I should probably test the memory leak fixes I made a little
+    better to ensure no crashing, but I'm too lazy.  I'll fix them
+    when I encounter problems.
 
-      - on parse error, any string yylvals leak
+  - Use QUiLoader for the main GUI.  Give every action and major
+    widget a name, and map that to the user-supplied .ui file.
+    That's probably the only way I'll ever be able to support
+    Android or other small displays, at least: complete GUI
+    overrides.  This will probably also require use of the "Qt
+    Resource" facility to store the default GUI layouts in the
+    binary.
 
-      - I should probably test the memory leak fixes I made a little
-	better to ensure no crashing, but I'm too lazy.  I'll fix them
-	when I encounter problems.
+  - Look more closely at all Qt-related licenses.  I don't want this
+    program to be GPL.  In particular, QUiLoader seems to use a
+    different license (or at least Trolltech thought it important
+    enough to list the license in the introductory text).
 
-    - Some shortcuts, such as ^G and ^Q, should be made global.
+  - Some shortcuts, such as ^G and ^Q, should be made global.  This
+    would be obsoleted by the use of .ui files.
 
-    - The layout of the form item editor needs tweaking.  At the very
-      least, the chart options do not seem to have the right
-      label width.  Also, I should probably use
-      SH_FormLayoutLabelAlignment. Also, items in the scroll
-      area are too wide, or the scroll area is too narrow,
-      depending on how you look at it.
+  - The layout of the form item editor needs tweaking.  At the very
+    least, the chart options do not seem to have the right label
+    width.  Also, I should probably use
+    SH_FormLayoutLabelAlignment.  Also, items in the scroll area
+    are too wide, or the scroll area is too narrow, depending on
+    how you look at it, but only if the cart options appear.
+    Otherwise, the opposite issue exists.  It appears that the layout
+    is partially being influenced by invisible widgets.
 
-    - Add a color setter QSS similar to the layout one that only sets
-      the palette rather than overriding the style as well.  Either
-      that, or move some of those aux QSS settings into the preferences
-      editor.  QSS sucks.
+  - Make some of the more global look & feel preferences available in
+    the preferences dialog.  Fine-tuning can still be done with
+    style sheets.
 
-    - Make the GUI less rigid via layout helpers.  Note that I have
-      run into at least one Qt anti-feature in this regard:  It is
-      impossible to correctly and portably size multi-line widgets
-      (list or table) by number of rows, either by setting the size or
-      by forcing resize increments.  It is probably also near
-      impossible to control if/when scrollbars appear.
+  - All widgets should auto-adjust based on font size.  This appears
+    to be impossible to do portably with multi-line widgets
+    (QTextEdit, QTreeWidget, QTableWidget) as they do not give any
+    measure of border areas, padding, scrollbar size, etc.  I have
+    made a guess on some widgets, and they appear to be OK, but a
+    different style may screw it all up.  Either that, or stop
+    supporting font size adjustments and only support full ui
+    replacements.  I feel like GUI design has regressed in the last 20
+    years.  I made all my Amiga GUIs completely font-independent.
 
-    - Translation of GUI labels.  Maybe even an option to provide
-      translation on database values (or at least database labels).
-      This makes some sort of automatic layout almost necessary.
-      Note that the official 1.5.3 had partial German translation,
-      but I will probably want to use more standard translation
-      methods (e.g. LANG= instead of a pulldown, .po[t] files)
+  - Add a color setter QSS similar to the layout one that only sets
+    the palette rather than overriding the style as well.  Either
+    that, or move some of those aux QSS settings into the
+    preferences editor.  Either that, or do the full .ui thing and
+    forget supporting QSS at all.  QSS sucks.
 
-    - Numeric inputs (with spinboxes and min/max and int/float).  I
-      have already converted the numeric inputs in grok's GUI to
-      spinboxes.  This requires a new field and/or flag (I prefer
-      field, since the GUI is cluttered enough as is).  It is not
-      possible to know if a field is currently numeric.  It's just in
-      how it is used.
+  - Translation of GUI labels.  Maybe even an option to provide
+    translation on database values (or at least database labels). 
+    This makes some sort of automatic layout almost necessary.
+    Note that the official 1.5.3 had partial German translation,
+    but I will probably want to use more standard translation
+    methods (e.g. LANG= instead of a pulldown, .po[t] files)
 
-    - Date/Time edit popups.  Qt's QDateTime and related widgets might
-      work, but they have a few flaws:  the spinner disappears if the
-      date popup is present, and the spinner at least relies on the
-      fixed format of the field to select which part of the date/time
-      to modify.  My old HTML GUI added a time field directly to the
-      calendar popup, which seems best.  I haven't experimented much
-      with them, though, so maybe it's at least possible to support
-      grok's parser for input, even if only to be immediately changed
-      to the fixed format.
+  - Numeric inputs (with spinboxes and min/max/digits (0=int)).  It is
+    not possible to know if a field is currently numeric.  It's
+    just in how it is used.  However, it would be nice to validate
+    the current db contents when a field is first turned into a
+    numeric. Also, not sure if blanks should be supported at all,
+    especially since spinboxes don't seem to support it.
 
-    - Make some of the more global look & feel preferences available
-      in the preferences dialog.  Fine-tuning can still be done with
-      style sheets.
+  - Date/Time edit popups.  Qt's QDateTime and related widgets might
+    work, but they have a few flaws: the spinner disappears if the
+    date popup is present, and the spinner at least relies on the
+    fixed format of the field to select which part of the
+    date/time to modify.  My old HTML GUI added a time field
+    directly to the calendar popup, which seems best.  I haven't
+    experimented much with them, though, so maybe it's at least
+    possible to support grok's parser for input, even if only to
+    be immediately changed to the fixed format.
 
-    - Use specific pointer types instead of base classes to avoid the
-      dynamic_cast overhead.  I'm not sure the compiler is smart enough
-      to eliminate that itself.  In fact, it'd be nice if it were
-      possible to build without rtti, but Qt adds its own rtti to
-      every moc-compiled class (and has its own version of dynamic_cast),
-      so that's not happening.  Well, Qt claims that it doesn't use
-      rtti, but they really just mean that they use their own instead
-      of the language-defined one.  They say something about crossing
-      dynamic link library boudaries, but I think that may be a
-      Windows/MSVC-only issue.
+  - Use specific pointer types instead of base classes to avoid the
+    dynamic_cast overhead.  I'm not sure the compiler is smart
+    enough to eliminate that itself.  In fact, it'd be nice if it
+    were possible to build without rtti, but Qt adds its own rtti
+    to every moc-compiled class (and has its own version of
+    dynamic_cast), so that's not happening.  Well, Qt claims that
+    it doesn't use rtti, but they really just mean that they use
+    their own instead of the language-defined one.  They say
+    something about crossing dynamic link library boudaries, but I
+    think that may be a Windows/MSVC-only issue.
 
-    - Document the "standard" Qt command-line options, especially
-      given that they seem to only be documented in the
-      QApplication/QGuiApplication constructor fuction documentation.
+  - Document the "standard" Qt command-line options, especially
+    given that they seem to only be documented in the
+    QApplication/QGuiApplication constructor fuction
+    documentation.
 
   - Remove Rambo Quit, and make Quit and window-close work like that
     instead.  This matches what most other applications do.  Also,
@@ -131,19 +147,22 @@ Unless otherwise stated, assume 0% complete:
       prefixed by a char, like the sort thing above:
       foreach(:"databse"[, "search"], "expr")
 
-  - Minor attempts at supporting UTF-8.  This was going somewhere in
-    the IUP port, but I have abandoned this and it is at 0% again.
-    I don't like the idea of using QChar everywhere, and I definitely
-    don't like the idea of converting to/from QByteArrays, but there's
-    not much else I can do.
+  - Support UTF-8.  This was going somewhere in the IUP port, but I
+    have abandoned this and it is at 0% again.  I don't like the
+    idea of using QChar everywhere, and I definitely don't like
+    the idea of converting to/from QByteArrays, but there's not
+    much else I can do.
 
     At the least, if the current locale isn't UTF-8, the current locale
-    should be supported.  Otherwise, a scan of data should make it
+    should be auto-translated to UTF-8 internally, and converted back
+    before writing out files.  Otherwise, a scan of data should make it
     obvious if it isn't UTF-8, and an option should be provided to
-    convert to UTF-8.
+    convert to UTF-8 permanently or just in-memory.
 
-    Multi-byte delimiters must be supported.  Anything that scans one
-    character at a time needs to be re-evaluated.
+    Multi-byte (but not necessarily multi-character, even if the
+    desired multi-character sequence is a single glyph) delimiters
+    must be supported.  Anything that scans one character at a
+    time needs to be re-evaluated.
 
   - Support non-mutable expressions.  As mentioned below, it's
     possible to do mass edits with mutating search expressions.  For
@@ -160,9 +179,60 @@ Unless otherwise stated, assume 0% complete:
     standalone expressions in templates.  It's a saftey feature, not a
     security feature.
 
-  - Make array separator & escape char a form option (form def file, GUI)
+  - Either disallow backslash as a field separator or allow separate
+    specification of the escape character, like I did for arrays.
+    Perhaps also support some of the other CSV conventions, like
+    optional quotes around values and an optional header line.
 
-  - Use binary searches in lexer (kw and pair_)
+  - Better support for changing the array separator/esc after use.
+    All field attributes using arrays (e.g. cycle gadgets) are
+    automatically converted to using the new separator/esc.  Upon
+    saving the new form definition, fields which explicitly use
+    array values (e.g. multi-select lists) are offered up for
+    auto-conversion.  Perhaps also scan all other columns for the
+    previous separator/esc characters and offer them up for
+    auto-conversion, as well.
+
+  - Along the lines of the previous item, grok in general doesn't do
+    much if you change the structure of the database.
+
+    - Changing the field delimiter should offer to convert the existing
+      database to the new delimiter.
+
+    - Changing the column currently assigned to a variable should offer
+      to move the data around.  All such changes should be offered at
+      once, so that swapping data around works as intended.  Also,
+      all unassigned columns should pop up in the "Debug" warning popup.
+      Maybe add an "ignore" item type to avoid such warnings.
+
+    - Changing the type of field assigned to a column should prompt
+      some sort of action, as well.  Especially if the column types
+      are somewhat incompatible.
+
+  - Use binary searches in lexer (kw and pair_) and other areas that use
+    long lists of strings.  Also, use array sizes rather than
+    0-termination in general.
+
+  - Use symbolic names (either enums or strings) instead of cryptic
+    hex action codes.
+
+  - Make the query editor more usable:
+  
+    - Highlight the current line, so the user can tell what
+      copy/delete work on.
+
+      - There are issues with this right now, anyway:  the graying out
+        doesn't track focus properly.
+
+    - Up/Down buttons to reorder items, and maybe a Sort button as
+      well.  If QTableWidget supports it easily, allow reordering by
+      drag & drop.
+
+    Most recent GUIs that have such a thing instead present a
+    read-only list with add/delete/edit buttons.  Add/edit pops up
+    a simple multi-field editor dialog.  Seems pretty lazy to me.
+    I prefer the "multi-edit" style grok and my old HTML database
+    edtiro use.
 
   - Cycle gadgets/popup menus/whatever the platform calls it to
     replace radio boxes.  Basically looks like a pushbutton with a
@@ -171,18 +241,30 @@ Unless otherwise stated, assume 0% complete:
     see what other values are available at a glance.
 
     - Label text, Choice/flag code, shown in summary are all array
-      values.  The GUI grays out these fields and instead provides a
-      pushbutton to edit them in an expandable list, similar to the
-      "Queries" editor.
+      values.  Either the fields are grayed out and a popup button is
+      added to edit these as a group in a GUI similar to the query
+      editor, or the query-editor-like GUI is inserted in-place, and
+      grows and shrinks automatically (since I don't want scrollbar
+      items in a panel that is already scrollable).
 
-   - Radio groups:  displayed as a grid of radio buttons surrounded by
-     a frame.  Otherwise just like the above item.
+      Actually, Label text[0] is the main label, and is what's
+      edited in the Label text field.  I suppose the remaining lables
+      could just be a separate item field.
 
-   - Combo box option for text fields.  The list can be filled with
-     predefined values and/or the values currently in the database.  For
-     predefined values, the Input default field is overloaded as an
-     array with index 0 being the actual default, and subsequent values
-     being displayed in the combo dropdown.
+  - Radio groups:  displayed as a grid of radio buttons surrounded by
+    a frame.  Layout is in a grid, layed out horizontally and then
+    vertically.  When a row exceeds the widget width, the entire
+    widget is narrowed by one column and layout starts again at the
+    top.  If there are too many rows, it just clips (maybe with a
+    warning).
+
+  - Combo box option for text fields.  The list can be filled with
+    predefined values and/or the values currently in the database.  For
+    predefined values, the Input default field is overloaded as an
+    array with index 0 being the actual default, and subsequent values
+    being displayed in the combo dropdown.  This does not support
+    menu labels different from the values, although I guess I could
+    overload Label text in the same way.
 
   - Add multi-select list widgets, whose value is a set.  Otherwise,
     same as Cycle gadgets above.
@@ -202,7 +284,8 @@ Unless otherwise stated, assume 0% complete:
       ? and multiple elt-bindings such as elt, eltlabel, eltvar.
 
   - Add checkbox group "widgets" whose value is stored in a single
-    field as a set; otherwise just like Radio groups above.
+    field as a set; otherwise just like Radio groups and multi-select
+    list widgets above.
 
   - Add "Never blank" flag (requires a default value) and a "Unique"
     flag similar to SQL.  Unique implies Never Blank, unlike SQL's
@@ -215,12 +298,13 @@ Unless otherwise stated, assume 0% complete:
     multiple groups.
 
   - Have "s in s" return the location of the first string in the
-    second, plus one to keep it boolean.
+    second, plus one to keep it boolean.  Or, just leave it alone and
+    let people who want this use match() instead.
 
   - Add list of field names to expression grammar help text, similar
     to fields text in query editor.  Or, just make that a separate
     universal popup.
-
+    
   - Export to window.  In fact, replace Print interface with
     automatically generated text templates, and support Export to pipe
     (e.g. 1st character is vertical bar) for "printing".  Making it a
@@ -443,13 +527,6 @@ Unless otherwise stated, assume 0% complete:
     to compensate for the lack of them (including "group by",
     which returns a table indexed by the grouping columns).  This does
     not mean that I will reconsider IUP for the GUI toolkit.
-
-  - Use whatever Qt provides for designer-designed GUIs.  Probably give
-    every action and major widget a name, and map that to the
-    user-supplied GUI file.  That's probably the only way I'll ever be
-    able to support Android or other small displays, at least:  complete
-    GUI overrides.  This will probably also require use of the "Qt
-    Resource" facility to store the default GUI layouts in the binary.
 
   - Support automated layout by sorting the form's widgets and laying
     them out in a grid, instead.  Probalby also necessary in order to

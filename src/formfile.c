@@ -81,6 +81,12 @@ BOOL write_form(
 	write_str("dbase      ", form->dbase);
 	write_str("comment    ", form->comment);
 	write_str("cdelim     ", to_octal(form->cdelim)); /* always written */
+	if ((form->asep && form->asep != '|') ||
+	    (form->aesc && form->aesc != '\\')) {
+	    /* to_octal isn't re-entrant, so one at a time */
+	    fprintf(fp, "adelim     %s ", to_octal(form->asep ? form->asep : '|'));
+	    fprintf(fp, "%s\n", to_octal(form->aesc ? form->aesc : '\\'));
+	}
 	write_int("rdonly     ", form->rdonly);
 	write_int("proc       ", form->proc);
 	write_int("syncable   ", form->syncable, != TRUE);
@@ -271,7 +277,12 @@ BOOL read_form(
 					{sscanf(p, "%d", &i);form->syncable=i;}
 			else if (!strcmp(key, "cdelim"))
 					form->cdelim = to_ascii(p, ':');
-			else if (!strcmp(key, "grid"))
+			else if (!strcmp(key, "adelim")) {
+					form->asep = to_ascii(p, '|');
+					while(*p && !isspace(*p))
+						p++;
+					form->aesc = to_ascii(p, '\\');
+			} else if (!strcmp(key, "grid"))
 					sscanf(p, "%d %d",&form->xg,&form->yg);
 			else if (!strcmp(key, "size"))
 					sscanf(p, "%d %d",&form->xs,&form->ys);

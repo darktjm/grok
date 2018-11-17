@@ -84,14 +84,18 @@ static struct _template {
 	{ ALL, 'L',	 0,	"Form name:",		"fe_form",	},
 	{ ALL, 'T',	0x101,	" ",			"fe_form",	},
 	{ ALL, 'L',	 0,	"Referenced database:",	"fe_form",	},
-	{ ALL, 'T',	0x102,	" ",			"fe_form",	},
-	{ ALL, 'L',	 0,	"dbase field delim:",	"fe_delim",	},
-	{ ALL, 't',	0x103,	" ",			"fe_delim",	},
-	{   0, 'F',	 0,	" ",			0,		},
+	{ ALL, 't',	0x102,	" ",			"fe_form",	},
 	{ ALL, 'f',	0x104,	"Read only",		"fe_rdonly",	},
 	{ ALL, 'f',	0x114,	"Timestamps/Synchronizable","fe_sync",	},
 	{ ALL, 'f',	0x105,	"Procedural",		"fe_proc",	},
 	{ ALL, 'B',	0x106,	"Edit",			"fe_proc",	},
+	{ ALL, 'L',	 0,	"dbase field delim:",	"fe_delim",	},
+	{ ALL, 't',	0x103,	" ",			"fe_delim",	},
+	{ ALL, 'l',	 0,	"Array elt delimiter:", "fe_adelim",	},
+	{ ALL, 't',     0x108,  " ",			"fe_adelim",	},
+	{ ALL, 'l',	 0,	"Array elt escape:",	"fe_adelim",	},
+	{ ALL, 't',     0x109,  " ",			"fe_adelim",	},
+	{   0, 'F',	 0,	" ",			0,		},
 	{ ALL, 'L',	 0,	"Comment:",		"fe_ref",	},
 	{ ALL, 'T',	0x107,	" ",			"fe_ref",	},
 
@@ -121,12 +125,12 @@ static struct _template {
 	{ ANY, 't',	0x204,	" ",			"fe_int",	},
 	{ BAS, 'L',	 0,	"Database column:",	"fe_column",	},
 	{ BAS, 'i',	0x205,	" ",			"fe_column",	},
-	{ BAS, 'L',	 0,	"Show in summary:",	"fe_sump",	},
-	{ BAS, 'T',	0x229,	" ",			"fe_sump",	},
-	{ BAS, 'L',	 0,	"Summary column:",	"fe_sum",	},
+	{ BAS, 'l',	 0,	"Summary column:",	"fe_sum",	},
 	{ BAS, 'i',	0x206,	" ",			"fe_sum",	},
 	{ BAS, 'l',	 0,	"Width in summary:",	"fe_sum",	},
 	{ BAS, 'i',	0x207,	" ",			"fe_sum",	},
+	{ BAS, 'L',	 0,	"Show in summary:",	"fe_sump",	},
+	{ BAS, 'T',	0x229,	" ",			"fe_sump",	},
 	{ FLG, 'L',	 0,	"Choice/flag code:",	"fe_flag",	},
 	{ FLG, 't',	0x208,	" ",			"fe_flag",	},
 	{ FLG, 'l',	 0,	"shown in summary as",	"fe_flag",	},
@@ -692,9 +696,11 @@ static void fillout_formedit_widget(
 	  case 0x105: set_toggle(w, form->proc);
 		      fillout_formedit_widget_by_code(0x106);		break;
 	  case 0x106: w->setEnabled(form->proc);			break;
+	  case 0x108: print_text_button_s(w, to_octal(form->asep ? form->asep : '|'));	break;
+	  case 0x109: print_text_button_s(w, to_octal(form->aesc ? form->aesc : '\\'));	break;
 
 	  case IT_LABEL:
-		  for(int n = 0; n < NITEMS; n++)
+		  for(int n = 0; n < N_ITEM_TYPES; n++)
 			  if(item_types[n].type == item->type) {
 				  dynamic_cast<QComboBox *>(w)->setCurrentIndex(n);
 				  break;
@@ -912,6 +918,8 @@ static int readback_item(
 	  case 0x105: form->proc       ^= TRUE; sensitize_formedit();	break;
 	  case 0x106: form_edit_script(form, w, form->dbase);		break;
 
+	  case 0x108: form->asep=to_ascii(read_text_button(w,0),'|');	break;
+	  case 0x109: form->aesc=to_ascii(read_text_button(w,0),'\\');	break;
 	  case 0x112: readback_formedit();
 		      item_deselect(form);
 		      (void)item_create(form, curr_item);

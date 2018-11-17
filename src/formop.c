@@ -198,6 +198,18 @@ BOOL verify_form(
 		i += strlen(msg+i);
 		form->cdelim = '\t';
 	}
+	if ((form->asep == form->aesc && form->asep) ||
+	    (!form->asep && form->aesc == '|') ||
+	    (!form->aesc && form->asep == '\\')) {
+		if (form->asep == '\\') {
+			sprintf(msg + i, "Array delimiter same as array escape; using vertical bar\n");
+			form->asep = '|';
+		} else {
+			sprintf(msg + i, "Array escape same as array delimiter; using backslash\n");
+			form->aesc = '\\';
+		}
+		i += strlen(msg+i);
+	}
 	for (nitem=0; nitem < form->nitems; nitem++) {
 		i0 = i;
 		item = form->items[nitem];

@@ -4,14 +4,16 @@ TEMPLATE = app
 TARGET = grok
 
 # Replacement for old GBIN/GLIB
-PREFIX = $$[QT_INSTALL_PREFIX]
+!defined(PREFIX, var) {
+	PREFIX = $$[QT_INSTALL_PREFIX]
+}
 
 QT = core gui widgets
 
 # This probably can't be done portably
 # Both qmake and the shell strip quotes from this
 #DEFINES += LIB=\\\"$${PREFIX}/share\\\"
-DEFINES += "LIB=\"\\\"$${PREFIX}/share\\\"\""
+DEFINES += "LIB=\"\\\"$${PREFIX}/share/grok\\\"\"" PATH=LIB
 # Needed for private interface to retrieve standard button names
 INCLUDEPATH += $$[QT_INSTALL_HEADERS]/QtGui/$$QT_VERSION \
 	       $$[QT_INSTALL_HEADERS]/QtGui/$$QT_VERSION/QtGui \

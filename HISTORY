@@ -119,7 +119,8 @@ version 1.5, released 23.5.01
   * the default year was incorrect, it defaulted to 2000 instead of 2001
 
 ----- Note: The following was patched in from the actual, official
------ 1.5.4, but no other changes were merged.
+----- 1.5.4, but no other changes were merged.  These changes are in
+----- the Qt version only, v2.0+.
  
 version 1.5.1, released 10.5.03
 
@@ -128,16 +129,13 @@ version 1.5.1, released 10.5.03
 version 1.5.4
 
   * Show in summary: an expression to mangle fields for summary view
+  * form definition files no longer store blank values if default is blank
 
 -----  All releases below this line are by Thomas J. Moore,
 -----  https://bitbucket.org/darktjm/grok/
 -----  If tarballs aren't availble, look for the appropriate SVN ID.
 
-SVN revision 494 is the last version that is basically the same as
-xmbase_grok-1.5.  I'd tag it in git for git users, but I can't get
-that to work right.  Maybe I'll fix that some day.
-
-version 1.5.1, SVN ID 494, released 26.10.18
+version 1.5.1 (git tag xmbase_grok-1.5.1, SVN 494), released 26.10.18
 
   * fewer segfaults in templates
   * don't pop up new error dialog for every record on search expr error
@@ -145,11 +143,7 @@ version 1.5.1, SVN ID 494, released 26.10.18
   * code now compiles with g++
   * other minor cleanups that may make this break in ancient unix
 
-Sub-minor revisions to the below may be released due to my inability
-to move tags to different locations, and consist purely of minor
-tweaks I forgot for the previous tagged release.
-
-version 2.0, released 11.14.18
+version 2.0 (git tag grok-2.0, SVN 508), released 11.14.18
 
   * updated README to be more like old one (but renamed to README.md)
   * added a substantial todo list, in case I don't abandon this soon
@@ -198,14 +192,26 @@ version 2.0, released 11.14.18
       from the .gf file.
   * Now uses the color application icon.  The old icon is still there for
     reference, but I'm not even going to bother packaging it.
+  * field separators > 0x7f, such as \377, did not work. Fixed.
+  * Show in summary: an expression to mangle fields for summary view
+
+Databases which rely on the dynamic behavior of invisible_if in 2.0
+will not work the same if loaded into 1.5.1 or earlier.
+
+Version 2.0.1 (git tag grok-2.0.1, SVN 510), released 11.14.18
+  * Minor bug fixes; use this instead of 2.0.
 
 Version 2.1
-    * The conditional expressions (Grayed out if,  ...) are now combo
-      boxes, to make it easier to set groups of widgets to the same
-      expression (not that copy/paste doesn't work well, too)
-    * Added regular expression functions match, sub, gsub.  Also, since
-      backslash-substitution isn't done anywhere else (except "), bsub.
-    * Added string length operator #
-    * Added string-as-array/set support: esc ## s[] s[]->v toset |+ |- |*
-      and foreach() and \{FOREACH} for arrays & sets.
-    * \{QUIT} now works
+  * The conditional expressions (Grayed out if,  ...) are now combo
+    boxes, to make it easier to set groups of widgets to the same
+    expression (not that copy/paste doesn't work well, too)
+  * Added regular expression functions match, sub, gsub.  Also, since
+    backslash-substitution isn't done anywhere else (except "), bsub.
+  * Added string length operator #
+  * Added string-as-array/set support: esc ## s[] s[]->v toset |+ |- |*
+    and foreach() and \{FOREACH} for arrays & sets.
+  * \{QUIT} now works
+  * form definition files no longer store values at their defaults
+
+Databases which use regular expression functions, array functions, or
+\{QUIT} will not function correctly in 2.0 or earlier.

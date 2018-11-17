@@ -914,6 +914,16 @@
 	is a colon. The /etc/passwd file, for example, is an example of a
 	database with a colon as the field separator. \t and \123 notations are
 	accepted. \0 and \n cannot be used as field delimiters.
+%% fe_adelim
+	ARRAY DELIMITER
+
+	Strings in the databse may be interpreted as arrays, which are
+	string elements separated by the Array element delimiter.  The
+	Array element escape is prepended to occurrices of either of these
+	two in the element.  These two may not be the same.  This array
+	interpretation is used for some item properties and field
+	interpretations.  Changing this in a database with array values
+	or array item properties is not supported at this time.
 %% fe_rdonly
 	READ ONLY
 
