@@ -29,18 +29,19 @@
 #define NCOLUMNS	4		/* # of widget columns in query list */
 
 static void create_query_rows(void);
+static void move_callback  (int dir);
 static void delete_callback(void);
 static void dupl_callback  (void);
 static void done_callback  (void);
-static void list_callback  (QWidget *w, int x, int y, bool checked = false);
+static void list_callback  (int x, int y, bool checked = false);
 
 static FORM		*form;		/* form whose queries are edited */
 static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
 static QDialog		*shell;		/* popup menu shell */
-static QWidget		*del, *dupl;	/* buttons, for desensitizing */
+static QPushButton	*del, *dupl, *up, *down;	/* buttons, for desensitizing */
 static QTextEdit	*info;		/* info line for error messages */
 static QTableWidget	*qlist;		/* query list table widget */
-
+static bool		munging_list = false; /* true if list_callback should ignore events */
 
 
 /*
@@ -101,6 +102,18 @@ void create_query_window(
 							/*-- buttons --*/
 	QDialogButtonBox *bb = new QDialogButtonBox;
 
+	up = new QPushButton(QIcon::fromTheme("go-up"), "");
+	bb->addButton(up, dbbr(Action));
+	up->setEnabled(false);
+	set_button_cb(up, move_callback(-1));
+	bind_help(up, "dq_move");
+
+	down = new QPushButton(QIcon::fromTheme("go-down"), "");
+	bb->addButton(down, dbbr(Action));
+	down->setEnabled(false);
+	set_button_cb(down, move_callback(1));
+	bind_help(down, "dq_move");
+
 	w = del = mk_button(bb, "Delete", dbbr(Action));
 	w->setEnabled(false);
 	set_button_cb(w, delete_callback());
@@ -135,7 +148,12 @@ void create_query_window(
 	w = qlist = new QTableWidget(3, NCOLUMNS);
 	qlist->setShowGrid(false);
 	qlist->setWordWrap(false);
+	qlist->setEditTriggers(QAbstractItemView::CurrentChanged|
+			       QAbstractItemView::SelectedClicked);
+	qlist->setSelectionBehavior(QAbstractItemView::SelectRows);
 	qlist->horizontalHeader()->setStretchLastSection(true);
+	// qlist->setDragDropMode(QAbstractItemView::InternalMove);
+	// qlist->setDropIndicatorShown(true);
 	qlist->verticalHeader()->hide();
 	w->setMinimumSize(580, 300);
 	wform->addWidget(w);
@@ -144,6 +162,15 @@ void create_query_window(
 
 	create_query_rows();	/* have_shell must be FALSE here */
 	print_query_info();
+
+	// This is only called after a cell has been edited
+	// It takes the place of QLineEdit's set_text_cb().
+	set_qt_cb(QTableWidget, cellChanged, qlist,
+		  list_callback(c, r), int r, int c);
+	// This is called on cursor/tab movement and clicking.
+	// It is only used to update the buttons, so column is ignored.
+	set_qt_cb(QTableWidget, currentCellChanged, qlist,
+		  list_callback(-1, r), int r);
 
 	popup_nonmodal(shell);
 	set_dialog_cancel_cb(shell, done_callback());
@@ -164,35 +191,55 @@ static QStringList cell_name = { "on", "def", "Name", "Query Expression"};
 
 static void set_row_widgets(int y)
 {
-	int x;
 	register DQUERY	*dq = &form->query[y];
 	bool blank = y >= form->nqueries;
+	QTableWidgetItem *twi;
 
+#if 0  /* this isn't just a checkbox -- it has an empty but visible string */
+       /* Not only that, but tabbing into the table widget doesn't set the */
+       /* selected/current row to 0 (but having a widget does... weird) */
+	twi = new QTableWidgetItem;
+	twi->setFlags(Qt::ItemIsUserCheckable|Qt::ItemIsEnabled);
+	twi->setCheckState(blank || dq->suspended ? Qt::Unchecked : Qt::Checked);
+	qlist->setItem(y, 0, twi);
+#else
 	QCheckBox *cb = new QCheckBox;
-	if (!blank)
-		cb->setCheckState(dq->suspended ? Qt::Unchecked : Qt::Checked);
+	cb->setCheckState(blank || dq->suspended ? Qt::Unchecked : Qt::Checked);
 	qlist->setCellWidget(y, 0, cb);
+	set_button_cb(cb, list_callback(0, y, c), bool c);
+#endif
+	/* Apparently radio selection is not possible */
 	QRadioButton *rb = new QRadioButton;
 	if (!blank)
 		rb->setChecked(y == form->autoquery);
 	qlist->setCellWidget(y, 1, rb);
-	QLineEdit *t = new QLineEdit;
-	if (!blank && dq->name)
-		t->setText(dq->name);
-	qlist->setCellWidget(y, 2, t);
-	t = new QLineEdit;
-	if (!blank && dq->query)
-		t->setText(dq->query);
-	qlist->setCellWidget(y, 3, t);
+	set_button_cb(rb, list_callback(1, y, c), bool c);
+	// The callback for twi is set in the list widget itself, above.
+	twi = new QTableWidgetItem(!blank && dq->name ? dq->name : "");
+	qlist->setItem(y, 2, twi);
+	twi = new QTableWidgetItem(!blank && dq->query ? dq->query : "");
+	qlist->setItem(y, 3, twi);
+}
 
-	for(x = 0; x < NCOLUMNS; x++) {
-		QWidget *w = qlist->cellWidget(y, x);
-		if(x > 1)
-			set_text_cb(w, list_callback(w, x, y));
-		else
-			set_button_cb(w, list_callback(w, x, y, c), bool c);
-		// bind_help(w, "queries"); // same as main window
-	}
+/*
+ * <sigh> then again, moving queries calls for a function to just fill in.
+ */
+
+static void fill_row_widgets(int y)
+{
+	register DQUERY	*dq = &form->query[y];
+	bool blank = y >= form->nqueries;
+
+#if 0
+	qlist->item(y, 0)->setCheckState(blank || dq->suspended ? Qt::Unchecked : Qt::Checked);
+#else
+	QCheckBox *cb = dynamic_cast<QCheckBox *>(qlist->cellWidget(y, 0));
+	cb->setCheckState(blank || dq->suspended ? Qt::Unchecked : Qt::Checked);
+#endif
+	QRadioButton *rb = dynamic_cast<QRadioButton *>(qlist->cellWidget(y, 1));
+	rb->setChecked(!blank && y == form->autoquery);
+	qlist->item(y, 2)->setText(!blank && dq->name ? dq->name : "");
+	qlist->item(y, 3)->setText(!blank && dq->query ? dq->query : "");
 }
 
 static void del_query(int y)
@@ -298,21 +345,53 @@ void print_query_info(void)
 
 /*-------------------------------------------------- callbacks --------------*/
 /*
- * Delete, Duplicate, and Done buttons.
+ * Move, Delete, Duplicate, and Done buttons.
  * All of these routines are direct X callbacks.
  */
+
+static void move_callback  (int dir)
+{
+	int	ycurr = qlist->currentRow(), xcurr = qlist->currentColumn();
+	DQUERY	tmp; 
+
+	if (ycurr < 0 || ycurr + dir < 0 ||
+	    ycurr >= form->nqueries || ycurr + dir >= form->nqueries)
+		return;
+	tmp = form->query[ycurr];
+	form->query[ycurr] = form->query[ycurr + dir];
+	form->query[ycurr + dir] = tmp;
+	if(form->autoquery == ycurr)
+		form->autoquery += dir;
+	else if(form->autoquery == ycurr + dir)
+		form->autoquery -= dir;
+	// Following code probably generates events; this hack surpresses them.
+	munging_list = true;
+	fill_row_widgets(ycurr);
+	fill_row_widgets(ycurr += dir);
+	qlist->setCurrentCell(ycurr, xcurr);
+	munging_list = false;
+	up->setEnabled(ycurr > 0);
+	down->setEnabled(ycurr < form->nqueries - 1);
+}
 
 static void delete_callback(void)
 {
 	int				ycurr = qlist->currentRow();
 
 	if (ycurr >= 0 && ycurr < form->nqueries) {
-		qlist->removeRow(ycurr);
 		del_query(ycurr);
+		munging_list = true;
+		qlist->removeRow(ycurr);
+		munging_list = false;
 	}
 	if (!form->nqueries) {
 		del->setEnabled(false);
 		dupl->setEnabled(false);
+		up->setEnabled(false);
+		down->setEnabled(false);
+	} else {
+		up->setEnabled(ycurr > 0);
+		down->setEnabled(ycurr < form->nqueries - 1);
 	}
 }
 
@@ -327,8 +406,11 @@ static void dupl_callback(void)
 			form->query[n] = form->query[n-1];
 		form->query[n].name  = mystrdup(form->query[n].name);
 		form->query[n].query = mystrdup(form->query[n].query);
+		munging_list = true;
 		qlist->insertRow(ycurr);
 		set_row_widgets(ycurr);
+		munging_list = false;
+		up->setEnabled(true);
 	}
 }
 
@@ -344,7 +426,6 @@ static void done_callback(void)
  */
 
 static void list_callback(
-	QWidget				*w,
 	int				x,
 	int				y,
 	bool				checked)
@@ -354,8 +435,11 @@ static void list_callback(
 	char *string = 0;
 	bool onblank = y >= form->nqueries, wasblank = onblank;
 
+	if(munging_list)
+		return;
 	if(x > 1) {
-		const QString &qs = dynamic_cast<QLineEdit *>(w)->text();
+		QTableWidgetItem *twi = qlist->item(y, x);
+		const QString &qs = twi->text();
 		if(qs.size())
 			string = qstrdup(qs);
 	}
@@ -367,7 +451,7 @@ static void list_callback(
 	switch(x) {
 	    case 0:
 		if(onblank)
-			dynamic_cast<QCheckBox *>(w)->setCheckState(Qt::Unchecked);
+			dynamic_cast<QCheckBox *>(qlist->cellWidget(y, x))->setChecked(false);
 		else
 			dq->suspended = !checked;
 		break;
@@ -400,8 +484,8 @@ static void list_callback(
 		qlist->setRowCount(form->nqueries + 1);
 		set_row_widgets(form->nqueries);
 	}
-
-	// FIXME:  this needs to be in a click-callback as well
 	del->setEnabled(!onblank);
 	dupl->setEnabled(!onblank);
+	up->setEnabled(!onblank && y > 0);
+	down->setEnabled(!onblank && y < form->nqueries - 1);
 }

@@ -1,551 +1,573 @@
-Unless otherwise stated, assume 0% complete:
-
-  - URGENT:  Create new form is currently broken.
-
   - Main window sizing issues:
 
-    - The summary list is too wide.  The right-most column almost
-      always extends too far, and I don't know how to shrink it.
+  - The summary list is too wide.  The right-most column almost
+    always extends too far, and I don't know how to shrink it.
 
-    - The window doesn't resize to a narrow version on database switch
-      (but it does do so on initial load and randomly, for some
-      reason). resize(minimumSize()) after adjustSize() does
-      help, but not enough.  Even "switching" to the same
-      database produces random results.
+  - The window doesn't resize to a narrow version on database switch
+    (but it does do so on initial load and randomly, for some
+    reason). resize(minimumSize()) after adjustSize() does help,
+    but not enough.  Even "switching" to the same database
+    produces random results.
 
-    - When the main window resizes after a database switch, it not
-      only resizes the window, but also moves it.  It should
-      stay in one place.  Saving and restoring the position
-      after adjustSize() does nothing, so maybe it's being moved
-      elsewhere.
+  - When the main window resizes after a database switch, it not
+    only resizes the window, but also moves it.  It should stay in
+    one place.  Saving and restoring the position after
+    adjustSize() does nothing, so maybe it's being moved
+    elsewhere.
 
-  - Selection in the summary window is sometimes ignored (actually, I
-    think it gets reverted when it thinks the db is modified). The
-    original Motif GUI did that sometimes, too. Also, it
-    occasionally crashes when popping around.  Maybe events are
-    being generated before having been fully processed?
+- Do something about the help text.  Either make my own What's This?
+  override or format the help text in a way that the built-in What's
+  ths displays better (perhaps even rich text).  Also, verify that all
+  help topics are actually present in grok.hlp.
 
-  - As expected, letter buttons still don't work. The first press works,
-    but subsequent presses go all weird.
+- Do something about the manual.  I actually prefer a latex manual,
+  which could be converted to HTML if desired.  The current HTML
+  manual needs to run through tidy, and be lower-case in general.
+  Then, I need to actually read it, and verify that it contains all
+  the necessary information.  Then, I need to add screenshots,
+  probably.  What would really be cool is if I could generate the
+  full manual, help text, and man page from the same source, but
+  I've been trying that for years with my literate stuff and it's
+  just not practical.
 
-  - file dialog is always GTK+.  Is there a way to make it "native QT"?
+- Selection in the summary window is sometimes ignored (actually, I
+  think it gets reverted when it thinks the db is modified). The
+  original Motif GUI did that sometimes, too. Also, it occasionally
+  crashes when popping around.  Maybe events are being generated
+  before having been fully processed?
 
-  - on parse error, any string yylvals leak
+- As expected, letter buttons still don't work. The first press works,
+  but subsequent presses go all weird.
 
-  - I should probably test the memory leak fixes I made a little
-    better to ensure no crashing, but I'm too lazy.  I'll fix them
-    when I encounter problems.
+- file dialog is always GTK+.  Is there a way to make it "native QT"?
+  
+- on parse error, any string yylvals leak
+  
+- I should probably test the memory leak fixes I made a little better
+  to ensure no crashing, but I'm too lazy.  I'll fix them when I
+  encounter problems.
 
-  - Use QUiLoader for the main GUI.  Give every action and major
-    widget a name, and map that to the user-supplied .ui file.
-    That's probably the only way I'll ever be able to support
-    Android or other small displays, at least: complete GUI
-    overrides.  This will probably also require use of the "Qt
-    Resource" facility to store the default GUI layouts in the
-    binary.
+- Use QUiLoader for the main GUI.  Give every action and major widget
+  a name, and map that to the user-supplied .ui file. That's
+  probably the only way I'll ever be able to support Android or
+  other small displays, at least: complete GUI overrides.  This will
+  probably also require use of the "Qt Resource" facility to store
+  the default GUI layouts in the binary.
 
-  - Look more closely at all Qt-related licenses.  I don't want this
-    program to be GPL.  In particular, QUiLoader seems to use a
-    different license (or at least Trolltech thought it important
-    enough to list the license in the introductory text).
+- Look more closely at all Qt-related licenses.  I don't want this
+  program to be GPL.  In particular, QUiLoader seems to use a
+  different license (or at least Trolltech thought it important
+  enough to list the license in the introductory text).
 
-  - Some shortcuts, such as ^G and ^Q, should be made global.  This
-    would be obsoleted by the use of .ui files.
+- Some shortcuts, such as ^G and ^Q, should be made global.  This
+  would be obsoleted by the use of .ui files.
 
-  - The layout of the form item editor needs tweaking.  At the very
-    least, the chart options do not seem to have the right label
-    width.  Also, I should probably use
-    SH_FormLayoutLabelAlignment.  Also, items in the scroll area
-    are too wide, or the scroll area is too narrow, depending on
-    how you look at it, but only if the cart options appear.
-    Otherwise, the opposite issue exists.  It appears that the layout
-    is partially being influenced by invisible widgets.
+- The layout of the form item editor needs tweaking.  At the very
+  least, the chart options do not seem to have the right label
+  width. Also, I should probably use SH_FormLayoutLabelAlignment.
+  Also, items in the scroll area are too wide, or the scroll area is
+  too narrow, depending on how you look at it, but only if the cart
+  options appear. Otherwise, the opposite issue exists.  It appears
+  that the layout is partially being influenced by invisible
+  widgets.
 
-  - Make some of the more global look & feel preferences available in
-    the preferences dialog.  Fine-tuning can still be done with
-    style sheets.
+- Make some of the more global look & feel preferences available in
+  the preferences dialog.  Fine-tuning can still be done with style
+  sheets.
 
-  - All widgets should auto-adjust based on font size.  This appears
-    to be impossible to do portably with multi-line widgets
-    (QTextEdit, QTreeWidget, QTableWidget) as they do not give any
-    measure of border areas, padding, scrollbar size, etc.  I have
-    made a guess on some widgets, and they appear to be OK, but a
-    different style may screw it all up.  Either that, or stop
-    supporting font size adjustments and only support full ui
-    replacements.  I feel like GUI design has regressed in the last 20
-    years.  I made all my Amiga GUIs completely font-independent.
+- All widgets should auto-adjust based on font size.  This appears to
+  be impossible to do portably with multi-line widgets (QTextEdit,
+  QTreeWidget, QTableWidget) as they do not give any measure of
+  border areas, padding, scrollbar size, etc.  I have made a guess
+  on some widgets, and they appear to be OK, but a different style
+  may screw it all up.  Either that, or stop supporting font size
+  adjustments and only support full ui replacements.  I feel like
+  GUI design has regressed in the last 20 years.  I made all my
+  Amiga GUIs completely font-independent.
 
-  - Add a color setter QSS similar to the layout one that only sets
-    the palette rather than overriding the style as well.  Either
-    that, or move some of those aux QSS settings into the
-    preferences editor.  Either that, or do the full .ui thing and
-    forget supporting QSS at all.  QSS sucks.
+- Add a color setter QSS similar to the layout one that only sets the
+  palette rather than overriding the style as well.  Either that, or
+  move some of those aux QSS settings into the preferences editor.
+  Either that, or do the full .ui thing and forget supporting QSS at
+  all.  QSS sucks.
 
-  - Translation of GUI labels.  Maybe even an option to provide
-    translation on database values (or at least database labels). 
-    This makes some sort of automatic layout almost necessary.
-    Note that the official 1.5.3 had partial German translation,
-    but I will probably want to use more standard translation
-    methods (e.g. LANG= instead of a pulldown, .po[t] files)
+- Translation of GUI labels.  Maybe even an option to provide
+  translation on database values (or at least database labels). This
+  makes some sort of automatic layout almost necessary. Note that
+  the official 1.5.3 had partial German translation, but I will
+  probably want to use more standard translation methods (e.g. LANG=
+  instead of a pulldown, .po[t] files)
 
-  - Numeric inputs (with spinboxes and min/max/digits (0=int)).  It is
-    not possible to know if a field is currently numeric.  It's
-    just in how it is used.  However, it would be nice to validate
-    the current db contents when a field is first turned into a
-    numeric. Also, not sure if blanks should be supported at all,
-    especially since spinboxes don't seem to support it.
+- Numeric inputs (with spinboxes and min/max/digits (0=int)).  It is
+  not possible to know if a field is currently numeric.  It's just
+  in how it is used.  However, it would be nice to validate the
+  current db contents when a field is first turned into a numeric.
+  Also, not sure if blanks should be supported at all, especially
+  since spinboxes don't seem to support it.
 
-  - Date/Time edit popups.  Qt's QDateTime and related widgets might
-    work, but they have a few flaws: the spinner disappears if the
-    date popup is present, and the spinner at least relies on the
-    fixed format of the field to select which part of the
-    date/time to modify.  My old HTML GUI added a time field
-    directly to the calendar popup, which seems best.  I haven't
-    experimented much with them, though, so maybe it's at least
-    possible to support grok's parser for input, even if only to
-    be immediately changed to the fixed format.
+- Date/Time edit popups.  Qt's QDateTime and related widgets might
+  work, but they have a few flaws: the spinner disappears if the
+  date popup is present, and the spinner at least relies on the
+  fixed format of the field to select which part of the date/time to
+  modify.  My old HTML GUI added a time field directly to the
+  calendar popup, which seems best.  I haven't experimented much
+  with them, though, so maybe it's at least possible to support
+  grok's parser for input, even if only to be immediately changed to
+  the fixed format.
 
-  - Use specific pointer types instead of base classes to avoid the
-    dynamic_cast overhead.  I'm not sure the compiler is smart
-    enough to eliminate that itself.  In fact, it'd be nice if it
-    were possible to build without rtti, but Qt adds its own rtti
-    to every moc-compiled class (and has its own version of
-    dynamic_cast), so that's not happening.  Well, Qt claims that
-    it doesn't use rtti, but they really just mean that they use
-    their own instead of the language-defined one.  They say
-    something about crossing dynamic link library boudaries, but I
-    think that may be a Windows/MSVC-only issue.
+- Use specific pointer types instead of base classes to avoid the
+  dynamic_cast overhead.  I'm not sure the compiler is smart enough
+  to eliminate that itself.  In fact, it'd be nice if it were
+  possible to build without rtti, but Qt adds its own rtti to every
+  moc-compiled class (and has its own version of dynamic_cast), so
+  that's not happening.  Well, Qt claims that it doesn't use rtti,
+  but they really just mean that they use their own instead of the
+  language-defined one. They say something about crossing dynamic
+  link library boudaries, but I think that may be a
+  Windows/MSVC-only issue.
 
-  - Document the "standard" Qt command-line options, especially
-    given that they seem to only be documented in the
-    QApplication/QGuiApplication constructor fuction
-    documentation.
+- Document the "standard" Qt command-line options, especially given
+  that they seem to only be documented in the
+  QApplication/QGuiApplication constructor fuction documentation.
 
-  - Remove Rambo Quit, and make Quit and window-close work like that
-    instead.  This matches what most other applications do.  Also,
-    make database switches (at least via the GUI) make saves optional,
-    as well.  Since button actions are the only way other than the
-    menu to switch databases, this should be prtty easy.
+- Remove Rambo Quit, and make Quit and window-close work like that
+  instead.  This matches what most other applications do.  Also,
+  make database switches (at least via the GUI) make saves optional,
+  as well. Since button actions are the only way other than the menu
+  to switch databases, this should be prtty easy.
 
-  - Make an easy way to access fields in other databases.  This is
-    almost a prerequisite for foreign key support.  This makes the
-    above item a little more complicated, as multiple modified
-    databases may be in play.  It is also not currently possible to
-    set an alternate sort order or search string.  Only foreach/FOREACH
-    have the ability to alter the search string temporarily, but not the
-    search order.  Database name is relative to same path as current
-    database, or, if not there, first one in search path.  Absolute
-    paths are allowed, but should be discouraged.
+- Make an easy way to access fields in other databases.  This is
+  almost a prerequisite for foreign key support.  This makes the
+  above item a little more complicated, as multiple modified
+  databases may be in play.  It is also not currently possible to
+  set an alternate sort order or search string.  Only
+  foreach/FOREACH have the ability to alter the search string
+  temporarily, but not the search order. Database name is relative
+  to same path as current database, or, if not there, first one in
+  search path.  Absolute paths are allowed, but should be
+  discouraged.
 
-    - Maybe an additional foreach() parameter gives the sort field
-      and +/- order, like foreach("x", +_field[, +_field2 ...]).
+  - Maybe an additional foreach() parameter gives the sort field and
+    +/- order, like foreach("x", +_field[, +_field2 ...]).
 
-    - Maybe similar to foreach(), have a function that executes an
-      expression in the context of a new database.  Like foreach(),
-      return values must be set in variables or other side effects;
-      indb(dbname, search, expr).  Or, add an optional first argument
-      prefixed by a char, like the sort thing above:
-      foreach(:"databse"[, "search"], "expr")
+  - Maybe similar to foreach(), have a function that executes an
+    expression in the context of a new database.  Like foreach(),
+    return values must be set in variables or other side effects;
+    indb(dbname, search, expr).  Or, add an optional first
+    argument prefixed by a char, like the sort thing above:
+    foreach(:"databse"[, "search"], "expr")
 
-  - Support UTF-8.  This was going somewhere in the IUP port, but I
-    have abandoned this and it is at 0% again.  I don't like the
-    idea of using QChar everywhere, and I definitely don't like
-    the idea of converting to/from QByteArrays, but there's not
-    much else I can do.
+- Support UTF-8.  This was going somewhere in the IUP port, but I have
+  abandoned this and it is at 0% again.  I don't like the idea of
+  using QChar everywhere, and I definitely don't like the idea of
+  converting to/from QByteArrays, but there's not much else I can
+  do.
 
-    At the least, if the current locale isn't UTF-8, the current locale
-    should be auto-translated to UTF-8 internally, and converted back
-    before writing out files.  Otherwise, a scan of data should make it
-    obvious if it isn't UTF-8, and an option should be provided to
-    convert to UTF-8 permanently or just in-memory.
+  At the least, if the current locale isn't UTF-8, the current
+  locale should be auto-translated to UTF-8 internally, and
+  converted back before writing out files.  Otherwise, a scan of
+  data should make it obvious if it isn't UTF-8, and an option
+  should be provided to convert to UTF-8 permanently or just
+  in-memory.
 
-    Multi-byte (but not necessarily multi-character, even if the
-    desired multi-character sequence is a single glyph) delimiters
-    must be supported.  Anything that scans one character at a
-    time needs to be re-evaluated.
+  Multi-byte (but not necessarily multi-character, even if the
+  desired multi-character sequence is a single glyph) delimiters
+  must be supported.  Anything that scans one character at a time
+  needs to be re-evaluated.
 
-  - Support non-mutable expressions.  As mentioned below, it's
-    possible to do mass edits with mutating search expressions.  For
-    example, I could say `(_size = 0)` to alter `size` in every
-    single record (maybe even by accident).  At the very least the
-    search string field should be db-non-mutable, and perhaps also
-    variable-non-mutable.  In fact, only a few places should explicitly
-    allow side effects of any kind in expressions.  One way to keep
-    allowing side effects everywhere else would be to have an explicit
-    command such as mutable to prefix any mutating expression, e.g.
-    `{mutable; _name = "hello"}` or `(mutable, _size = 0)`.  Off the
-    top of my head, the only things which should be mutable by default
-    are the foreach non-condition expression, button actions, and
-    standalone expressions in templates.  It's a saftey feature, not a
-    security feature.
+- Support non-mutable expressions.  As mentioned below, it's possible
+  to do mass edits with mutating search expressions.  For example, I
+  could say `(_size = 0)` to alter `size` in every single record
+  (maybe even by accident).  At the very least the search string
+  field should be db-non-mutable, and perhaps also
+  variable-non-mutable.  In fact, only a few places should
+  explicitly allow side effects of any kind in expressions.  One way
+  to keep allowing side effects everywhere else would be to have an
+  explicit command such as mutable to prefix any mutating
+  expression, e.g. `{mutable; _name = "hello"}` or `(mutable, _size
+  = 0)`.  Off the top of my head, the only things which should be
+  mutable by default are the foreach non-condition expression,
+  button actions, and standalone expressions in templates.  It's a
+  saftey feature, not a security feature.
 
-  - Either disallow backslash as a field separator or allow separate
-    specification of the escape character, like I did for arrays.
-    Perhaps also support some of the other CSV conventions, like
-    optional quotes around values and an optional header line.
+- Either disallow backslash as a field separator or allow separate
+  specification of the escape character, like I did for arrays.
+  Perhaps also support some of the other CSV conventions, like
+  optional quotes around values and an optional header line.
 
-  - Better support for changing the array separator/esc after use.
-    All field attributes using arrays (e.g. cycle gadgets) are
-    automatically converted to using the new separator/esc.  Upon
-    saving the new form definition, fields which explicitly use
-    array values (e.g. multi-select lists) are offered up for
-    auto-conversion.  Perhaps also scan all other columns for the
-    previous separator/esc characters and offer them up for
-    auto-conversion, as well.
+- Better support for changing the array separator/esc after use. All
+  field attributes using arrays (e.g. cycle gadgets) are
+  automatically converted to using the new separator/esc.  Upon
+  saving the new form definition, fields which explicitly use array
+  values (e.g. multi-select lists) are offered up for
+  auto-conversion.  Perhaps also scan all other columns for the
+  previous separator/esc characters and offer them up for
+  auto-conversion, as well.
 
-  - Along the lines of the previous item, grok in general doesn't do
-    much if you change the structure of the database.
+- Along the lines of the previous item, grok in general doesn't do
+  much if you change the structure of the database.
 
-    - Changing the field delimiter should offer to convert the existing
-      database to the new delimiter.
+  - Changing the field delimiter should offer to convert the
+    existing database to the new delimiter.
 
-    - Changing the column currently assigned to a variable should offer
-      to move the data around.  All such changes should be offered at
-      once, so that swapping data around works as intended.  Also,
-      all unassigned columns should pop up in the "Debug" warning popup.
-      Maybe add an "ignore" item type to avoid such warnings.
+  - Changing the column currently assigned to a variable should
+    offer to move the data around.  All such changes should be
+    offered at once, so that swapping data around works as
+    intended.  Also, all unassigned columns should pop up in the
+    "Debug" warning popup. Maybe add an "ignore" item type to
+    avoid such warnings.
 
-    - Changing the type of field assigned to a column should prompt
-      some sort of action, as well.  Especially if the column types
-      are somewhat incompatible.
+  - Changing the type of field assigned to a column should prompt
+    some sort of action, as well.  Especially if the column types
+    are somewhat incompatible.
 
   - Use binary searches in lexer (kw and pair_) and other areas that use
     long lists of strings.  Also, use array sizes rather than
     0-termination in general.
 
-  - Use symbolic names (either enums or strings) instead of cryptic
-    hex action codes.
+- Use symbolic names (either enums or strings) instead of cryptic hex
+  action codes.
 
-  - Make the query editor more usable:
-  
-    - Highlight the current line, so the user can tell what
-      copy/delete work on.
+- Add a Sort button to Queries (but how to sort?)
 
-      - There are issues with this right now, anyway:  the graying out
-        doesn't track focus properly.
+- Support drag-move in query editor.
 
-    - Up/Down buttons to reorder items, and maybe a Sort button as
-      well.  If QTableWidget supports it easily, allow reordering by
-      drag & drop.
+- Cycle gadgets/popup menus/whatever the platform calls it to replace
+  radio boxes.  Basically looks like a pushbutton with a label
+  showing the currently selected value.  This takes up much less
+  space than a radio group, and only loses the ability to see what
+  other values are available at a glance.
 
-    Most recent GUIs that have such a thing instead present a
-    read-only list with add/delete/edit buttons.  Add/edit pops up
-    a simple multi-field editor dialog.  Seems pretty lazy to me.
-    I prefer the "multi-edit" style grok and my old HTML database
-    edtiro use.
+  - Label text, Choice/flag code, shown in summary are all array
+    values.  Either the fields are grayed out and a popup button
+    is added to edit these as a group in a GUI similar to the
+    query editor, or the query-editor-like GUI is inserted
+    in-place, and grows and shrinks automatically (since I don't
+    want scrollbar items in a panel that is already scrollable).
 
-  - Cycle gadgets/popup menus/whatever the platform calls it to
-    replace radio boxes.  Basically looks like a pushbutton with a
-    label showing the currently selected value.  This takes up much
-    less space than a radio group, and only loses the ability to
-    see what other values are available at a glance.
+    Actually, Label text[0] is the main label, and is what's
+    edited in the Label text field.  I suppose the remaining
+    labels could just be a separate item field.
 
-    - Label text, Choice/flag code, shown in summary are all array
-      values.  Either the fields are grayed out and a popup button is
-      added to edit these as a group in a GUI similar to the query
-      editor, or the query-editor-like GUI is inserted in-place, and
-      grows and shrinks automatically (since I don't want scrollbar
-      items in a panel that is already scrollable).
+- Radio groups: displayed as a grid of radio buttons surrounded by a
+  frame.  Layout is in a grid, layed out horizontally and then
+  vertically.  When a row exceeds the widget width, the entire
+  widget is narrowed by one column and layout starts again at the
+  top.  If there are too many rows, it just clips (maybe with a
+  warning).
 
-      Actually, Label text[0] is the main label, and is what's
-      edited in the Label text field.  I suppose the remaining lables
-      could just be a separate item field.
+- Combo box option for text fields.  The list can be filled with
+  predefined values and/or the values currently in the database. 
+  For predefined values, the Input default field is overloaded as an
+  array with index 0 being the actual default, and subsequent values
+  being displayed in the combo dropdown.  This does not support menu
+  labels different from the values, although I guess I could
+  overload Label text in the same way.
 
-  - Radio groups:  displayed as a grid of radio buttons surrounded by
-    a frame.  Layout is in a grid, layed out horizontally and then
-    vertically.  When a row exceeds the widget width, the entire
-    widget is narrowed by one column and layout starts again at the
-    top.  If there are too many rows, it just clips (maybe with a
-    warning).
+- Add multi-select list widgets, whose value is a set.  Otherwise,
+  same as Cycle gadgets above.
 
-  - Combo box option for text fields.  The list can be filled with
-    predefined values and/or the values currently in the database.  For
-    predefined values, the Input default field is overloaded as an
-    array with index 0 being the actual default, and subsequent values
-    being displayed in the combo dropdown.  This does not support
-    menu labels different from the values, although I guess I could
-    overload Label text in the same way.
+  - Also, perhaps if the Databse column is an array of the correct
+    length, support storing as flags after all
 
-  - Add multi-select list widgets, whose value is a set.  Otherwise,
-    same as Cycle gadgets above.
+  - Also, perhaps if the Internal field name is an array of the
+    correct length, support setting additional variables as flags
 
-    - Also, perhaps if the Databse column is an array of the correct
-      length, support storing as flags after all
+  - Also, perhaps support stepping over all possible values of a
+    field whose Choice/flag code and/or Label text is an array. 
+    Maybe ? instead of + to select Choice/flag codes and ?+ to
+    select Label text.  To support the multi-field thing, you'd
+    need a way to select the group (perhaps any field name in the
+    group) and then you can step through the possible field names
+    with ?&.  Or, only ? and multiple elt-bindings such as elt,
+    eltlabel, eltvar.
 
-    - Also, perhaps if the Internal field name is an array of the
-      correct length, support setting additional variables as flags
+- Add checkbox group "widgets" whose value is stored in a single field
+  as a set; otherwise just like Radio groups and multi-select list
+  widgets above.
 
-    - Also, perhaps support stepping over all possible values of a field
-      whose Choice/flag code and/or Label text is an array.  Maybe ?
-      instead of + to select Choice/flag codes and ?+ to select Label
-      text.  To support the multi-field thing, you'd need a way to
-      select the group (perhaps any field name in the group) and then
-      you can step through the possible field names with ?&.  Or, only
-      ? and multiple elt-bindings such as elt, eltlabel, eltvar.
+- Add "Never blank" flag (requires a default value) and a "Unique"
+  flag similar to SQL.  Unique implies Never Blank, unlike SQL's
+  ambiguous behavior in that regard.  I can't think of a way to
+  indicate multi-field uniqueness, though, so that will have to be
+  unenforced, unless the uniqueness flag is a number instead of just
+  a flag.  In that case, multiple uniqueness groups can be made,
+  where 0/blank indicates non-unique.  Perhaps not just numbers, but
+  bits, so a list of numbers isn't needed if a field is part of
+  multiple groups.
 
-  - Add checkbox group "widgets" whose value is stored in a single
-    field as a set; otherwise just like Radio groups and multi-select
-    list widgets above.
+- Have "s in s" return the location of the first string in the second,
+  plus one to keep it boolean.  Or, just leave it alone and let
+  people who want this use match() instead.
 
-  - Add "Never blank" flag (requires a default value) and a "Unique"
-    flag similar to SQL.  Unique implies Never Blank, unlike SQL's
-    ambiguous behavior in that regard.  I can't think of a way to
-    indicate multi-field uniqueness, though, so that will have to
-    be unenforced, unless the uniqueness flag is a number instead of
-    just a flag.  In that case, multiple uniqueness groups can be made,
-    where 0/blank indicates non-unique.  Perhaps not just numbers, but
-    bits, so a list of numbers isn't needed if a field is part of
-    multiple groups.
+- Add list of field names to expression grammar help text, similar to
+  fields text in query editor.  Or, just make that a separate
+  universal popup.
 
-  - Have "s in s" return the location of the first string in the
-    second, plus one to keep it boolean.  Or, just leave it alone and
-    let people who want this use match() instead.
+- Export to window.  In fact, replace Print interface with
+  automatically generated text templates, and support Export to pipe
+  (e.g. 1st character is vertical bar) for "printing".  Making it a
+  combo box with the defined printers would sort of compensate for
+  losing those preferences, I guess.  Note that the overstrike
+  feature isn't possible with current expressions, so a function to
+  that effect would need to be added, unless regex stuff is done
+  first (e.g. bold == `gsub(s, ".", "\\0\008\\0")`)
 
-  - Add list of field names to expression grammar help text, similar
-    to fields text in query editor.  Or, just make that a separate
-    universal popup.
-    
-  - Export to window.  In fact, replace Print interface with
-    automatically generated text templates, and support Export to pipe
-    (e.g. 1st character is vertical bar) for "printing".  Making it a
-    combo box with the defined printers would sort of compensate for
-    losing those preferences, I guess.  Note that the overstrike feature
-    isn't possible with current expressions, so a function to that
-    effect would need to be added, unless regex stuff is done first
-    (e.g. bold == `gsub(s, ".", "\\0\008\\0")`)
+  - Maybe support "transient" templates, which aren't saved to
+    files. This is to compensate for lack of an SQL command line.
+    Problem with this is the frustration when it crashes and the
+    template is lost.  So maybe not such a good idea.  It's not so
+    hard to manage the files.
 
-    - Maybe support "transient" templates, which aren't saved to files.
-      This is to compensate for lack of an SQL command line.
-      Problem with this is the frustration when it crashes and the
-      template is lost.  So maybe not such a good idea.  It's not so
-      hard to manage the files.
+- SQL-style many-to-one foreign key references.  The "child" database
+  contains a set of fields which must match a similar set of fields
+  in the "parent" database.  Both for storage in the databse and in
+  expressions, the value of the reference field is an array of the
+  values of the referenced fields if the number of fields is more
+  than one; otherwise, it is the plain value of the referenced
+  field. Either way, a blank value indicates no reference, rather
+  than a reference to a blank key; i.e., keys must be Never Empty
+  (although multi-field references can have empty values).  Unlike
+  SQL, no guarantee can be made of validity.  A menu option is
+  provided to check a "child" database for bad references, with
+  automatic resolution either blanking the reference or removing the
+  child entirely.  Cascade deletes are only possible if the parent
+  expliclitly lists child tables.  I used to want two modes:
+  child-focused and parent-focused, but inatead, all children are
+  child-focused, and parent tables can become parent-focused by
+  adding a virtual child reference.
 
-  - SQL-style many-to-one foreign key references.  The "child" database
-    contains a set of fields which must match a similar set of fields
-    in the "parent" database.  Both for storage in the databse and in
-    expressions, the value of the reference field is an array of the
-    values of the referenced fields if the number of fields is more than
-    one; otherwise, it is the plain value of the referenced field.
-    Either way, a blank value indicates no reference, rather than a
-    reference to a blank key; i.e., keys must be Never Empty (although
-    multi-field references can have empty values).  Unlike SQL, no
-    guarantee can be made of validity.  A menu option is provided
-    to check a "child" database for bad references, with automatic
-    resolution either blanking the reference or removing the child
-    entirely.  Cascade deletes are only possible if the parent
-    expliclitly lists child tables.  I used to want two modes:
-    child-focused and parent-focused, but inatead, all children
-    are child-focused, and parent tables can become parent-focused
-    by adding a virtual child reference.
+  - The reference is only present in the child table.  Two arrays
+    specify the list of fields to store and the list of fields to
+    display.  A set of popup lists is presented for parent
+    selection, providing several selection modes.  An optional
+    search field below restricts the parents selectable in the
+    popups.  The only other option would be to limit the values in
+    other widgets when a value is given for one.  The order of
+    selection doesn't really matter, as long as you don't mind
+    long lists.  Note that fields cascade; that is, if you display
+    a foreign key field in a parent table, the parent table's list
+    of fields to display is displayed instead of the foreign key
+    field's value.  In form.cgi, I didn't give headers for each
+    "subfield", but I suppose it wouldn't hurt to add an option to
+    do so.  Also, there should be an easy way to pop to the
+    referenced parent record.  In form.cgi I made the label a
+    button, but that doesn't really make sense here. Perhaps an
+    additional "Edit" button.
 
-    - The reference is only present in the child table.  Two arrays
-      specify the list of fields to store and the list of fields to
-      display.  A set of popup lists is presented for parent selection,
-      providing several selection modes.  An optional search field below
-      restricts the parents selectable in the popups.  The only other
-      option would be to limit the values in other widgets when a value
-      is given for one.  The order of selection doesn't really matter,
-      as long as you don't mind long lists.  Note that fields cascade;
-      that is, if you display a foreign key field in a parent table, the
-      parent table's list of fields to display is displayed instead of
-      the foreign key field's value.  In form.cgi, I didn't give
-      headers for each "subfield", but I suppose it wouldn't hurt to
-      add an option to do so.  Also, there should be an easy way to
-      pop to the referenced parent record.  In form.cgi I made the
-      label a button, but that doesn't really make sense here.
-      Perhaps an additional "Edit" button.
+  - In the parent table, a virtual field may be added which is the
+    list of children currently pointing to it.  This is a
+    scrollable list widget, with buttons below it.  The list
+    widget shows the desired fields of the child table, with or
+    without a header. The buttons below the list are to add ("+")
+    an item, or remove ("-") or edit ("=") the selected item in
+    the list.  Adding or editing pops up a new top-level window
+    similar to the main, but restricted to a parent.  When
+    restricted to a parent, the display of the foreign key field
+    is read-only, and searches are forcibly limited to that value
+    as well.  Adding and editing a selected record just pop up the
+    standard add and edit fields. Editing without first selecting
+    something pops up the default no-record form.  In addition,
+    this field can be invisible.  In either case, deleting a
+    record with such a field does cascade deletes (i.e., all
+    children referencing this record are deleted as well) and
+    cascade foreign key modification (i.e., changing the key will
+    either delete children or update their referene).
 
-    - In the parent table, a virtual field may be added which is the
-      list of children currently pointing to it.  This is a scrollable
-      list widget, with buttons below it.  The list widget shows the
-      desired fields of the child table, with or without a header.
-      The buttons below the list are to add ("+") an item, or remove
-      ("-") or edit ("=") the selected item in the list.   Adding or
-      editing pops up a new top-level window similar to the main, but
-      restricted to a parent.  When restricted to a parent, the
-      display of the foreign key field is read-only, and searches are
-      forcibly limited to that value as well.  Adding and editing a
-      selected record just pop up the standard add and edit fields.
-      Editing without first selecting something pops up the default
-      no-record form.  In addition, this field can be invisible.  In
-      either case, deleting a record with such a field does cascade
-      deletes (i.e., all children referencing this record are deleted
-      as well) and cascade foreign key modification (i.e., changing
-      the key will either delete children or update their referene).
+- Many-to-many foreign key references.  In an SQL database, I would
+  normally create a table containing reference pairs. This is not
+  necessarily the most efficient way to do this in CSV-files like
+  what grok uses.  Instead, the keys are stored as strings-as-sets
+  (or sets of arrays if multi-field).  This means there is once
+  again a "child" and "parent" table, where the "parent" knows
+  nothing of the child by default.  The child and/or the parent
+  presents an interface similar to the child, but instead of a popup
+  selection list, it is a static seelction list, possibly with
+  multi-select.  In the "parent" table, visible virtual references
+  are presented the same way as in the child, but lists children
+  instead.  When popping to an edit, rather than restricted mode, it
+  sets the initial search to the selected item(s) and picks the
+  first for editing.  For adding, the field itself needs to be
+  initially selecting the source "parent".  For convenience, rather
+  than using "parent" style virtual references, the "parent" can be
+  made a "child" field as well, essentially duplicating the key list
+  but in the inverse direction.
 
-  - Many-to-many foreign key references.  In an SQL database, I
-    would normally create a table containing reference pairs.
-    This is not necessarily the most efficient way to do this in
-    CSV-files like what grok uses.  Instead, the keys are stored
-    as strings-as-sets (or sets of arrays if multi-field).  This
-    means there is once again a "child" and "parent" table, where
-    the "parent" knows nothing of the child by default.  The child
-    and/or the parent presents an interface similar to the child,
-    but instead of a popup selection list, it is a static
-    seelction list, possibly with multi-select.  In the "parent"
-    table, visible virtual references are presented the same way
-    as in the child, but lists children instead.  When popping to
-    an edit, rather than restricted mode, it sets the initial
-    search to the selected item(s) and picks the first for
-    editing.  For adding, the field itself needs to be initially
-    selecting the source "parent".  For convenience, rather than
-    using "parent" style virtual references, the "parent" can be
-    made a "child" field as well, essentially duplicating the key list
-    but in the inverse direction.
+- Support automatically generated search version of form, or separate
+  search form definition, similar to form.cgi's.  I suppose having
+  the field name popup reduces this need a bit.
 
-  - Support automatically generated search version of form, or
-    separate search form definition, similar to form.cgi's.  I suppose
-    having the field name popup reduces this need a bit.
+- Have a generic SQL exporter similar to the HTML one.  This may also
+  involve cascading.
 
-  - Have a generic SQL exporter similar to the HTML one.  This may also
-    involve cascading.
+- Support SQL database and form definition storage.  Support at least
+  SQL-standards sqlite, and maybe also postgres.  Instead of a file
+  name, a database connection string and table name are provided. 
+  These can be provided directly on the command-line, with a
+  connection string provided by preferences or command line. Of
+  course each database has its own supported types, and e.g. sqlite3
+  doesn't support altering table definitions, so adding and removing
+  fields requires copying the table.
 
-  - Support SQL database and form definition storage.  Support at
-    least SQL-standards sqlite, and maybe also postgres.  Instead of a
-    file name, a database connection string and table name are
-    provided.  These can be provided directly on the command-line,
-    with a connection string provided by preferences or command line.
-    Of course each database has its own supported types, and e.g.
-    sqlite3 doesn't support altering table definitions, so adding and
-    removing fields requires copying the table.
+  - Support storing the .gf file in the database as well; if a
+    database connection string is in prefs, look for likely form
+    definition tables and add them to the Databse listing.
 
-    - Support storing the .gf file in the database as well; if a
-      database connection string is in prefs, look for likely form
-      definition tables and add them to the Databse listing.
+  - Support converting a table into a fairly automatically generated
+    form, as long as field types are understandable.  Similar to
+    my old form.cgi, also read constraints for field type hints.
+    Of course each database has its own way of providing access to
+    table definition metadata, so this is a little complicated.
+    For example, form.cgi used Oracle's proprietary metadata
+    tables, and sqlite3 only provides the raw schema defintion.
 
-    - Support converting a table into a fairly automatically generated
-      form, as long as field types are understandable.  Similar to my
-      old form.cgi, also read constraints for field type hints.  Of
-      course each database has its own way of providing access to table
-      definition metadata, so this is a little complicated.  For
-      example, form.cgi used Oracle's proprietary metadata tables, and
-      sqlite3 only provides the raw schema defintion.
+  - Support many-to-many references via a helper table.  All
+    reference fields become virtual parent-style fields, with
+    double-indirection to get to the dsiplayed fields.
 
-    - Support many-to-many references via a helper table.  All reference
-      fields become virtual parent-style fields, with double-indirection
-      to get to the dsiplayed fields.
+- Labeled frames.  These would also always be pushed to the back in
+  the form editor GUI unless explicitly selected, and the interior
+  within the form editor is transparent as well.  Come to think of
+  it, there are no horizontal separator lines, labeled or not,
+  either.
 
-  - Labeled frames.  These would also always be pushed to the back in
-    the form editor GUI unless explicitly selected, and the interior
-    within the form editor is transparent as well.  Come to think of
-    it, there are no horizontal separator lines, labeled or not, either.
+- Tabs.  These do more damage to the ability to see the entire
+  record's information at a glance than anything above. However,
+  they can be useful.  You can simulate tabs right now using buttons
+  that switch to other databases, but it would be nice to make it
+  easier.  A few possibilities:
 
-  - Tabs.  These do more damage to the ability to see the entire
-    record's information at a glance than anything above.
-    However, they can be useful.  You can simulate tabs right now
-    using buttons that switch to other databases, but it would be
-    nice to make it easier.  A few possibilities:
+  - Part of the form editor: add a "tab" widget, which works as a
+    tabbed window in the editor window as well.  Widgets added
+    within the bounds of the tab window are added to the currently
+    selected tab.
 
-    - Part of the form editor:  add a "tab" widget, which works as
-      a tabbed window in the editor window as well.  Widgets added
-      within the bounds of the tab window are added to the currently
-      selected tab.
+    - Alternately, take advantage of invisible_if's now dynamic
+      behavior.  Just add a "hide now" button next to
+      invisible_if that hides this item and any item with the
+      exact same hide expression in the canvas.  That way, you
+      can design overlapping widgets without interference (and,
+      unfortunately, without guidance). Alternatevely, add a
+      tearable menu of all invisible_if expressions for fast
+      switching between "tabs"
 
-      - Alternately, take advantage of invisible_if's now dynamic
-        behavior.  Just add a "hide now" button next to
-	invisible_if that hides this item and any item with
-	the exact same hide expression in the canvas.  That
-	way, you can design overlapping widgets without
-	interference (and, unfortunately, without guidance).
-	Alternatevely, add a tearable menu of all invisible_if
-	expressions for fast switching between "tabs"
+  - As a special form of the foreign key feature: one-to-one
+    relationships.  Each tab corresponds to a child table, and
+    within is displayed the full edit form of the child table,
+    with parent key reference fields removed.  When a new parent
+    record is created, all one-to-one child records are created at
+    the same time.  This can be enforced by making the foreign key
+    field itself "unique".
 
-    - As a special form of the foreign key feature:  one-to-one
-      relationships.  Each tab corresponds to a child table, and within
-      is displayed the full edit form of the child table, with parent
-      key reference fields removed.  When a new parent record is
-      created, all one-to-one child records are created at the same
-      time.  This can be enforced by making the foreign key field
-      itself "unique".
+  - Tabs for the top part to provide alternate summaries, such as
+    graphs and template execution results.  Then again, template
+    execution into a pipe would take care of most of my use cases
+    for this.
 
-    - Tabs for the top part to provide alternate summaries, such as
-      graphs and template execution results.  Then again, template
-      execution into a pipe would take care of most of my use cases
-      for this.
+  The second form is sort of how you do it with buttons, except that
+  you have to make the main table a "tab" as well, sort of.  In
+  other words, while visiting children, the parent form's fields are
+  read-only.
 
-    The second form is sort of how you do it with buttons, except that
-    you have to make the main table a "tab" as well, sort of.  In
-    other words, while visiting children, the parent form's fields are
-    read-only.
+- A string expression to execute to validate a field.  Returns blank
+  or a message to tell the user the field is invalid.  The validator
+  should run whenever the field is done editing as well as whenever
+  the record is left/about to be saved (even if the field wasn't
+  edited; this way, dependent fields can validate each other)
+  Although I don't like doing it this way, this is one way to do the
+  non-blank/unuqueness checks instead of adding more configuration
+  options.  Maybe have a way to execute the validator against all
+  existing data.
 
-  - A string expression to execute to validate a field.  Returns
-    blank or a message to tell the user the field is invalid.  The
-    validator should run whenever the field is done editing as well as
-    whenever the record is left/about to be saved (even if the field
-    wasn't edited; this way, dependent fields can validate each other)
-    Although I don't like doing it this way, this is one way to do the
-    non-blank/unuqueness checks instead of adding more configuration
-    options.  Maybe have a way to execute the validator against all
-    existing data.
+- Save/restore database as tar file.  Maybe look into the
+  (nonexistent?) sync feature a little more.
 
-  - Save/restore database as tar file.  Maybe look into the
-    (nonexistent?) sync feature a little more.
+- Support at least some level of undo.  Right now, the best you can do
+  is Rambo-Quit and reload.  There isn't even a way to prevent
+  saving when switching databases, which would be hard to work
+  around given that only one can be loaded at a time.
 
-  - Support at least some level of undo.  Right now, the best you can do
-    is Rambo-Quit and reload.  There isn't even a way to prevent saving
-    when switching databases, which would be hard to work around given
-    that only one can be loaded at a time.
+- Actually fix some of those buffer overflow bugs, instead of just
+  cranking the buffer size.  Some of them already disappeared due to
+  the use of QString as the target for sprintf, but some still
+  remain.
 
-  - Actually fix some of those buffer overflow bugs, instead of just
-    cranking the buffer size.  Some of them already disappeared due to
-    the use of QString as the target for sprintf, but some still remain.
+- Add a summary line preview (at least the headers) to the form editor
+  canvas and preview
 
-  - Add a summary line preview (at least the headers) to the form editor
-    canvas and preview
+- Add a media inset widget of some kind.  If we were on X, we could
+  just make it a captured application.  I'll look into what Qt has
+  to offer in that respect.
 
-  - Add a media inset widget of some kind.  If we were on X, we could
-    just make it a captured application.  I'll look into what Qt has
-    to offer in that respect.
+- Do something about scaling factor.  Either use it to adjust font
+  sizes at the same time, or drop it entirely.  Really only relevant
+  for pixel-placed widgets, anyway, which I also want to eliminate.
 
-  - Do something about scaling factor.  Either use it to adjust font
-    sizes at the same time, or drop it entirely.  Really only relevant
-    for pixel-placed widgets, anyway, which I also want to eliminate.
+- Remove the chart widget, and replace it with a generic inset widget.
+  Static charts can be made using external programs like R.  Making
+  them interactive might be difficult, though.  I mean, the only
+  reason I have for wanting a chart is to display the distribution
+  of games of different types, which is an aggregate number
+  corresponding to nothing (except maybe a search string).  The
+  other way to go would be to use QtChartView and support whatever
+  Qt supports without much thought. The more I support, the more
+  per-item config options must be present. I think that maybe charts
+  should be popups, either static or via QChartView in some way,
+  rather than forcing them onto the static region of the card.
 
-  - Remove the chart widget, and replace it with a generic inset widget.
-    Static charts can be made using external programs like R.  Making
-    them interactive might be difficult, though.  I mean, the only
-    reason I have for wanting a chart is to display the distribution
-    of games of different types, which is an aggregate number
-    corresponding to nothing (except maybe a search string).  The
-    other way to go would be to use QtChartView and support whatever
-    Qt supports without much thought.  The more I support, the more
-    per-item config options must be present.  I think that maybe charts
-    should be popups, either static or via QChartView in some way,
-    rather than forcing them onto the static region of the card.
+- Maybe this is an opportunity to make grok scriptable while running,
+  like the old Amiga AREXX port.  I guess dbus would be the modern
+  equivalent.  Most simple would be to just execute a random string
+  and return the string result.  However, an array to retrieve the
+  current search results would be nice as well.
 
-  - Maybe this is an opportunity to make grok scriptable while
-    running, like the old Amiga AREXX port.  I guess dbus would be the
-    modern equivalent.  Most simple would be to just execute a random
-    string and return the string result.  However, an array to retrieve
-    the current search results would be nice as well.
+- Use lua instead of a custom language for querying and templates and
+  pretty much everything else (and a per-db startup script and
+  per-record startup script).  My original idea was to use SQL for
+  this, but lua is a lot easier for simple, imperative programming.
+  Summary functions could be provided as a library to compensate for
+  the lack of them (including "group by", which returns a table
+  indexed by the grouping columns).  This does not mean that I will
+  reconsider IUP for the GUI toolkit.
 
-  - Use lua instead of a custom language for querying and templates and
-    pretty much everything else (and a per-db startup script and
-    per-record startup script).  My original idea was to use SQL
-    for this, but lua is a lot easier for simple, imperative
-    programming.  Summary functions could be provided as a library
-    to compensate for the lack of them (including "group by",
-    which returns a table indexed by the grouping columns).  This does
-    not mean that I will reconsider IUP for the GUI toolkit.
+- Support freedesktop.org standard paths by default, at least as part
+  of the search paths.  This may need to come from QStandardPaths or
+  some such in order to be portable.
 
-  - Support automated layout by sorting the form's widgets and laying
-    them out in a grid, instead.  Probalby also necessary in order to
-    support Android or other small displays.
+- Support automated layout by sorting the form's widgets and laying
+  them out in a grid, instead.  Probalby also necessary in order to
+  support Android or other small displays.
 
-  - Port to another OS.  Easiest would probably be Mac, if it weren't
-    for the fact that I have no Mac to test on and dropped my Apple
-    developer ID years ago when they switched to llvm so they wouldn't
-    have to give away their development kit for free any more.  Maybe
-    things have changed since then to address the latter issue, but I
-    don't care any more.  Windows would require replacing all
-    UNIX-isms (pretty much all uses of unistd.h, at the very least).
-    Android would require major surgery, even though I used that as
-    criteria for choosing Qt.
+- Since I'm using Qt anyway, replace UNIXisms with Qt-equivalents
+  where possible for portability.  Some more obvious UNIXisms are:
+
+  - Pretty much anything that needs <unistd.h> or any other
+    UNIX-specific headers: <sys/*.h>, <fcntl.h>, <pwd.h>
+
+  - Use of / as a path separator and : as a path list separator.
+    Windows likes using \ and ;, although / is at least supported.
+    Note that the OS/2 changes in 1.5.4 already addressed this a
+    bit.
+
+- Port to another OS.  Easiest would probably be Mac, if it weren't
+  for the fact that I have no Mac to test on and dropped my Apple
+  developer ID years ago when they switched to llvm so they wouldn't
+  have to give away their development kit for free any more.  Maybe
+  things have changed since then to address the latter issue, but I
+  don't care any more.  Windows would require the previous item, for
+  starters, unless I want to call a cygwin port "Windows".  Android
+  would require major surgery, even though I used that as criteria
+  for choosing Qt.
 
 After all (or even most) of the above changes, grok will be almost
 what I wanted to do anyway.  The only missing items are mass edit
 (sort of possible using mutating expressions in the search
-expression), multi-edit (probably not as useful as it appears), purely
+expression), multi-edit (probably not as useful as it appears, and
+maybe partially there for foreign key subtable widgets anyway), purely
 automatic layout (or at the very least character-based layout like
 Fiasco) and literate, clean code.  Most of the other features I had
-planned were probably pointless, anyway.
+planned were probably pointless, anyway.  Actually, most of the
+features I have planned above are pointless, as well.  I'm not sure
+I'll be able to remain motivated long enough to make much of a dent in
+this list.  I started on grok for my game database, and I guess I'd
+like to get back to playing games again...

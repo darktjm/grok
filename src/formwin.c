@@ -899,7 +899,7 @@ static int readback_item(
 	}
 	if (!chart && (tp->code & 0x300) == 0x300)
 		return(0);
-	if (item == filling_item)
+	if (item && item == filling_item)
 		return(0);
 
 	switch(tp->code) {
