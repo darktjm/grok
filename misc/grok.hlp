@@ -721,6 +721,12 @@
 
 	For a description of legal search expression, choose Help->Grammar, or
 	refer to the User's Manual.
+%% dq_move
+	MOVE
+
+	To move a query in the list (which determines the menu order), press
+	on its Name or Query Expression button, and press the up or down
+	arrow button.
 %% dq_delete
 	DELETE
 

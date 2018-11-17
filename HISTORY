@@ -202,6 +202,8 @@ Version 2.0.1 (git tag grok-2.0.1, SVN 510), released 11.14.18
   * Minor bug fixes; use this instead of 2.0.
 
 Version 2.1
+  * 2.0 made it impossible to create new forms from scratch.  Fixed.
+  * Added reordering buttons to query editor
   * The conditional expressions (Grayed out if,  ...) are now combo
     boxes, to make it easier to set groups of widgets to the same
     expression (not that copy/paste doesn't work well, too)
