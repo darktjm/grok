@@ -246,8 +246,8 @@ char *f_union(char *a, char *b);
 char *f_intersect(char *a, char *b);
 char *f_setdiff(char *a, char *b);
 
-/* get loaded form's separator information */
-void get_cur_arraysep(char *sep, char *esc);
+/* get a form's separator information */
+void get_form_arraysep(FORM *form, char *sep, char *esc);
 /* assumes end is no a separator; start search at -1.
    Returns -1 for begin @ end */
 void next_aelt(char *array, int *begin, int *after, char sep, char esc);

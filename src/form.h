@@ -109,12 +109,21 @@ typedef enum {			/*----- item type */
 	IT_FLAG,		/* square on/off switch, no restriction */
 	IT_BUTTON,		/* pressable button with script */
 	IT_CHART,		/* graphical chart */
+	IT_NUMBER,		/* "spin" box for entering numbers */
+	IT_MENU,		/* popup menu with fixed values */
+	IT_RADIO,		/* radio groups as a single widget */
+	IT_MULTI,		/* flags as a multiselect list */
+	IT_FLAGS,		/* flags as a group of checkboxes */
 	NITEMS
 } ITYPE;
 
 /* Warning: these enums are stored as raw numbers in the form file. */
 /* This does not apply to IT_* above; just keep itemname[] in sync. */
 /* Do not change the ordering or make gaps */
+
+typedef enum {			/*----- dynamic combo box mode */
+	C_NONE, C_QUERY, C_ALL
+} DCOMBO;
 
 typedef enum {			/*----- justification */
 	J_LEFT = 0,		/* default, left-justified */
@@ -200,9 +209,13 @@ typedef struct item {
 	char	*freeze_if;	/* if expr is true, don't permit changes */
 	char	*invisible_if;	/* if expr is true, make invisible */
 	char	*skip_if;	/* if expr is true, cursor skips field */
-				/*----- for INPUT, DATE, TIME, NOTE */
+				/*----- for INPUT, DATE, TIME, NOTE, NUMBER */
 	char	*idefault;	/* default input string */
 	int	maxlen;		/* max length of input field */
+	float	min, max;	/* NUMBER range */
+	int	digits;		/* NUMBER digits past decimal */
+	char	*menu;		/* combo box static entries & multi-item labels */
+	DCOMBO	dcombo;		/* INPUT combo box dynamic entry type */
 	JUST	inputjust;	/* input field justification */
 	int	inputfont;	/* input font, F_* */
 				/*----- for BUTTON */
@@ -230,7 +243,9 @@ typedef struct item {
 /* TRUE if the item type accesses some database field */
 
 #define IN_DBASE(t) (t==IT_INPUT || t==IT_TIME ||\
-		     t==IT_NOTE  || t==IT_CHOICE || t==IT_FLAG)
+		     t==IT_NOTE  || t==IT_CHOICE || t==IT_FLAG ||\
+		     t==IT_NUMBER || t==IT_MENU || t==IT_RADIO ||\
+		     t==IT_MULTI || t==IT_FLAGS)
 
 
 /*

@@ -36,43 +36,54 @@ static QFrame		*chart;		/* the widget for chart options */
 const char		plan_code[] = "tlwWrecnmsSTA";	/* code 0x260..0x26c */
 
 
-#define ANY 0xfffe  // all except IT_NULL
-#define ALL (unsigned short)~0U
-#define ITX 1<<IT_INPUT  | 1<<IT_TIME | 1<<IT_NOTE
-#define TXT 1<<IT_PRINT  | ITX
-#define TXF 1<<IT_CHOICE | TXT
-#define FLG 1<<IT_CHOICE | 1<<IT_FLAG
-#define BAS ITX | FLG
-#define IDF TXF | FLG
-#define TIM 1<<IT_TIME
-#define BUT 1<<IT_BUTTON
-#define VIW 1<<IT_VIEW
-#define CHA 1<<IT_CHART
+#define ALL ~0U
+#define ANY ~1U  // all except IT_NULL
+#define ITX 1U<<IT_INPUT  | 1U<<IT_TIME | 1U<<IT_NOTE | 1U<<IT_NUMBER
+#define ITP 1U<<IT_INPUT  | 1U<<IT_TIME | 1U<<IT_NOTE
+#define TXT 1U<<IT_PRINT  | ITX
+#define TXF 1U<<IT_CHOICE | TXT
+#define FLG 1U<<IT_CHOICE | 1U<<IT_FLAG
+#define MUL 1U<<IT_MENU | 1U<<IT_RADIO | 1U<<IT_MULTI | 1U<<IT_FLAGS
+#define CMB 1U<<IT_INPUT  | MUL
+#define BAS ITX | FLG | MUL
+#define IDF TXF | FLG | MUL
+#define TIM 1U<<IT_TIME
+#define BUT 1U<<IT_BUTTON
+#define VIW 1U<<IT_VIEW
+#define CHA 1U<<IT_CHART
+#define INP 1U<<IT_INPUT
+#define NUM 1U<<IT_NUMBER
 
 static const struct {
     int type;
     const char *name;
 } item_types[] = {
-	{ IT_INPUT,  "Input"	},
-	{ IT_TIME,   "Time"	},
-	{ IT_NOTE,   "Note"	},
-	{ IT_LABEL,  "Label"	},
-	{ IT_PRINT,  "Print"	},
-	{ IT_CHOICE, "Choice"	},
-	{ IT_FLAG,   "Flag"	},
-	{ IT_BUTTON, "Button"	},
-	{ IT_CHART,  "Chart"	}
+	{ IT_INPUT,  "Input"		},
+	{ IT_NUMBER, "Number"		},
+	{ IT_TIME,   "Time"		},
+	{ IT_NOTE,   "Note"		},
+	{ IT_LABEL,  "Label"		},
+	{ IT_PRINT,  "Print"		},
+	{ IT_CHOICE, "Choice"		},
+	{ IT_RADIO,  "Radio Group"	},
+	{ IT_MENU,   "Menu"		},
+	{ IT_FLAG,   "Flag"		},
+	{ IT_MULTI,  "Flag List"	},
+	{ IT_FLAGS,  "Flag Group"	},
+	{ IT_BUTTON, "Button"		},
+	{ IT_CHART,  "Chart"		}
+	
 };
 #define N_ITEM_TYPES (int)(sizeof(item_types)/sizeof(item_types[0]))
 
 
 /*
- * next free: 108-10a,114 (global), 237 (field), 30b (chart component)
+ * next free: 10a,114 (global), 23e (field), 30b (chart component)
  */
 
 static struct _template {
 	unsigned
-	short	sensitive;	/* when type is n, make sensitive if & 1<<n */
+	int	sensitive;	/* when type is n, make sensitive if & 1<<n */
 	int	type;		/* Text, Label, Rradio, Fflag, -line */
 	int	code;		/* code given to (global) callback routine */
 	const char *text;	/* label string */
@@ -171,8 +182,20 @@ static struct _template {
 	{ TXT, 'r',	0x217,	"HelvN",		"fe_ifont",	},
 	{ TXT, 'r',	0x218,	"HelvB",		"fe_ifont",	},
 	{ TXT, 'r',	0x219,	"Courier",		"fe_ifont",	},
-	{ ITX, 'L',	 0,	"Max input length:",	"fe_range",	},
-	{ ITX, 'i',	0x21f,	" ",			"fe_range",	},
+	{ ITP, 'L',	 0,	"Max input length:",	"fe_range",	},
+	{ ITP, 'i',	0x21f,	" ",			"fe_range",	},
+	{ CMB, 'L',	 0,	"Combo Box",		"fe_combo",	},
+	{ CMB, 't',	0x23a,	" ",			"fe_combo",	},
+	{   0, 'R',	 0,	" ",			"fe_combo",	},
+	{ INP, 'r',	0x23b,	"Static",		"fe_combo",	},
+	{ INP, 'r',	0x23c,	"Dynamic",		"fe_combo",	},
+	{ INP, 'r',	0x23d,	"All",			"fe_combo",	},
+	{ NUM, 'L',	 0,	"Min Value",		"fe_range",	},
+	{ NUM, 'd',	0x237,	" ",			"fe_range",	},
+	{ NUM, 'l',	 0,	"Max Value",		"fe_range",	},
+	{ NUM, 'd',	0x238,	" ",			"fe_range",	},
+	{ NUM, 'l',	 0,	"Digits",		"fe_range",	},
+	{ NUM, 'i',	0x239,	" ",			"fe_range",	},
 	{ IDF, 'L',	 0,	"Input default:",	"fe_def",	},
 	{ IDF, 'T',	0x220,	" ",			"fe_def",	},
 	{ TXT, '-',	 0,	" ",			0,		},
@@ -475,6 +498,15 @@ void create_formedit_window(
 			    hform->addWidget((w = cb));
 			    break;
 		    }
+		    // FIXME:  add new widget type: mult-edit
+		    //   text input/static combo:
+		    //     menu items (label text)
+		    //   cycle gadgets, radio groups:
+		    //     menu items (label text), Choice/flag code,
+		    //     Shown in summary
+		    //   multi-select, checkbox groups: same as cycle, plus:
+		    //     Database column, Internal Field Name
+		    //     [maybe enabled by a checkbox: flag vs. array]
 		    case 'F':
 		    case 'R':
 			{
@@ -752,6 +784,13 @@ static void fillout_formedit_widget(
 		      sensitize_formedit();
 		      break;
 
+	  case 0x237: set_dsb_value(w, item->min);			break;
+	  case 0x238: set_dsb_value(w, item->max);			break;
+	  case 0x230: set_sb_value(w, item->digits);			break;
+	  case 0x23a: print_text_button_s(w, item->menu);		break;
+	  case 0x23b:
+	  case 0x23c:
+	  case 0x23d: set_toggle(w, item->dcombo == tp->code - 0x23b);	break;
 	  case 0x21f: set_sb_value(w, item->maxlen);			break;
 	  case 0x206: set_sb_value(w, item->sumcol);			break;
 	  case 0x207: set_sb_value(w, item->sumwidth);			break;
@@ -1016,6 +1055,15 @@ static int readback_item(
 				}
 		      break;
 
+	  case 0x237: item->min = get_dsb_value(w);			break;
+	  case 0x238: item->max = get_dsb_value(w);			break;
+	    // FIXME:  should adjust 237-238's digits as well
+	  case 0x239: item->digits = get_sb_value(w);			break;
+	  case 0x23a: (void)read_text_button(w, &item->menu);		break;
+	  case 0x23b:
+	  case 0x23c:
+	  case 0x23d:  item->dcombo = (DCOMBO)(tp->code - 0x23a);	break;
+		
 	  case 0x210:
 	  case 0x211:
 	  case 0x212:

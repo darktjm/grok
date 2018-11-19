@@ -480,7 +480,7 @@ static const char *eval_command(
 			sp->array = mystrdup(evaluate(curr_card, p));
 			{
 				char sep, esc;
-				get_cur_arraysep(&sep, &esc);
+				get_form_arraysep(curr_card->form, &sep, &esc);
 				int begin, after = -1;
 				do {
 					next_aelt(sp->array, &begin, &after, sep, esc);
@@ -532,7 +532,7 @@ static const char *eval_command(
 		sp = &forstack[forlevel];
 		if(!sp->query) {
 			char sep, esc;
-			get_cur_arraysep(&sep, &esc);
+			get_form_arraysep(curr_card->form, &sep, &esc);
 			int begin, after = sp->num;
 			do {
 				next_aelt(sp->array, &begin, &after, sep, esc);

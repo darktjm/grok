@@ -415,7 +415,8 @@ void GrokCanvas::paintEvent(QPaintEvent *e)
 
 
 static const char * const datatext[NITEMS] = {
-	"None", "", "Print", "Input", "Time", "Note", "", "", "", "" };
+	"None", "", "Print", "Input", "Time", "Note", "", "", "", "",
+	"Number", "Menu", "Radio", "Multi", "Flags" };
 
 void GrokCanvas:: redraw_canvas_item(
 	QPainter	&painter,	/* widget into which to draw */

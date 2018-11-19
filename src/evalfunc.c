@@ -825,20 +825,22 @@ char *re_sub(char *s, char *e, char *r, bool all)
 }
 
 /* get parser's current form's separator information */
-void get_cur_arraysep(char *sep, char *esc)
+#define get_cur_arraysep(sep, esc) \
+	get_form_arraysep(yycard ? yycard->form : NULL, sep, esc);
+
+void get_form_arraysep(FORM *form, char *sep, char *esc)
 {
     *sep = '|';
     *esc = '\\';
-    if(!yycard || !yycard->form)
+    if(!form)
 	return;
-    if(yycard->form->asep)
-	*sep = yycard->form->asep;
-    if(yycard->form->aesc)
-	*esc = yycard->form->aesc;
+    if(form->asep)
+	*sep = form->asep;
+    if(form->aesc)
+	*esc = form->aesc;
 }
 
-/* assumes end is no a separator; start search at -1.
-   Returns -1 for begin @ end */
+/* Starts search at after + 1;  Returns -1 for begin & after @ end */
 void next_aelt(char *array, int *begin, int *after, char sep, char esc)
 {
     if(!array || !*array) {

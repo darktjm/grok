@@ -1047,6 +1047,11 @@
 	Input:  this field allows direct display of database strings. User
 	        input into this field is copied directly into the database.
 
+	Number:	this type is equivalent to input fields, except that only
+		numbers can be entered.  Spin controls appear on the
+		right of the field, and the field is checked against a
+		numeric range.
+
 	Time:   this type is equivalent to Input fields, except that only
 	        date, time, and duration are displayed and can be entered.
 	        Four different formats can be selected with Time format.
@@ -1068,10 +1073,26 @@
 	        them can be on. The choice/flag code of the Choice item that
 	        is on is stored in the database.
 
+	Radio Group:  Rather than separate Choice fields, this is a set
+		of Choice fields in a single box.
+
+	Menu:	Rather than individual Choice fields, a set of choices is
+		presented as a single button that pops up a menu of choices.
+
 	Flag:   flag fields are similar to Choice fields, but they are not
 	        connected to other Flag fields, and must have a unique internal
 	        name. Their choice/flag code is stored in the database if the
 	        flag is on. The database string is empty if the flag is off.
+
+	Flag Group:  Rather than separate flag fields, this is a set of
+		flag fields in a single box.  Since they are
+		associated with only one field, the value of the field is
+		a string-as-set of choice/flag codes.
+
+	Flag List:  Rather than separate flag fields, this is a
+		scrollable listing of flags.  Since they are associated
+		with only one field, the value of the field is a
+		string-as-set of choice/flag codes.
 
 	Button: buttons execute an expression when pressed.
 
@@ -1336,6 +1357,24 @@
 	Note fields. There is no space saving in the database, and little
 	space saving overall, in using low numbers. The maximum input length
 	is a constant, no expression may be used.
+
+	MAX VALUE, MIN VALUE, DIGITS
+
+	Numeric widgets enforce not only a numeric format, but also a range
+	of vlues.  The precision printed in the widget is set by the
+	Digits parameter.
+%% fe_combo
+	COMBO BOX
+
+	A text input field can have a drop-down menu attaced for easy
+	selection of common values.  The text field is for fixed values;
+	these are always displayed at the top.  The field is interpreted
+	as an array, and only non-blank labels count.  It is not
+	possible to have a label and its associated string be different.
+	The options next to the text field allow the values to be read
+	from the database.  Dynamic reads only from the current search
+	results, and All reads from all rows.  Static only includes the
+	entries from the text field, if any.
 %% fe_def
 	INPUT DEFAULT
 

@@ -22,7 +22,7 @@
 #include "form.h"
 #include "proto.h"
 
-static void sum_callback(void);
+static void sum_callback(int r);
 
 
 /*
@@ -57,6 +57,8 @@ void create_summary_menu(
 	for (n=0; n < card->nquery; n++)
 		make_summary_line(buf, card, card->query[n], newsum);
 	make_summary_line(buf, card, -1, newsum);
+	if(card->nquery)
+		newsum->setCurrentItem(newsum->topLevelItem(0));
 	newsum->header()->setSectionsMovable(false);
 	newsum->header()->setSectionResizeMode(QHeaderView::Fixed);
 	newsum->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -88,8 +90,8 @@ void create_summary_menu(
 		newsum->clear();
 	newsum->setMinimumHeight(h);
 	newsum->resize(w, h);
-	set_qt_cb(QTreeWidget, itemSelectionChanged, newsum,
-		  sum_callback());
+	set_qt_cb(QTreeWidget, currentItemChanged, newsum,
+		  sum_callback(newsum->indexOfTopLevelItem(c)), QTreeWidgetItem *c);
 	if(n) {
 		scroll_summary(card);
 		if(card->qcurr >= 0 && card->qcurr < card->nquery) {
@@ -116,15 +118,16 @@ static int selected_item(CARD *card)
 	return card->wsummary->indexOfTopLevelItem(sel.first());
 }
 
-static void sum_callback(void)
+static bool in_sum_callback = false;
+static void sum_callback(int item_position)
 {
-	int			item_position;
 	register CARD		*card = curr_card;
 
 	if (!card || !card->wsummary)
 		return;
+	in_sum_callback = true;
 	card_readback_texts(card, -1);
-	item_position = selected_item(card);
+	in_sum_callback = false;
 	if (item_position < card->nquery && item_position >= 0 &&
 	    item_position != card->qcurr) {
 		card->qcurr = item_position;
@@ -345,6 +348,8 @@ void make_plan_line(
 void scroll_summary(
 	CARD		*card)		/* which card's summary */
 {
+	if (in_sum_callback)
+		return;
 	if (card->wsummary && card->qcurr < card->nquery) {
 		QTreeWidgetItem *twi = card->wsummary->topLevelItem(card->qcurr);
 		if (selected_item(card) != card->qcurr)

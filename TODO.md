@@ -1,4 +1,4 @@
-  - Main window sizing issues:
+- Main window sizing issues:
 
   - The summary list is too wide.  The right-most column almost
     always extends too far, and I don't know how to shrink it.
@@ -17,7 +17,7 @@
 
 - Do something about the help text.  Either make my own What's This?
   override or format the help text in a way that the built-in What's
-  ths displays better (perhaps even rich text).  Also, verify that all
+  this displays better (perhaps even rich text).  Also, verify that all
   help topics are actually present in grok.hlp.
 
 - Do something about the manual.  I actually prefer a latex manual,
@@ -30,29 +30,46 @@
   I've been trying that for years with my literate stuff and it's
   just not practical.
 
-- Selection in the summary window is sometimes ignored (actually, I
-  think it gets reverted when it thinks the db is modified). The
-  original Motif GUI did that sometimes, too. Also, it occasionally
-  crashes when popping around.  Maybe events are being generated
-  before having been fully processed?
+- Put databse name and modified flag in title bar
 
 - As expected, letter buttons still don't work. The first press works,
   but subsequent presses go all weird.
 
 - file dialog is always GTK+.  Is there a way to make it "native QT"?
-  
+
 - on parse error, any string yylvals leak
-  
+
 - I should probably test the memory leak fixes I made a little better
   to ensure no crashing, but I'm too lazy.  I'll fix them when I
   encounter problems.
+
+- Compile with optimization again to catch additional gcc warnings
+  (most notably "may be uninitialized...", which I'll "fix" even
+  though gcc is wrong).
+
+- Die with message on all memory allocation failures.  I could add
+  checks after every new one I added, but instead, I'll make a wrapper
+  that does it for me.
+
+- Since I'm using C++ anyway, convert BOOL, TRUE and FALSE to their
+  C++ lower-case equivalents.  C supports them too, but with too many
+  underscores.
 
 - Use QUiLoader for the main GUI.  Give every action and major widget
   a name, and map that to the user-supplied .ui file. That's
   probably the only way I'll ever be able to support Android or
   other small displays, at least: complete GUI overrides.  This will
   probably also require use of the "Qt Resource" facility to store
-  the default GUI layouts in the binary.
+  the default GUI layouts in the binary.  Unfortunately, this will be
+  a perfect storm of many things I hate about modern softwre:  large,
+  inscrutable XML files, moc and implement-by-subclass, linear search
+  by name, a GUI designer which is most decidedly not oriented towards
+  making GUIs without setting nearly every paraameter to non-default,
+  and much more.  Yay!  Then again, maybe I can coerce things to be a
+  little tamer, like I did for the wxvbam GUI (which the OO purists at
+  that project promptly spent a year trying to squash, along with
+  reverting all of my attempts to make the GUI look less like it was
+  designed by a 6-year-old).
 
 - Look more closely at all Qt-related licenses.  I don't want this
   program to be GPL.  In particular, QUiLoader seems to use a
@@ -97,6 +114,10 @@
   the official 1.5.3 had partial German translation, but I will
   probably want to use more standard translation methods (e.g. LANG=
   instead of a pulldown, .po[t] files)
+
+- Ensure that blanking a text field won't force it to the input
+  default.  Maybe have more state than just deps on/off when refilling
+  the form.
 
 - Numeric inputs (with spinboxes and min/max/digits (0=int)).  It is
   not possible to know if a field is currently numeric.  It's just
@@ -148,7 +169,9 @@
   discouraged.
 
   - Maybe an additional foreach() parameter gives the sort field and
-    +/- order, like foreach("x", +_field[, +_field2 ...]).
+    +/- order, like foreach("x", +_field[, +_field2 ...]).  Supporting
+    more than 1.5 sort fields is necessary for "group by" simulation,
+    as well, so the \FOREACH{} should support sort overrides, as well.
 
   - Maybe similar to foreach(), have a function that executes an
     expression in the context of a new database.  Like foreach(),
@@ -214,23 +237,58 @@
     offer to move the data around.  All such changes should be
     offered at once, so that swapping data around works as
     intended.  Also, all unassigned columns should pop up in the
-    "Debug" warning popup. Maybe add an "ignore" item type to
-    avoid such warnings.
+    "Debug" warning popup.  Maybe add an "ignore" item type to
+    avoid such warnings.  An 'ignore" item type can be simulated right
+    now using an invisible input field, but prior versions seemed to
+    have wiped out such fields (or at least disabled fields).
 
   - Changing the type of field assigned to a column should prompt
     some sort of action, as well.  Especially if the column types
     are somewhat incompatible.
 
-  - Use binary searches in lexer (kw and pair_) and other areas that use
-    long lists of strings.  Also, use array sizes rather than
-    0-termination in general.
+    - Conversion to a numeric or time/date field should check all
+      values are numbers or blanks
+
+    - Conversion to a choice or flag field should, at "Done" time,
+      verify database has correct values.  Same with any edit of
+      codes.  Same with planned menu, radio, multi, flags fields.
+
+  - Changing formulas should have some way of checking what variables
+    they reference.  This is complicated by nested evals (foreach()),
+    but even they can be checked if they are fixed strings.  This would
+    require either making two versions of the parser or simply running
+    the lexer and detecting foreach().  This sort of thing may be
+    useful, anyway, to make *_if updates faster.
+
+- Use binary searches in lexer (kw and pair_) and other areas that use
+  long lists of strings.  Also, use array sizes rather than
+  0-termination in general.
 
 - Use symbolic names (either enums or strings) instead of cryptic hex
   action codes.
 
-- Add a Sort button to Queries (but how to sort?)
+- Named query editor:
 
-- Support drag-move in query editor.
+  - Make 1st two columns non-resizable
+
+  - Maybe retain column width betwen invokations, or even in prefs.  I
+    don't want to do the common Windows thing and make all positions
+    and sizes persistent, though.
+
+  - Add a Sort button (but how to sort?  Just screw it and use Qt's
+    sort?  Or strcasecmp?  Or Unicode's collation sequences?  Unless
+    Qt's sort uses the latter (it's undocumented), I might have to pull
+    in a Unicode library.  Probably not my own, though, since I don't
+    really maintain it any more, and building it's a pain.)  I guess
+    sorting/collation sequence is an issue I will have to look into in
+    more detail for grok as a whole; strcasecmp probably doesn't cut it.
+
+  - Support drag-move for reordering.
+
+- Support editing the "menu" field (IT_INPUT combo box static values)
+  in a query editor-like dynamic table.
+
+- Numeric fields should also support step adjustment.
 
 - Cycle gadgets/popup menus/whatever the platform calls it to replace
   radio boxes.  Basically looks like a pushbutton with a label
@@ -238,49 +296,47 @@
   space than a radio group, and only loses the ability to see what
   other values are available at a glance.
 
-  - Label text, Choice/flag code, shown in summary are all array
-    values.  Either the fields are grayed out and a popup button
-    is added to edit these as a group in a GUI similar to the
-    query editor, or the query-editor-like GUI is inserted
-    in-place, and grows and shrinks automatically (since I don't
-    want scrollbar items in a panel that is already scrollable).
-
-    Actually, Label text[0] is the main label, and is what's
-    edited in the Label text field.  I suppose the remaining
-    labels could just be a separate item field.
+  - The combo box's new "menu" field is an array of labels.  An
+    equal-sized array in Choice/flag code and Show in summary
+    provides the equivalents for those fields.  Either the fields
+    are grayed out and a popup button is added to edit these as a
+    group in a GUI similar to the query editor, or the
+    query-editor-like GUI is inserted in-place, and grows and
+    shrinks automatically (since I don't want scrollbar items in a
+    panel that is already scrollable).
 
 - Radio groups: displayed as a grid of radio buttons surrounded by a
-  frame.  Layout is in a grid, layed out horizontally and then
+  label frame.  Layout is in a grid, layed out horizontally and then
   vertically.  When a row exceeds the widget width, the entire
   widget is narrowed by one column and layout starts again at the
   top.  If there are too many rows, it just clips (maybe with a
-  warning).
+  warning).  Configuration is identical to cycle gadgets.
 
-- Combo box option for text fields.  The list can be filled with
-  predefined values and/or the values currently in the database. 
-  For predefined values, the Input default field is overloaded as an
-  array with index 0 being the actual default, and subsequent values
-  being displayed in the combo dropdown.  This does not support menu
-  labels different from the values, although I guess I could
-  overload Label text in the same way.
+- Add multi-select list widgets, whose value is a set.  Configuration
+  is the same as ccyle gadgets.  Qt provides two basic widget types
+  for this:  a popup menu with multi-select, and a static listing with
+  multi-select.  I originally only intended to support the latter, but
+  the former takes less space.  Maybe I should add another widget
+  type for this rather than overloading one type.  That way, the
+  in-place listing's label can be by default on top, like it is with
+  notes.
 
-- Add multi-select list widgets, whose value is a set.  Otherwise,
-  same as Cycle gadgets above.
-
-  - Also, perhaps if the Databse column is an array of the correct
-    length, support storing as flags after all
-
-  - Also, perhaps if the Internal field name is an array of the
-    correct length, support setting additional variables as flags
+  - Also, perhaps support storing individual flags by having an
+    additional array field of columns.  This might interfere with
+    the common ->column usage, though.  The same comment applies if
+    I want to have individual flag variables, as well.  It's best
+    to just force users to test with set intersection.  Perhaps I'll
+    revisit this if I get SQL working, since having an infinitely
+    resizable field is not such a good idea there.
 
   - Also, perhaps support stepping over all possible values of a
-    field whose Choice/flag code and/or Label text is an array. 
+    field whose Choice/flag code and/or combo text is an array.
     Maybe ? instead of + to select Choice/flag codes and ?+ to
-    select Label text.  To support the multi-field thing, you'd
-    need a way to select the group (perhaps any field name in the
-    group) and then you can step through the possible field names
-    with ?&.  Or, only ? and multiple elt-bindings such as elt,
-    eltlabel, eltvar.
+    select combo/label text.  To support the multi-field thing,
+    you'd need a way to select the group (perhaps any field name
+    in the group) and then you can step through the possible field
+    names with ?&.  Or, only ? and multiple elt-bindings such as
+    elt, eltlabel, eltvar.
 
 - Add checkbox group "widgets" whose value is stored in a single field
   as a set; otherwise just like Radio groups and multi-select list
@@ -309,15 +365,22 @@
   (e.g. 1st character is vertical bar) for "printing".  Making it a
   combo box with the defined printers would sort of compensate for
   losing those preferences, I guess.  Note that the overstrike
-  feature isn't possible with current expressions, so a function to
-  that effect would need to be added, unless regex stuff is done
-  first (e.g. bold == `gsub(s, ".", "\\0\008\\0")`)
+  feature can be done with the new regex functions, .g. bold ==
+  `gsub(s, ".", "\\0\008\\0")`)
 
   - Maybe support "transient" templates, which aren't saved to
     files. This is to compensate for lack of an SQL command line.
     Problem with this is the frustration when it crashes and the
     template is lost.  So maybe not such a good idea.  It's not so
-    hard to manage the files.
+    hard to manage the files.  On the other hand, a history could be
+    saved to disk, just like readline support in the SQL command-line
+    tools.
+
+    - While it's easy enough to force the use of files in the GUI, it
+      might be nice to either read a template from stdin or give it as
+      a (very long) command-line option, like I do with sed all the
+      time.  Grok was always supposed to be a command-line query tool
+      as well, and this allows more control over the output format.
 
 - SQL-style many-to-one foreign key references.  The "child" database
   contains a set of fields which must match a similar set of fields
@@ -402,7 +465,7 @@
 
 - Support SQL database and form definition storage.  Support at least
   SQL-standards sqlite, and maybe also postgres.  Instead of a file
-  name, a database connection string and table name are provided. 
+  name, a database connection string and table name are provided.
   These can be provided directly on the command-line, with a
   connection string provided by preferences or command line. Of
   course each database has its own supported types, and e.g. sqlite3

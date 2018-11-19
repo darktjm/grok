@@ -28,7 +28,7 @@ static void remake_dbase_pulldown(void) {}
 
 static const char * const itemname[NITEMS] = {
 	"None", "Label", "Print", "Input", "Time", "Note", "Choice", "Flag",
-	"Button", "Chart" };
+	"Button", "Chart", "Number", "Menu", "Radio", "Multi", "Flags" };
 
 
 #ifdef GROK
@@ -140,6 +140,8 @@ BOOL write_form(
 		write_str("freeze     ", item->freeze_if);
 		write_str("invis      ", item->invisible_if);
 		write_str("skip       ", item->skip_if);
+		write_str("menu       ", item->menu);
+		write_int("dcombo     ", item->dcombo);
 		write_str("default    ", item->idefault);
 		write_int("maxlen     ", item->maxlen, != 100);
 		write_int("ijust      ", item->inputjust, != J_LEFT);
@@ -373,6 +375,10 @@ BOOL read_form(
 					STORE(item->invisible_if, p);
 			else if (!strcmp(key, "skip"))
 					STORE(item->skip_if, p);
+			else if (!strcmp(key, "menu"))
+					STORE(item->menu, p);
+			else if (!strcmp(key, "dcombo"))
+					item->dcombo = (DCOMBO)atoi(p);
 			else if (!strcmp(key, "default"))
 					STORE(item->idefault, p);
 			else if (!strcmp(key, "maxlen"))

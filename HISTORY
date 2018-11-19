@@ -201,8 +201,7 @@ will not work the same if loaded into 1.5.1 or earlier.
 Version 2.0.1 (git tag grok-2.0.1, SVN 510), released 11.14.18
   * Minor bug fixes; use this instead of 2.0.
 
-Version 2.1
-  * 2.0 made it impossible to create new forms from scratch.  Fixed.
+Version 2.1 (git tag grok-2.1, SVN 518), released 11.17.18
   * Added reordering buttons to query editor
   * The conditional expressions (Grayed out if,  ...) are now combo
     boxes, to make it easier to set groups of widgets to the same
@@ -217,3 +216,15 @@ Version 2.1
 
 Databases which use regular expression functions, array functions, or
 \{QUIT} will not function correctly in 2.0 or earlier.
+
+Note that I had intneded to put more into 2.1, but paniced when I
+realized you couldn't create new, blank forms any more.  It turned out
+I needn't have worried, since the bug causing it was introduced after
+2.0.1, anyway.  Maybe I need a release manager.  Then again, it's not
+likely anywone but me cares.  It's not like I advertise this anywhere.
+
+Version 2.2
+  * Moving summary window selection away from a modified record will no
+    longer revert the movement
+  * Input fields can now be combo boxes, filled in from static values or
+    the current database

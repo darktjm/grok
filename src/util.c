@@ -251,36 +251,23 @@ char *mystrdup(
 /*
  * draw some text into a button. This is here because it's used by many
  * routines.
+ *
+ * this used to set cursor position for text widgets, but that shouldn't
+ * be done in a commonly used callback.
  */
 
 static void set_w_text(QWidget *w, QString &string)
 {
-	QPushButton		*b;
-	QLabel			*l;
-	QLineEdit		*le;
-	QTextEdit		*te;
-	QComboBox		*cb;
-
-	if((b = dynamic_cast<QPushButton *>(w)))
+	if(QPushButton *b = dynamic_cast<QPushButton *>(w))
 		b->setText(string);
-	else if((l = dynamic_cast<QLabel *>(w)))
+	else if(QLabel *l = dynamic_cast<QLabel *>(w))
 		l->setText(string);
-	else if((le = dynamic_cast<QLineEdit *>(w)) ||
-		((cb = dynamic_cast<QComboBox *>(w)) && (le = cb->lineEdit()))) {
-		if (le->text() != string) {
-			le->setText(string);
-#if 0 // actually, this seems pointless and annoying, especially if the widget scrolls.
-			le->setCursorPosition(string.size());
-#endif
-		}
-	} else if((te = dynamic_cast<QTextEdit *>(w))) {
-		if (te->toPlainText() != string) {
-			te->setPlainText(string);
-#if 0 // actually, this seems pointless and annoying, especially if the widget scrolls.
-			te->textCursor().setPosition(string.size());
-#endif
-		}
-	}
+	else if(QLineEdit *le = dynamic_cast<QLineEdit *>(w))
+		le->setText(string);
+	else if(QTextEdit *te = dynamic_cast<QTextEdit *>(w))
+		te->setPlainText(string);
+	else if(QComboBox *cb = dynamic_cast<QComboBox *>(w))
+		cb->setCurrentText(string);
 }
 
 void print_button(QWidget *w, const char *fmt, ...)
@@ -340,12 +327,10 @@ static char *readbutton(
 	QString			string;
 
 	if (w) {
-		QLineEdit		*le;
-		QComboBox		*cb;
 		int			s = 0, e, i;
-		if((le = dynamic_cast<QLineEdit *>(w)))
+		if(QLineEdit *le = dynamic_cast<QLineEdit *>(w))
 			string = le->text();
-		else if((cb = dynamic_cast<QComboBox *>(w)))
+		else if(QComboBox *cb = dynamic_cast<QComboBox *>(w))
 			string = cb->currentText();
 		else
 			string = dynamic_cast<QTextEdit *>(w)->toPlainText();

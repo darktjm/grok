@@ -194,8 +194,8 @@ static QLabel *mk_label(QWidget *wform, ITEM &item, int w, int h)
 	return lab;
 }
 
-// Qt in its glorious wisdom provides no signals related to focus, so
-// I have to override the low-level event handler(s)
+// The only way to suppress an event is to override it.  Qt doesn't
+// provide any focus-related signals, anyway.
 
 #define OVERRIDE_INIT(c,i) {\
 	ITEM *ip; \
@@ -242,6 +242,29 @@ static QLabel *mk_label(QWidget *wform, ITEM &item, int w, int h)
 struct CardLineEdit : public QLineEdit {
 	CardLineEdit(CARD *c, int i, QWidget *p) : QLineEdit(p) OVERRIDE_INIT(c,i)
 	OVERRIDE_FOCUS(QLineEdit)
+};
+
+struct CardComboBox : public QComboBox {
+	CardComboBox(CARD *c, int i, QWidget *p) : QComboBox(p) OVERRIDE_INIT(c,i)
+	OVERRIDE_FOCUS(QComboBox)
+};
+
+struct CardInputComboBox : public QComboBox {
+	CardInputComboBox(CARD *c, int i, QWidget *p) : QComboBox(p) OVERRIDE_INIT(c,i)
+	OVERRIDE_FOCUS(QComboBox)
+	/* The following are QStringList for convenient addItems() usage */
+	/* I guess I could add it to carditem, but here is fine */
+	QStringList c_static, c_dynamic;	/* what to fill in */
+};
+
+struct CardDoubleSpinBox : public QDoubleSpinBox {
+	CardDoubleSpinBox(CARD *c, int i, QWidget *p) : QDoubleSpinBox(p) OVERRIDE_INIT(c,i)
+	OVERRIDE_FOCUS(QDoubleSpinBox)
+};
+
+struct CardSpinBox : public QSpinBox {
+	CardSpinBox(CARD *c, int i, QWidget *p) : QSpinBox(p) OVERRIDE_INIT(c,i)
+	OVERRIDE_FOCUS(QSpinBox)
 };
 
 struct CardTextEdit : public QTextEdit {
@@ -318,23 +341,85 @@ static void create_item_widgets(
 		if (item.xm > 6)
 		  carditem->w1 = mk_label(wform, item, item.xm - 6, item.ys);
 		{
-		  QLineEdit *le = new CardLineEdit(card, nitem, wform);
-		  carditem->w0 = le;
-		  le->setObjectName("input");
-		  le->move(item.x + item.xm, item.y);
-		  le->resize(item.xs - item.xm, item.ys);
+		  QLineEdit *le;
+		  CardInputComboBox *cb = NULL;
+		  QWidget *w;
+		  if (item.type != IT_INPUT || ((!item.menu || !*item.menu) && !item.dcombo) || !editable) {
+			le = new CardLineEdit(card, nitem, wform);
+			w = le;
+		  } else {
+			cb = new CardInputComboBox(card, nitem, wform);
+			w = cb;
+			cb->setEditable(true); // needs to be before lineEdit()
+			le = cb->lineEdit();
+			if (item.menu && *item.menu) {
+				char sep, esc;
+				int begin, after = -1;
+				get_form_arraysep(card->form, &sep, &esc);
+				char *tmp = (char *)malloc(strlen(item.menu) + 1);
+				while(1) {
+					next_aelt(item.menu, &begin, &after, sep, esc);
+					if(after < 0)
+						break;
+					*unescape(tmp, item.menu + begin, after - begin, esc) = 0;
+					cb->c_static.append(tmp);
+				}
+				free(tmp);
+			}
+		  }
+		  carditem->w0 = w;
+		  w->setObjectName("input");
+		  w->move(item.x + item.xm, item.y);
+		  w->resize(item.xs - item.xm, item.ys);
 		  le->setAlignment(JUST(item.inputjust));
-		  le->setProperty(font_prop[item.inputfont], true);
+		  w->setProperty(font_prop[item.inputfont], true);
 		  le->setMaxLength(item.maxlen?item.maxlen:10);
 		  le->setReadOnly(!editable);
 		  // le->setTextMargins(l, r, 2, 2);
 		  if (editable) {
-			// Make this update way too often, just like IT_NOTE.
-			set_qt_cb(QLineEdit, textChanged, le,
-				  card_callback(nitem, card, false));
-			// But only update dependent widgets when done
-			set_text_cb(le, card_callback(nitem, card, true));
+			  // Make this update way too often, just like IT_NOTE.
+			  set_qt_cb(QLineEdit, textChanged, le,
+				    card_callback(nitem, card, false));
+			  if (cb)
+				  // Only update dependent widgets when done
+				  set_combo_cb(cb, card_callback(nitem, card, true));
+			  else
+				  // Only update dependent widgets when done
+				  set_text_cb(le, card_callback(nitem, card, true));
 		  }
+		}
+		break;
+
+	  case IT_NUMBER:				/* number spin box */
+		if (item.xm > 6)
+		  carditem->w1 = mk_label(wform, item, item.xm - 6, item.ys);
+		if (item.digits > 0) {
+		  QDoubleSpinBox *sb = new CardDoubleSpinBox(card, nitem, wform);
+		  carditem->w0 = sb;
+		  sb->setObjectName("input");
+		  sb->move(item.x + item.xm, item.y);
+		  sb->resize(item.xs - item.xm, item.ys);
+		  sb->setAlignment(JUST(item.inputjust));
+		  sb->setProperty(font_prop[item.inputfont], true);
+		  sb->setRange(item.min, item.max);
+		  sb->setDecimals(item.digits);
+		  sb->setReadOnly(!editable);
+		  // sb->setTextMargins(l, r, 2, 2);
+		  if (editable)
+			set_spin_cb(sb, card_callback(nitem, card, true));
+		} else {
+		  QSpinBox *sb = new CardSpinBox(card, nitem, wform);
+		  carditem->w0 = sb;
+		  sb->setObjectName("input");
+		  sb->move(item.x + item.xm, item.y);
+		  sb->resize(item.xs - item.xm, item.ys);
+		  sb->setAlignment(JUST(item.inputjust));
+		  sb->setProperty(font_prop[item.inputfont], true);
+		  sb->setRange((int)item.min, (int)item.max);
+		  sb->setReadOnly(!editable);
+		  // sb->setTextMargins(l, r, 2, 2);
+		  if (editable)
+			set_spin_cb(sb, card_callback(nitem, card, true));
 		}
 		break;
 
@@ -364,6 +449,18 @@ static void create_item_widgets(
 		}
 		break;
 
+	  case IT_MENU:
+		if (item.xm > 6)
+		  carditem->w1 = mk_label(wform, item, item.xm - 6, item.ys);
+		{
+		  QComboBox *cb = new CardComboBox(card, nitem, wform);
+		  carditem->w0 = cb;
+		  break;
+		}
+
+	  case IT_RADIO: /* FIXME: implement */
+	  case IT_MULTI: /* FIXME: implement */
+	  case IT_FLAGS: /* FIXME: implement */
 	  case IT_CHOICE:			/* diamond on/off switch */
 	  case IT_FLAG: {			/* square on/off switch */
 		  QAbstractButton *b;
@@ -673,6 +770,16 @@ void fillout_card(
 }
 
 
+static const char *idefault(CARD *card, ITEM *item)
+{
+	char *idef = item->idefault;
+	const char *eval;
+	if(!idef || !*idef)
+		return "";
+	eval = evaluate(card, idef);
+	return eval ? eval : "";
+}
+
 void fillout_item(
 	CARD		*card,		/* card to draw into menu */
 	int		i,		/* item index */
@@ -682,10 +789,10 @@ void fillout_item(
 	register ITEM	*item;		/* describes type and geometry */
 	QWidget		*w0, *w1;	/* input widget(s) in card */
 	const char	*data;		/* value string in database */
-	const char	*eval;		/* evaluated expression, 0=error */
 
 	w0   = card->items[i].w0;
 	w1   = card->items[i].w1;
+	if (w0) w0->blockSignals(true);
 	item = card->form->items[i];
 	// FIXME:  Should above-div items always be excluded, like sens?
 	vis = !item->invisible_if ||
@@ -702,11 +809,7 @@ void fillout_item(
 	       (card->dbase && card->row >= 0
 			    && card->row < card->dbase->nrows
 			    && !evalbool(card, item->gray_if));
-	// FIXME:  not pulling in data here causes databsae to be modified
-	//         to the blank data.  Besides, I actually want it to
-	//         show the data on disabled (but not invisible) fields
-	data = /* !vis || !sens || item->type == IT_BUTTON ? 0 : */
-	       dbase_get(card->dbase, card->row, card->form->items[i]->column);
+	data = dbase_get(card->dbase, card->row, card->form->items[i]->column);
 
 	
 	if (w0) w0->setEnabled(sens);
@@ -714,28 +817,59 @@ void fillout_item(
 
 	switch(item->type) {
 	  case IT_TIME:
-		// if (sens)
-			data = format_time_data(data, item->timefmt);
+		data = format_time_data(data, item->timefmt);
 		FALLTHROUGH
 	  case IT_INPUT:
 		if (!deps) {
-			print_text_button_s(w0, /* !sens ? " " : */ data ? data :
-					item->idefault &&
-					(eval = evaluate(card, item->idefault))
-							? eval : "");
-#if 0 // this gets called every time a character changes, so don't mess with the cursor
-			if (w0)
-				dynamic_cast<QLineEdit *>(w0)->setCursorPosition(0);
-#endif
+			if(item->dcombo != C_NONE) {
+				QStringList &l = dynamic_cast<CardInputComboBox *>(w0)->c_dynamic;
+				l.clear();
+				int nmax = card->dbase && item->dcombo == C_ALL ? card->dbase->nrows : card->nquery;
+				for(int n = 0; n < nmax; n++) {
+					char *other;
+					if(card->row == card->query[n])
+						continue;
+					int idx = item->dcombo == C_ALL ? n : card->query[n];
+					other = dbase_get(card->dbase, idx, card->form->items[i]->column);
+					// rather than linear searching on every item,
+					// append all and remove dups.
+					// This uses way too much memory.
+					if(other && *other)
+						l.append(other);
+				}
+				// Hopefully this is implmented without
+				// linear searching.  I propbably wouldn't
+				// notice either way.
+				l.removeDuplicates();
+				// sorting is probably useful regardless
+				l.sort();
+			}
+			if(item->menu || item->dcombo) {
+				CardInputComboBox *cb = dynamic_cast<CardInputComboBox *>(w0);
+				QSignalBlocker sb(cb->lineEdit());
+				cb->clear();
+				cb->addItems(cb->c_static);
+				cb->addItems(cb->c_dynamic);
+			}
+			// The old code also moved the cursor, but that was never such a good idea
+			print_text_button_s(w0, data ? data : idefault(card, item));
+		}
+		break;
+
+	  case IT_NUMBER:
+		if (!deps) {
+			if (!data)
+				data = idefault(card, item);
+			if(QDoubleSpinBox *sb = dynamic_cast<QDoubleSpinBox *>(w0))
+				sb->setValue(data ? atof(data) : 0.0);
+			else
+				dynamic_cast<QSpinBox *>(w0)->setValue(data ? atol(data) : 0);
 		}
 		break;
 
 	  case IT_NOTE:
 		if (!deps && w0) {
-			print_text_button_s(w0, /* !sens ? " " : */ data ? data :
-					item->idefault &&
-					(eval = evaluate(card, item->idefault))
-							? eval : "");
+			print_text_button_s(w0, data ? data : idefault(card, item));
 			dynamic_cast<QTextEdit *>(w0)->textCursor().setPosition(0);
 		}
 		break;
@@ -744,6 +878,10 @@ void fillout_item(
 		print_text_button_s(w0, evaluate(card, item->idefault));
 		break;
 
+	  case IT_MENU: /* FIXME: implement */
+	  case IT_RADIO: /* FIXME: implement */
+	  case IT_MULTI: /* FIXME: implement */
+	  case IT_FLAGS: /* FIXME: implement */
 	  case IT_CHOICE:
 	  case IT_FLAG:
 		set_toggle(w0, data && item->flagcode
@@ -758,4 +896,5 @@ void fillout_item(
 	  case IT_NULL:
 	  case NITEMS: ;
 	}
+    if (w0) w0->blockSignals(false);
 }
