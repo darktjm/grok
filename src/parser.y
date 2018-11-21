@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <float.h>
 #include <time.h>
 #include <math.h>
 #include <QtWidgets>
@@ -27,7 +28,8 @@ static int	f_cmp	(char  *s,
 
 static char    *getsvar	(int    v)  { char buf[100], *r = var[v].string;
 					if (var[v].numeric) { sprintf(r = buf,
-							"%g", var[v].value); }
+							"%.*lg", DBL_DIG + 1,
+							    var[v].value); }
 					return(mystrdup(r)); }
 static double   getnvar	(int    v)  { return(var[v].numeric ? var[v].value :
 					var[v].string?atof(var[v].string):0);}

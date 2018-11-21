@@ -76,7 +76,7 @@ int main(
 		else if (argv[n][2] < 'a' || argv[n][2] > 'z')
 			switch(argv[n][1]) {
 			  case 'd':
-				puts(default_qss);
+				fputs(default_qss, stdout);
 				return(0);
 			  case 'v':
 				fprintf(stderr, "%s: %s\n", progname, VERSION);
@@ -224,7 +224,6 @@ int main(
 	read_preferences();
 
 	create_mainwindow();
-	mainwindow->show();
 
 	make_grokdir();
 
@@ -239,6 +238,7 @@ int main(
 						  : curr_card->dbase->nrows;
 		fillout_card(curr_card, FALSE);
 	}
+	mainwindow->show();
 	return app->exec();
 }
 

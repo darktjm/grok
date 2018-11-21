@@ -88,7 +88,7 @@ void create_newsect_popup(void)
 	set_button_cb(w, can_callback());
 
 	w = mk_button(hb, "Add", dbbr(Accept));
-	dynamic_cast<QPushButton *>(w)->setDefault(true);
+	reinterpret_cast<QPushButton *>(w)->setDefault(true);
 	set_button_cb(w, add_callback());
 
 	popup_nonmodal(shell);

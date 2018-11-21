@@ -125,7 +125,7 @@ void create_query_window(
 	bind_help(w, "dq_dupl");
 
 	w = mk_button(bb, "Done", dbbr(Accept));
-	dynamic_cast<QPushButton *>(w)->setDefault(true);
+	reinterpret_cast<QPushButton *>(w)->setDefault(true);
 	set_button_cb(w, done_callback());
 	bind_help(w, "dq_done");
 	
@@ -235,10 +235,10 @@ static void fill_row_widgets(int y)
 #if 0
 	qlist->item(y, 0)->setCheckState(blank || dq->suspended ? Qt::Unchecked : Qt::Checked);
 #else
-	QCheckBox *cb = dynamic_cast<QCheckBox *>(qlist->cellWidget(y, 0));
+	QCheckBox *cb = reinterpret_cast<QCheckBox *>(qlist->cellWidget(y, 0));
 	cb->setCheckState(blank || dq->suspended ? Qt::Unchecked : Qt::Checked);
 #endif
-	QRadioButton *rb = dynamic_cast<QRadioButton *>(qlist->cellWidget(y, 1));
+	QRadioButton *rb = reinterpret_cast<QRadioButton *>(qlist->cellWidget(y, 1));
 	rb->setChecked(!blank && y == form->autoquery);
 	qlist->item(y, 2)->setText(!blank && dq->name ? dq->name : "");
 	qlist->item(y, 3)->setText(!blank && dq->query ? dq->query : "");
@@ -453,7 +453,7 @@ static void list_callback(
 	switch(x) {
 	    case 0:
 		if(onblank)
-			dynamic_cast<QCheckBox *>(qlist->cellWidget(y, x))->setChecked(false);
+			reinterpret_cast<QCheckBox *>(qlist->cellWidget(y, x))->setChecked(false);
 		else
 			dq->suspended = !checked;
 		break;
@@ -464,7 +464,7 @@ static void list_callback(
 				if(i < y)
 					y--;
 			} else
-				dynamic_cast<QRadioButton *>(qlist->cellWidget(i, x))->setChecked(false);
+				reinterpret_cast<QRadioButton *>(qlist->cellWidget(i, x))->setChecked(false);
 		}
 		break;
 	    case 2:					/* name */

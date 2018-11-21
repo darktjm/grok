@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <float.h>
 #include <time.h>
 #include <QtWidgets>
 #include "config.h"
@@ -73,9 +74,9 @@ BOOL write_form(
 #define write_2intc(prop, val1, chk1, val2, chk2) \
     do { if(val1 chk1 || val2 chk2) fprintf(fp, prop "%ld %ld\n", (long)(val1), (long)(val2)); } while(0)
 #define write_2float(prop, val1, val2) \
-    do { if(val1 || val2) fprintf(fp, prop "%g %g\n", val1, val2); } while(0)
+    do { if(val1 || val2) fprintf(fp, prop "%.*lg %.*lg\n", DBL_DIG + 1, val1, DBL_DIG + 1, val2); } while(0)
 #define write_2floatc(prop, val1, chk1, val2, chk2) \
-    do { if(val1 chk1 || val2 chk2) fprintf(fp, prop "%g %g\n", val1, val2); } while(0)
+    do { if(val1 chk1 || val2 chk2) fprintf(fp, prop "%.*lg %.*lg\n", DBL_DIG + 1, val1, DBL_DIG + 1, val2); } while(0)
 	fputs("grok\n", fp);
 	write_str("name       ", form->name);
 	write_str("dbase      ", form->dbase);
@@ -141,9 +142,14 @@ BOOL write_form(
 		write_str("invis      ", item->invisible_if);
 		write_str("skip       ", item->skip_if);
 		write_str("menu       ", item->menu);
-		write_int("dcombo     ", item->dcombo);
+		if(item->type == IT_INPUT)
+			write_int("dcombo     ", item->dcombo);
 		write_str("default    ", item->idefault);
 		write_int("maxlen     ", item->maxlen, != 100);
+		if(item->type == IT_NUMBER) {
+			write_2float("range      ", item->min, item->max);
+			write_int("digits     ", item->digits);
+		}
 		write_int("ijust      ", item->inputjust, != J_LEFT);
 		write_int("ifont      ", item->inputfont, || true); /* dynamic default */
 		write_str("p_act      ", item->pressed);
@@ -151,39 +157,42 @@ BOOL write_form(
 		if (item->plan_if)
 		    fprintf(fp, "plan_if    %c\n",	item->plan_if);
 
-		write_2floatc("ch_xrange  ", item->ch_xmin,,
-					     item->ch_xmax, != 1.0);
-		write_2floatc("ch_yrange  ", item->ch_ymin,,
-					     item->ch_ymax, != 1.0);
-		write_2int("ch_auto    ", item->ch_xauto,
-					  item->ch_yauto);
-		write_2float("ch_grid    ",	item->ch_xgrid,
-						item->ch_ygrid);
-		write_2float("ch_snap    ",	item->ch_xsnap,
-						item->ch_ysnap);
-		write_int("ch_ncomp   ", item->ch_ncomp);
+		if(item->type == IT_CHART) {
+			write_2floatc("ch_xrange  ", item->ch_xmin,,
+						     item->ch_xmax, != 1.0);
+			write_2floatc("ch_yrange  ", item->ch_ymin,,
+						     item->ch_ymax, != 1.0);
+			write_2int("ch_auto    ", item->ch_xauto,
+						  item->ch_yauto);
+			write_2float("ch_grid    ",	item->ch_xgrid,
+							item->ch_ygrid);
+			write_2float("ch_snap    ",	item->ch_xsnap,
+							item->ch_ysnap);
+			write_int("ch_ncomp   ", item->ch_ncomp);
 
-		for (c=0; c < item->ch_ncomp; c++) {
-		    chart = &item->ch_comp[c];
-		    fputs("chart\n", fp);
-		    write_int("_ch_type   ", chart->line);
-		    write_2int("_ch_fat    ", chart->xfat,
+			for (c=0; c < item->ch_ncomp; c++) {
+			    chart = &item->ch_comp[c];
+			    fputs("chart\n", fp);
+			    write_int("_ch_type   ", chart->line);
+			    write_2int("_ch_fat    ", chart->xfat,
 							chart->yfat);
-		    write_str("_ch_excl   ", chart->excl_if);
-		    write_str("_ch_color  ", chart->color);
-		    write_str("_ch_label  ", chart->label);
-		    for (v=0; v < 4; v++) {
-			struct value *val = &chart->value[v];
-#define write_chval(f, t) do { \
+			    write_str("_ch_excl   ", chart->excl_if);
+			    write_str("_ch_color  ", chart->color);
+			    write_str("_ch_label  ", chart->label);
+			    for (v=0; v < 4; v++) {
+				struct value *val = &chart->value[v];
+#define write_chval(f, t, ...) do { \
     if(val->f) \
-	fprintf(fp, "_ch_" #f "%d  " t "\n", v, val->f); \
+	fprintf(fp, "_ch_" #f "%d  " t "\n", v, __VA_ARGS__ val->f); \
 } while(0)
-			write_chval(mode, "%d");
-			write_chval(expr, "%s");
-			write_chval(field, "%d");
-			write_chval(mul, "%g");
-			write_chval(add, "%g");
-		    }
+#define write_chflt(f) write_chval(f, "%.*lg", DBL_DIG + 1,)
+				write_chval(mode, "%d");
+				write_chval(expr, "%s");
+				write_chval(field, "%d");
+				write_chflt(mul);
+				write_chflt(add);
+			    }
+			}
 		}
 	}
 	fclose(fp);
@@ -383,6 +392,10 @@ BOOL read_form(
 					STORE(item->idefault, p);
 			else if (!strcmp(key, "maxlen"))
 					item->maxlen = atoi(p);
+			else if (!strcmp(key, "range"))
+					sscanf(p, "%lg %lg", &item->min, &item->max);
+			else if (!strcmp(key, "digits"))
+					item->digits = atoi(p);
 			else if (!strcmp(key, "ijust"))
 					item->inputjust = (JUST)atoi(p);
 			else if (!strcmp(key, "ifont"))
@@ -397,19 +410,19 @@ BOOL read_form(
 					item->plan_if = *p;
 
 			else if (!strcmp(key, "ch_xrange"))
-					sscanf(p, "%g %g", &item->ch_xmin,
+					sscanf(p, "%lg %lg", &item->ch_xmin,
 							   &item->ch_xmax);
 			else if (!strcmp(key, "ch_yrange"))
-					sscanf(p, "%g %g", &item->ch_ymin,
+					sscanf(p, "%lg %lg", &item->ch_ymin,
 							   &item->ch_ymax);
 			else if (!strcmp(key, "ch_auto"))
 					sscanf(p, "%d %d", &item->ch_xauto,
 							   &item->ch_yauto);
 			else if (!strcmp(key, "ch_grid"))
-					sscanf(p, "%g %g", &item->ch_xgrid,
+					sscanf(p, "%lg %lg", &item->ch_xgrid,
 							   &item->ch_ygrid);
 			else if (!strcmp(key, "ch_snap"))
-					sscanf(p, "%g %g", &item->ch_xsnap,
+					sscanf(p, "%lg %lg", &item->ch_xsnap,
 							   &item->ch_ysnap);
 			else if (!strcmp(key, "ch_ncomp")) {
 					if ((item->ch_ncomp = atoi(p)))

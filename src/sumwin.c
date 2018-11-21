@@ -22,8 +22,31 @@
 #include "form.h"
 #include "proto.h"
 
+static      QTreeWidget	*w_summary = NULL;
 static void sum_callback(int r);
 
+QWidget *create_summary_widget(void)
+{
+	w_summary  = new QTreeWidget(mainwindow);
+	bind_help(w_summary, "summary"); // formerly set in mainwin.c
+	w_summary->setItemsExpandable(false);
+	// no decorations should follow from not expandable, but set to be sure
+	w_summary->setRootIsDecorated(false);
+	w_summary->setUniformRowHeights(true);
+	w_summary->setSelectionMode(QAbstractItemView::SingleSelection);
+	w_summary->setSelectionBehavior(QAbstractItemView::SelectRows);
+
+	w_summary->header()->setSectionsMovable(false);
+	w_summary->header()->setSectionResizeMode(QHeaderView::Fixed);
+	w_summary->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+	w_summary->setHeaderHidden(true);
+	w_summary->resize(400, 20);
+
+	set_qt_cb(QTreeWidget, currentItemChanged, w_summary,
+		  sum_callback(w_summary->indexOfTopLevelItem(c)), QTreeWidgetItem *c);
+	return w_summary;
+}
 
 /*
  * create a summary in a list widget, based on the card struct. Some query
@@ -37,61 +60,54 @@ void create_summary_menu(
 	CARD		dummy;		/* if no card yet, use empty card */
 	char		buf[1024];	/* summary line buffer */
 	int		n, w, h;
-	QTreeWidget	*newsum;
 
-	if (!mainwindow)
+	if (!w_summary)
 		return;
+	QSignalBlocker sb(w_summary);
+	w_summary->setUpdatesEnabled(false);
 	print_info_line();
 	if (!card)
 		memset((void *)(card = &dummy), 0, sizeof(dummy));
-	card->wsummary = NULL;
-	newsum  = new QTreeWidget(mainwindow);
-	bind_help(newsum, "summary"); // formerly set in mainwin.c
-	newsum->setItemsExpandable(false);
-	// no decorations should follow from not expandable, but set to be sure
-	newsum->setRootIsDecorated(false);
-	newsum->setUniformRowHeights(true);
-	newsum->setSelectionMode(QAbstractItemView::SingleSelection);
-	newsum->setSelectionBehavior(QAbstractItemView::SelectRows);
 
+	w_summary->clear();
 	for (n=0; n < card->nquery; n++)
-		make_summary_line(buf, card, card->query[n], newsum);
-	make_summary_line(buf, card, -1, newsum);
+		make_summary_line(buf, card, card->query[n], w_summary);
+	make_summary_line(buf, card, -1, w_summary);
 	if(card->nquery)
-		newsum->setCurrentItem(newsum->topLevelItem(0));
-	newsum->header()->setSectionsMovable(false);
-	newsum->header()->setSectionResizeMode(QHeaderView::Fixed);
-	newsum->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+		w_summary->setCurrentItem(w_summary->topLevelItem(0));
+
 	// Fit view to data.  FIXME:  How do I add line-separators?  Or is
 	// increasing paddding all I can do?
 	if (!card->nquery && !*buf) {
-		newsum->header()->hide();
+		w_summary->setHeaderHidden(true);
 		w = 400;
 	} else {
-		newsum->resize(10, 10);
-		for(n = 0; n < newsum->columnCount(); n++)
-			newsum->resizeColumnToContents(n);
+		w_summary->setHeaderHidden(false);
+		w_summary->header()->setStretchLastSection(false);
+		w_summary->resize(10, 10);
+		for(n = 0; n < w_summary->columnCount(); n++)
+			w_summary->resizeColumnToContents(n);
 		// tjm - FIXME:  How do I get the max line width?
-		w = newsum->verticalScrollBar()->width() +
-			newsum->header()->length();
+		w = w_summary->verticalScrollBar()->width() +
+			w_summary->header()->length();
+		w_summary->header()->setStretchLastSection(true);
 	}
-	newsum->setMinimumWidth(w);
+	w_summary->setMinimumWidth(w);
 
 	// not sure how to set # of visible lines to pref.sumlines
 	// I'll just measure a row and add the header height.
 	if(!n) {
 		QTreeWidgetItem *twi = new QTreeWidgetItem;
 		twi->setText(0, "QT is a pain in the ass");
-		newsum->addTopLevelItem(twi);
+		w_summary->addTopLevelItem(twi);
 	}
-	h = newsum->sizeHintForRow(0) * pref.sumlines +
-		newsum->header()->height();
+	h = w_summary->sizeHintForRow(0) * pref.sumlines +
+		w_summary->header()->height();
 	if(!n)
-		newsum->clear();
-	newsum->setMinimumHeight(h);
-	newsum->resize(w, h);
-	set_qt_cb(QTreeWidget, currentItemChanged, newsum,
-		  sum_callback(newsum->indexOfTopLevelItem(c)), QTreeWidgetItem *c);
+		w_summary->clear();
+	w_summary->setMinimumHeight(h);
+	w_summary->resize(w, h);
+
 	if(n) {
 		scroll_summary(card);
 		if(card->qcurr >= 0 && card->qcurr < card->nquery) {
@@ -99,9 +115,8 @@ void create_summary_menu(
 			fillout_card(card, FALSE);
 		}
 	}
-	delete mainform->replaceWidget(w_summary, newsum);
-	delete w_summary;
-	w_summary = card->wsummary = newsum;
+	card->wsummary = w_summary;
+	w_summary->setUpdatesEnabled(true);
 }
 
 

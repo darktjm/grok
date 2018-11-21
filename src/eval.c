@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <float.h>
 #include <QtWidgets>
 #include "grok.h"
 #include "form.h"
@@ -261,7 +262,7 @@ int parserlex(void)
 		printf("== '%c'\n", t);
 	else switch(t) {
 	  case 0:	printf("== EOF\n");				break;
-	  case NUMBER:	printf("== number %g\n", yylval.dval);		break;
+	  case NUMBER:	printf("== number %.*lg\n", DBL_DIG + 1, yylval.dval);		break;
 	  case STRING:	printf("== string \"%s\"\n", yylval.sval);	break;
 	  case SYMBOL:	printf("== symbol \"%s\"\n", yylval.sval);	break;
 	  case VAR:	printf("== var %c\n", yylval.ival +

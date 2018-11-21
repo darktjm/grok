@@ -79,7 +79,7 @@ void GrokChart::paintEvent(QPaintEvent *)
 	register BAR	*bar;		/* current bar */
 	int		r, c;		/* row (card) and comp (bar) counters*/
 	int		i;		/* index values */
-	float		f;		/* coordinate in value space */
+	double		f;		/* coordinate in value space */
 
 	if(!item)
 		return;

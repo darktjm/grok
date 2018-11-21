@@ -53,11 +53,12 @@ language:
 </PRE>
 
 <P>For details on the query language used in the second example, refer to
-the ``Expression Grammar'' chapter. The first example looks for the given
-keyword; case distinctions are ignored. The author of the application
-controls which columns of the database are searched for keywords. Note
-the single quotes enclosing the query to protect blanks, parentheses,
-and double quotes from the shell.
+the <A HREF="grammar.html">``Expression Grammar'' chapter</A>. The
+first example looks for the given keyword; case distinctions are
+ignored. The author of the application controls which columns of the
+database are searched for keywords. Note the single quotes enclosing
+the query to protect blanks, parentheses, and double quotes from the
+shell.
 
 <P>grok supports the following command-line options:
 
@@ -68,9 +69,11 @@ and double quotes from the shell.
 	print a short usage message listing the available options.<P>
 
 <LI><TT>-d</TT><BR>
-	print the default X resources to stdout and exit. The output
-	can be appended to the local <TT>~/.Xdefaults</TT> file or other
-	resource files, after changes to customize grok's behavior.<P>
+	print the default Qt Style Sheet to stdout and exit. The output
+	can be placed in ~/.grok/grok.qss to override the built-in
+	style sheet or specified by the standard Qt command-line option
+	<TT>-stylesheet=</TT><I>file</I> to augment the built-in style
+	sheet.<P>
 
 <LI><TT>-v</TT><BR><BR>
 	print the version number of grok.<P>
@@ -105,6 +108,9 @@ and double quotes from the shell.
 	has the same effect as running <TT>grok&nbsp;-r</TT>.<P>
 
 </UL>
+
+<!-- FIXME:  document these -->
+In addition, the standard Qt command-line options are supported.
 
 
 <A NAME="ic">
@@ -211,7 +217,7 @@ incremental mode is disabled, all cards are checked.
 <P>The File pulldown has a ``Print...'' choice that pops up the
 printing menu. It allows selecting the cards to print, the output
 format, the output quality, and the output device. Medium quality uses
-overstrike Ascii to simulate boldfacing and underlining as supported
+overstrike ASCII to simulate boldfacing and underlining as supported
 by many programs such as <I>more</I> and most printer drivers. It uses
 character-backspace-character or underbar-backspace-character sequences
 to highlight field names and header lines.

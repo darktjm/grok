@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <float.h>
 #include <unistd.h>
 #include <QtWidgets>
 #include "grok.h"
@@ -241,7 +242,7 @@ void write_preferences(void)
 	fprintf(fp, "allword	%s\n",	pref.allwords	  ? "yes" : "no");
 	fprintf(fp, "incr	%s\n",	pref.incremental  ? "yes" : "no");
 	fprintf(fp, "unique	%s\n",	pref.uniquedb     ? "yes" : "no");
-	fprintf(fp, "scale	%g\n",	pref.scale);
+	fprintf(fp, "scale	%.*lg\n",	DBL_DIG + 1, pref.scale);
 	fprintf(fp, "lines	%d\n",	pref.sumlines);
 	fprintf(fp, "pselect	%c\n",	pref.pselect);
 	fprintf(fp, "pformat	%c\n",	pref.pformat);

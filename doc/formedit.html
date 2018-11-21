@@ -111,6 +111,11 @@ database; some are decorative or display computed information.
 	turned off) string in the database, along with a label.  Input
 	fields should not be put into the static part of the canvas.<P>
 
+<LI><B>Number</B><BR>
+	Input fields may be interpreted as numbers, but their format
+	and values are not enforced.  The Number field enforces a
+	numeric format and a specific range.
+
 <LI><B>Time</B><BR>
 	A variation of the Input field. The database representation is
 	a number of seconds. It is displayed as a date, as a time, as
@@ -126,7 +131,7 @@ database; some are decorative or display computed information.
 
 <LI><B>Note</B><BR>
 	A note is a multi-line Input field. It should be used only
-	for multiline text input because it cannot be tabbed over, and
+	for multi-line text input because it cannot be tabbed over, and
 	because pressing Return when entering data into the card into
 	a Note actually inserts a newline, rather than skipping to the
 	next field as an Input-type field would.  Note fields should
@@ -144,6 +149,19 @@ database; some are decorative or display computed information.
 	when changed, are copied to all other <TT>Choice</TT> items that
 	have the same internal name.  Choice fields should not be put
 	into the static part of the canvas.<P>
+
+<LI><B>Choice Group</B><BR>
+	Choice groups are a group of Choice buttons, automatically
+	arranged in a grid, and surrounded by a border.  Each button
+	is described by a separate entry in the Choice/flag code, 
+	show in summary as, and button label fields.  The main label,
+	if non-blank, is displayed as part of the border.<P>
+
+<LI><B>Choice Menu</B><BR>
+	A choide menu collects the buttons in a group of Choice fields
+	or a Choice Group into a single button which allows selection
+	of the choice with a pop-up menu.  Configuration is the same as
+	with choice groups.<P>
 
 <LI><B>Label</B><BR>
 	Labels are purely decorative. They print an arbitrary one-line
@@ -168,6 +186,18 @@ database; some are decorative or display computed information.
 	considered <I>false</I>, but this is not part of the normal
 	operation.) The string that constitutes <I>true</I> is specified
 	with the Choice/flag code button in the form editor.<P>
+
+<LI><B>Flag Group</B><BR>
+	Flag groups are a like a collection of Flag fields, automatically
+	laid out and surrounded by a border.  Since they are assigned
+	to a single field, their value is actually a set of values.
+	If the flag code assigned to a label is in the set, that flag is
+	set.  See <A HREF="grammar.html#gi">the grammar documentation</A>
+	for more details on how to deal with sets.<P>
+
+<LI><B>Flag List</B><BR>
+	This is a scrollable list of flag options; clicking one toggles it.
+	In all other ways it is the same as a Flag Group.<P>
 
 <LI><B>Button</B><BR>
 	Buttons have an associated action expression that is executed when
@@ -293,8 +323,7 @@ a field in the card:
 <LI><B>Width in summary</B><BR>
 	If the width is nonzero, the database string referenced by the
 	field will appear in the summary, with as many characters as
-	specified. Two blanks are appended. The summary always uses
-	monospaced Courier to make columns line up vertically.<P>
+	specified. Two blanks are appended in the textual outputs.<P>
 
 <LI><B>Summary column</B><BR>
 	If the width is nonzero, this value specifies the order of fields
@@ -337,6 +366,29 @@ a field in the card:
 	passed to the Motif widget to limit input length, but does not
 	lead to increased memory usage for the database.<P>
 
+<LI><B>Min Value</B>
+	The minimum value permitted in a numeric field.  The minimum
+	allowable value is determined by the platform's double-precision
+	floating point range, usualy approximately
+	-1.8*10<SUP>308</SUP>.<P>
+
+<LI><B>Max Value</B>
+	The maximum value permitted in a numeric field.  The maximum
+	value allowed in this field is determined by the platform's
+	double-precision floating-point range, usually approximately
+	1.8*10<SUP>308</SUP>.  If this is the same as the minimum
+	value, a default range is used, instead.  The default maximum
+	value is always the platform's maximum floating-point value
+	when digits is non-zero, and the platform's maximum accurately
+	represented floating-point integer (usually 2<SUP>53</SUP>, or
+	~9*10<SUP>15</SUP>) otherwise.  If the minimum value was
+	non-negative, it is retained; otherwise, it is changed to the
+	negative of the default maximum.<P>
+
+<LI><B>Digits</B>
+	The number of digits past the decimal point to retain in
+	numeric fields.<P>
+
 <LI><B>Input default</B><BR>
 	For Input, Time, Flag, and Choice fields, this field provides the
 	defaults when a new card is added to the database. It can be an
@@ -369,7 +421,7 @@ a field in the card:
 	or <TT>Date+time"</TT>; <I>plan</I> will use the value in that
 	field to display the card in the calendar at the given date. There
 	should also be a field marked <TT>Note</TT> or <TT>Message</TT>;
-	this will become tha label of the calendar item that is shown
+	this will become the label of the calendar item that is shown
 	along with the date. For the interpretation of the other interface
 	modes, refer to the online help of the <I>plan</I> program.<P>
 
@@ -378,7 +430,7 @@ a field in the card:
 	expression entered here. The expression is shared by all fields.
 	<I>plan</I> may override this expression by specifying a <TT>-p
 	</TT> query expression on the command line. This requires <I>
-	plan</I>version 1.9 or higher.
+	plan</I>version 1.9 or higher.<P>
 
 <LI><B>Grayed out if</B><BR>
 	If the named expression evaluates to <I>true</I>, the field
@@ -459,7 +511,7 @@ Grammar section for details.
 	This button checks the consistency of all fields, and reports
 	conflicts such as non-unique internal names or redundant choice
 	flags. At this time, expressions are not checked. If the Debug
-	button reportrs nothing, the no problems were found. The Done
+	button reports nothing, the no problems were found. The Done
 	button always does a debugging run first, and refuses to exit
 	if errors were found.<P>
 

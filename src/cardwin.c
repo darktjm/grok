@@ -13,6 +13,7 @@
 #include "config.h"
 #include <unistd.h>
 #include <stdlib.h>
+#include <float.h>
 #include <assert.h>
 #include <QtWidgets>
 #include <time.h>
@@ -278,11 +279,6 @@ struct CardDoubleSpinBox : public QDoubleSpinBox {
 	OVERRIDE_FOCUS(QDoubleSpinBox)
 };
 
-struct CardSpinBox : public QSpinBox {
-	CardSpinBox(CARD *c, int i, QWidget *p) : QSpinBox(p) OVERRIDE_INIT(c,i)
-	OVERRIDE_FOCUS(QSpinBox)
-};
-
 struct CardTextEdit : public QTextEdit {
 	// Unlike others, this always needs card & item
 	// Evaluating a blank skip_if is at least fast.
@@ -411,29 +407,34 @@ static void create_item_widgets(
 		break;
 
 	  case IT_NUMBER: {				/* number spin box */
-		QAbstractSpinBox *asb;
+		// I used to use QSpinBox if digits == 0, but QSpinBox
+		// only supports int, not long, and 2^32 is just too small
+		// for things like storage sizes these days.  Besides, the
+		// expression language deals exclusively with floats, anyway.
 		if (item.xm > 6)
 		  carditem->w1 = mk_label(wform, item, item.xm - 6, item.ys);
-		if (item.digits > 0) {
-		  QDoubleSpinBox *sb = new CardDoubleSpinBox(card, nitem, wform);
-		  asb = sb;
-		  sb->setRange(item.min, item.max);
-		  sb->setDecimals(item.digits);
-		} else {
-		  QSpinBox *sb = new CardSpinBox(card, nitem, wform);
-		  asb = sb;
-		  sb->setRange((int)item.min, (int)item.max);
+		QDoubleSpinBox *sb = new CardDoubleSpinBox(card, nitem, wform);
+		carditem->w0 = sb;
+		sb->setObjectName("input");
+		sb->move(item.x + item.xm, item.y);
+		sb->resize(item.xs - item.xm, item.ys);
+		sb->setAlignment(JUST(item.inputjust));
+		sb->setProperty(font_prop[item.inputfont], true);
+		sb->setReadOnly(!editable);
+		if(item.min == item.max) {
+			if(!item.digits)
+				// FIXME:  the -1 bit probably won't work
+				item.max = pow(FLT_RADIX, DBL_MANT_DIG) - 1;
+			else
+				item.max = DBL_MAX;
+			if(item.min < 0)
+				item.min = -item.max;
 		}
-		carditem->w0 = asb;
-		asb->setObjectName("input");
-		asb->move(item.x + item.xm, item.y);
-		asb->resize(item.xs - item.xm, item.ys);
-		asb->setAlignment(JUST(item.inputjust));
-		asb->setProperty(font_prop[item.inputfont], true);
-		asb->setReadOnly(!editable);
+		sb->setRange(item.min, item.max);
+		sb->setDecimals(item.digits);
 		// sb->setTextMargins(l, r, 2, 2);
 		if (editable)
-			set_spin_cb(asb, card_callback(nitem, card, true));
+			set_spin_cb(sb, card_callback(nitem, card, true));
 		break;
 	  }
 
@@ -563,6 +564,8 @@ static void create_item_widgets(
 			if(colwidth[col] < (unsigned int)b->sizeHint().width())
 				colwidth[col] = b->sizeHint().width();
 			curwidth += colwidth[col];
+			// FIXME:  the layout's content margins may need
+			//         to be added as well.
 			if(col > 0)
 				curwidth += l->spacing();
 			if(ncol > 1 && curwidth > mwidth) {
@@ -583,6 +586,8 @@ static void create_item_widgets(
 							if(colwidth[col] < (unsigned int)w->sizeHint().width())
 								colwidth[col] = w->sizeHint().width();
 							curwidth += colwidth[col];
+							// FIXME:  the layout's content margins may need
+							//         to be added as well.
 							if(col > 0)
 								curwidth += l->spacing();
 							if(curwidth > mwidth) {
@@ -702,6 +707,7 @@ static void card_callback(
 	  case IT_INPUT:				/* arbitrary input */
 	  case IT_TIME:					/* date and/or time */
 	  case IT_NOTE:					/* multi-line text */
+	  case IT_NUMBER:				/* numbers */
 		// Note:  there used to be code here to advance via skip_if.
 		// The code was never called in 1.5/OpenMotif-2.3.8, and
 		// seriously broke the Qt version when I replaced the signal
@@ -920,6 +926,14 @@ void card_readback_texts(
 			(void)store(card, nitem, buf);
 			if (which >= 0)
 				fillout_item(card, nitem, FALSE);
+			break;
+
+		  case IT_NUMBER:
+			sprintf(buf, "%.*lg", DBL_DIG + 1,
+				reinterpret_cast<QDoubleSpinBox *>(card->items[nitem].w0)->value());
+			(void)store(card, nitem, buf);
+			break;
+
 		  default: ;
 		}
 	}
@@ -1093,9 +1107,9 @@ void fillout_item(
 				int nmax = card->dbase && item->dcombo == C_ALL ? card->dbase->nrows : card->nquery;
 				for(int n = 0; n < nmax; n++) {
 					char *other;
-					if(card->row == card->query[n])
-						continue;
 					int idx = item->dcombo == C_ALL ? n : card->query[n];
+					if(card->row == idx)
+						continue;
 					other = dbase_get(card->dbase, idx, card->form->items[i]->column);
 					if(other && *other)
 						set.insert(other);
@@ -1125,17 +1139,15 @@ void fillout_item(
 		if (!deps) {
 			if (!data)
 				data = idefault(card, item);
-			if(QDoubleSpinBox *sb = dynamic_cast<QDoubleSpinBox *>(w0))
-				sb->setValue(data ? atof(data) : 0.0);
-			else
-				dynamic_cast<QSpinBox *>(w0)->setValue(data ? atol(data) : 0);
+			reinterpret_cast<QDoubleSpinBox *>(w0)->
+				setValue(data ? atof(data) : 0);
 		}
 		break;
 
 	  case IT_NOTE:
 		if (!deps && w0) {
 			print_text_button_s(w0, data ? data : idefault(card, item));
-			dynamic_cast<QTextEdit *>(w0)->textCursor().setPosition(0);
+			reinterpret_cast<QTextEdit *>(w0)->textCursor().setPosition(0);
 		}
 		break;
 

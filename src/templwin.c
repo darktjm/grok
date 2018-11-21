@@ -112,7 +112,7 @@ void create_templ_popup(void)
 	      case 'q': {
 		      w = mk_button(hb, mp->text, mp->role);
 		      if(mp->role == dbbr(Accept))
-			      dynamic_cast<QPushButton *>(w)->setDefault(true);
+			      reinterpret_cast<QPushButton *>(w)->setDefault(true);
 		      break;
 	      }
 	      case 'T': w = new QLineEdit; w->setObjectName(mp->text);	break;
@@ -340,7 +340,7 @@ static void askname(
 
 	// tjm - added this button mostly for consistency
 	w = mk_button(b, "Create", dbbr(Accept));
-	dynamic_cast<QPushButton *>(w)->setDefault(true);
+	reinterpret_cast<QPushButton *>(w)->setDefault(true);
 	set_button_cb(w, text_callback());
 
 	// close does a reject by default, so no extra callback needed

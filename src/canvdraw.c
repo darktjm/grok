@@ -273,6 +273,20 @@ void GrokCanvas::canvas_callback(
  * find out what should be done, and to set the cursor shape.
  */
 
+#define LEFT_LABELED ( \
+	item->type == IT_INPUT || \
+	item->type == IT_NUMBER || \
+	item->type == IT_PRINT || \
+	item->type == IT_TIME || \
+	item->type == IT_MENU)
+
+#define TOP_LABELED ( \
+	item->type == IT_CHART || \
+	item->type == IT_NOTE || \
+	item->type == IT_MULTI || \
+	item->type == IT_RADIO || \
+	item->type == IT_FLAGS)
+
 static MOUSE locate_item(
 	int		*nitem_p,	/* set to the located item */
 	int		x,		/* position in drawing area */
@@ -323,16 +337,10 @@ static MOUSE locate_item(
 		*nitem_p = closest;
 	item = form->items[closest];
 	if (nitem == closest) {					/* inside */
-		if ((item->type == IT_INPUT ||
-		     item->type == IT_NUMBER ||
-		     item->type == IT_PRINT ||
-		     item->type == IT_TIME ||
-		     item->type == IT_MENU) && abs(x - item->x - item->xm) < 6)
+		if (LEFT_LABELED && abs(x - item->x - item->xm) < 6)
 			return(M_XMID);
 
-		if ((item->type == IT_CHART ||
-		     item->type == IT_NOTE ||
-		     item->type == IT_MULTI) && abs(y - item->y - item->ym) < 6)
+		if (TOP_LABELED && abs(y - item->y - item->ym) < 6)
 			return(M_YMID);
 
 		return(M_INSIDE);
@@ -419,7 +427,7 @@ void GrokCanvas::paintEvent(QPaintEvent *e)
 
 static const char * const datatext[NITEMS] = {
 	"None", "", "Print", "Input", "Time", "Note", "", "", "", "",
-	"Number", "Menu", "Radio", "Multi", "Flags" };
+	"Number", "Choice Menu", "Choice Group", "Flag List", "Flag Group" };
 
 void GrokCanvas:: redraw_canvas_item(
 	QPainter	&painter,	/* widget into which to draw */
@@ -440,13 +448,10 @@ void GrokCanvas:: redraw_canvas_item(
 	painter.setPen(fgcolor());
 
 	painter.drawRect(item->x, item->y, item->xs-1, item->ys-1);
-	if (item->type == IT_INPUT || item->type == IT_PRINT
-				   || item->type == IT_NUMBER
-				   || item->type == IT_TIME
-				   || item->type == IT_MENU)
+	if (LEFT_LABELED)
 		fillrect(item->x + (xm=item->xm), item->y, 1, item->ys);
 
-	if (item->type == IT_CHART || item->type == IT_NOTE)
+	if (TOP_LABELED)
 		fillrect(item->x, item->y + (ym=item->ym), item->xs, 1);
 
 	if (item->type == IT_CHART) {
@@ -492,8 +497,7 @@ void GrokCanvas:: redraw_canvas_item(
 				 buf);
 
 	} else if (ym > 0 && ym < item->ys) {
-		nfont = item->type == IT_NOTE ? item->inputfont
-					      : item->labelfont;
+		nfont = TOP_LABELED ? item->inputfont : item->labelfont;
 		truncate_string(font[nfont], buf, item->xs-4);
 		painter.setFont(font[nfont]->font());
 		painter.drawText(item->x + 3,

@@ -360,7 +360,6 @@ extern char		*prev_form;	/* previous form name */
 extern QMainWindow	*mainwindow;	/* popup menus hang off main window */
 extern int		last_query;	/* last query pd index, for ReQuery */
 extern QVBoxLayout	*mainform;	/* form for summary table */
-extern QWidget		*w_summary;	/* the widget to replace in form */
 
 /*---------------------------------------- popup.c ------------*/
 
@@ -478,6 +477,7 @@ void create_newsect_popup(void);
 
 void destroy_summary_menu(
 	register CARD	*card);		/* card to destroy */
+QWidget *create_summary_widget(void);	/* just create the list widget */
 void create_summary_menu(
 	CARD		*card);		/* card with query results */
 void make_summary_line(

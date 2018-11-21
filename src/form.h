@@ -162,8 +162,8 @@ struct value {
 	int	mode;	/* one of CC_* */
 	char	*expr;	/* CC_EXPR: expression to eval */
 	int	field;	/* CC_DRAG: field number */
-	float	mul;	/* CC_DRAG: field * mul + add */
-	float	add;	/* CC_DRAG: field * mul + add */
+	double	mul;	/* CC_DRAG: field * mul + add */
+	double	add;	/* CC_DRAG: field * mul + add */
 };
 typedef struct {		/*----- IT_CHART component */
 	BOOL	line;		/* replace bars with lines */
@@ -175,7 +175,7 @@ typedef struct {		/*----- IT_CHART component */
 } CHART;
 
 typedef struct {		/*----- storage for visible chart bars */
-	float	value[4];	/* evaluated bar position and size */
+	double	value[4];	/* evaluated bar position and size */
 	int	color;		/* bar color 0..7 */
 } BAR;
 
@@ -212,7 +212,7 @@ typedef struct item {
 				/*----- for INPUT, DATE, TIME, NOTE, NUMBER */
 	char	*idefault;	/* default input string */
 	int	maxlen;		/* max length of input field */
-	float	min, max;	/* NUMBER range */
+	double	min, max;	/* NUMBER range */
 	int	digits;		/* NUMBER digits past decimal */
 	char	*menu;		/* combo box static entries & multi-item labels */
 	DCOMBO	dcombo;		/* INPUT combo box dynamic entry type */
@@ -222,16 +222,16 @@ typedef struct item {
 	char	*pressed;	/* command that button execs when pressed */
 	char	*added;		/* command that button execs when added */
 				/*----- for CHART */
-	float	ch_xmin;	/* coord of left edge */
-	float	ch_xmax;	/* coord of right edge */
-	float	ch_ymin;	/* coord of bottom edge */
-	float	ch_ymax;	/* coord of top edge */
+	double	ch_xmin;	/* coord of left edge */
+	double	ch_xmax;	/* coord of right edge */
+	double	ch_ymin;	/* coord of bottom edge */
+	double	ch_ymax;	/* coord of top edge */
 	BOOL	ch_xauto;	/* automatic xmin/xmax */
 	BOOL	ch_yauto;	/* automatic ymin/ymax */
-	float	ch_xgrid;	/* vert grid lines every xgrid units */
-	float	ch_ygrid;	/* horz grid lines every ygrid units */
-	float	ch_xsnap;	/* snap X to nearest xsnap */
-	float	ch_ysnap;	/* snap Y to nearest ysnap */
+	double	ch_xgrid;	/* vert grid lines every xgrid units */
+	double	ch_ygrid;	/* horz grid lines every ygrid units */
+	double	ch_xsnap;	/* snap X to nearest xsnap */
+	double	ch_ysnap;	/* snap Y to nearest ysnap */
 	int	ch_ncomp;	/* # of components in ch_comp */
 	int	ch_curr;	/* current component index */
 	CHART	*ch_comp;	/* component array */

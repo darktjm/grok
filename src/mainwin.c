@@ -71,7 +71,6 @@ static QLineEdit	*w_search;	/* search string text widget */
 static QPushButton	*w_prev;	/* search prev arrow */
 static QPushButton	*w_next;	/* search next arrow */
        QVBoxLayout	*mainform;	/* form for summary table */
-       QWidget		*w_summary;	/* widget to replace in mainform */
 static QWidget		*w_card;	/* form for card */
 static QPushButton	*w_left;	/* button: previous card */
 static QPushButton	*w_right;	/* button: next card */
@@ -282,8 +281,7 @@ void create_mainwindow()
 	set_button_cb(w, help_callback(mainwindow, "card"));
 	bind_help(w, "card");
 							/*-- summary --*/
-	w_summary = new QWidget; // to be replaced
-	mainform->addWidget(w_summary);
+	mainform->addWidget(create_summary_widget());
 
 							/*-- letters --*/
 	if (pref.letters) {
@@ -334,22 +332,6 @@ void create_mainwindow()
 
 void resize_mainwindow(void)
 {
-#if 0 // tjm - auto-resizing should be sufficient
-	int	xs=0, ys=0;
-
-	if (!win_ys) {
-		const QSize size(mainwindow->size());
-		win_xs = size.width();
-		win_ys = size.height();
-		win_ys -= 1;
-	}
-	if (curr_card && curr_card->form) {
-		xs = pref.scale * curr_card->form->xs + 2;
-		ys = pref.scale * curr_card->form->ys + 2;
-	}
-	if (win_xs > xs) xs = win_xs;
-	mainwindow->resize(xs + 2*2 + 2*16, win_ys + ys + 2*3);
-#else
 	// FIXME: window moves -- saving & restoring position doesn't help
 	// I'll probably have to override mainwindow->move().
 	// QPoint pos(mainwindow->pos());
@@ -362,7 +344,6 @@ void resize_mainwindow(void)
 	// Sometimes it appears as though it's toggling between some large
 	// size and the correct size.  WTF?
 	mainwindow->resize(mainwindow->minimumSize());
-#endif
 }
 
 
@@ -756,6 +737,8 @@ void switch_form(
 	char		name[1024], *p;	/* capitalized formname */
 	int		i;
 
+	if(mainwindow)
+		mainwindow->setUpdatesEnabled(false);
 	if (curr_card) {
 		if (prev_form)
 			free(prev_form);
@@ -768,8 +751,11 @@ void switch_form(
 			   !curr_card->dbase->rdonly &&
 			   !curr_card->form->rdonly)
 				if (!write_dbase(curr_card->dbase,
-						 curr_card->form, FALSE))
+						 curr_card->form, FALSE)) {
+					if(mainwindow)
+						mainwindow->setUpdatesEnabled(true);
 					return;
+				}
 			dbase_delete(curr_card->dbase);
 			free((void *)curr_card->dbase);
 		}
@@ -838,6 +824,7 @@ void switch_form(
 		if (curr_card && curr_card->dbase)
 			curr_card->dbase->modified = FALSE;
 		print_info_line();
+		mainwindow->setUpdatesEnabled(true);
 	}
 }
 

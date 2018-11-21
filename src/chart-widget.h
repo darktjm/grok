@@ -37,8 +37,8 @@ class GrokChart : public QWidget {
     void mouseMoveEvent(QMouseEvent *e) { chart_action_callback(e, 0); }
   private:
     // formerly statics in chartdrw.c
-    float	xmin = 0.0, xmax = 0.0;	/* bounds of all bars in chart */
-    float	ymin = 0.0, ymax = 0.0;	/* bounds of all bars in chart */
+    double	xmin = 0.0, xmax = 0.0;	/* bounds of all bars in chart */
+    double	ymin = 0.0, ymax = 0.0;	/* bounds of all bars in chart */
     // formerly statics in chart_action_callback()
     int	nitem;				/* item on which pen was pressed */
     int	row, comp;			/* row and column of dragged bar */

@@ -28,7 +28,7 @@
 
 	    grok phone
 
-	The window will resize itself to accomodate the card, and all cards
+	The window will resize itself to accommodate the card, and all cards
 	in the database will be listed in the summary area (unless the form
 	designer has specified a default query). The first card will also be
 	displayed in the card area at the bottom of the window. The selection
@@ -56,15 +56,15 @@
 	   am making no progress.  The fix for all of these is to manually
 	   move and resize the window after loading a database, if needed.
 
-           *  Qt often moves the main window when it resizies it after a
-	      databse load.
+           *  Qt often moves the main window when it resizes it after a
+	      database load.
 
 	   *  Randomly, the window will end up too big after a database
 	      load.
 
 	   *  The summary list widget has a too-large minimum size, leaving
 	      a blank area at the end of the line.  This can't be fixed
-	      by maual resizing, contrary to the statement above, but it
+	      by manual resizing, contrary to the statement above, but it
 	      is generally a small enough excess that it doesn't matter.
 
 	*  Qt does not like synthetic key events.  Bugs have been reported
@@ -106,8 +106,8 @@
 	case of procedural databases. The ~/.grok directory also contains the
 	.grokrc file, which stores preferences.
 
-	Form files and the preferences file are strictly Ascii. Databases are
-	usually also Ascii, but need not be. When editing Databases with a text
+	Form files and the preferences file are strictly ASCII. Databases are
+	usually also ASCII, but need not be. When editing Databases with a text
 	editor, make sure to properly escape field and line delimiters with
 	backslashes, or great chaos will result.
 
@@ -165,7 +165,7 @@
 	foreground color to contrast with a background color, but Qt does
 	not.  You may need to explicitly set the foreground colors as well.
 	Note also that font specifiers in Qt style sheets are completely
-	different; see the documentation for detauls.  The following
+	different; see the documentation for defaults.  The following
 	list gives the old X resources and their equivalent form in Qt
 	style sheets:
 
@@ -374,7 +374,7 @@
 
 	Most databases have a default sort order that was specified when the
 	form was created. When sorting by another column, the default column
-	becomes the secondary sort criterium. That is, if a rolodex normally
+	becomes the secondary sort criterion. That is, if a rolodex normally
 	sorted by name is re-sorted by group, each group will be sorted by
 	name internally. If there is a default sort order, or after the sort
 	pulldown has been used once, grok will automatically re-sort whenever
@@ -581,7 +581,7 @@
 	    to the summary line, as text blocks below the respective summary
 	    line. Cards prints all printable data fields in a two-column list.
 
-	Output quality: ASCII prints straight ascii text; overstrike ASCII is
+	Output quality: ASCII prints straight ASCII text; overstrike ASCII is
 	    equivalent but uses backspacing to achieve boldface and underlines;
 	    and PostScript attempts to improve readability by using different fonts
 	    and lines. Overstrike output is understood by programs such as more
@@ -620,7 +620,7 @@
 %% msg_done
 	DONE / SAVE
 
-	This button is labelled "Save" if the text is editable, and "Done"
+	This button is labeled "Save" if the text is editable, and "Done"
 	if not. "Save" writes the changes back and terminates the editor.
 	"Done" dismisses the window without saving.
 
@@ -672,7 +672,7 @@
 	    lpr (BSD). ASCII and PostScript spoolers can be set independently
 	    in case special PostScript options or lptops scripts need to be
 	    run. Full shell syntax (using the shell in $SHELL) is supported,
-	    including pipes and redirections. NOTE: rpinting PostScript is
+	    including pipes and redirections. NOTE: printing PostScript is
 	    not currently supported.
 
 	Summary lines: the number of lines displayed in the summary window below
@@ -809,7 +809,7 @@
 	that refers fields in the current card (using expression terms such as
 	"_fieldname") must go into the card part so it can be desensitized if
 	no card is selected. Putting such fields in the static part would allow
-	the user to enter data into nonexisting cards because the field would
+	the user to enter data into nonexistent cards because the field would
 	not get desensitized when no card is displayed. This is not enforced.
 
 
@@ -923,9 +923,9 @@
 %% fe_adelim
 	ARRAY DELIMITER
 
-	Strings in the databse may be interpreted as arrays, which are
+	Strings in the database may be interpreted as arrays, which are
 	string elements separated by the Array element delimiter.  The
-	Array element escape is prepended to occurrices of either of these
+	Array element escape is prepended to occurrences of either of these
 	two in the element.  These two may not be the same.  This array
 	interpretation is used for some item properties and field
 	interpretations.  Changing this in a database with array values
@@ -1073,11 +1073,12 @@
 	        them can be on. The choice/flag code of the Choice item that
 	        is on is stored in the database.
 
-	Radio Group:  Rather than separate Choice fields, this is a set
+	Choice Group:  Rather than separate Choice fields, this is a set
 		of Choice fields in a single box.
 
-	Menu:	Rather than individual Choice fields, a set of choices is
-		presented as a single button that pops up a menu of choices.
+	Choice Menu:  Rather than individual Choice fields, a set of
+		choices is presented as a single button that pops up a
+		menu of choices.
 
 	Flag:   flag fields are similar to Choice fields, but they are not
 	        connected to other Flag fields, and must have a unique internal
@@ -1120,7 +1121,7 @@
 	Default sort: only one field can have the default sort flag set. This
 	              field is the field the database will be sorted by when
 	              the database is loaded from disk. It is also the secondary
-	              sort criterium if the user re-sorts the database with the
+	              sort criterion if the user re-sorts the database with the
 	              Sort pulldown.
 
 	If a flag of a Choice item is changed, the same flag of all Choice
@@ -1206,7 +1207,7 @@
        greater than 0), grok will normally show the string in the database.
        If an expression is entered in the "show in summary" string, the
        expression will be evaluated and shown instead. For example, a phone
-       number field may specify to show the phoen number, unless it is empty
+       number field may specify to show the phone number, unless it is empty
        in which case the mobile phone number should be shown:
 
        Show in summary: {_phone ? _phone : _mobile}
@@ -1247,7 +1248,7 @@
 	         every n days, with n being the value of the field. The default
 	         is 0. If there is an end date, the default is 1 (daily).
 
-	End date: the last day of multiday appointments. This should be set on
+	End date: the last day of multi-day appointments. This should be set on
 	         on a field that has type Date+Time or Date. There is no default.
 
 	Color: the color of the appointment text in the calendar. This should
@@ -1259,7 +1260,7 @@
 	         shown. This should be set on a field that has type Input. Only
 	         short texts, a few words, can be shown in the calendar.
 
-	Message: like Note, but intended for long multiline texts.
+	Message: like Note, but intended for long multi-line texts.
 
 	Script: like Message, but the text is not shown but executed when the
 	         appointment triggers. Shell script texts should begin with a
@@ -1361,12 +1362,21 @@
 	MAX VALUE, MIN VALUE, DIGITS
 
 	Numeric widgets enforce not only a numeric format, but also a range
-	of vlues.  The precision printed in the widget is set by the
-	Digits parameter.
+	of values.  The precision printed in the widget is set by the
+	Digits parameter.  The maximum absolute value of max and min are
+	limited to the range of the platform's double, which is usually
+	approximately 4*10^308.  As a convenience, if the maximum and
+	minimimum are equal, automatic defaults are set.  The maximum is
+	set to the maximum accurate integer (usually 2^53) if digits
+	are 0, and the maximum allowable floating-point number
+	otherwise.  If they are zero or above, the minimum is
+	retained; otherwise, the minimum is set to the negative of the
+	maximum.
+
 %% fe_combo
 	COMBO BOX
 
-	A text input field can have a drop-down menu attaced for easy
+	A text input field can have a drop-down menu attached for easy
 	selection of common values.  The text field is for fixed values;
 	these are always displayed at the top.  The field is interpreted
 	as an array, and only non-blank labels count.  It is not
@@ -1467,19 +1477,19 @@
 	  n , n          evaluate both numbers, return second
 	  -n            sign change
 	  !n              boolean NOT
-	  ~n             bitwise NOT
+	  ~n             bit-wise NOT
 	  n + n         add
 	  n - n         subtract
 	  n * n         multiply
 	  n / n          divide, n/0 is 1
 	  n % n        modulus, n%0 is 1
-	  n & n        bitwise AND
+	  n & n        bit-wise AND
 	  n && n      boolean AND
-	  n | n          bitwise OR
+	  n | n          bit-wise OR
 	  n || n         boolean OR
-	  n ^ n         bitwise XOR
-	  n << n       bitwise left shift
-	  n >> n       bitwise right shift
+	  n ^ n         bit-wise XOR
+	  n << n       bit-wise left shift
+	  n >> n       bit-wise right shift
 	  n == n       equal
 	  n != n        not equal
 	  n < n         less than
@@ -1487,7 +1497,7 @@
 	  n <= n       less than or equal
 	  n >= n       greater than or equal
 	  abs (n)       absolute value
-	  int (n)	number truncated to iteger
+	  int (n)	number truncated to integer
 	  sqrt (n)      square root
 	  exp (n)       exponential
 	  log (n)        logarithm to base 10
@@ -1498,8 +1508,8 @@
 	  tan (n)        tangent
 	  asin (n)      arc sine
 	  acos (n)     arc cosine
-	  atan (n)      arctangent
-	  atan2(n,n)  quadrant-aligned arctangent
+	  atan (n)      arc tangent
+	  atan2(n,n)  quadrant-aligned arc tangent
 	  len (s)        string length
 	  # s            string length
 	  bound(n,n,n)   n1 bounded by n2 and n3
@@ -1548,14 +1558,14 @@
 
 
         Strings as arrays: a string may be interpreted as an array of
-	strings, stored as the elements, spearated by a separator.
+	strings, stored as the elements, separated by a separator.
 	Occurrences of the separator or the escape character are prefixed
 	by the escape character.  An empty string is ambiguous; it is
 	interpreted as a 1-element array with a blank value.
 	
 	esc(s)         Escape s like an array element
 	## s           Number of array elements in s
-	s [ n ]        Array elemnt #n of s (0-based), (unescaped)
+	s [ n ]        Array element #n of s (0-based), (unescaped)
 	s [ n ] -> v   Return array where element #n is set to v (escaped).
 	               If n is larger than ## s, blanks are inserted
 	               If n is negative, append.  Note that appending to

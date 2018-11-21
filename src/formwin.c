@@ -67,11 +67,11 @@ static const struct {
 	{ IT_LABEL,  "Label"		},
 	{ IT_PRINT,  "Print"		},
 	{ IT_CHOICE, "Choice"		},
-	{ IT_RADIO,  "Radio Group"	},
-	{ IT_MENU,   "Menu"		},
+	{ IT_RADIO,  "Choice Group"	},
+	{ IT_MENU,   "Choice Menu"	},
 	{ IT_FLAG,   "Flag"		},
-	{ IT_MULTI,  "Flag List"	},
 	{ IT_FLAGS,  "Flag Group"	},
+	{ IT_MULTI,  "Flag List"	},
 	{ IT_BUTTON, "Button"		},
 	{ IT_CHART,  "Chart"		}
 	
@@ -690,12 +690,21 @@ void fillout_formedit_widget_by_code(
 		}
 }
 
-#define set_sb_value(w, v) dynamic_cast<QSpinBox *>(w)->setValue(v)
-#define set_dsb_value(w, v) dynamic_cast<QDoubleSpinBox *>(w)->setValue(v)
+#define set_sb_value(w, v) reinterpret_cast<QSpinBox *>(w)->setValue(v)
+#define set_dsb_value(w, v) reinterpret_cast<QDoubleSpinBox *>(w)->setValue(v)
 
 // Prevent events triggered by filling out to cause a readback
 // FIXME: I should do this a better way.
 static ITEM *filling_item = 0;
+
+static void set_digits(int dig)
+{
+	struct _template	*tp;
+
+	for (tp=tmpl; tp->type; tp++)
+		if (tp->code == 0x237 || tp->code == 0x238)
+			reinterpret_cast<QDoubleSpinBox *>(tp->widget)->setDecimals(dig);
+}
 
 static void fillout_formedit_widget(
 	struct _template	*tp)
@@ -788,7 +797,7 @@ static void fillout_formedit_widget(
 
 	  case 0x237: set_dsb_value(w, item->min);			break;
 	  case 0x238: set_dsb_value(w, item->max);			break;
-	  case 0x230: set_sb_value(w, item->digits);			break;
+	  case 0x230: set_sb_value(w, item->digits); set_digits(item->digits);			break;
 	  case 0x23a: print_text_button_s(w, item->menu);		break;
 	  case 0x23b:
 	  case 0x23c:
@@ -921,8 +930,8 @@ static void cancel_callback(void)
 	form = 0;
 }
 
-#define get_sb_value(w) dynamic_cast<QSpinBox *>(w)->value()
-#define get_dsb_value(w) dynamic_cast<QDoubleSpinBox *>(w)->value()
+#define get_sb_value(w) reinterpret_cast<QSpinBox *>(w)->value()
+#define get_dsb_value(w) reinterpret_cast<QDoubleSpinBox *>(w)->value()
 
 static int readback_item(
 	int			indx)
@@ -1033,7 +1042,7 @@ static int readback_item(
 	 	      return(0);
 
 	  case IT_LABEL:
-	 	      item->type = (ITYPE)item_types[dynamic_cast<QComboBox *>(tp->widget)->currentIndex()].type;
+	 	      item->type = (ITYPE)item_types[reinterpret_cast<QComboBox *>(tp->widget)->currentIndex()].type;
 		      all = TRUE;
 		      break;
 
@@ -1059,8 +1068,7 @@ static int readback_item(
 
 	  case 0x237: item->min = get_dsb_value(w);			break;
 	  case 0x238: item->max = get_dsb_value(w);			break;
-	    // FIXME:  should adjust 237-238's digits as well
-	  case 0x239: item->digits = get_sb_value(w);			break;
+	  case 0x239: item->digits = get_sb_value(w); set_digits(item->digits);	break;
 	  case 0x23a: (void)read_text_button(w, &item->menu);		break;
 	  case 0x23b:
 	  case 0x23c:

@@ -13,12 +13,15 @@
     only resizes the window, but also moves it.  It should stay in
     one place.  Saving and restoring the position after
     adjustSize() does nothing, so maybe it's being moved
-    elsewhere.
+    elsewhere.  This may well be a window manager issue, though; I'm
+    one of the few people who still uses FVWM, which I have been using
+    for over 20 years now.  Some weirdnesses only apply to FVWM.
 
 - Do something about the help text.  Either make my own What's This?
   override or format the help text in a way that the built-in What's
   this displays better (perhaps even rich text).  Also, verify that all
-  help topics are actually present in grok.hlp.
+  help topics are actually present in grok.hlp, and that all topics
+  present in grok.hlp are actually used.
 
 - Do something about the manual.  I actually prefer a latex manual,
   which could be converted to HTML if desired.  The current HTML
@@ -144,7 +147,7 @@
 
 - Document the "standard" Qt command-line options, especially given
   that they seem to only be documented in the
-  QApplication/QGuiApplication constructor fuction documentation.
+  QApplication/QGuiApplication constructor documentation.
 
 - Remove Rambo Quit, and make Quit and window-close work like that
   instead.  This matches what most other applications do.  Also,

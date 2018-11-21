@@ -9,7 +9,7 @@
 // I have AA_UseStyleSHeetPropagationInWIdgetStyles set, but it doesn't
 // seem to do anything.
 "/* QMainWindow, QDialog, QMenu, .QWidget, .QFrame, QTreeWidget {\n"
-"     background-color: #a0a0a0; color: black;\n"
+"\tbackground-color: #a0a0a0; color: black;\n"
 "} */\n"
 "/* And menus in the default style no longer highlight */\n"
 "/* QMenu:selected, QMenu::tearoff:selected { background-color: black; color: #a0a0a0; } */\n"
@@ -23,67 +23,72 @@
 /*   Background of chart */
 "*[colBack=\"true\"] { background-color: #b4b4b4; }\n"
 /*   Background of read-only text widgets in card form */
-"QLineEdit:read-only { background-color: #b4b4b4; color: black; }\n"
-"/* BUG: QTextEdit's read-only flag is not detectable by :ready-only */\n"
-"QTextEdit[readOnly=\"true\"] { background-color: #b4b4b4; color: black; }\n"
+"/* Qt BUG: QTextEdit's read-only flag is not detectable by :ready-only */\n"
+"QLineEdit:read-only, QAbstractSpinBox:read-only, QTextEdit[readOnly=\"true\"] {\n"
+"\tbackground-color: #b4b4b4; color: black;\n"
+"}\n"
 "/* Former colSheet:  paper-like text scroll areas */\n"
 /*   Background of help text */
 /*   Background of text editor text */
-"*[colSheet=\"true\"], QTextEdit[colSheet=\"true\"] { background-color: #f0f0f0; color: black; }\n"
+"*[colSheet=\"true\"], QTextEdit[colSheet=\"true\"] {\n"
+"\tbackground-color: #f0f0f0; color: black;\n"
+"}\n"
 "/* Formerly colSheet, but can't be any more for technical reasons */\n"
 /*   Foreground color of inner border around selected bar in bar chart */
 "GrokChart { qproperty-hlcolor: #f0f0f0; }\n"
 "/* Former colTextBack:  standard background of text widgets */\n"
 /*   Background of editable text widgets */
-"QLineEdit { background-color: #c07070; color: white; }\n"
-"QTextEdit { background-color: #c07070; color: white; }\n"
+"/* Qt BUG: QComboBox's :editable property is true whenever window has focus */\n"
+"QLineEdit, QTextEdit, QAbstractSpinBox, QComboBox[editable=\"true\"] {\n"
+"\tbackground-color: #c07070; color: white;\n"
+"}\n"
 "/* Former colToggle:  toggle button diamond color */\n"
 /*   Checkbox and radio button background when selected */
 /*     This may need work, since it replaces graphics with a solid square */
 "/* This a bad idea, because it overrides style graphics completely */\n"
 "/* QSS sucks in this regard, */\n"
 "/* QAbstractButton::indicator:checked, QMenu::indicator:checked {\n"
-"   background-color: #c00000; } */\n"
+"\tbackground-color: #c00000; } */\n"
 "GrokCanvas {\n"
 "/* Former colCanvBack:  canvas background */\n"
 /*   Form editor canvas background */
-"    background-color: #b0b0b0;\n"
+"\tbackground-color: #b0b0b0;\n"
 "/* Former colCanvFrame:  canvas frame around boxes */\n"
 /*   Form editor canvas widget frame */
 /*   Form editor canvas divider between static & card area */
 /*   Form editor canvas frames around widgets */
-"    color: #101010;\n"
+"\tcolor: #101010;\n"
 "/* Former colCanvBox:  canvas box representing item */\n"
 /*   Form editor canvas background color for unselected widgets */
-"    qproperty-boxcolor: #808090;\n"
+"\tqproperty-boxcolor: #808090;\n"
 "/* Former colCanvSel:  canvas selected box */\n"
 /*   Form editor canvas background color for selected widgets */
-"    qproperty-selcolor: #e0e060;\n"
+"\tqproperty-selcolor: #e0e060;\n"
 "/* Former colCanvText:  canvas text inside box */\n"
 /*   Form editor canvas text color inside widgets */
-"    qproperty-textcolor: #101010;\n"
+"\tqproperty-textcolor: #101010;\n"
 "}\n"
 "GrokChart {\n"
-"    /* Former colChartAxis:  chart axis color */\n"
+"\t/* Former colChartAxis:  chart axis color */\n"
 /*   Chart axis color */
-"    qproperty-axiscolor: #101010;\n"
-"    /* Former colChartGrid:  chart grid color */\n"
+"\tqproperty-axiscolor:\t#101010;\n"
+"\t/* Former colChartGrid:  chart grid color */\n"
 /*   Chart grid color */
-"    qproperty-gridcolor: #707070;\n"
-"    /* Former colChartBox:  border of each bar in the chart */\n"
-"    /* Note that the chart used to use colStd, but now it uses this. */\n"
+"\tqproperty-gridcolor:\t#707070;\n"
+"\t/* Former colChartBox:  border of each bar in the chart */\n"
+"\t/* Note that the chart used to use colStd, but now it uses this. */\n"
 /*   Formerly unused (used colStd instead) */
-"    qproperty-boxcolor: #000000;\n"
-"    /* Former colChart0..colChart7:  eight colors for bars in chart */\n"
+"\tqproperty-boxcolor:\t#000000;\n"
+"\t/* Former colChart0..colChart7:  eight colors for bars in chart */\n"
 /* Color0 .. Color7 for chart bar colors */
-"    qproperty-color0:         #306080; /* blue */\n"
-"    qproperty-color1:         #a04040;	/* red */\n"
-"    qproperty-color2:         #a08040;	/* yellow */\n"
-"    qproperty-color3:         #408030;	/* green */\n"
-"    qproperty-color4:         #804080;	/* magenta */\n"
-"    qproperty-color5:         #408070;	/* cyan */\n"
-"    qproperty-color6:         #a06030;	/* orange */\n"
-"    qproperty-color7:         #f0f0f0;	/* white */\n"
+"\tqproperty-color0:\t#306080;\t/* blue */\n"
+"\tqproperty-color1:\t#a04040;\t/* red */\n"
+"\tqproperty-color2:\t#a08040;\t/* yellow */\n"
+"\tqproperty-color3:\t#408030;\t/* green */\n"
+"\tqproperty-color4:\t#804080;\t/* magenta */\n"
+"\tqproperty-color5:\t#408070;\t/* cyan */\n"
+"\tqproperty-color6:\t#a06030;\t/* orange */\n"
+"\tqproperty-color7:\t#f0f0f0;\t/* white */\n"
 "}\n"
 "\n"
 "/* Former fontList:  standard font; menus, text */\n"
