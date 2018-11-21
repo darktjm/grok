@@ -121,13 +121,6 @@
   default.  Maybe have more state than just deps on/off when refilling
   the form.
 
-- Numeric inputs (with spinboxes and min/max/digits (0=int)).  It is
-  not possible to know if a field is currently numeric.  It's just
-  in how it is used.  However, it would be nice to validate the
-  current db contents when a field is first turned into a numeric.
-  Also, not sure if blanks should be supported at all, especially
-  since spinboxes don't seem to support it.
-
 - Date/Time edit popups.  Qt's QDateTime and related widgets might
   work, but they have a few flaws: the spinner disappears if the
   date popup is present, and the spinner at least relies on the
@@ -249,7 +242,7 @@
     are somewhat incompatible.
 
     - Conversion to a numeric or time/date field should check all
-      values are numbers or blanks
+      values are numbers or blanks, and are in valid range
 
     - Conversion to a choice or flag field should, at "Done" time,
       verify database has correct values.  Same with any edit of
@@ -309,6 +302,21 @@
   there.  Note that if I support flag variables and flog storage
   separately, I'd have to also modify the field get/set routines to
   correclty extract/store the values; best to support all or nothing.
+  This should also provide array semantics for summary column & width.
+  One compromise for the latter would be to have a flag to display a
+  column for every possible value, each at the same width.
+
+- Multi-select and choice group fields should support "collapsing" the
+  main widget into a textual representation of selected items (either
+  formula or automatic comma-separated).
+
+- Automatically make the flag code equal to the label if blank.
+
+- Add validation for new field types to verify_form()
+
+- On "Done", clear all invisible fields to their default value
+
+- Note fields are currently not able to limit maximum length.
 
 - Support stepping over all possible values of a field whose
   Choice/flag code and/or combo text is an array.  Maybe ? instead

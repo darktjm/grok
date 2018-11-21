@@ -496,6 +496,10 @@ static void create_item_widgets(
 		  carditem->w1 = mk_label(wform, item, item.xs, item.ym);
 		{
 		  QListWidget *list = new CardListWidget(card, nitem, wform);
+		  list->setObjectName("list");
+		  list->move(item.x, item.y + item.ym);
+		  list->resize(item.xs, item.ys - item.ym);
+		  list->setProperty(font_prop[item.inputfont], true);
 		  list->setSelectionMode(QAbstractItemView::MultiSelection);
 		  char sep, esc;
 		  int begin, after = -1, cbegin, cafter = -1;
@@ -515,7 +519,7 @@ static void create_item_widgets(
 			list->addItem(tmp);
 			char c = item.flagcode[cafter];
 			item.flagcode[cafter] = 0;
-			list->item(n)->setData(Qt::UserRole, item.flagcode + cbegin);
+			list->item(n++)->setData(Qt::UserRole, item.flagcode + cbegin);
 			item.flagcode[cafter] = c;
 		  }
 		  free(tmp);
@@ -811,8 +815,11 @@ static void card_callback(
 				*vp++ = sep;
 			const QByteArray &ba = item->data(Qt::UserRole).toByteArray();
 			memcpy(vp, ba.data(), ba.length());
+			vp += ba.length();
 		}
 		*vp = 0;
+		// FIXME: use insertion sort above, instead.
+		toset(val, sep, esc);
 		if (!store(card, nitem, *val ? val : NULL)) {
 			free(val);
 			return;

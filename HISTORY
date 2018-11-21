@@ -236,8 +236,8 @@ Version 2.2
     be used in place of a large number of Choice buttons.
   * Added Radio Group fields, which provide automatic layout for Choice
     fields, if you prefer them over the Menu field type.
-  * Added Flag List fields, which display either a popup menu or a list,
-    where the selected items correspond to flags to set.  These can take
-    the place of large groups of Flag fields.
+  * Added Flag List fields, which display a list, where the selected
+    items correspond to flags to set.  These can take the place of
+    large groups of Flag fields, although they don't save much space.
   * Added Flag Group fields, which provide automatic layout for Flag
     fields, if you prefer them over the Flag List field type.

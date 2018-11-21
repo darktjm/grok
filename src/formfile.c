@@ -135,7 +135,7 @@ BOOL write_form(
 		write_str("codetxt    ", item->flagtext);
 		write_str("label      ", item->label);
 		write_int("ljust      ", item->labeljust, != J_LEFT);
-		write_int("lfont      ", item->labelfont);
+		write_int("lfont      ", item->labelfont, || true); /* dynamic default */
 		write_str("gray       ", item->gray_if);
 		write_str("freeze     ", item->freeze_if);
 		write_str("invis      ", item->invisible_if);
@@ -145,7 +145,7 @@ BOOL write_form(
 		write_str("default    ", item->idefault);
 		write_int("maxlen     ", item->maxlen, != 100);
 		write_int("ijust      ", item->inputjust, != J_LEFT);
-		write_int("ifont      ", item->inputfont);
+		write_int("ifont      ", item->inputfont, || true); /* dynamic default */
 		write_str("p_act      ", item->pressed);
 		write_str("a_act      ", item->added);
 		if (item->plan_if)
