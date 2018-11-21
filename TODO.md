@@ -79,6 +79,8 @@
 - Some shortcuts, such as ^G and ^Q, should be made global.  This
   would be obsoleted by the use of .ui files.
 
+- Consistently make blank strings NULL, and stop checking for blanks.
+
 - The layout of the form item editor needs tweaking.  At the very
   least, the chart options do not seem to have the right label
   width. Also, I should probably use SH_FormLayoutLabelAlignment.
@@ -269,9 +271,7 @@
 
 - Named query editor:
 
-  - Make 1st two columns non-resizable
-
-  - Maybe retain column width betwen invokations, or even in prefs.  I
+  - Maybe retain column width betwen invocations, or even in prefs.  I
     don't want to do the common Windows thing and make all positions
     and sizes persistent, though.
 
@@ -282,65 +282,41 @@
     really maintain it any more, and building it's a pain.)  I guess
     sorting/collation sequence is an issue I will have to look into in
     more detail for grok as a whole; strcasecmp probably doesn't cut it.
+    Note that this could be incorporated into the header, as is common.
 
   - Support drag-move for reordering.
 
 - Support editing the "menu" field (IT_INPUT combo box static values)
-  in a query editor-like dynamic table.
+  in a query editor-like dynamic table.  Same goes for flagcode and
+  flagtext for the other menu-style widgets.  Either the fields are
+  grayed out and a popup button is added to edit the list, or the
+  query-editor-like GUI is inserted in-place, and grows and shrinks
+  automatically (since I don't want scrollbar items in a panel that is
+  already scrollable).
 
 - Numeric fields should also support step adjustment.
 
-- Cycle gadgets/popup menus/whatever the platform calls it to replace
-  radio boxes.  Basically looks like a pushbutton with a label
-  showing the currently selected value.  This takes up much less
-  space than a radio group, and only loses the ability to see what
-  other values are available at a glance.
+- I thought I read somewhere that Qt has a popup form of the
+  multi-select list.  If so, support that, since it's more compact.
 
-  - The combo box's new "menu" field is an array of labels.  An
-    equal-sized array in Choice/flag code and Show in summary
-    provides the equivalents for those fields.  Either the fields
-    are grayed out and a popup button is added to edit these as a
-    group in a GUI similar to the query editor, or the
-    query-editor-like GUI is inserted in-place, and grows and
-    shrinks automatically (since I don't want scrollbar items in a
-    panel that is already scrollable).
+- For multi-select lists and checkbox groups, perhaps support storing
+  individual flags by having an additional array field of columns.
+  This might interfere with the common ->column usage, though.  The
+  same comment applies if I want to have individual flag variables,
+  as well.  It's best to just force users to test with set
+  intersection.  Perhaps I'll revisit this if I get SQL working,
+  since having an infinitely resizable field is not such a good idea
+  there.  Note that if I support flag variables and flog storage
+  separately, I'd have to also modify the field get/set routines to
+  correclty extract/store the values; best to support all or nothing.
 
-- Radio groups: displayed as a grid of radio buttons surrounded by a
-  label frame.  Layout is in a grid, layed out horizontally and then
-  vertically.  When a row exceeds the widget width, the entire
-  widget is narrowed by one column and layout starts again at the
-  top.  If there are too many rows, it just clips (maybe with a
-  warning).  Configuration is identical to cycle gadgets.
-
-- Add multi-select list widgets, whose value is a set.  Configuration
-  is the same as ccyle gadgets.  Qt provides two basic widget types
-  for this:  a popup menu with multi-select, and a static listing with
-  multi-select.  I originally only intended to support the latter, but
-  the former takes less space.  Maybe I should add another widget
-  type for this rather than overloading one type.  That way, the
-  in-place listing's label can be by default on top, like it is with
-  notes.
-
-  - Also, perhaps support storing individual flags by having an
-    additional array field of columns.  This might interfere with
-    the common ->column usage, though.  The same comment applies if
-    I want to have individual flag variables, as well.  It's best
-    to just force users to test with set intersection.  Perhaps I'll
-    revisit this if I get SQL working, since having an infinitely
-    resizable field is not such a good idea there.
-
-  - Also, perhaps support stepping over all possible values of a
-    field whose Choice/flag code and/or combo text is an array.
-    Maybe ? instead of + to select Choice/flag codes and ?+ to
-    select combo/label text.  To support the multi-field thing,
-    you'd need a way to select the group (perhaps any field name
-    in the group) and then you can step through the possible field
-    names with ?&.  Or, only ? and multiple elt-bindings such as
-    elt, eltlabel, eltvar.
-
-- Add checkbox group "widgets" whose value is stored in a single field
-  as a set; otherwise just like Radio groups and multi-select list
-  widgets above.
+- Support stepping over all possible values of a field whose
+  Choice/flag code and/or combo text is an array.  Maybe ? instead
+  of + to select Choice/flag codes and ?+ to select combo/label
+  text.  To support the multi-field thing, you'd need a way to
+  select the group (perhaps any field name in the group) and then
+  you can step through the possible field names with ?&.  Or, only ?
+  and multiple elt-bindings such as elt, eltlabel, eltvar.
 
 - Add "Never blank" flag (requires a default value) and a "Unique"
   flag similar to SQL.  Unique implies Never Blank, unlike SQL's

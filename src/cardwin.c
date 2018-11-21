@@ -22,7 +22,7 @@
 #include "proto.h"
 
 static void create_item_widgets(CARD *, int);
-static void card_callback(int, CARD *, bool f = false);
+static void card_callback(int, CARD *, bool f = false, int i = 0);
 void card_readback_texts(CARD *, int);
 static BOOL store(CARD *, int, const char *);
 
@@ -194,6 +194,17 @@ static QLabel *mk_label(QWidget *wform, ITEM &item, int w, int h)
 	return lab;
 }
 
+static QGroupBox *mk_groupbox(QWidget *wform, ITEM &item)
+{
+	QGroupBox *gb = new QGroupBox(item.label, wform);
+	gb->setObjectName("label");
+	gb->move(item.x, item.y);
+	gb->resize(item.xs, item.ys);
+	gb->setAlignment(JUST(item.labeljust));
+	gb->setProperty(font_prop[item.labelfont], true);
+	return gb;
+}
+
 // The only way to suppress an event is to override it.  Qt doesn't
 // provide any focus-related signals, anyway.
 
@@ -247,6 +258,11 @@ struct CardLineEdit : public QLineEdit {
 struct CardComboBox : public QComboBox {
 	CardComboBox(CARD *c, int i, QWidget *p) : QComboBox(p) OVERRIDE_INIT(c,i)
 	OVERRIDE_FOCUS(QComboBox)
+};
+
+struct CardListWidget : public QListWidget {
+	CardListWidget(CARD *c, int i, QWidget *p) : QListWidget(p) OVERRIDE_INIT(c,i)
+	OVERRIDE_FOCUS(QListWidget)
 };
 
 struct CardInputComboBox : public QComboBox {
@@ -361,6 +377,8 @@ static void create_item_widgets(
 					next_aelt(item.menu, &begin, &after, sep, esc);
 					if(after < 0)
 						break;
+					if(after == begin)
+						continue;
 					*unescape(tmp, item.menu + begin, after - begin, esc) = 0;
 					cb->c_static.append(tmp);
 				}
@@ -377,9 +395,11 @@ static void create_item_widgets(
 		  le->setReadOnly(!editable);
 		  // le->setTextMargins(l, r, 2, 2);
 		  if (editable) {
+#if 0 // Screw it.  Updating after every keystroke is insane (and breaks dates).
 			  // Make this update way too often, just like IT_NOTE.
 			  set_qt_cb(QLineEdit, textChanged, le,
 				    card_callback(nitem, card, false));
+#endif
 			  if (cb)
 				  // Only update dependent widgets when done
 				  set_combo_cb(cb, card_callback(nitem, card, true));
@@ -390,41 +410,36 @@ static void create_item_widgets(
 		}
 		break;
 
-	  case IT_NUMBER:				/* number spin box */
+	  case IT_NUMBER: {				/* number spin box */
+		QAbstractSpinBox *asb;
 		if (item.xm > 6)
 		  carditem->w1 = mk_label(wform, item, item.xm - 6, item.ys);
 		if (item.digits > 0) {
 		  QDoubleSpinBox *sb = new CardDoubleSpinBox(card, nitem, wform);
-		  carditem->w0 = sb;
-		  sb->setObjectName("input");
-		  sb->move(item.x + item.xm, item.y);
-		  sb->resize(item.xs - item.xm, item.ys);
-		  sb->setAlignment(JUST(item.inputjust));
-		  sb->setProperty(font_prop[item.inputfont], true);
+		  asb = sb;
 		  sb->setRange(item.min, item.max);
 		  sb->setDecimals(item.digits);
-		  sb->setReadOnly(!editable);
-		  // sb->setTextMargins(l, r, 2, 2);
-		  if (editable)
-			set_spin_cb(sb, card_callback(nitem, card, true));
 		} else {
 		  QSpinBox *sb = new CardSpinBox(card, nitem, wform);
-		  carditem->w0 = sb;
-		  sb->setObjectName("input");
-		  sb->move(item.x + item.xm, item.y);
-		  sb->resize(item.xs - item.xm, item.ys);
-		  sb->setAlignment(JUST(item.inputjust));
-		  sb->setProperty(font_prop[item.inputfont], true);
+		  asb = sb;
 		  sb->setRange((int)item.min, (int)item.max);
-		  sb->setReadOnly(!editable);
-		  // sb->setTextMargins(l, r, 2, 2);
-		  if (editable)
-			set_spin_cb(sb, card_callback(nitem, card, true));
 		}
+		carditem->w0 = asb;
+		asb->setObjectName("input");
+		asb->move(item.x + item.xm, item.y);
+		asb->resize(item.xs - item.xm, item.ys);
+		asb->setAlignment(JUST(item.inputjust));
+		asb->setProperty(font_prop[item.inputfont], true);
+		asb->setReadOnly(!editable);
+		// sb->setTextMargins(l, r, 2, 2);
+		if (editable)
+			set_spin_cb(asb, card_callback(nitem, card, true));
 		break;
+	  }
 
 	  case IT_NOTE:				/* multi-line text */
-		carditem->w1 = mk_label(wform, item, item.xs, item.ym);
+		if (item.ym > 6)
+			carditem->w1 = mk_label(wform, item, item.xs, item.ym);
 		{
 		  QTextEdit *te = new CardTextEdit(card, nitem, wform);
 		  carditem->w0 = te;
@@ -440,12 +455,14 @@ static void create_item_widgets(
 		  // QSS doesn't support :read-only for QTextEdit
 		  if (!editable)
 			te->setProperty("readOnly", true);
+#if 0 // Screw it.  Updating after every keystroke is insane.
 		   else {
 			// This updates way too often:  every character.
 			set_qt_cb(QTextEdit, textChanged, te, card_callback(nitem, card, false));
 			// But there is no equivalent to editingFinished here
 			// Instead, focusOutEvent is overridden above.
 		   }
+#endif
 		}
 		break;
 
@@ -454,13 +471,151 @@ static void create_item_widgets(
 		  carditem->w1 = mk_label(wform, item, item.xm - 6, item.ys);
 		{
 		  QComboBox *cb = new CardComboBox(card, nitem, wform);
+		  cb->setObjectName("menu");
+		  cb->move(item.x + item.xm, item.y);
+		  cb->resize(item.xs - item.xm, item.ys);
+		  cb->setProperty(font_prop[item.inputfont], true);
+		  char sep, esc;
+		  int begin, after = -1;
+		  get_form_arraysep(card->form, &sep, &esc);
+		  char *tmp = (char *)malloc(item.menu ? strlen(item.menu) + 1 : 1);
+		  while(1) {
+			next_aelt(item.menu, &begin, &after, sep, esc);
+			if(after < 0)
+				break;
+			*unescape(tmp, item.menu + begin, after - begin, esc) = 0;
+			cb->addItem(tmp);
+		  }
+		  free(tmp);
+		  set_popup_cb(cb, card_callback(nitem, card, true, i), int, i);
 		  carditem->w0 = cb;
 		  break;
 		}
+	  case IT_MULTI:
+		if (item.ym > 6)
+		  carditem->w1 = mk_label(wform, item, item.xs, item.ym);
+		{
+		  QListWidget *list = new CardListWidget(card, nitem, wform);
+		  list->setSelectionMode(QAbstractItemView::MultiSelection);
+		  char sep, esc;
+		  int begin, after = -1, cbegin, cafter = -1;
+		  get_form_arraysep(card->form, &sep, &esc);
+		  char *tmp = (char *)malloc(item.menu ? strlen(item.menu) + 1 : 1);
+		  int n = 0;
+		  while(1) {
+			next_aelt(item.menu, &begin, &after, sep, esc);
+			if(after < 0)
+				break;
+			next_aelt(item.flagcode, &cbegin, &cafter, sep, esc);
+			if(cafter < 0)
+				break;
+			if(cafter == cbegin) // disallow blanks
+				continue;
+			*unescape(tmp, item.menu + begin, after - begin, esc) = 0;
+			list->addItem(tmp);
+			char c = item.flagcode[cafter];
+			item.flagcode[cafter] = 0;
+			list->item(n)->setData(Qt::UserRole, item.flagcode + cbegin);
+			item.flagcode[cafter] = c;
+		  }
+		  free(tmp);
+		  set_qt_cb(QListWidget, itemSelectionChanged, list, card_callback(nitem, card));
+		  carditem->w0 = list;
+		  break;
+		}
 
-	  case IT_RADIO: /* FIXME: implement */
-	  case IT_MULTI: /* FIXME: implement */
-	  case IT_FLAGS: /* FIXME: implement */
+	  case IT_RADIO:
+	  case IT_FLAGS: {
+		carditem->w0 = mk_groupbox(wform, item);
+		// This forces a "line break" if the computed size of the
+		// buttons in the line is too wide.  When this happens,
+		// the number of columns is reduced until all added widgets
+		// fit.  Vertical fit is up to the user to fix.  The minimum
+		// number of columns is 1, so that may require user action
+		// to force a fit, as well.
+		// I suppose I could modify the FlexLayout example instead
+		// of doing this, but I don't feel like it.
+		unsigned int maxcols, *colwidth = (unsigned int *)calloc(maxcols = 10, sizeof(*colwidth));
+		QGridLayout *l = new QGridLayout(carditem->w0);
+		add_layout_qss(l, "buttongroup");
+		unsigned int ncol = ~0U, col = 0, row = 0, curwidth = 0, n;
+		unsigned int mwidth = carditem->w0->contentsRect().width();
+		char sep, esc;
+		int begin, after = -1;
+		get_form_arraysep(card->form, &sep, &esc);
+		char *tmp = (char *)malloc(item.menu ? strlen(item.menu) + 1 : 1);
+		for(n = 0; ; n++) {
+			QAbstractButton *b;
+			next_aelt(item.menu, &begin, &after, sep, esc);
+			if(after < 0)
+				break;
+			*unescape(tmp, item.menu + begin, after - begin, esc) = 0;
+			if(item.type == IT_RADIO)
+				b = new CardRadioButton(card, nitem, tmp, carditem->w0);
+			else
+				b = new CardCheckBox(card, nitem, tmp, carditem->w0);
+			b->setProperty(font_prop[item.inputfont], true);
+			b->ensurePolished();
+			if(colwidth[col] < (unsigned int)b->sizeHint().width())
+				colwidth[col] = b->sizeHint().width();
+			curwidth += colwidth[col];
+			if(col > 0)
+				curwidth += l->spacing();
+			if(ncol > 1 && curwidth > mwidth) {
+				// The first row is cut off at col
+				// Remaing rows are cut by 1 at a time
+				ncol = n > col ? ncol - 1 : col;
+				if(n > col && ncol > 1) {
+					unsigned int pncol;
+					memset(colwidth, 0, ncol * sizeof(*colwidth));
+					do {
+						pncol = ncol;
+						curwidth = col = 0;
+						QListIterator<QObject *>iter(carditem->w0->children());
+						while(iter.hasNext()) {
+							QWidget *w = dynamic_cast<QAbstractButton *>(iter.next());
+							if(!w)
+								continue;
+							if(colwidth[col] < (unsigned int)w->sizeHint().width())
+								colwidth[col] = w->sizeHint().width();
+							curwidth += colwidth[col];
+							if(col > 0)
+								curwidth += l->spacing();
+							if(curwidth > mwidth) {
+								--ncol;
+								break;
+							}
+							if(++col == ncol)
+								col = curwidth = 0;
+						}
+					} while(pncol != ncol && ncol > 1);
+				} else {
+					col = 1;
+					curwidth = b->sizeHint().width();
+				}
+			} else if(++col >= ncol)
+				col = curwidth = 0;
+			if(col == maxcols) {
+				colwidth = (unsigned int *)realloc(colwidth, (maxcols *= 2) * sizeof(*colwidth));
+				memset(colwidth + col, 0, col * sizeof(*colwidth));
+			}
+			set_button_cb(b, card_callback(nitem, card, c, n), bool c);
+		}
+		free(tmp);
+		col = 0;
+		QListIterator<QObject *>iter(carditem->w0->children());
+		while(iter.hasNext()) {
+			QWidget *w = dynamic_cast<QAbstractButton *>(iter.next());
+			if(!w)
+				continue;
+			l->addWidget(w, row, col);
+			if(++col == ncol) {
+				col = 0;
+				++row;
+			}
+		}
+		break;
+	  }
 	  case IT_CHOICE:			/* diamond on/off switch */
 	  case IT_FLAG: {			/* square on/off switch */
 		  QAbstractButton *b;
@@ -526,7 +681,8 @@ static void create_item_widgets(
 static void card_callback(
 	int			nitem,
 	CARD			*card,
-	bool			flag)
+	bool			flag,
+	int			index)
 {
 	ITEM		*item;
 	const char	*n;
@@ -567,6 +723,103 @@ static void card_callback(
 		if (!store(card, nitem, flag ? n : 0))
 			return;
 		break;
+
+	   case IT_MENU:
+	   case IT_RADIO: {
+		if (!flag)
+			return;
+		char sep, esc;
+		int begin, after = -1;
+		get_form_arraysep(card->form, &sep, &esc);
+		elt_at(item->flagcode, index, &begin, &after, sep, esc);
+		if (begin != after) {
+			char *tmp = (char *)malloc(after - begin + 1);
+			*unescape(tmp, item->flagcode + begin, after - begin, esc) = 0;
+			if (!store(card, nitem, tmp)) {
+				free(tmp);
+				return;
+			}
+			free(tmp);
+		} else if(!store(card, nitem, NULL))
+			return;
+		break;
+	  }
+
+	   case IT_FLAGS: {
+		char sep, esc;
+		int begin, after = -1;
+		get_form_arraysep(card->form, &sep, &esc);
+		elt_at(item->flagcode, index, &begin, &after, sep, esc);
+		if(begin == after) // blanks not allowed
+			return;
+		char *old = dbase_get(card->dbase, card->row, item->column);
+		if(!old) {
+			if(!flag)
+				return;
+			char c = item->flagcode[after];
+			item->flagcode[after] = 0;
+			if(!store(card, nitem, item->flagcode + begin)) {
+				item->flagcode[after] = c;
+				return;
+			}
+			item->flagcode[after] = c;
+			break;
+		}
+		int obegin, oafter;
+		if(find_elt(old, item->flagcode + begin, after - begin,
+			   &obegin, &oafter, sep, esc) == flag)
+			return;
+		char *tmp;
+		if(flag) {
+			int len = strlen(old);
+			tmp = (char *)malloc(len + after - begin + 2);
+			memcpy(tmp, old, obegin);
+			if(obegin)
+				tmp[obegin++] = sep;
+			memcpy(tmp + obegin, item->flagcode + begin, after - begin);
+			if(!obegin)
+				tmp[after - begin + obegin++] = sep;
+			memcpy(tmp + after - begin + obegin, old + obegin - 1, len - obegin + 2);
+		} else {
+			tmp = strdup(old);
+			if(old[oafter])
+				memcpy(tmp + obegin, old + oafter + 1,
+				       strlen(old + oafter));
+			else
+				tmp[obegin ? obegin - 1 : 0] = 0;
+		}
+		if (!store(card, nitem, *tmp ? tmp : NULL)) {
+			free(tmp);
+			return;
+		}
+		free(tmp);
+		break;
+	  }
+
+	   case IT_MULTI: {
+		char sep, esc;
+		get_form_arraysep(card->form, &sep, &esc);
+		if(!item->flagcode || !*item->flagcode)
+			   break;
+		char *val = (char *)malloc(strlen(item->flagcode) + 1), *vp = val;
+		QListIterator<QListWidgetItem *> sel(
+			   reinterpret_cast<QListWidget *>(card->items[nitem].w0) ->
+			   	selectedItems());
+		while(sel.hasNext()) {
+			const QListWidgetItem *item = sel.next();
+			if(vp > val)
+				*vp++ = sep;
+			const QByteArray &ba = item->data(Qt::UserRole).toByteArray();
+			memcpy(vp, ba.data(), ba.length());
+		}
+		*vp = 0;
+		if (!store(card, nitem, *val ? val : NULL)) {
+			free(val);
+			return;
+		}
+		free(val);
+		break;
+	  }
 
 	  case IT_BUTTON:				/* pressable button */
 		if ((redraw = item->pressed)) {
@@ -821,9 +1074,15 @@ void fillout_item(
 		FALLTHROUGH
 	  case IT_INPUT:
 		if (!deps) {
+			CardInputComboBox *cb = dynamic_cast<CardInputComboBox *>(w0);
 			if(item->dcombo != C_NONE) {
-				QStringList &l = dynamic_cast<CardInputComboBox *>(w0)->c_dynamic;
-				l.clear();
+				// sets are hash tables.  I'd rather have
+				// sorted lists using insertion sort to avoid
+				// the sort() call later, but I take what I
+				// can get.  At least this is better than my
+				// previous code that stuck to lists (very
+				// likely using linear searches)
+				QSet<QString> set;
 				int nmax = card->dbase && item->dcombo == C_ALL ? card->dbase->nrows : card->nquery;
 				for(int n = 0; n < nmax; n++) {
 					char *other;
@@ -831,21 +1090,20 @@ void fillout_item(
 						continue;
 					int idx = item->dcombo == C_ALL ? n : card->query[n];
 					other = dbase_get(card->dbase, idx, card->form->items[i]->column);
-					// rather than linear searching on every item,
-					// append all and remove dups.
-					// This uses way too much memory.
 					if(other && *other)
-						l.append(other);
+						set.insert(other);
 				}
-				// Hopefully this is implmented without
-				// linear searching.  I propbably wouldn't
-				// notice either way.
-				l.removeDuplicates();
+				// Remove duplicates of statics
+				QStringListIterator iter(cb->c_static);
+				while(iter.hasNext())
+					set.remove(iter.next());
+				QStringList &l = cb->c_dynamic;
+				l = set.toList();
 				// sorting is probably useful regardless
+				// but I won't sort the statics
 				l.sort();
 			}
 			if(item->menu || item->dcombo) {
-				CardInputComboBox *cb = dynamic_cast<CardInputComboBox *>(w0);
 				QSignalBlocker sb(cb->lineEdit());
 				cb->clear();
 				cb->addItems(cb->c_static);
@@ -878,15 +1136,90 @@ void fillout_item(
 		print_text_button_s(w0, evaluate(card, item->idefault));
 		break;
 
-	  case IT_MENU: /* FIXME: implement */
-	  case IT_RADIO: /* FIXME: implement */
-	  case IT_MULTI: /* FIXME: implement */
-	  case IT_FLAGS: /* FIXME: implement */
+	  case IT_MENU: {
+		char defesc[3], &sep=defesc[1], &esc=defesc[0], *s = (char *)data;
+		int begin, after = -1, nesc, n, len = data ? strlen(data) : 0;
+		get_form_arraysep(card->form, &sep, &esc);
+		defesc[2] = 0;
+		if(data && *data && (nesc = countchars(data, defesc))) {
+			s = (char *)malloc(len + nesc + 1);
+			*escape(s, data, len, esc, defesc) = 0;
+			len += nesc;
+		}
+		for(n = 0; ; n++) {
+			next_aelt(item->flagcode, &begin, &after, sep, esc);
+			if(after < 0)
+				break; // unknown value - this will act strange
+			if(after - begin == len && !memcmp(item->flagcode + begin, s, len)) {
+				reinterpret_cast<QComboBox *>(w0)->setCurrentIndex(n);
+				break;
+			}
+		}
+		if(s != data)
+			free(s);
+		break;
+	  }
+
+	  case IT_MULTI: {
+		char sep, esc;
+		int begin, after = -1, n;
+		get_form_arraysep(card->form, &sep, &esc);
+		QListWidget *l = reinterpret_cast<QListWidget *>(w0);
+		QSignalBlocker blk(l);
+		for(n = 0; ; n++) {
+			next_aelt(item->flagcode, &begin, &after, sep, esc);
+			if(after < 0)
+				break;
+			if(begin == after) {
+				n--;
+				continue;
+			}
+			int fbegin, fafter;
+			l->item(n)->setSelected(!data || !*data ? false :
+						find_elt(data, item->flagcode + begin,
+							 after - begin,
+							 &fbegin, &fafter,
+							 sep, esc));
+		}
+		break;
+	  }
+
 	  case IT_CHOICE:
 	  case IT_FLAG:
 		set_toggle(w0, data && item->flagcode
 				    && !strcmp(data, item->flagcode));
 		break;
+
+	  case IT_RADIO:
+	  case IT_FLAGS: {
+		char sep, esc;
+		int begin, after = -1;
+		get_form_arraysep(card->form, &sep, &esc);
+		char *tmp;
+		if(item->type == IT_RADIO)
+			tmp = (char *)malloc(item->flagcode ? strlen(item->flagcode) + 1 : 1);
+		QListIterator<QObject *>iter(w0->children());
+		while(iter.hasNext()) {
+			QAbstractButton *w = dynamic_cast<QAbstractButton *>(iter.next());
+			if(!w)
+				continue;
+			next_aelt(item->flagcode, &begin, &after, sep, esc);
+			if(item->type == IT_RADIO) {
+				*unescape(tmp, item->flagcode + begin, after - begin, esc) = 0;
+				w->setChecked(!strcmp(tmp, data ? data : ""));
+			} else {
+				if(begin == after)
+					break;
+				int qbegin, qafter;
+				w->setChecked(data && *data &&
+					      find_elt(data,
+						       item->flagcode + begin,
+						       after - begin,  &qafter,
+						       &qbegin, sep, esc));
+			}
+		}
+		break;
+	  }
 
 	  case IT_CHART:
 		draw_chart(card, i);

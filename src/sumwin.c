@@ -189,6 +189,7 @@ void make_summary_line(
 	qsort((void *)sorted, card->form->nitems, sizeof(ITEM *), compare);
 
 	for (i=0; i < card->form->nitems; i++) {
+		char *allocdata = NULL;
 		item = sorted[i];
 		if (!IN_DBASE(item->type) || item->sumwidth < 1)
 			continue;
@@ -229,11 +230,41 @@ void make_summary_line(
 				    && item->flagtext && item->flagcode && data
 				    && !strcmp(data, item->flagcode))
 				data = item->flagtext;
+			if ((item->type == IT_MENU || item->type == IT_RADIO)
+				    && item->flagtext && item->flagcode && data) {
+				allocdata = strdup(item->flagcode);
+				int begin, after = -1, tbegin, tafter = -1;
+				char sep, esc;
+				int dlen = strlen(data);
+				get_form_arraysep(card->form, &sep, &esc);
+				while(1) {
+					next_aelt(allocdata, &begin, &after, sep, esc);
+					if(after < 0)
+						break; /* invalid code! */
+					next_aelt(item->flagtext, &tbegin, &tafter, sep, esc);
+					if(tafter < 0)
+						break;
+					int ulen = unescape(allocdata, allocdata + begin, after - begin, esc) - allocdata;
+					if(ulen == dlen && !memcmp(allocdata, data, dlen)) {
+						free(allocdata);
+						if(tbegin == tafter) {
+							allocdata = NULL;
+							break;
+						}
+						allocdata = (char *)malloc(tafter - tbegin + 1);
+						*unescape(allocdata, item->flagtext + tbegin, tafter - tbegin, esc) = 0;
+						data = allocdata;
+						break;
+					}
+				}
+			}
 			if (item->type == IT_TIME && row >= 0)
 				data = format_time_data(data, item->timefmt);
 		}
 		if (data)
 			strncpy(buf+x, data, 80);
+		if (allocdata)
+			free(allocdata);
 		buf[x + item->sumwidth] = 0;
 		for (j=x; buf[j]; j++)
 			if (buf[j] == '\n')

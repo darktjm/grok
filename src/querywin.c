@@ -152,6 +152,8 @@ void create_query_window(
 			       QAbstractItemView::SelectedClicked);
 	qlist->setSelectionBehavior(QAbstractItemView::SelectRows);
 	qlist->horizontalHeader()->setStretchLastSection(true);
+	qlist->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+	qlist->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
 	// qlist->setDragDropMode(QAbstractItemView::InternalMove);
 	// qlist->setDropIndicatorShown(true);
 	qlist->verticalHeader()->hide();

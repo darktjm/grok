@@ -41,9 +41,11 @@ const char		plan_code[] = "tlwWrecnmsSTA";	/* code 0x260..0x26c */
 #define ITX 1U<<IT_INPUT  | 1U<<IT_TIME | 1U<<IT_NOTE | 1U<<IT_NUMBER
 #define ITP 1U<<IT_INPUT  | 1U<<IT_TIME | 1U<<IT_NOTE
 #define TXT 1U<<IT_PRINT  | ITX
+#define FT2 TXT | 1U<<IT_RADIO | 1U<<IT_FLAGS
 #define TXF 1U<<IT_CHOICE | TXT
 #define FLG 1U<<IT_CHOICE | 1U<<IT_FLAG
 #define MUL 1U<<IT_MENU | 1U<<IT_RADIO | 1U<<IT_MULTI | 1U<<IT_FLAGS
+#define COD FLG | MUL
 #define CMB 1U<<IT_INPUT  | MUL
 #define BAS ITX | FLG | MUL
 #define IDF TXF | FLG | MUL
@@ -142,10 +144,10 @@ static struct _template {
 	{ BAS, 'i',	0x207,	" ",			"fe_sum",	},
 	{ BAS, 'L',	 0,	"Show in summary:",	"fe_sump",	},
 	{ BAS, 'T',	0x229,	" ",			"fe_sump",	},
-	{ FLG, 'L',	 0,	"Choice/flag code:",	"fe_flag",	},
-	{ FLG, 't',	0x208,	" ",			"fe_flag",	},
-	{ FLG, 'l',	 0,	"shown in summary as",	"fe_flag",	},
-	{ FLG, 't',	0x236,	" ",			"fe_flag",	},
+	{ COD, 'L',	 0,	"Choice/flag code:",	"fe_flag",	},
+	{ COD, 't',	0x208,	" ",			"fe_flag",	},
+	{ COD, 'l',	 0,	"shown in summary as",	"fe_flag",	},
+	{ COD, 't',	0x236,	" ",			"fe_flag",	},
 	{ TIM, 'L',	 0,	"Time format:",		"fe_time",	},
 	{   0, 'R',	 0,	" ",			0,		},
 	{ TIM, 'r',	0x209,	"Date",			"fe_time",	},
@@ -175,13 +177,13 @@ static struct _template {
 	{ TXT, 'r',	0x21b,	"left",			"fe_ijust",	},
 	{ TXT, 'r',	0x21c,	"center",		"fe_ijust",	},
 	{ TXT, 'r',	0x21d,	"right",		"fe_ijust",	},
-	{ TXT, 'L',	 0,	"Input font:",		"fe_ijust",	},
+	{ FT2, 'L',	 0,	"Input font:",		"fe_ijust",	},
 	{   0, 'R',	 0,	" ",			0,		},
-	{ TXT, 'r',	0x215,	"Helv",			"fe_ifont",	},
-	{ TXT, 'r',	0x216,	"HelvO",		"fe_ifont",	},
-	{ TXT, 'r',	0x217,	"HelvN",		"fe_ifont",	},
-	{ TXT, 'r',	0x218,	"HelvB",		"fe_ifont",	},
-	{ TXT, 'r',	0x219,	"Courier",		"fe_ifont",	},
+	{ FT2, 'r',	0x215,	"Helv",			"fe_ifont",	},
+	{ FT2, 'r',	0x216,	"HelvO",		"fe_ifont",	},
+	{ FT2, 'r',	0x217,	"HelvN",		"fe_ifont",	},
+	{ FT2, 'r',	0x218,	"HelvB",		"fe_ifont",	},
+	{ FT2, 'r',	0x219,	"Courier",		"fe_ifont",	},
 	{ ITP, 'L',	 0,	"Max input length:",	"fe_range",	},
 	{ ITP, 'i',	0x21f,	" ",			"fe_range",	},
 	{ CMB, 'L',	 0,	"Combo Box",		"fe_combo",	},
@@ -734,7 +736,7 @@ static void fillout_formedit_widget(
 	  case IT_LABEL:
 		  for(int n = 0; n < N_ITEM_TYPES; n++)
 			  if(item_types[n].type == item->type) {
-				  dynamic_cast<QComboBox *>(w)->setCurrentIndex(n);
+				  reinterpret_cast<QComboBox *>(w)->setCurrentIndex(n);
 				  break;
 			  }
 		  break;

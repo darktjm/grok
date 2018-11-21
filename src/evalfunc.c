@@ -883,7 +883,7 @@ int f_alen(char *array)
     return ret;
 }
 
-void find_elt(char *array, int n, int *begin, int *after, char sep, char esc)
+void elt_at(char *array, int n, int *begin, int *after, char sep, char esc)
 {
     *after = -1;
     do {
@@ -912,7 +912,7 @@ char *f_elt(char *array, int n)
     char sep, esc;
     int b, a;
     get_cur_arraysep(&sep, &esc);
-    find_elt(array, n, &b, &a, sep, esc);
+    elt_at(array, n, &b, &a, sep, esc);
     if(b == a) {
 	if(array)
 	    free(array);
@@ -922,7 +922,7 @@ char *f_elt(char *array, int n)
     return array;
 }
 
-int countchars(const char *s, char *c)
+int countchars(const char *s, const char *c)
 {
     int len = 0;
     if(!s)
@@ -957,7 +957,7 @@ char *set_elt(char *array, int n, char *val)
     if(n < 0)
 	n = stralen(array, sep, esc);
     vesc = countchars(val, toesc);
-    find_elt(array, n, &b, &a, sep, esc);
+    elt_at(array, n, &b, &a, sep, esc);
     if(a >= 0) { // replace
 	if(vlen + vesc == a - b)
 	    escape(array + b, val, vlen, esc, toesc + 1);
@@ -1159,7 +1159,7 @@ char *f_union(char *a, char *b)
     return a;
 }
 
-static void elt_at(char *array, int o, int *begin, int *after, char sep, char esc)
+static void elt_at(const char *array, int o, int *begin, int *after, char sep, char esc)
 {
     int b = o, a = o;
     while(1) { // find start
@@ -1187,7 +1187,7 @@ static void elt_at(char *array, int o, int *begin, int *after, char sep, char es
     *after = a;
 }
 
-bool findelt(char *a, char *s, int len, int *begin, int *after, char sep, char esc)
+bool find_elt(const char *a, const char *s, int len, int *begin, int *after, char sep, char esc)
 {
     int l = 0, h = strlen(a) - 1, m;
     int mb, ma;
@@ -1210,6 +1210,7 @@ bool findelt(char *a, char *s, int len, int *begin, int *after, char sep, char e
 	    return true;
 	}
     }
+    *begin = l > len ? len : l;
     return false;
 }
 
@@ -1243,7 +1244,7 @@ char *f_intersect(char *a, char *b)
 	    break;
 	if(begin == after)
 	    continue;
-	if(!findelt(a, b + begin, after - begin, &fbegin, &fafter, sep, esc)) {
+	if(!find_elt(a, b + begin, after - begin, &fbegin, &fafter, sep, esc)) {
 	    blen = del_elt(b, blen, begin, after);
 	    after = begin - 1; // note this may make it -1, so can't use do-while
 	}
@@ -1269,7 +1270,7 @@ char *f_setdiff(char *a, char *b)
 	next_aelt(b, &begin, &after, sep, esc);
 	if(begin == after)
 	    continue;
-	if(findelt(a, b + begin, after - begin, &fbegin, &fafter, sep, esc)) {
+	if(find_elt(a, b + begin, after - begin, &fbegin, &fafter, sep, esc)) {
 	    alen = del_elt(a, alen, fbegin, fafter);
 	    if(!alen)
 		break;

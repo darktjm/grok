@@ -223,7 +223,7 @@ char *f_printf(
 int re_match(char *s, char *e);
 char *re_sub(char *s, char *e, char *r, bool all);
 // count aoccurrences of c-chars in s
-int countchars(const char *s, char *c);
+int countchars(const char *s, const char *c);
 // remove esc from s, keeping following char.  Returns end of d.
 // negative len -> strlen(s)
 char *unescape(char *d, const char *s, int len, char esc);
@@ -232,6 +232,7 @@ char *unescape(char *d, const char *s, int len, char esc);
 // Don't forget that s will grow (use countchars() to see how much)
 char *escape(char *d, const char *s, int len, char esc, char *toesc);
 char *f_esc(char *s, char *e);
+char *esc(const char *s, const char *e);
 int f_alen(char *array);
 char *f_elt(char *array, int n);
 char *f_setelt(char *array, int n, char *val);
@@ -252,12 +253,13 @@ void get_form_arraysep(FORM *form, char *sep, char *esc);
    Returns -1 for begin @ end */
 void next_aelt(char *array, int *begin, int *after, char sep, char esc);
 int stralen(char *array, char sep, char esc);
-void find_elt(char *array, int n, int *begin, int *after, char sep, char esc);
+void elt_at(char *array, int n, int *begin, int *after, char sep, char esc);
 char *set_elt(char *array, int n, char *val);
 // convert a to a set in-place
 void toset(char *a, char sep, char esc);
 // find escaped elt e of length len in non-empty set a
-bool findelt(char *a, char *s, int len, int *begin, int *after, char sep, char esc);
+// sets begin & end if true; sets begin to insertion point if false
+bool find_elt(const char *a, const char *s, int len, int *begin, int *after, char sep, char esc);
 
 
 /*---------------------------------------- formfile.c ------------*/

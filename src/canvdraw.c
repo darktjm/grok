@@ -324,12 +324,15 @@ static MOUSE locate_item(
 	item = form->items[closest];
 	if (nitem == closest) {					/* inside */
 		if ((item->type == IT_INPUT ||
+		     item->type == IT_NUMBER ||
 		     item->type == IT_PRINT ||
-		     item->type == IT_TIME) && abs(x - item->x - item->xm) < 6)
+		     item->type == IT_TIME ||
+		     item->type == IT_MENU) && abs(x - item->x - item->xm) < 6)
 			return(M_XMID);
 
 		if ((item->type == IT_CHART ||
-		     item->type == IT_NOTE) && abs(y - item->y - item->ym) < 6)
+		     item->type == IT_NOTE ||
+		     item->type == IT_MULTI) && abs(y - item->y - item->ym) < 6)
 			return(M_YMID);
 
 		return(M_INSIDE);
@@ -438,7 +441,9 @@ void GrokCanvas:: redraw_canvas_item(
 
 	painter.drawRect(item->x, item->y, item->xs-1, item->ys-1);
 	if (item->type == IT_INPUT || item->type == IT_PRINT
-				   || item->type == IT_TIME)
+				   || item->type == IT_NUMBER
+				   || item->type == IT_TIME
+				   || item->type == IT_MENU)
 		fillrect(item->x + (xm=item->xm), item->y, 1, item->ys);
 
 	if (item->type == IT_CHART || item->type == IT_NOTE)

@@ -224,7 +224,20 @@ I needn't have worried, since the bug causing it was introduced after
 likely anywone but me cares.  It's not like I advertise this anywhere.
 
 Version 2.2
+  * Date widgets were updating after every keystroke, which
+    essentially disallows all entry.  This bug was introduced in 2.0.
   * Moving summary window selection away from a modified record will no
     longer revert the movement
   * Input fields can now be combo boxes, filled in from static values or
     the current database
+  * Added Number fields, which act like spin boxes with adjustable
+    range and precision
+  * Added Menu fields, which pop up a fixed menu of items.  These can
+    be used in place of a large number of Choice buttons.
+  * Added Radio Group fields, which provide automatic layout for Choice
+    fields, if you prefer them over the Menu field type.
+  * Added Flag List fields, which display either a popup menu or a list,
+    where the selected items correspond to flags to set.  These can take
+    the place of large groups of Flag fields.
+  * Added Flag Group fields, which provide automatic layout for Flag
+    fields, if you prefer them over the Flag List field type.

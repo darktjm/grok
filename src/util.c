@@ -534,7 +534,9 @@ void add_layout_qss(QLayout *l, const char *name)
 {
 	if(name)
 		l->setObjectName(name);
-	l->addWidget(new LayoutQSS(l));
+	LayoutQSS *lq = new LayoutQSS(l);
+	l->addWidget(lq);
+	lq->ensurePolished();
 }
 
 void popup_nonmodal(QDialog *d)
