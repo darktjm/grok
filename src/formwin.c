@@ -709,8 +709,8 @@ static void set_digits(int dig)
 static void fillout_formedit_widget(
 	struct _template	*tp)
 {
-	register ITEM		*item;
-	register CHART		*chart;
+	register ITEM		*item = NULL;
+	register CHART		*chart = NULL;
 	CHART			nullchart;
 	QWidget			*w = tp->widget;
 

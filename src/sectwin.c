@@ -144,7 +144,7 @@ static void add_callback(void)
 		if (unlink(dir) && !nofile) {
 			create_error_popup(shell, errno,
 				"Could not unlink\n%s", dir);
-			(void)link(oldp, dir);
+			int UNUSED ret = link(oldp, dir);
 			return;
 		}
 		if (mkdir(dir, 0700)) {

@@ -437,7 +437,7 @@ char *f_system(
 	(void)open(errpath, O_WRONLY | O_CREAT, 0600);
 	close(0);
 	(void)open("/dev/null", O_RDONLY);
-	(void)system(cmd);
+	int UNUSED ret = system(cmd);
 	dup2(fd0_save, 0);
 	dup2(fd1_save, 1);
 	dup2(fd2_save, 2);

@@ -846,8 +846,9 @@ static void card_callback(
 			}
 			if (switch_expr)
 				search_cards(SM_SEARCH, card, switch_expr);
-			if (n && *n)
-				(void)system(n);
+			if (n && *n) {
+				int UNUSED ret = system(n);
+			}
 			if (switch_name) free(switch_name);
 			if (switch_expr) free(switch_expr);
 			switch_name = switch_expr = 0;
@@ -1214,7 +1215,7 @@ void fillout_item(
 		char sep, esc;
 		int begin, after = -1;
 		get_form_arraysep(card->form, &sep, &esc);
-		char *tmp;
+		char *tmp = NULL;
 		if(item->type == IT_RADIO)
 			tmp = (char *)malloc(item->flagcode ? strlen(item->flagcode) + 1 : 1);
 		QListIterator<QObject *>iter(w0->children());

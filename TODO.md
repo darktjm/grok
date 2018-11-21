@@ -46,10 +46,6 @@
   to ensure no crashing, but I'm too lazy.  I'll fix them when I
   encounter problems.
 
-- Compile with optimization again to catch additional gcc warnings
-  (most notably "may be uninitialized...", which I'll "fix" even
-  though gcc is wrong).
-
 - Die with message on all memory allocation failures.  I could add
   checks after every new one I added, but instead, I'll make a wrapper
   that does it for me.

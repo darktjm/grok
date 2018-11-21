@@ -135,8 +135,8 @@ void GrokCanvas::canvas_callback(
 	int		press)		/* what happened, up/down/motion */
 {
 	ITEM		*item;		/* item being selected or moved */
-	int		x, y, xs, ys;	/* new item start and size */
-	int		xm, ym;		/* new item midpoint division */
+	int		x = 0, y = 0, xs = 0, ys = 0;	/* new item start and size */
+	int		xm = 0, ym = 0;		/* new item midpoint division */
 	int		dx, dy;		/* movement since initial press */
 	int		i, nsel;
 
