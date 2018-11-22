@@ -54,18 +54,6 @@
 #define DIRECT	1
 #endif
 
-#ifdef FIXMBAR
-#define FIX_MENUBAR XmVaSEPARATOR,
-#else
-#define FIX_MENUBAR
-#endif
-
-#ifdef NOMSEP
-#define XM_VA_SEPARATOR
-#else
-#define XM_VA_SEPARATOR XmVaSEPARATOR,
-#endif
-
 #ifdef __GNUC__
 #define FALLTHROUGH __attribute__((fallthrough));
 #define UNUSED __attribute__((unused))

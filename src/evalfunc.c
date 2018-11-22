@@ -933,7 +933,7 @@ int countchars(const char *s, const char *c)
     return len;
 }
 
-char *escape(char *d, const char *s, int len, char esc, char *toesc)
+char *escape(char *d, const char *s, int len, char esc, const char *toesc)
 {
     if(len < 0)
 	len = strlen(s);
@@ -1187,7 +1187,37 @@ static void elt_at(const char *array, int o, int *begin, int *after, char sep, c
     *after = a;
 }
 
-bool find_elt(const char *a, const char *s, int len, int *begin, int *after, char sep, char esc)
+bool find_elt(const char *a, const char *s, int len, int *begin, int *after,
+	      char asep, char aesc, char ssep, char sesc)
+{
+    char *new_s = NULL;
+    bool ret;
+
+    // If element and array have different sep/esc, may need to adjust s
+    if(ssep && (ssep != asep || sesc != aesc) &&
+        // does anything need unescaping?
+       (memchr(s, aesc == sesc ? asep : aesc, len) ||
+	// does anything need escaping?
+	memchr(s, ssep, len) || (aesc != sesc && memchr(s, sesc, len)))) {
+	char newesc[3];
+	int nlen;
+	new_s = (char *)malloc(len * 2);
+	// store unesc at far end to avoid overwrite during esc
+	nlen = unescape(new_s + len, s, len, sesc) - (new_s + len);
+	newesc[0] = aesc;
+	newesc[1] = asep;
+	newesc[2] = 0;
+	len = escape(new_s, new_s + len, nlen, aesc, newesc) - new_s;
+	s = new_s;
+    }
+    ret = find_elt(a, s, len, begin, after, asep, aesc);
+    if(new_s)
+	free(new_s);
+    return ret;
+}
+
+bool find_elt(const char *a, const char *s, int len, int *begin, int *after,
+	      char sep, char esc)
 {
     int l = 0, h = strlen(a) - 1, m;
     int mb, ma;

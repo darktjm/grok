@@ -230,7 +230,7 @@ char *unescape(char *d, const char *s, int len, char esc);
 // Add esc in front of esc and toesc-chars in s.  Returns end of d.
 // negative len -> strlen(s)
 // Don't forget that s will grow (use countchars() to see how much)
-char *escape(char *d, const char *s, int len, char esc, char *toesc);
+char *escape(char *d, const char *s, int len, char esc, const char *toesc);
 char *f_esc(char *s, char *e);
 char *esc(const char *s, const char *e);
 int f_alen(char *array);
@@ -257,9 +257,14 @@ void elt_at(char *array, int n, int *begin, int *after, char sep, char esc);
 char *set_elt(char *array, int n, char *val);
 // convert a to a set in-place
 void toset(char *a, char sep, char esc);
-// find escaped elt e of length len in non-empty set a
+// find escaped elt s of length len in non-empty set a
 // sets begin & end if true; sets begin to insertion point if false
-bool find_elt(const char *a, const char *s, int len, int *begin, int *after, char sep, char esc);
+// sep/esc of a & s are the same
+bool find_elt(const char *a, const char *s, int len, int *begin, int *after,
+	      char sep, char esc);
+// sep/esc is a's, esep/eesc is s's if esep non-0 (may be same or different)
+bool find_elt(const char *a, const char *s, int len, int *begin, int *after,
+	      char asep, char aesc, char ssep, char sesc);
 
 
 /*---------------------------------------- formfile.c ------------*/

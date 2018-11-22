@@ -365,17 +365,15 @@ static void create_item_widgets(
 			cb->setEditable(true); // needs to be before lineEdit()
 			le = cb->lineEdit();
 			if (item.menu && *item.menu) {
-				char sep, esc;
 				int begin, after = -1;
-				get_form_arraysep(card->form, &sep, &esc);
 				char *tmp = (char *)malloc(strlen(item.menu) + 1);
 				while(1) {
-					next_aelt(item.menu, &begin, &after, sep, esc);
+					next_aelt(item.menu, &begin, &after, '|', '\\');
 					if(after < 0)
 						break;
 					if(after == begin)
 						continue;
-					*unescape(tmp, item.menu + begin, after - begin, esc) = 0;
+					*unescape(tmp, item.menu + begin, after - begin, '\\') = 0;
 					cb->c_static.append(tmp);
 				}
 				free(tmp);
@@ -476,15 +474,13 @@ static void create_item_widgets(
 		  cb->move(item.x + item.xm, item.y);
 		  cb->resize(item.xs - item.xm, item.ys);
 		  cb->setProperty(font_prop[item.inputfont], true);
-		  char sep, esc;
 		  int begin, after = -1;
-		  get_form_arraysep(card->form, &sep, &esc);
 		  char *tmp = (char *)malloc(item.menu ? strlen(item.menu) + 1 : 1);
 		  while(1) {
-			next_aelt(item.menu, &begin, &after, sep, esc);
+			next_aelt(item.menu, &begin, &after, '|', '\\');
 			if(after < 0)
 				break;
-			*unescape(tmp, item.menu + begin, after - begin, esc) = 0;
+			*unescape(tmp, item.menu + begin, after - begin, '\\') = 0;
 			cb->addItem(tmp);
 		  }
 		  free(tmp);
@@ -502,21 +498,19 @@ static void create_item_widgets(
 		  list->resize(item.xs, item.ys - item.ym);
 		  list->setProperty(font_prop[item.inputfont], true);
 		  list->setSelectionMode(QAbstractItemView::MultiSelection);
-		  char sep, esc;
 		  int begin, after = -1, cbegin, cafter = -1;
-		  get_form_arraysep(card->form, &sep, &esc);
 		  char *tmp = (char *)malloc(item.menu ? strlen(item.menu) + 1 : 1);
 		  int n = 0;
 		  while(1) {
-			next_aelt(item.menu, &begin, &after, sep, esc);
+			next_aelt(item.menu, &begin, &after, '|', '\\');
 			if(after < 0)
 				break;
-			next_aelt(item.flagcode, &cbegin, &cafter, sep, esc);
+			next_aelt(item.flagcode, &cbegin, &cafter, '|', '\\');
 			if(cafter < 0)
 				break;
 			if(cafter == cbegin) // disallow blanks
 				continue;
-			*unescape(tmp, item.menu + begin, after - begin, esc) = 0;
+			*unescape(tmp, item.menu + begin, after - begin, '\\') = 0;
 			list->addItem(tmp);
 			char c = item.flagcode[cafter];
 			item.flagcode[cafter] = 0;
@@ -545,16 +539,14 @@ static void create_item_widgets(
 		add_layout_qss(l, "buttongroup");
 		unsigned int ncol = ~0U, col = 0, row = 0, curwidth = 0, n;
 		unsigned int mwidth = carditem->w0->contentsRect().width();
-		char sep, esc;
 		int begin, after = -1;
-		get_form_arraysep(card->form, &sep, &esc);
 		char *tmp = (char *)malloc(item.menu ? strlen(item.menu) + 1 : 1);
 		for(n = 0; ; n++) {
 			QAbstractButton *b;
-			next_aelt(item.menu, &begin, &after, sep, esc);
+			next_aelt(item.menu, &begin, &after, '|', '\\');
 			if(after < 0)
 				break;
-			*unescape(tmp, item.menu + begin, after - begin, esc) = 0;
+			*unescape(tmp, item.menu + begin, after - begin, '\\') = 0;
 			if(item.type == IT_RADIO)
 				b = new CardRadioButton(card, nitem, tmp, carditem->w0);
 			else
@@ -738,13 +730,11 @@ static void card_callback(
 	   case IT_RADIO: {
 		if (!flag)
 			return;
-		char sep, esc;
 		int begin, after = -1;
-		get_form_arraysep(card->form, &sep, &esc);
-		elt_at(item->flagcode, index, &begin, &after, sep, esc);
+		elt_at(item->flagcode, index, &begin, &after, '|', '\\');
 		if (begin != after) {
 			char *tmp = (char *)malloc(after - begin + 1);
-			*unescape(tmp, item->flagcode + begin, after - begin, esc) = 0;
+			*unescape(tmp, item->flagcode + begin, after - begin, '\\') = 0;
 			if (!store(card, nitem, tmp)) {
 				free(tmp);
 				return;
@@ -756,10 +746,8 @@ static void card_callback(
 	  }
 
 	   case IT_FLAGS: {
-		char sep, esc;
 		int begin, after = -1;
-		get_form_arraysep(card->form, &sep, &esc);
-		elt_at(item->flagcode, index, &begin, &after, sep, esc);
+		elt_at(item->flagcode, index, &begin, &after, '|', '\\');
 		if(begin == after) // blanks not allowed
 			return;
 		char *old = dbase_get(card->dbase, card->row, item->column);
@@ -776,8 +764,10 @@ static void card_callback(
 			break;
 		}
 		int obegin, oafter;
+		char sep, esc;
+		get_form_arraysep(card->form, &sep, &esc);
 		if(find_elt(old, item->flagcode + begin, after - begin,
-			   &obegin, &oafter, sep, esc) == flag)
+			    &obegin, &oafter, sep, esc, '|', '\\') == flag)
 			return;
 		char *tmp;
 		if(flag) {
@@ -1157,17 +1147,15 @@ void fillout_item(
 		break;
 
 	  case IT_MENU: {
-		char defesc[3], &sep=defesc[1], &esc=defesc[0], *s = (char *)data;
+		char *s = (char *)data;
 		int begin, after = -1, nesc, n, len = data ? strlen(data) : 0;
-		get_form_arraysep(card->form, &sep, &esc);
-		defesc[2] = 0;
-		if(data && *data && (nesc = countchars(data, defesc))) {
+		if(data && *data && (nesc = countchars(data, "\\|"))) {
 			s = (char *)malloc(len + nesc + 1);
-			*escape(s, data, len, esc, defesc) = 0;
+			*escape(s, data, len, '\\', "\\|") = 0;
 			len += nesc;
 		}
 		for(n = 0; ; n++) {
-			next_aelt(item->flagcode, &begin, &after, sep, esc);
+			next_aelt(item->flagcode, &begin, &after, '|', '\\');
 			if(after < 0)
 				break; // unknown value - this will act strange
 			if(after - begin == len && !memcmp(item->flagcode + begin, s, len)) {
@@ -1187,7 +1175,7 @@ void fillout_item(
 		QListWidget *l = reinterpret_cast<QListWidget *>(w0);
 		QSignalBlocker blk(l);
 		for(n = 0; ; n++) {
-			next_aelt(item->flagcode, &begin, &after, sep, esc);
+			next_aelt(item->flagcode, &begin, &after, '|', '\\');
 			if(after < 0)
 				break;
 			if(begin == after) {
@@ -1199,7 +1187,7 @@ void fillout_item(
 						find_elt(data, item->flagcode + begin,
 							 after - begin,
 							 &fbegin, &fafter,
-							 sep, esc));
+							 sep, esc, '|', '\\'));
 		}
 		break;
 	  }
@@ -1223,9 +1211,9 @@ void fillout_item(
 			QAbstractButton *w = dynamic_cast<QAbstractButton *>(iter.next());
 			if(!w)
 				continue;
-			next_aelt(item->flagcode, &begin, &after, sep, esc);
+			next_aelt(item->flagcode, &begin, &after, '|', '\\');
 			if(item->type == IT_RADIO) {
-				*unescape(tmp, item->flagcode + begin, after - begin, esc) = 0;
+				*unescape(tmp, item->flagcode + begin, after - begin, '\\') = 0;
 				w->setChecked(!strcmp(tmp, data ? data : ""));
 			} else {
 				if(begin == after)
@@ -1235,7 +1223,7 @@ void fillout_item(
 					      find_elt(data,
 						       item->flagcode + begin,
 						       after - begin,  &qafter,
-						       &qbegin, sep, esc));
+						       &qbegin, sep, esc, '|', '\\'));
 			}
 		}
 		break;

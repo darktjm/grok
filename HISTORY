@@ -225,7 +225,8 @@ likely anywone but me cares.  It's not like I advertise this anywhere.
 
 Version 2.2
   * Date widgets were updating after every keystroke, which
-    essentially disallows all entry.  This bug was introduced in 2.0.
+    essentially disallows all entry other than direct editing of the
+    value, barely.  This bug was introduced in 2.0.
   * Moving summary window selection away from a modified record will no
     longer revert the movement
   * Input fields can now be combo boxes, filled in from static values or

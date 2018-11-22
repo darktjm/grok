@@ -6,7 +6,7 @@
  * Lines beginning with '#' are ignored.
  *
  * To add a help text to a widget, call
- *	XtAddCallback(widget, XmNhelpCallback, help_callback, "topic")
+ *	bind_help(widget, "topic")
  * and add "%%n topic" and the help text to the help file (n is a number
  * used for extracting a user's manual, it is not used by the grok program).
  *
