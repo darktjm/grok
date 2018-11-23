@@ -11,7 +11,7 @@ long enough to make much of a dent in this list.  I started on grok
 for my game database, and I guess I'd like to get back to playing
 games again...
 
-> -- Thomas J. Moore
+   -- Thomas J. Moore
 
 Features in Progress
 --------------------
@@ -295,6 +295,14 @@ Important UI improvements
 - Support multiple named summary listings.  Also, have a way to query
   what fields are in that listing.
 
+- Support multiple views; i.e. multiple main windows.
+
+- Don't make form editor a dialog, so that it doesn't get placed at the
+  center of the screen.  Or, at least don't make canvas a dialog, so it
+  doesn't get placed under the editor form.  It's annoying to have to
+  always move the form to the side to find the canvas, and then to move
+  that to the side so they don't overlap.
+
 Infrastructure Improvements
 ---------------------------
 
@@ -451,6 +459,9 @@ Infrastructure Improvements
 
 Card Improvements
 -----------------
+
+- Add per-field help text.  If present, automatically add this to the
+  form-wide help, as well, similar to form.cgi's help facility.
 
 - Rename all card widgets to their variable name, if one is assigned.
   If not, rename to the label text.  Rename the card frame to the form
@@ -709,12 +720,15 @@ Stuff that will probably never fly
   reduces this need a bit.  It's really more restrictive and only
   slightly more convenient than using a search formula.
 
-- Support automatically generated mass edit version of form, along
-  with a way to invoke it on a particular set of rows.  Similar to the
-  search form above, except that blank and unset fields are unmodified.
-  Unlike form.cgi, also support formulaic updates to fields.  Mass
-  edits are currently possible with mutating search expressions right
-  now.
+-   Support automatically generated mass edit version of form, along
+    with a way to invoke it on a particular set of rows.  Similar
+    to the search form above, except that blank and unset fields
+    are unmodified. Unlike form.cgi, also support formulaic
+    updates to fields.  Mass edits are currently possible with
+    mutating search expressions right now.
+
+    Come to think of it, grok doesn't have any mass operations.  No
+    multi-select in summary list, and no multi-delete, either.
 
 - Support multi-edit: a listing with all fields, similar to the query
   editor I guess.  This is probably not as useful as it appears, at

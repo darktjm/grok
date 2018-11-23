@@ -1004,6 +1004,9 @@ static int readback_item(
 				redraw_canvas_item(form->items[i]);
 				fillout_formedit();
 				sensitize_formedit();
+		      } else {
+				fillout_formedit();
+				sensitize_formedit();
 		      }
 		      break;
 
@@ -1022,6 +1025,9 @@ static int readback_item(
 					redraw_canvas_item(form->items[i]);
 					fillout_formedit();
 					sensitize_formedit();
+				} else {
+					item_deselect(form);
+					fillout_formedit();
 				}
 				return(0);
 		      }

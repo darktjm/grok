@@ -627,6 +627,7 @@ static void create_item_widgets(
 		  carditem->w0 = b;
 		  b->move(item.x, item.y);
 		  b->resize(item.xs, item.ys);
+		  b->setAutoExclusive(false);
 		  b->setProperty(font_prop[item.labelfont], true);
 		  // Qt doesn't allow label alignment.  Probably for the best.
 		  // b->setAlignment(JUST(item.labeljust));

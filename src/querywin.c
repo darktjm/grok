@@ -41,7 +41,6 @@ static QDialog		*shell;		/* popup menu shell */
 static QPushButton	*del, *dupl, *up, *down;	/* buttons, for desensitizing */
 static QTextEdit	*info;		/* info line for error messages */
 static QTableWidget	*qlist;		/* query list table widget */
-static bool		munging_list = false; /* true if list_callback should ignore events */
 
 
 /*
@@ -141,6 +140,8 @@ void create_query_window(
 	info->setProperty("readOnly", true);
 	info->ensurePolished();
 	info->setMinimumHeight(info->fontMetrics().height() * 2);
+	// Don't make the help window the initial kb focus
+	info->setFocusPolicy(Qt::ClickFocus);
 	wform->addWidget(info);
 
 							/*-- scroll --*/
@@ -148,8 +149,12 @@ void create_query_window(
 	w = qlist = new QTableWidget(3, NCOLUMNS);
 	qlist->setShowGrid(false);
 	qlist->setWordWrap(false);
+#if 0  // this doesn't always activate when I expect
 	qlist->setEditTriggers(QAbstractItemView::CurrentChanged|
 			       QAbstractItemView::SelectedClicked);
+#else // this doesn't, either, but it might get better
+	qlist->setEditTriggers(QAbstractItemView::AllEditTriggers);
+#endif
 	qlist->setSelectionBehavior(QAbstractItemView::SelectRows);
 	qlist->horizontalHeader()->setStretchLastSection(true);
 	qlist->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
@@ -171,8 +176,11 @@ void create_query_window(
 		  list_callback(c, r), int r, int c);
 	// This is called on cursor/tab movement and clicking.
 	// It is only used to update the buttons, so column is ignored.
+	// That is, unless it is a blank row, where 1st 2 are skipped
+	// The old GUI always skipped the 1st 2, but that disallows
+	// keyboard toggling.
 	set_qt_cb(QTableWidget, currentCellChanged, qlist,
-		  list_callback(-1, r), int r);
+		  list_callback(-1, r, c > 1), int r, int c);
 
 	popup_nonmodal(shell);
 	set_dialog_cancel_cb(shell, done_callback());
@@ -207,13 +215,16 @@ static void set_row_widgets(int y)
 #else
 	QCheckBox *cb = new QCheckBox;
 	cb->setCheckState(blank || dq->suspended ? Qt::Unchecked : Qt::Checked);
+	cb->setEnabled(!blank);
 	qlist->setCellWidget(y, 0, cb);
 	set_button_cb(cb, list_callback(0, y, c), bool c);
 #endif
 	/* Apparently radio selection is not possible */
 	QRadioButton *rb = new QRadioButton;
+	rb->setAutoExclusive(false);
 	if (!blank)
 		rb->setChecked(y == form->autoquery);
+	rb->setEnabled(!blank);
 	qlist->setCellWidget(y, 1, rb);
 	set_button_cb(rb, list_callback(1, y, c), bool c);
 	// The callback for twi is set in the list widget itself, above.
@@ -231,15 +242,18 @@ static void fill_row_widgets(int y)
 {
 	register DQUERY	*dq = &form->query[y];
 	bool blank = y >= form->nqueries;
+	QAbstractButton *b;
 
 #if 0
 	qlist->item(y, 0)->setCheckState(blank || dq->suspended ? Qt::Unchecked : Qt::Checked);
 #else
-	QCheckBox *cb = reinterpret_cast<QCheckBox *>(qlist->cellWidget(y, 0));
-	cb->setCheckState(blank || dq->suspended ? Qt::Unchecked : Qt::Checked);
+	b = reinterpret_cast<QAbstractButton *>(qlist->cellWidget(y, 0));
+	b->setChecked(!blank && !dq->suspended);
+	b->setEnabled(!blank);
 #endif
-	QRadioButton *rb = reinterpret_cast<QRadioButton *>(qlist->cellWidget(y, 1));
-	rb->setChecked(!blank && y == form->autoquery);
+	b = reinterpret_cast<QAbstractButton *>(qlist->cellWidget(y, 1));
+	b->setChecked(!blank && y == form->autoquery);
+	b->setEnabled(!blank);
 	qlist->item(y, 2)->setText(!blank && dq->name ? dq->name : "");
 	qlist->item(y, 3)->setText(!blank && dq->query ? dq->query : "");
 }
@@ -263,8 +277,7 @@ static void del_query(int y)
 
 static bool remove_if_blank(int y)
 {
-	if(y == form->autoquery ||
-	   (form->query[y].name && form->query[y].name[0]) ||
+	if((form->query[y].name && form->query[y].name[0]) ||
 	   (form->query[y].query && form->query[y].query[0]))
 		return false;
 	del_query(y);
@@ -366,12 +379,10 @@ static void move_callback  (int dir)
 		form->autoquery += dir;
 	else if(form->autoquery == ycurr + dir)
 		form->autoquery -= dir;
-	// Following code probably generates events; this hack surpresses them.
-	munging_list = true;
+	QSignalBlocker sb(qlist);
 	fill_row_widgets(ycurr);
 	fill_row_widgets(ycurr += dir);
 	qlist->setCurrentCell(ycurr, xcurr);
-	munging_list = false;
 	up->setEnabled(ycurr > 0);
 	down->setEnabled(ycurr < form->nqueries - 1);
 }
@@ -382,9 +393,8 @@ static void delete_callback(void)
 
 	if (ycurr >= 0 && ycurr < form->nqueries) {
 		del_query(ycurr);
-		munging_list = true;
+		QSignalBlocker sb(qlist);
 		qlist->removeRow(ycurr);
-		munging_list = false;
 	}
 	if (!form->nqueries) {
 		del->setEnabled(false);
@@ -408,10 +418,9 @@ static void dupl_callback(void)
 			form->query[n] = form->query[n-1];
 		form->query[n].name  = mystrdup(form->query[n].name);
 		form->query[n].query = mystrdup(form->query[n].query);
-		munging_list = true;
+		QSignalBlocker sb(qlist);
 		qlist->insertRow(ycurr);
 		set_row_widgets(ycurr);
-		munging_list = false;
 		up->setEnabled(true);
 	}
 }
@@ -432,39 +441,60 @@ static void list_callback(
 	int				y,
 	bool				checked)
 {
-	int				i;
 	register DQUERY	*dq = &form->query[y];
 	char *string = 0;
-	bool onblank = y >= form->nqueries, wasblank = onblank;
+	bool onblank = y >= form->nqueries, wasblank = onblank, oy;
+	QAbstractButton *b;
 
-	if(munging_list)
-		return;
 	if(x > 1) {
 		QTableWidgetItem *twi = qlist->item(y, x);
 		const QString &qs = twi->text();
 		if(qs.size())
 			string = qstrdup(qs);
 	}
-	if (onblank && (string || (x == 1 && checked))) {
+	if (onblank && string) {
+		b = reinterpret_cast<QAbstractButton *>(qlist->cellWidget(y, 0));
+		QSignalBlocker sb(b);
+		b->setChecked(true);
+		b->setEnabled(true);
+		qlist->cellWidget(y, 1)->setEnabled(true);
 		(void)add_dquery(form);
 		dq = &form->query[y];
+		dq->suspended = FALSE;
 		onblank = false;
-	}
+	} else 	if(x >= 0 && x < 2)
+		b = reinterpret_cast<QAbstractButton *>(qlist->cellWidget(y, x));
 	switch(x) {
 	    case 0:
-		if(onblank)
-			reinterpret_cast<QCheckBox *>(qlist->cellWidget(y, x))->setChecked(false);
-		else
+		if(onblank && checked) {
+			QSignalBlocker sb(b);
+			b->setChecked(false);
+		} else if(!onblank)
 			dq->suspended = !checked;
 		break;
 	    case 1:
-		if(checked && y != (i = form->autoquery)) {
+		if(!checked)
+			break;
+		if(onblank) {
+			QSignalBlocker sb(b);
+			// This doesn't work with QRadioButton
+			b->setChecked(false);
+			break;
+		}
+		if(y == form->autoquery) {
+			form->autoquery = -1;
+			QSignalBlocker sb(b);
+			// This doesn't work with QRadioButton
+			b->setChecked(false);
+		} else {
+			if(form->autoquery >= 0) {
+				b = reinterpret_cast<QAbstractButton *>(
+					qlist->cellWidget(form->autoquery, x));
+				QSignalBlocker sb(b);
+				// This doesn't do anything with QRadioButton
+				b->setChecked(false);
+			}
 			form->autoquery = y;
-			if(remove_if_blank(i)) {
-				if(i < y)
-					y--;
-			} else
-				reinterpret_cast<QRadioButton *>(qlist->cellWidget(i, x))->setChecked(false);
 		}
 		break;
 	    case 2:					/* name */
@@ -482,9 +512,19 @@ static void list_callback(
 		}
 		break;
 	}
+	oy = qlist->currentRow();
 	if (!onblank && !(onblank = remove_if_blank(y)) && wasblank) {
+		QSignalBlocker sb(qlist);
 		qlist->setRowCount(form->nqueries + 1);
 		set_row_widgets(form->nqueries);
+	}
+	// skip 1st 2 fields when tabbing into blank line
+	// also, if removing a newly blank line, select the 1st text field.
+	if((onblank && ((x < 0 && !checked) || !x || x == 1)) ||
+	   (onblank && !wasblank && oy == y)) {
+		QSignalBlocker sb(qlist);
+		qlist->setCurrentCell(y, 2);
+		qlist->editItem(qlist->item(y, 2));
 	}
 	del->setEnabled(!onblank);
 	dupl->setEnabled(!onblank);
