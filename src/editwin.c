@@ -89,7 +89,7 @@ void destroy_edit_popup(void)
 			free(*source);
 		string = 0;
 		read_text_button(text, &string);
-		*source = string && *string ? string : 0;
+		*source = !BLANK(string) ? string : 0;
 		if(string && !*string)
 			free(string);
 		source = 0;
@@ -168,7 +168,7 @@ void create_edit_popup(
 		text->setProperty("readOnly", true);
 	text->setProperty("courierFont", true);
 	text->setLineWrapMode(QTextEdit::NoWrap);
-	if (initial && *initial)
+	if (!BLANK(initial))
 		print_text_button_s(text, *initial);
 	text->setProperty("colSheet", true);
 	text->ensurePolished();
@@ -201,7 +201,7 @@ static void discard(void)
 {
 	if (sourcefile)
 		free(sourcefile);
-	else if (source && *source)
+	else if (!BLANK(source))
 		free(*source);
 	sourcefile = 0;
 	source = 0;

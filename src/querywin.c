@@ -477,21 +477,18 @@ static void list_callback(
 			break;
 		if(onblank) {
 			QSignalBlocker sb(b);
-			// This doesn't work with QRadioButton
 			b->setChecked(false);
 			break;
 		}
 		if(y == form->autoquery) {
 			form->autoquery = -1;
 			QSignalBlocker sb(b);
-			// This doesn't work with QRadioButton
 			b->setChecked(false);
 		} else {
 			if(form->autoquery >= 0) {
 				b = reinterpret_cast<QAbstractButton *>(
 					qlist->cellWidget(form->autoquery, x));
 				QSignalBlocker sb(b);
-				// This doesn't do anything with QRadioButton
 				b->setChecked(false);
 			}
 			form->autoquery = y;

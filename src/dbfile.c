@@ -233,8 +233,12 @@ BOOL read_dbase(
 			path = pathbuf;
 		}
 	}
-	if (!(ret = find_db_file(dbase, form, path)))
+	if (!(ret = find_db_file(dbase, form, path))) {
+		DBASE *ndb = dbase_create();
+		*dbase = *ndb;
+		free(ndb);
 		create_error_popup(mainwindow, 0, "Failed to read %s", path);
+	}
 
 	dbase->currsect = -1;
 	dbase->modified = FALSE;

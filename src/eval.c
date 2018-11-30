@@ -79,7 +79,7 @@ const char *evaluate(
 		create_error_popup(mainwindow, 0, errormsg);
 		return(0);
 	}
-	return(yyret ? yyret : "");
+	return(STR(yyret));
 }
 
 /* For foreach(): evaluate the string and restore parser state */
@@ -107,7 +107,7 @@ const char *subeval(
 	assigned   |= saved_assigned;
 	yytext	    = saved_text;
 	yyexpr	    = saved_expr;
-	return(yyret ? yyret : "");
+	return(STR(yyret));
 }
 
 BOOL evalbool(
@@ -168,7 +168,7 @@ static const char *pair_l  = "=!<><>&|+/-*%|&.+--#|||";
 static const char *pair_r  = "====<>&|========+->#+*-";
 static const short value[] = { EQ, NEQ, LE, GE, SHL, SHR, AND, OR,
 			 PLA, DVA, MIA, MUA, MOA, ORA, ANA, APP, INC, DEC_,
-			 AAS, ALEN, UNION, INTERSECT, DIFF};
+			 AAS, ALEN_, UNION, INTERSECT, DIFF};
 
 static const struct symtab { const char *name; int token; } symtab[] = {
 			{ "this",	THIS	},
@@ -323,13 +323,18 @@ int Xparserlex(void)
 			if (ISDIGIT(*token)) {			/* ...numeric*/
 				parserlval.ival = atoi(token);
 				return(FIELD);
-			} else					/* ...name */
-				for (i=yycard->form->nitems-1; i >= 0; i--)
-					if (!strcmp(item[i]->name, token)) {
-						parserlval.ival = yycard->form->
-							      items[i]->column;
-						return(FIELD);
-					}
+			} else if(yycard->form->fields) {	/* ...name */
+				FIELDS *s = yycard->form->fields;
+				int n = yycard->form->nitems;
+				auto it = s->find(token);
+				if(it != s->end()) {
+					i = it->second % n;
+					parserlval.ival = item[i]->multicol ?
+						item[i]->menu[it->second / n].column :
+						item[i]->column;
+					return(FIELD);
+				}
+			}
 		}
 		sprintf(msg, "Illegal field \"_%.80s\"", token);
 		parsererror(msg);

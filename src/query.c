@@ -178,7 +178,7 @@ void query_search(
  * <letter>: 0..25=letter, 26=misc, 27=all. The search is case-insensitive.
  */
 
-#define BLANK(c) ((c) && strchr("\t\n \"!#$%&'()*+,-./:;<=>?@[\\]^`{|}~", (c)))
+#define SKIP(c) ((c) && strchr("\t\n \"!#$%&'()*+,-./:;<=>?@[\\]^`{|}~", (c)))
 
 void query_letter(
 	CARD		*card,		/* database and form */
@@ -200,7 +200,7 @@ void query_letter(
 	for (r=0; r < card->dbase->nrows; r++)
 		if (SECT_OK(card->dbase, r) && (!mask || mask[r])) {
 			data = dbase_get(card->dbase, r, col_sorted_by);
-			while (data && BLANK(*data))
+			while (data && SKIP(*data))
 				data++;
 			if ((!data || !*data || strchr("0123456789_", *data))
 								&& !letter)
@@ -213,9 +213,9 @@ void query_letter(
 					}
 					if (!pref.allwords)
 						break;
-					while (*data && !BLANK(*data))
+					while (*data && !SKIP(*data))
 						data++;
-					while (BLANK(*data))
+					while (SKIP(*data))
 						data++;
 				}
 		}

@@ -767,7 +767,7 @@ void switch_form(
 		free((void *)curr_card);
 		curr_card = 0;
 	}
-	if (formname && *formname) {
+	if (!BLANK(formname)) {
 		FORM  *form  = form_create();
 		DBASE *dbase = dbase_create();
 		if (read_form(form, formname))
@@ -1230,7 +1230,7 @@ static void append_search_string(
 	if (text) {
 		print_text_button_s(w_search, text);
 		s_offs = 0;
-		if (history[s_curr] && *history[s_curr]
+		if (!BLANK(history[s_curr])
 				    && strcmp(history[s_curr], text))
 			s_curr = (s_curr + 1) % NHIST;
 		if (history[s_curr])

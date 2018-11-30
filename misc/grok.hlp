@@ -870,9 +870,9 @@
 	edit this script.
 
 	Scripts should always begin with a line containing
-	
-	  #!/bin/sh 
-	
+
+	  #!/bin/sh
+
 	or something similar. The script gets two arguments when executed:
 	$1 is either "-r" or "-w". If $1 is "-r", the script is supposed to print
 	the generated database data to stdout, using echo or something
@@ -1124,6 +1124,11 @@
 	              sort criterion if the user re-sorts the database with the
 	              Sort pulldown.
 
+	Multi-field:  Flag Lists and Flag Groups may be assigned to a single
+		      column whose value is a string-set of set flags, or
+		      multiple fields with their own code, db column,
+		      and field name.
+
 	If a flag of a Choice item is changed, the same flag of all Choice
 	items with the same internal field name is also changed.
 %% fe_int
@@ -1296,7 +1301,7 @@
 
 	Duration:  The number is interpreted as a number of seconds, and is
 	           displayed in hour:minute (no a/p) format.
-	
+
 	Note that internal calculations are always done in seconds. If the
 	result is not in the range used by the time format (such as numbers
 	greater than 24*60*60 for Time, or numbers not dividable by 24*60*60
@@ -1373,8 +1378,8 @@
 	retained; otherwise, the minimum is set to the negative of the
 	maximum.
 
-%% fe_combo
-	COMBO BOX
+%% fe_menu
+	MENU
 
 	A text input field can have a drop-down menu attached for easy
 	selection of common values.  The text field is for fixed values;
@@ -1385,6 +1390,18 @@
 	from the database.  Dynamic reads only from the current search
 	results, and All reads from all rows.  Static only includes the
 	entries from the text field, if any.
+
+	The same area is used for configuration of the Choice Menu,
+	Choice Group, Flag List and Flag Group types.  Each table row
+	corresponds to a checkbox or menu entry.  The Label, Code and
+	Sum Code fields correspond to the Label, Choice/flag code, and
+	shown in summary as fields for individual Choice or Flag fields.
+
+	In addition, the Flag List and Flag Group fields can be split
+	into multiple columns using the "Multi-field" checkbox.  This
+	adds Field Name, DB Col, Sum Col and Sum Width columns
+	corresponding to the Internal field name, Database Column,
+	Summary column and Width in summary fields, respectively.
 %% fe_def
 	INPUT DEFAULT
 
@@ -1562,7 +1579,7 @@
 	Occurrences of the separator or the escape character are prefixed
 	by the escape character.  An empty string is ambiguous; it is
 	interpreted as a 1-element array with a blank value.
-	
+
 	esc(s)         Escape s like an array element
 	## s           Number of array elements in s
 	s [ n ]        Array element #n of s (0-based), (unescaped)

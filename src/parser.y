@@ -19,12 +19,11 @@ static struct var {		/* variables 0..25 are a..z, cleared when */
 } var[52];
 
 static int	f_len	(char  *s)  { return(s ? strlen(s) : 0); }
-static void	f_free	(char  *s)  { if (s) free((void *)s); }
 static char    *f_str	(double d)  { char buf[100]; sprintf(buf,"%.12lg",d);
 					return(mystrdup(buf)); }
 static int	f_cmp	(char  *s,
-			 char  *t)  { int r = strcmp(s?s:"", t?t:"");
-				      f_free(s); f_free(t); return r;}
+			 char  *t)  { int r = strcmp(STR(s), STR(t));
+				      zfree(s); zfree(t); return r;}
 
 static char    *getsvar	(int    v)  { char buf[100], *r = var[v].string;
 					if (var[v].numeric) { sprintf(r = buf,
@@ -34,7 +33,7 @@ static char    *getsvar	(int    v)  { char buf[100], *r = var[v].string;
 static double   getnvar	(int    v)  { return(var[v].numeric ? var[v].value :
 					var[v].string?atof(var[v].string):0);}
 static char    *setsvar	(int    v,
-			 char  *s)  { f_free(var[v].string);
+			 char  *s)  { zfree(var[v].string);
 					var[v].numeric = FALSE;
 					return(mystrdup(var[v].string = s)); }
 static double   setnvar	(int    v,
@@ -43,8 +42,8 @@ static double   setnvar	(int    v,
 					return(var[v].value = d); }
 void set_var(int v, const char *s)
 {
-    f_free(var[v].string);
-    if(s && *s)
+    zfree(var[v].string);
+    if(!BLANK(s))
 	var[v].string = strdup(s);
     else
 	var[v].string = NULL;
@@ -64,7 +63,7 @@ void init_variables(void) { int i; for (i=0; i < 26; i++) setsvar(i, 0); }
 %token	<sval>	STRING SYMBOL
 %token	<ival>	FIELD VAR
 %token		EQ NEQ LE GE SHR SHL AND OR IN UNION INTERSECT DIFF
-%token		PLA MIA MUA MOA DVA ANA ORA INC DEC_ APP AAS ALEN
+%token		PLA MIA MUA MOA DVA ANA ORA INC DEC_ APP AAS ALEN_
 %token		AVG DEV AMIN AMAX SUM
 %token		QAVG QDEV QMIN QMAX QSUM
 %token		SAVG SDEV SMIN SMAX SSUM
@@ -91,7 +90,7 @@ void init_variables(void) { int i; for (i=0; i < 26; i++) setsvar(i, 0); }
 %left SHL SHR
 %left '-' '+' UNION DIFF INTERSECT
 %left '*' '/' '%'
-%nonassoc '!' '~' UMINUS '#' ALEN
+%nonassoc '!' '~' UMINUS '#' ALEN_
 %left '.'
 %left '['
 
@@ -103,23 +102,23 @@ stmt	: string			{ yyret = $1; }
 
 string	: STRING			{ $$ = $1; }
 	| '{' string '}'		{ $$ = $2; }
-	| string ';' string		{ $$ = $3; f_free($1); }
+	| string ';' string		{ $$ = $3; zfree($1); }
 	| string '.' string		{ char *s=$1, *t=$3, *r=
 					     (char *)malloc(f_len(s)+f_len(t)+1); *r=0;
-					  if (s) strcpy(r, s); f_free(s);
-					  if (t) strcat(r, t); f_free(t);
+					  if (s) strcpy(r, s); zfree(s);
+					  if (t) strcat(r, t); zfree(t);
 					  $$ = r; }
 	| VAR %prec 's'			{ $$ = getsvar($1); }
 	| VAR APP string		{ int v=$1;
 					  char *s=getsvar(v), *t=$3, *r=
 					     (char *)malloc(f_len(s)+f_len(t)+1); *r=0;
-					  if (s) strcpy(r, s); f_free(s);
-					  if (t) strcat(r, t); f_free(t);
+					  if (s) strcpy(r, s); zfree(s);
+					  if (t) strcat(r, t); zfree(t);
 					  $$ = setsvar(v, r); }
 	| VAR '=' string		{ $$ = setsvar($1, $3);}
 	| '(' number ')'		{ $$ = f_str($2); }
 	| string '?' string ':' string	{ bool c = f_num($1); $$ = c ? $3 : $5;
-					  if (c) f_free($5); else f_free($3);}
+					  if (c) zfree($5); else zfree($3);}
 	| string '<' string		{ $$ = f_str((double)
 							(f_cmp($1, $3) <  0));}
 	| string '>' string		{ $$ = f_str((double)
@@ -180,8 +179,8 @@ string	: STRING			{ $$ = $1; }
 								0 : "db")) :0;}
 	| SWITCH '(' string ',' string ')'
 					{ char *name = $3, *expr = $5;
-					  f_free(switch_name);
-					  f_free(switch_expr);
+					  zfree(switch_name);
+					  zfree(switch_expr);
 					  switch_name = name;
 					  switch_expr = expr; 
 					  $$ = 0; }
@@ -213,7 +212,7 @@ string	: STRING			{ $$ = $1; }
 	| BEEP				{ app->beep(); $$ = 0; }
 	| ERROR '(' args ')'		{ char *s = f_printf($3);
 					  create_error_popup(mainwindow, 0, s);
-					  f_free(s); $$ = 0; }
+					  zfree(s); $$ = 0; }
 	;
 
 args	: string			{ $$ = f_addarg(0, $1); }
@@ -228,10 +227,10 @@ numarg	: NUMBER			{ $$ = $1; }
 	| '(' number ')'		{ $$ = $2; }
 	| FIELD				{ $$ = f_num(f_field($1,yycard->row));}
 	| FIELD '[' number ']'		{ $$ = f_num(f_field($1, $3)); }
-	| FIELD '=' numarg		{ f_free(f_assign($1, yycard->row,
+	| FIELD '=' numarg		{ zfree(f_assign($1, yycard->row,
 					  f_str($$ = $3))); assigned = 1; }
 	| FIELD '[' number ']' '=' numarg
-					{ f_free(f_assign($1, $3,
+					{ zfree(f_assign($1, $3,
 					  f_str($$ = $6))); assigned = 1; }
 	| VAR				{ $$ = getnvar($1); }
 	| VAR '=' numarg		{ $$ = setnvar($1, $3); }
@@ -314,9 +313,9 @@ numarg	: NUMBER			{ $$ = $1; }
 					{ register double a=$3, b=$5, c=$7;
 					  $$ = a < b ? b : a > c ? c : a; }
 	| LEN   '(' string ')'		{ char *a=$3; $$ = a ? f_len(a) : 0;
-								f_free(a); }
-	| '#' string			{ $$ = $2 ? f_len($2) : 0; f_free($2); }
-	| ALEN string			{ $$ = f_alen($2); }
+								zfree(a); }
+	| '#' string			{ $$ = $2 ? f_len($2) : 0; zfree($2); }
+	| ALEN_ string			{ $$ = f_alen($2); }
 	| MATCH '(' string ',' string ')' { $$ = re_match($3, $5); }
 	| SQRT  '(' number ')'		{ $$ = sqrt(abs($3));  }
 	| EXP   '(' number ')'		{ $$ = exp($3); }
@@ -337,9 +336,9 @@ numarg	: NUMBER			{ $$ = $1; }
 						yycard->dbase->currsect : 0; }
 	| SECTION_ '[' number ']'	{ $$ = f_section($3); }
 	| DATE				{ $$ = time(0); }
-	| DATE  '(' string ')'		{ $$ = $3 ? parse_datetimestring($3) : 0; f_free($3);}
-	| TIME  '(' string ')'		{ $$ = $3 ? parse_timestring($3, FALSE) : 0; f_free($3);}
-	| DURATION '(' string ')'	{ $$ = $3 ? parse_timestring($3, TRUE) : 0; f_free($3);}
+	| DATE  '(' string ')'		{ $$ = $3 ? parse_datetimestring($3) : 0; zfree($3);}
+	| TIME  '(' string ')'		{ $$ = $3 ? parse_timestring($3, FALSE) : 0; zfree($3);}
+	| DURATION '(' string ')'	{ $$ = $3 ? parse_timestring($3, TRUE) : 0; zfree($3);}
 	| YEAR  '(' number ')'		{ const time_t t = $3;
 					  $$ = localtime(&t)->tm_year; }
 	| MONTH '(' number ')'		{ const time_t t = $3;
@@ -362,7 +361,7 @@ numarg	: NUMBER			{ $$ = $1; }
 	| ACCESS '(' string ',' number ')'
 					{ char *a = $3;
 					  $$ = a ? access(a, (int)$5) : 0;
-					  f_free(a); }
+					  zfree(a); }
 	;
 
 plus	: { $$ = 0; }

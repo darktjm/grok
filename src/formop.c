@@ -116,6 +116,7 @@ FORM *form_clone(
 			form->query[i].query= mystrdup(parent->query[i].query);
 		}
 	}
+	form->fields = NULL;
 	return(form);
 }
 #endif /* GROK */
@@ -153,9 +154,10 @@ void form_delete(
 		}
 		free((void *)form->query);
 	}
+	if (form->fields)
+		delete form->fields;
 	set_form_defaults(form);
 }
-
 
 /*
  * print an error report and return FALSE if there are problems with the
@@ -165,7 +167,41 @@ void form_delete(
  */
 
 #ifdef GROK
-#define ISFLAG(i) (i->type == IT_FLAG || i->type == IT_CHOICE)
+#define ISMULTI(i) (i->type == IT_MENU  || i->type == IT_RADIO || \
+		    i->type == IT_FLAGS || i->type == IT_MULTI)
+#define ISFLAG(i) (i->type == IT_FLAG  || i->type == IT_CHOICE)
+
+static void verify_col(const FORM *form, const char *type, int **acol,
+		       int *nacol, char *msg, int *i, const char *name,
+		       int col, int id)
+{
+	// GUI doesn't allow >999 anyway (but that was a guess as well)
+	// and it's "personal" databases, so how could there be so many?
+	if(col > 9999) {
+		*i += sprintf(msg+*i,
+			"%s uses a very large %s column (%d)\n",
+			name, type, col);
+		return;
+	}
+	if(col >= *nacol) {
+		int oacol = *nacol;
+		while((*nacol *= 2) < col);
+		*acol = (int *)realloc(*acol, *nacol * sizeof(*acol));
+		memset(*acol + oacol, 0, (*nacol - oacol) * sizeof(**acol));
+	}
+	if((*acol)[col]) {
+		const ITEM *it = form->items[id % form->nitems];
+		const ITEM *oit = form->items[((*acol)[col] - 1) % form->nitems];
+		if(it->type == IT_CHOICE && oit->type == IT_CHOICE &&
+		   strcmp(it->name, oit->name))
+			*i+=sprintf(msg+*i, "(choice) has different internal name as #%d, but has same %s\n",
+				    (*acol)[col] - 1, type);
+		else if(it->type != IT_CHOICE || oit->type != IT_CHOICE)
+			*i+=sprintf(msg+*i, "%s uses same internal name as field \"%s\" (#%d)\n",
+				    name, oit->name, (*acol)[col] - 1);
+	} else
+		(*acol)[col] = id + 1;
+}
 
 BOOL verify_form(
 	FORM		*form,		/* form to verify */
@@ -183,133 +219,229 @@ BOOL verify_form(
 
 	if (bug)
 		*bug = form->nitems;
-	if (!form->name || !*form->name) {
-		sprintf(msg+i, "Form has no name\n");
-		i += strlen(msg+i);
-	}
+	if (!form->name || !*form->name)
+		i += sprintf(msg+i, "Form has no name\n");
 	if (!form->dbase || !*form->dbase) {
-		sprintf(msg+i, "Form has no database%s\n",
+		i += sprintf(msg+i, "Form has no database%s\n",
 					form->name ? "using form name" : "");
-		i += strlen(msg+i);
 		form->dbase = mystrdup(form->name);
 	}
 	if (form->cdelim < 1) {
-		sprintf(msg+i, "Illegal field delimiter, using TAB\n");
-		i += strlen(msg+i);
+		i += sprintf(msg+i, "Illegal field delimiter, using TAB\n");
 		form->cdelim = '\t';
 	}
 	if ((form->asep == form->aesc && form->asep) ||
 	    (!form->asep && form->aesc == '|') ||
 	    (!form->aesc && form->asep == '\\')) {
 		if (form->asep == '\\') {
-			sprintf(msg + i, "Array delimiter same as array escape; using vertical bar\n");
+			i += sprintf(msg + i, "Array delimiter same as array escape; using vertical bar\n");
 			form->asep = '|';
 		} else {
-			sprintf(msg + i, "Array escape same as array delimiter; using backslash\n");
+			i += sprintf(msg + i, "Array escape same as array delimiter; using backslash\n");
 			form->aesc = '\\';
 		}
-		i += strlen(msg+i);
 	}
+	for (nq=0; nq < form->nqueries; nq++) {
+	    dq = &form->query[nq];
+	    if (!dq->suspended) {
+		if (!dq->name)
+			i += sprintf(msg+i, "Query %d has no name\n", nq+1);
+		if (!dq->query)
+			i += sprintf(msg+i, "Query %d has no query\n",nq+1);
+	    }
+	}
+	if(form->fields)
+		delete form->fields;
+	/* Rather than looping through items to find dups */
+	/* fields go into symtab, and dcol/scol stores location of cols/scols */
+	FIELDS *sym = form->fields = new FIELDS;
+	int *dcol, ndcol = 10, *scol, nscol = 10;
+	dcol = (int *)calloc(ndcol, sizeof(*dcol));
+	scol = (int *)calloc(nscol, sizeof(*scol));
 	for (nitem=0; nitem < form->nitems; nitem++) {
 		i0 = i;
 		item = form->items[nitem];
-		sumwidth += item->sumwidth;
+		if (!IS_MULTI(item->type))
+			item->multicol = false; // silent fix
+		if(!item->multicol)
+			sumwidth += item->sumwidth;
 		sprintf(name, "Field \"%s\" (#%d)",
-					item->name ? item->name : "", nitem);
-		if (!item->name || !*item->name) {
-			char newname[40];
-			sprintf(newname, "item%d", nitem);
-			sprintf(msg+i, "%s has no internal name, using %s\n",
-								name, newname);
-			i += strlen(msg+i);
-			item->name = mystrdup(newname);
+					STR(item->name), nitem);
+		if (IN_DBASE(item->type) && !item->multicol && BLANK(item->name)) {
+			if(!BLANK(item->label)) {
+				item->name = strdup(item->label);
+				for(char *s = item->name; *s; s++) {
+					if(isupper(*s))
+						*s = tolower(*s);
+					else if(!isalnum(*s))
+						*s = '_';
+				}
+				if(isdigit(*item->name))
+					*item->name += 'A' - '0';
+			} else {
+				char newname[40];
+				sprintf(newname, "item%d", nitem);
+				item->name = mystrdup(newname);
+			}
+			i += sprintf(msg+i, "%s has no internal name, using %s\n",
+								name, item->name);
+		}
+		if (IN_DBASE(item->type) && !item->multicol &&
+		    isdigit(*item->name)) {
+			*item->name += 'A' - '0';
+			i += sprintf(msg+i, "%s has a leading digit on its internal name, using %s\n",
+				     				name, item->name);
 		}
 		if (item->xs <= 0 || item->ys <= 0) {
 			if (!item->xs) item->xs = 10;
 			if (!item->ys) item->ys = 10;
-			sprintf(msg+i, "%s has zero size, setting to %d %d\n",
+			i += sprintf(msg+i, "%s has zero size, setting to %d %d\n",
 						name, item->xs, item->ys);
-			i += strlen(msg+i);
 		}
 		if (!item->label && (item->type == IT_BUTTON ||
 				     item->type == IT_LABEL)) {
-			sprintf(msg+i, "%s has no label, using \"%s\"\n",
+			i += sprintf(msg+i, "%s has no label, using \"%s\"\n",
 								name, name);
-			i += strlen(msg+i);
 			item->label = mystrdup(name);
 		}
 		if (!item->flagcode && ISFLAG(item)) {
-			sprintf(msg+i, "%s has no flag code\n", name);
-			i += strlen(msg+i);
+			item->flagcode = mystrdup(item->type == IT_CHOICE ? item->name : "1");
+			i += sprintf(msg+i, "%s has no flag code, setting to %s\n", name, STR(item->flagcode));
 		}
-		if (!item->pressed && item->type == IT_BUTTON) {
-			sprintf(msg+i, "%s has no button action\n", name);
-			i += strlen(msg+i);
+		if (!item->pressed && item->type == IT_BUTTON)
+			i += sprintf(msg+i, "%s has no button action\n", name);
+		if (item->multicol) {
+			// FIXME: enforce this in GUI as well
+			//  that way this will never be an error
+			//  either that, or add these flags to the table (ugh)
+			if(!item->nosort || item->defsort)
+				i += sprintf(msg+i, "%s does not support sorting; disabled\n", name);
+			item->nosort = TRUE;
+			item->defsort = FALSE;
 		}
-		for (nq=0; nq < form->nqueries; nq++) {
-		    dq = &form->query[nq];
-		    if (!dq->suspended) {
-			if (!dq->name) {
-				sprintf(msg+i, "Query %d has no name\n", nq+1);
-				i += strlen(msg+i);
-			}
-			if (!dq->query) {
-				sprintf(msg+i, "Query %d has no query\n",nq+1);
-				i += strlen(msg+i);
-			}
-		    }
-		}
-		for (ni=nitem+1; ni < form->nitems; ni++) {
-			it = form->items[ni];
-			if (item->type == IT_CHOICE && it->type == IT_CHOICE) {
-				BOOL eq  = !strcmp(item->name, it->name);
-				BOOL sam = FALSE;
-				const char *m  = 0;
-				if      ((item->column   == it->column) != eq)
-					m = "dbase column";
-				else if ((item->sumcol   == it->sumcol) != eq)
-					m = "summary column";
-				else if ((item->sumwidth == it->sumwidth)!=eq)
-					m = "summary width";
-				else if ((item->flagcode == it->flagcode)&&eq){
-					m = "flag code";
-					sam = TRUE;
+		if (item->nmenu && IS_MENU(item->type)) {
+			for(int m = 0; m < item->nmenu; m++) {
+				MENU *menu = &item->menu[m];
+				if(item->multicol)
+					sumwidth += menu->sumwidth;
+				if(!menu->label) {
+					i += sprintf(msg+i, "%s has a blank label", name);
+					if(item->type == IT_INPUT ||
+					   (!menu->flagcode && !menu->flagtext &&
+					    (!item->multicol ||
+					     (!menu->name && !menu->column)))) {
+						memmove(item->menu + m,
+							item->menu + m + 1,
+							(item->nmenu - m - 1) * sizeof(MENU));
+						i += sprintf(msg+i, ", deleting\n");
+						item->nmenu--;
+						--m;
+						continue;
+					} else if(item->multicol) {
+						if(menu->name)
+							menu->label = strdup(menu->name);
+						else {
+							char newname[40];
+							sprintf(newname, "item%d.%d", nitem, m);
+							menu->label = strdup(newname);
+						}
+						i += sprintf(msg+i, ", labeling it %s\n", menu->label);
+					} else
+						msg[i++] = '\n';
 				}
-				if (m && (eq || sam)) {
-					sprintf(msg+i,
-		       "(choice) has %s internal name as #%d, but has %s %s\n",
-						eq  ? "same" : "different", ni,
-						sam ? "same" : "different", m);
-					i += strlen(msg+i);
+				if(item->multicol && !menu->name) {
+					char newname[40], *pref = item->label;
+					if(BLANK(pref)) {
+						sprintf(newname, "item%d", nitem);
+						pref = newname;
+					}
+					menu->name = (char *)malloc(strlen(pref) + 1 + strlen(menu->label) + 1);
+					sprintf(menu->name, "%s_%s", pref, menu->label);
+					for(pref = menu->name; *pref; pref++) {
+						if(isupper(*pref))
+							*pref = tolower(*pref);
+						else if(!isalnum(*pref))
+							*pref = '_';
+					}
+					if(isdigit(*menu->name))
+						*menu->name += 'A' - '0';
+					i += sprintf(msg+i, "%s-%s has no internal name, setting to %s\n", name, menu->label, menu->name);
 				}
-				continue;
+				if(item->type != IT_INPUT && BLANK(menu->flagcode)) {
+					menu->flagcode = strdup(item->multicol ? "1" : menu->label);
+					i += sprintf(msg+i, "%s has blank code; setting to %s\n", name, menu->flagcode);
+				}
 			}
-			if (item->name	&& it->name
-					&& !strcmp(item->name, it->name)) {
-				sprintf(msg+i,"%s has same name as field #%d\n"
-								,name, ni);
-				i += strlen(msg+i);
+			// second loop for menu items now that label/code fixed
+			for(int m = 0; m < item->nmenu; m++) {
+				MENU *menu = &item->menu[m];
+				for(int n = m + 1; n < item->nmenu; n++) {
+					MENU *omenu = &item->menu[n];
+					if(!strcmp(STR(menu->label),
+						   STR(omenu->label))) {
+					    i += sprintf(msg+i, "%s has duplicate label %s", name, STR(menu->label));
+					    if(item->type == IT_INPUT) {
+						memmove(item->menu + n,
+							item->menu + n + 1,
+							(item->nmenu - n - 1) * sizeof(MENU));
+						i += sprintf(msg+i, ", deleting last one\n");
+						item->nmenu--;
+						--n;
+						continue;
+					    } else
+						msg[i++] = '\n';
+					}
+					// multicol name/col dups are found below
+					if(item->type != IT_INPUT && 
+					   !item->multicol &&
+					   !strcmp(STR(menu->flagcode),
+						   STR(omenu->flagcode)))
+					    i += sprintf(msg+i, "%s has duplicate code %s\n", name, STR(menu->flagcode));
+				}
 			}
-			if (IN_DBASE(item->type) && IN_DBASE(it->type)
-					&& item->column == it->column
-					&& (!ISFLAG(item) || !ISFLAG(it))) {
-				sprintf(msg+i,
-			   "%s uses same dbase column as field \"%s\" (#%d)\n",
-					name, it->name ? it->name : "", ni);
-				i += strlen(msg+i);
-			}
-			if (IN_DBASE(item->type) && IN_DBASE(it->type)
-					&& item->sumwidth>0 && it->sumwidth>0
-					&& item->sumcol == it->sumcol) {
-				sprintf(msg+i,
-			 "%s uses same summary column as field \"%s\" (#%d)\n",
-					name, it->name ? it->name : "", ni);
-				i += strlen(msg+i);
-			}
-			if (i > (int)sizeof(msg)-1024) {
-				sprintf(msg+i, "Too many errors, aborted.");
-				break;
-			}
+		}
+		if(IN_DBASE(item->type)) {
+			if(!item->multicol) {
+				ITEM *oitem = NULL;
+				auto it = sym->find(item->name);
+				if(it != sym->end())
+					oitem = form->items[it->second % form->nitems];
+				if(oitem && (item->type != IT_CHOICE ||
+					     oitem->type != IT_CHOICE))
+					i += sprintf(msg+i, "%s has a the same name as \"%s\" (#%d)\n", name,
+						     oitem->label, it->second % form->nitems);
+				else if (oitem) {
+					// both are IT_CHOICE w/ same name
+					const char *m  = 0;
+					if      (item->column   != oitem->column)
+						m = "dbase column";
+					else if (item->sumcol   != oitem->sumcol)
+						m = "summary column";
+					else if (item->sumwidth != oitem->sumwidth)
+						m = "summary width";
+					// flag code dups checked below
+					if (m)
+						i += sprintf(msg+i,
+							"(choice) has same internal name as #%d, but has different %s\n",
+							     it->second % form->nitems,
+							     m);
+				} else
+					(*sym)[item->name] = nitem;
+				verify_col(form, "dbase", &dcol, &ndcol, msg, &i, name, item->column, nitem);
+				if(item->sumwidth)
+					verify_col(form, "summary", &scol, &nscol, msg, &i, name, item->sumcol, nitem);
+			} else
+				for(int m = 0; m < item->nmenu; m++) {
+					auto it = sym->find(item->menu[m].name);
+					if(it != sym->end())
+						i += sprintf(msg+i, "%s-%d has a duplicate internal name %s\n",
+							     name, m, item->menu[m].name);
+					else
+						(*sym)[item->menu[m].name] = nitem + form->nitems * m;
+					verify_col(form, "dbase", &dcol, &ndcol, msg, &i, name, item->menu[m].column, nitem + m * form->nitems);
+					if(item->menu[m].sumwidth)
+						verify_col(form, "summary", &scol, &nscol, msg, &i, name, item->menu[m].sumcol, nitem + m * form->nitems);
+				}
 		}
 		if (i > (int)sizeof(msg)-1024) {
 			sprintf(msg+i, "Too many errors, aborted.");
@@ -318,22 +450,42 @@ BOOL verify_form(
 		if (i > i0 && bug && *bug == form->nitems)
 			*bug = nitem;
 	}
-	if (form->nitems && sumwidth == 0) {
-		sprintf(msg+i, "Summary is empty, all summary widths are 0\n");
-		i += strlen(msg+i);
+	// uniqueness of choice codes needs to be checked in subloop still
+	// This is done in a second main loop so that all codes have been set
+	for (nitem=0; nitem < form->nitems; nitem++) {
+		item = form->items[nitem];
+		if (item->type == IT_CHOICE) {
+			sprintf(name, "Field \"%s\" (#%d)", item->name, nitem);
+			for (ni=nitem+1; ni < form->nitems; ni++) {
+				it = form->items[ni];
+				if (it->type == IT_CHOICE &&
+				    !strcmp(item->name, it->name) &&
+				    !strcmp(item->flagcode, it->flagcode)) {
+					i += sprintf(msg+i,
+		       "%s has same internal name as #%d, but has same flag code\n",
+							name, ni);
+				}
+			}
+			if (i > (int)sizeof(msg)-1024) {
+				i += sprintf(msg+i, "Too many errors, aborted.");
+				break;
+			}
+		}
 	}
+	free(dcol);
+	free(scol);
+	if (form->nitems && sumwidth == 0)
+		i += sprintf(msg+i, "Summary is empty, all summary widths are 0\n");
 	if (i)
 		create_error_popup(shell, 0, msg);
 	else {
 		for (i=nitem=0; nitem < form->nitems; nitem++) {
 			item = form->items[nitem];
-			if (item->type == IT_NOTE && item->maxlen <= 100) {
-				sprintf(msg+i,
+			if (item->type == IT_NOTE && item->maxlen <= 100)
+				i += sprintf(msg+i,
 		"Warning: note field \"%s\" (#%d) has short max length %d",
-					item->name ? item->name : "", nitem,
+					STR(item->name), nitem,
 					item->maxlen);
-				i += strlen(msg+i);
-			}
 		}
 		if (i)
 			create_error_popup(shell, 0, msg);
@@ -478,7 +630,6 @@ BOOL item_create(
 		item->skip_if	   = mystrdup(item->skip_if);
 		item->idefault	   = mystrdup(item->idefault);
 		item->pressed	   = mystrdup(item->pressed);
-		item->added	   = mystrdup(item->added);
 	} else {
 		memset((void *)item, 0, sizeof(ITEM));
 		item->type	   = IT_INPUT;
@@ -570,9 +721,11 @@ void item_delete(
 	if (item->skip_if)	free((void *)item->skip_if);
 	if (item->idefault)	free((void *)item->idefault);
 	if (item->pressed)	free((void *)item->pressed);
-	if (item->added)	free((void *)item->added);
 	if (item->ch_bar)	free((void *)item->ch_bar);
-	
+
+	for (i=0; i < item->nmenu; i++)
+		menu_delete(&item->menu[i]);
+	if(item->menu)		free((void *)item->menu);
 
 	for (i=0; i < item->ch_ncomp; i++) {
 		item->ch_curr = i;
@@ -585,6 +738,14 @@ void item_delete(
 	for (i=nitem; i < form->nitems-1; i++)
 		form->items[i] = form->items[i+1];
 	form->nitems--;
+}
+
+void menu_delete(MENU *m)
+{
+	if(m->label)	free((void *)m->label);
+	if(m->name)	free((void *)m->name);
+	if(m->flagcode)	free((void *)m->flagcode);
+	if(m->flagtext)	free((void *)m->flagtext);
 }
 
 
@@ -616,10 +777,16 @@ ITEM *item_clone(
 	item->skip_if	   = mystrdup(parent->skip_if);
 	item->idefault	   = mystrdup(parent->idefault);
 	item->pressed	   = mystrdup(parent->pressed);
-	item->added	   = mystrdup(parent->added);
 	item->ch_bar	   = 0;
 	item->ch_nbars	   = 0;
 
+	if (item->nmenu) {
+		item->menu = (MENU*)malloc(item->nmenu * sizeof(MENU));
+		for(i=0; i < item->nmenu; i++) {
+			item->menu[i] = parent->menu[i];
+			menu_clone(&item->menu[i]);
+		}
+	}
 	if (item->ch_comp) {
 		item->ch_comp = (CHART*)malloc(item->ch_ncomp * sizeof(CHART));
 		for (i=0; i < item->ch_ncomp; i++)
@@ -627,6 +794,14 @@ ITEM *item_clone(
 					    &parent->ch_comp[i]);
 	}
 	return(item);
+}
+
+void menu_clone(MENU *m)
+{
+	if(m->label) m->label = strdup(m->label);
+	if(m->flagcode) m->flagcode = strdup(m->flagcode);
+	if(m->flagtext) m->flagtext = strdup(m->flagtext);
+	if(m->name) m->name = strdup(m->name);
 }
 
 #endif /* GROK || PLANGROK */

@@ -725,7 +725,7 @@ bool re_check(QRegularExpression &re, char *e)
     bool ret = re.isValid();
     if(!ret) {
 	char *msg = qstrdup(QString("Error in regular expression '") +
-			    QString(e ? e : "") + QString("': ") +
+			    QString(STR(e)) + QString("': ") +
 			    re.errorString());
 	parsererror(msg);
 	free(msg);
@@ -746,13 +746,13 @@ int re_match(char *s, char *e)
 	    free(s);
 	return 1;
     }
-    QRegularExpression re(e ? e : "");
+    QRegularExpression re(STR(e));
     if(!re_check(re, e)) {
 	if(s)
 	    free(s);
 	return 0;
     }
-    QRegularExpressionMatch m = re.match(s ? s : "");
+    QRegularExpressionMatch m = re.match(STR(s));
     if(s)
 	free(s);
     return m.capturedStart() + 1;
@@ -762,14 +762,14 @@ int re_match(char *s, char *e)
 // r can contain \0 .. \9 and \{n} for subexpression replacmeents
 char *re_sub(char *s, char *e, char *r, bool all)
 {
-    QRegularExpression re(e ? e : "");
+    QRegularExpression re(STR(e));
     if(!re_check(re, e)) {
 	if(r)
 	    free(r);
 	return s;
     }
     QString res;
-    QString str(s ? s : "");
+    QString str(STR(s));
     if(s)
 	free(s);
     int off = 0;
@@ -780,7 +780,7 @@ char *re_sub(char *s, char *e, char *r, bool all)
 	    continue;
 	if(off != m.capturedStart())
 	    res.append(str.midRef(off, m.capturedStart() - off));
-	QString rstr(r ? r : "");
+	QString rstr(STR(r));
 	int roff = 0, bsloc;
 	while((bsloc = rstr.indexOf('\\', roff)) >= 0) {
 	    int expr = -1;
@@ -1187,32 +1187,27 @@ static void elt_at(const char *array, int o, int *begin, int *after, char sep, c
     *after = a;
 }
 
-bool find_elt(const char *a, const char *s, int len, int *begin, int *after,
-	      char asep, char aesc, char ssep, char sesc)
+bool find_unesc_elt(const char *a, const char *s, int *begin, int *after,
+		    char sep, char esc)
 {
-    char *new_s = NULL;
     bool ret;
+    char toesc[3];
+    int len = strlen(s);
+    int nesc;
+    char *tmp = NULL;
 
-    // If element and array have different sep/esc, may need to adjust s
-    if(ssep && (ssep != asep || sesc != aesc) &&
-        // does anything need unescaping?
-       (memchr(s, aesc == sesc ? asep : aesc, len) ||
-	// does anything need escaping?
-	memchr(s, ssep, len) || (aesc != sesc && memchr(s, sesc, len)))) {
-	char newesc[3];
-	int nlen;
-	new_s = (char *)malloc(len * 2);
-	// store unesc at far end to avoid overwrite during esc
-	nlen = unescape(new_s + len, s, len, sesc) - (new_s + len);
-	newesc[0] = aesc;
-	newesc[1] = asep;
-	newesc[2] = 0;
-	len = escape(new_s, new_s + len, nlen, aesc, newesc) - new_s;
-	s = new_s;
+    toesc[0] = esc;
+    toesc[1] = sep;
+    toesc[2] = 0;
+    nesc = countchars(s, toesc);
+    if(nesc) {
+	s = tmp = (char *)malloc(len + nesc + 1);
+	*escape(tmp, s, len, sep, toesc) = 0;
+	len += nesc;
     }
-    ret = find_elt(a, s, len, begin, after, asep, aesc);
-    if(new_s)
-	free(new_s);
+    ret = find_elt(a, s, len, begin, after, sep, esc);
+    if(tmp)
+	free(tmp);
     return ret;
 }
 

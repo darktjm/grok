@@ -16,42 +16,11 @@ games again...
 Features in Progress
 --------------------
 
-- Add all new field types to verify_form()
-
-- Support editing the "menu" field (IT_INPUT combo box static values)
-  in a query editor-like dynamic table.  Same goes for flagcode and
-  flagtext for the other menu-style widgets.  Either the fields are
-  grayed out and a popup button is added to edit the list, or the
-  query-editor-like GUI is inserted in-place, and grows and shrinks
-  automatically (since I don't want scrollbar items in a panel that is
-  already scrollable).
-
-- Numeric fields should also support step adjustment.  At least verify
-  that setting digits sets step adjustment to 10^-digits.
-
-- For multi-select lists and checkbox groups, perhaps support storing
-  individual flags by having an additional array field of columns.
-  This might interfere with the common ->column usage, though.  The
-  same comment applies if I want to have individual flag variables,
-  as well.  It's best to just force users to test with set
-  intersection.  Perhaps I'll revisit this if I get SQL working,
-  since having an infinitely resizable field is not such a good idea
-  there.  Note that if I support flag variables and flog storage
-  separately, I'd have to also modify the field get/set routines to
-  correclty extract/store the values; best to support all or nothing.
-  This should also provide array semantics for summary column & width.
-  One compromise for the latter would be to have a flag to display a
-  column for every possible value, each at the same width.
-
-- Automatically make the flag code equal to the label if blank.
-
-- Support stepping over all possible values of a field whose
-  Choice/flag code and/or combo text is an array.  Maybe ? instead
-  of + to select Choice/flag codes and ?+ to select combo/label
-  text.  To support the multi-field thing, you'd need a way to
-  select the group (perhaps any field name in the group) and then
-  you can step through the possible field names with ?&.  Or, only ?
-  and multiple elt-bindings such as elt, eltlabel, eltvar.
+- Support stepping over all possible values of a field with a menu.
+  Maybe ? instead of + to select Choice/flag codes and ?+ to select
+  combo/label text.  To support the multi-field thing, you'd need a
+  way to select the group (perhaps any field name in the group) and
+  then you can step through the possible field names with ?&.
 
 Bugs
 ----
@@ -75,6 +44,15 @@ Bugs
       one of the few people who still uses FVWM, which I have been
       using for over 20 years now.  Some weirdnesses only apply to
       FVWM.
+
+    I will probably need to eventually break down and dredge thorugh
+    the Qt source to figure out how resizing actually works.  Adding
+    the auto-grow/shrink tables to the form editor had resizing issues,
+    as well.  I expect changing contents' sizes should cause a ripple
+    effect throughout the hierarchy to adjust to this size, but
+    instead, I have to call adjustSize() manually on the parent
+    widgets.  Twice.  Calling updateGeometry() doesn't seem to do
+    anything.
 
 - The layout of the form item editor needs tweaking.  At the very
   least, the chart options do not seem to have the right label
@@ -190,6 +168,12 @@ Minor UI Improvements
 
     - Support drag-move for reordering.
 
+- Actually look into the plan interface.  At the very least reduce its
+  footprint on the form editor my making the radio group a menu.
+  Maybe even make it a one-liner.
+
+- Support setting step size for numeric fields.
+
 Important UI improvements
 -------------------------
 
@@ -208,6 +192,9 @@ Important UI improvements
   full manual, help text, and man page from the same source, but
   I've been trying that for years with my literate stuff and it's
   just not practical.
+
+    - In particular, files.html is probably all wrong, and I don't
+      want to deal with it right now.
 
 - Document the "standard" Qt command-line options, especially given
   that they seem to only be documented in the
@@ -326,6 +313,11 @@ Infrastructure Improvements
   Perhaps also support some of the other CSV conventions, like
   optional quotes around values and an optional header line.
 
+- Make Print widget's name refer to the label text, rather than a
+  database column.  All other unstored columns should not support
+  being named, as expressions assume the name corresponds to the
+  field's database column.
+
 -   Support UTF-8.  This was going somewhere in the IUP port, but I have
     abandoned this and it is at 0% again.  I don't like the idea of
     using QChar everywhere, and I definitely don't like the idea of
@@ -416,6 +408,11 @@ Infrastructure Improvements
   some way of doing sync-like import based on field mod times (thus
   making that feature actually useful).  Perhaps rather than using a
   pair of files for this, have a combined standard export format.
+
+- Support going directly into the form editor for invalid gf files.
+  Now that I verify the form on load, there is nothing short of manual
+  editing of the file that will correct problems.  Not that there
+  should ever be corrupt gf files in the first place.
 
 - Maybe this is an opportunity to make grok scriptable while running,
   like the old Amiga AREXX port.  I guess dbus would be the modern
@@ -564,11 +561,15 @@ Major Card Features
   reason I have for wanting a chart is to display the distribution
   of games of different types, which is an aggregate number
   corresponding to nothing (except maybe a search string).  The
-  other way to go would be to use QtChartView and support whatever
+  other way to go would be to use QChartView and support whatever
   Qt supports without much thought. The more I support, the more
   per-item config options must be present. I think that maybe charts
   should be popups, either static or via QChartView in some way,
   rather than forcing them onto the static region of the card.
+
+    - At the very least, document the current chart operation a little
+      better.  The HTML docs don't even cover the chart's item
+      configuration.
 
 Major Feature: Foreign Database References
 ------------------------------------------

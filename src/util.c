@@ -232,18 +232,12 @@ void fatal(const char *fmt, ...)
 }
 
 
-/*
- * Ultrix doesn't have strdup, so we'll need to define one locally.
- */
-
+/* This used to be here for systems w/o strdup */
+/* But now it's here to allow NULL */
 char *mystrdup(
 	const char *s)
 {
-	register char *p = NULL;
-
-	if (s && (p = (char *)malloc(strlen(s)+1)))
-		strcpy(p, s);
-	return(p);
+	return s ? strdup(s) : NULL;
 }
 
 
@@ -363,7 +357,7 @@ static char *readbutton(
 		*buf = 0;
 	if (ptr) {
 		if (*ptr) free(*ptr);
-		*ptr = buf && *buf ? mystrdup(buf) : 0;
+		*ptr = !BLANK(buf) ? mystrdup(buf) : 0;
 	}
 	return(buf);
 }

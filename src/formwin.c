@@ -24,6 +24,7 @@ class QDialogNoClose : public QDialog {
 };
 
 static void formedit_callback(int);
+static void menu_callback(QTableWidget *w, int x, int y);
 static int readback_item(int);
 
 static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
@@ -32,29 +33,28 @@ static FORM		*form;		/* current form definition */
 int			curr_item;	/* current item, 0..form.nitems-1 */
 static QWidget		*scroll_w;	/* the widget inside the scroll area */
 static QFrame		*chart;		/* the widget for chart options */
+static QTableWidget	*menu_w;	/* the menu editor widget */
 
 const char		plan_code[] = "tlwWrecnmsSTA";	/* code 0x260..0x26c */
 
 
 #define ALL ~0U
 #define ANY ~1U  // all except IT_NULL
-#define ITX 1U<<IT_INPUT  | 1U<<IT_TIME | 1U<<IT_NOTE | 1U<<IT_NUMBER
-#define ITP 1U<<IT_INPUT  | 1U<<IT_TIME | 1U<<IT_NOTE
+#define INP 1U<<IT_INPUT
+#define TIM 1U<<IT_TIME
+#define ITP 1U<<IT_NOTE | INP | TIM
+#define NUM 1U<<IT_NUMBER
+#define ITX ITP | NUM
 #define TXT 1U<<IT_PRINT  | ITX
 #define FT2 TXT | 1U<<IT_RADIO | 1U<<IT_FLAGS
-#define TXF 1U<<IT_CHOICE | TXT
 #define FLG 1U<<IT_CHOICE | 1U<<IT_FLAG
-#define MUL 1U<<IT_MENU | 1U<<IT_RADIO | 1U<<IT_MULTI | 1U<<IT_FLAGS
-#define COD FLG | MUL
-#define CMB 1U<<IT_INPUT  | MUL
-#define BAS ITX | FLG | MUL
-#define IDF TXF | FLG | MUL
-#define TIM 1U<<IT_TIME
+#define SNG 1U<<IT_MENU | 1U<<IT_RADIO
+#define MUL 1U<<IT_MULTI | 1U<<IT_FLAGS
+#define MNU INP  | SNG | MUL
+#define BAS ITX | FLG | SNG | MUL
+#define IDF TXT | FLG | SNG | MUL
 #define BUT 1U<<IT_BUTTON
-#define VIW 1U<<IT_VIEW
 #define CHA 1U<<IT_CHART
-#define INP 1U<<IT_INPUT
-#define NUM 1U<<IT_NUMBER
 
 static const struct {
     int type;
@@ -76,11 +76,132 @@ static const struct {
 	{ IT_CHART,  "Chart"		}
 	
 };
-#define N_ITEM_TYPES (int)(sizeof(item_types)/sizeof(item_types[0]))
 
+static QStringList menu_col_labels = {
+	"Label", "Field Name", "DB Col", "Code", "Sum Col", "Sum Width",
+	"Sum Code" };
+
+static const struct {
+    int  fieldoff;
+    bool isint;
+} menu_cols[] = {
+    { offsetof(MENU, label) },
+    { offsetof(MENU, name) },
+    { offsetof(MENU, column),   true },
+    { offsetof(MENU, flagcode) },
+    { offsetof(MENU, sumcol),   true },
+    { offsetof(MENU, sumwidth), true },
+    { offsetof(MENU, flagtext) }
+};
+
+#define MENU_COMBO  (1<<0)
+#define MENU_SINGLE (1<<0 | 1<<3 | 1<<6)
+#define MENU_MULTI  ~0
+
+static int menu_col_mask(const ITEM *item)
+{
+	if(item->type == IT_INPUT)
+		return MENU_COMBO;
+	else if(item->type == IT_MENU || item->type == IT_RADIO || !item->multicol)
+		return MENU_SINGLE;
+	else
+		return MENU_MULTI;
+}
+
+static void fill_menu_row(QTableWidget *tw, const ITEM *item, int row)
+{
+	for(int j = 0; j < ALEN(menu_cols); j++) {
+		void *p = (char *)&item->menu[row] + menu_cols[j].fieldoff;
+		QTableWidgetItem *twi = tw->item(row, j);
+		if(!twi)
+			tw->setItem(row, j, (twi = new QTableWidgetItem));
+		if(row == item->nmenu)
+			twi->setText("");
+		else if(menu_cols[j].isint) {
+			QString s;
+			s.asprintf("%d", *(int *)p);
+			twi->setText(s);
+		} else
+			twi->setText(STR(*(char **)p));
+	}
+}
+
+static void resize_menu_table(QTableWidget *tw);
+static void fill_menu_table(QTableWidget *tw)
+{
+	QSignalBlocker sb(tw);
+	if(curr_item >= form->nitems) {
+		tw->clear();
+		return;
+	}
+	const ITEM *item = form->items[curr_item];
+	if(!((1U<<item->type) & (MNU))) {
+		tw->clear();
+		return;
+	}
+	int row, col;
+	if(tw->rowCount()) {
+		row = tw->currentRow();
+		col = tw->currentColumn();
+	} else
+		row = col = -1;
+	int mask = menu_col_mask(item);
+	for(int i = 0; i < ALEN(menu_cols); i++)
+		tw->setColumnHidden(i, !(mask & (1<<i)));
+	tw->horizontalHeader()->setVisible(mask != MENU_COMBO);
+	tw->setRowCount(item->nmenu + 1);
+	for(int i = 0; i <= item->nmenu; i++)
+	    fill_menu_row(tw, item, i);
+	resize_menu_table(tw);
+	if(row >= 0)
+		tw->setCurrentCell(row, col);
+}
+
+static void resize_menu_table(QTableWidget *tw)
+{
+	// FIXME:  How do I determine the grid line width?  It's there
+	// whether the grid is drawn or not.
+	if(curr_item >= form->nitems)
+		return;
+	const ITEM *item = form->items[curr_item];
+	int mask = menu_col_mask(item);
+	tw->ensurePolished();
+	int w = 0;
+	tw->horizontalHeader()->setStretchLastSection(false);
+	for(int i = 0; i < ALEN(menu_cols); i++)
+		if(mask & (1<<i)) {
+			int min = menu_cols[i].isint ? 40 : 100;
+			tw->resizeColumnToContents(i);
+			if(tw->columnWidth(i) < min)
+				tw->setColumnWidth(i, min);
+			w += tw->columnWidth(i);
+			// not sure if grid is included above; probably not
+			w++;
+		}
+	// 1 too many grid lines, in any case
+	w--;
+	tw->horizontalHeader()->setStretchLastSection(true);
+	// this resize probably isn't necessary, but better to be safe
+	tw->resizeRowsToContents();
+	int h = tw->rowHeight(0) * (item->nmenu + 1);
+	h += item->nmenu; // assume 1-pixel grid
+	if(mask != MENU_COMBO)
+		h += tw->horizontalHeader()->sizeHint().height();
+	if(w > tw->width())
+		h += tw->horizontalScrollBar()->height();
+	tw->setMaximumHeight(h);
+	tw->setMinimumHeight(h);
+	// Why do I have to manually make room in the parent widget?
+	tw->parentWidget()->adjustSize();
+	// Why do I have to manually make room in the scrolling canvas as well?
+	tw->parentWidget()->parentWidget()->adjustSize();
+	// Most importantly, why do I have to do it twice??
+	tw->parentWidget()->adjustSize();
+	tw->parentWidget()->parentWidget()->adjustSize();
+}
 
 /*
- * next free: 10a,114 (global), 23e (field), 30b (chart component)
+ * next free: 10a,114 (global), 240 (field), 30b (chart component)
  */
 
 static struct _template {
@@ -134,6 +255,7 @@ static struct _template {
 	{ BAS, 'f',	0x201,	"Read only",		"fe_flags",	},
 	{ BAS, 'f',	0x202,	"Not sortable",		"fe_flags",	},
 	{ BAS, 'f',	0x203,	"Default sort",		"fe_flags",	},
+	{ MUL, 'f',	0x23e,	"Multi-field",		"fe_menu",	},
 	{ ANY, 'L',	 0,	"Internal field name:",	"fe_int",	},
 	{ ANY, 't',	0x204,	" ",			"fe_int",	},
 	{ BAS, 'L',	 0,	"Database column:",	"fe_column",	},
@@ -144,10 +266,10 @@ static struct _template {
 	{ BAS, 'i',	0x207,	" ",			"fe_sum",	},
 	{ BAS, 'L',	 0,	"Show in summary:",	"fe_sump",	},
 	{ BAS, 'T',	0x229,	" ",			"fe_sump",	},
-	{ COD, 'L',	 0,	"Choice/flag code:",	"fe_flag",	},
-	{ COD, 't',	0x208,	" ",			"fe_flag",	},
-	{ COD, 'l',	 0,	"shown in summary as",	"fe_flag",	},
-	{ COD, 't',	0x236,	" ",			"fe_flag",	},
+	{ FLG, 'L',	 0,	"Choice/flag code:",	"fe_flag",	},
+	{ FLG, 't',	0x208,	" ",			"fe_flag",	},
+	{ FLG, 'l',	 0,	"shown in summary as",	"fe_flag",	},
+	{ FLG, 't',	0x236,	" ",			"fe_flag",	},
 	{ TIM, 'L',	 0,	"Time format:",		"fe_time",	},
 	{   0, 'R',	 0,	" ",			0,		},
 	{ TIM, 'r',	0x209,	"Date",			"fe_time",	},
@@ -186,12 +308,6 @@ static struct _template {
 	{ FT2, 'r',	0x219,	"Courier",		"fe_ifont",	},
 	{ ITP, 'L',	 0,	"Max input length:",	"fe_range",	},
 	{ ITP, 'i',	0x21f,	" ",			"fe_range",	},
-	{ CMB, 'L',	 0,	"Combo Box",		"fe_combo",	},
-	{ CMB, 't',	0x23a,	" ",			"fe_combo",	},
-	{   0, 'R',	 0,	" ",			"fe_combo",	},
-	{ INP, 'r',	0x23b,	"Static",		"fe_combo",	},
-	{ INP, 'r',	0x23c,	"Dynamic",		"fe_combo",	},
-	{ INP, 'r',	0x23d,	"All",			"fe_combo",	},
 	{ NUM, 'L',	 0,	"Min Value",		"fe_range",	},
 	{ NUM, 'd',	0x237,	" ",			"fe_range",	},
 	{ NUM, 'l',	 0,	"Max Value",		"fe_range",	},
@@ -200,6 +316,12 @@ static struct _template {
 	{ NUM, 'i',	0x239,	" ",			"fe_range",	},
 	{ IDF, 'L',	 0,	"Input default:",	"fe_def",	},
 	{ IDF, 'T',	0x220,	" ",			"fe_def",	},
+	{ MNU, 'L',	 0,	"Menu",			"fe_menu",	},
+	{ MNU, 'M',	0x23f,	" ",			"fe_menu",	},
+	{   0, 'R',	 0,	" ",			"fe_menu",	},
+	{ INP, 'r',	0x23b,	"Static",		"fe_menu",	},
+	{ INP, 'r',	0x23c,	"Dynamic",		"fe_menu",	},
+	{ INP, 'r',	0x23d,	"All",			"fe_menu",	},
 	{ TXT, '-',	 0,	" ",			0,		},
 
 	{ BAS, 'L',	 0,	"Calendar interface:",	"fe_plan",	},
@@ -235,8 +357,6 @@ static struct _template {
 
 	{ BUT, 'L',	 0,	"Action when pressed:",	"fe_press",	},
 	{ BUT, 'T',	0x226,	" ",			"fe_press",	},
-	{ BUT, 'L',	 0,	"Action when added:",	"fe_add",	},
-	{ BUT, 'T',	0x227,	" ",			"fe_add",	},
 	{ CHA, '-',	 0,	" ",			0,		},
 
 	{ CHA, 'L',	 0,	"Chart X range:",	"fe_chart",	},
@@ -469,6 +589,58 @@ void create_formedit_window(
 			if (tp->type == 't')
 				w->setMinimumWidth(100);
 			break;
+		    case 'M': {
+			w = new QWidget;
+			hform->addWidget(w, 2);
+			QVBoxLayout *v = new QVBoxLayout(w);
+			menu_w = new QTableWidget;
+			// copied from querywin.c
+			menu_w->setShowGrid(false);
+			menu_w->setWordWrap(false);
+			menu_w->setEditTriggers(QAbstractItemView::AllEditTriggers);
+			menu_w->setSelectionBehavior(QAbstractItemView::SelectRows);
+			menu_w->setColumnCount(ALEN(menu_cols));
+			for(int i = 0; i < ALEN(menu_cols); i++)
+				    menu_w->setColumnWidth(i, menu_cols[i].isint ? 40 : 100);
+			menu_w->setHorizontalHeaderLabels(menu_col_labels);
+			menu_w->horizontalHeader()->setStretchLastSection(true);
+			// menu_w->setDragDropMode(QAbstractItemView::InternalMove);
+			// menu_w->setDropIndicatorShown(true);
+			menu_w->verticalHeader()->hide();
+			menu_w->setMinimumWidth(150);
+			v->addWidget(menu_w);
+			// This needs a more specific callback
+			set_qt_cb(QTableWidget, cellChanged, menu_w,
+				  menu_callback(menu_w, c, r), int r, int c);
+			set_qt_cb(QTableWidget, currentCellChanged, menu_w,
+				  menu_callback(menu_w, c, r), int r, int c);
+			QDialogButtonBox *bb = new QDialogButtonBox;
+			v->addWidget(bb);
+			QPushButton *b;
+			b = new QPushButton(QIcon::fromTheme("go-up"), "");
+			bb->addButton(b, dbbr(Action));
+			b->setObjectName("up");
+			b->setEnabled(false);
+			set_button_cb(b, menu_callback(menu_w, -1, -1));
+			bind_help(b, tp->help);
+			b = new QPushButton(QIcon::fromTheme("go-down"), "");
+			bb->addButton(b, dbbr(Action));
+			b->setObjectName("down");
+			b->setEnabled(false);
+			set_button_cb(b, menu_callback(menu_w, 1, -1));
+			bind_help(b, tp->help);
+			b = mk_button(bb, "Delete", dbbr(Action));
+			b->setObjectName("del");
+			b->setEnabled(false);
+			set_button_cb(b, menu_callback(menu_w, -1, -2));
+			bind_help(b, tp->help);
+			b = mk_button(bb, "Duplicate", dbbr(Action));
+			b->setObjectName("dup");
+			b->setEnabled(false);
+			set_button_cb(b, menu_callback(menu_w, 1, -2));
+			bind_help(b, tp->help);
+			break;
+		    }
 		    case 'C': {
 			QComboBox *cb = new QComboBox;
 			cb->setEditable(true);
@@ -495,7 +667,7 @@ void create_formedit_window(
 		    }
 		    case 'I': {
 			    QComboBox *cb = new QComboBox;
-			    for(n = 0; n < N_ITEM_TYPES; n++)
+			    for(n = 0; n < ALEN(item_types); n++)
 				    cb->addItem(item_types[n].name);
 			    hform->addWidget((w = cb));
 			    break;
@@ -633,13 +805,18 @@ void sensitize_formedit(void)
 				tp->code == 0x113 ? item != 0 : true);
 			tp->widget->setVisible(tp->sensitive & mask);
 		}
+		if ((mask & (MUL)) &&
+		    ((tp->code >= 0x204 && tp->code <= 0x207) || tp->code == 0x236)) {
+			tp->widget->setEnabled(!item->multicol);
+			tp[-1].widget->setEnabled(!item->multicol);
+		}
 		if (tp->type == 'C') {
 			QStringList sl;
 			int n;
 			QComboBox *cb = reinterpret_cast<QComboBox *>(tp->widget);
 			for(n = 0; n < form->nitems; n++) {
 				char *s = *(char **)((char *)form->items[n] + tp->role);
-				if(s && *s && !sl.contains(s))
+				if(!BLANK(s) && !sl.contains(s))
 					sl.append(s);
 			}
 			QString s = cb->currentText();
@@ -675,6 +852,7 @@ void fillout_formedit(void)
 
 	for (tp=tmpl; tp->type; tp++)
 		fillout_formedit_widget(tp);
+	fill_menu_table(menu_w);
 }
 
 
@@ -743,7 +921,7 @@ static void fillout_formedit_widget(
 	  case 0x109: print_text_button_s(w, to_octal(form->aesc ? form->aesc : '\\'));	break;
 
 	  case IT_LABEL:
-		  for(int n = 0; n < N_ITEM_TYPES; n++)
+		  for(int n = 0; n < ALEN(item_types); n++)
 			  if(item_types[n].type == item->type) {
 				  reinterpret_cast<QComboBox *>(w)->setCurrentIndex(n);
 				  break;
@@ -798,10 +976,10 @@ static void fillout_formedit_widget(
 	  case 0x237: set_dsb_value(w, item->min);			break;
 	  case 0x238: set_dsb_value(w, item->max);			break;
 	  case 0x230: set_sb_value(w, item->digits); set_digits(item->digits);			break;
-	  case 0x23a: print_text_button_s(w, item->menu);		break;
 	  case 0x23b:
 	  case 0x23c:
 	  case 0x23d: set_toggle(w, item->dcombo == tp->code - 0x23b);	break;
+	  case 0x23e: set_toggle(w, item->multicol);			break;
 	  case 0x21f: set_sb_value(w, item->maxlen);			break;
 	  case 0x206: set_sb_value(w, item->sumcol);			break;
 	  case 0x207: set_sb_value(w, item->sumwidth);			break;
@@ -818,7 +996,6 @@ static void fillout_formedit_widget(
 	  case 0x225: print_text_button_s(w, item->skip_if);		break;
 
 	  case 0x226: print_text_button_s(w, item->pressed);		break;
-	  case 0x227: print_text_button_s(w, item->added);		break;
 	  case 0x228: print_text_button_s(w, form->planquery);		break;
 	  case 0x229: print_text_button_s(w, item->sumprint);		break;
 
@@ -871,6 +1048,108 @@ static void fillout_formedit_widget(
 
 
 /*-------------------------------------------------- button callbacks -------*/
+static void menu_callback(QTableWidget *w, int x, int y)
+{
+	int row = y < 0 ? w->currentRow() : y;
+	bool do_resize = false;
+
+	if (curr_item >= form->nitems)
+		return;
+	QSignalBlocker sb(w);
+	ITEM *item = form->items[curr_item];
+	if(y < 0 && row == item->nmenu)
+		return;
+	if(y == -2) {
+		if(x < 0) { // del
+			menu_delete(&item->menu[row]);
+			if(!--item->nmenu)
+				free(item->menu);
+			else
+				memmove(item->menu + row, item->menu + row + 1, (item->nmenu - row) * sizeof(MENU));
+			w->removeRow(row);
+			do_resize = true;
+		} else { // dup
+			item->menu = (MENU *)realloc(item->menu, ++item->nmenu * sizeof(MENU));
+			memmove(item->menu + row + 1, item->menu + row, (item->nmenu - row - 1) * sizeof(MENU));
+			menu_clone(&item->menu[row]);
+			w->insertRow(row + 1);
+			w->setCurrentCell(row + 1, w->currentColumn());
+			fill_menu_row(w, item, row + 1);
+			do_resize = true;
+		}
+	} else if(y == -1) { // up/down
+		if(x + row < 0 || x + row >= item->nmenu)
+			return;
+		MENU t = item->menu[row];
+		item->menu[row] = item->menu[row + x];
+		item->menu[row + x] = t;
+		fill_menu_row(w, item, row);
+		fill_menu_row(w, item, row + x);
+		w->setCurrentCell(row + x, w->currentColumn());
+	} else { // cell widget
+		QTableWidgetItem *twi = w->item(row, x);
+		const QString &qs = twi->text();
+		char *string = NULL;
+		if(qs.size())
+			string = qstrdup(qs);
+		if(string && row == item->nmenu) { // unblank a blank
+			// yeah, maybe one day I'll alloc in chunks
+			// yeah, C supports realloc of NULL, but some memory
+			//       debuggers still don't.
+			item->menu = !item->menu ?
+				(MENU *)malloc(++item->nmenu * sizeof(MENU)) :
+				(MENU *)realloc(item->menu,
+						++item->nmenu * sizeof(MENU));
+			memset(item->menu + item->nmenu - 1, 0, sizeof(MENU));
+			w->insertRow(item->nmenu);
+			fill_menu_row(w, item, item->nmenu);
+			do_resize = true;
+		}
+		if(row < item->nmenu) {
+			void *p = (char *)&item->menu[row] + menu_cols[x].fieldoff;
+			if(menu_cols[x].isint) {
+				*(int *)p = atoi(STR(string));
+				// always update in case of format error
+				qs.asprintf("%d", *(int *)p);
+				twi->setText(qs);
+				free(string);
+			} else {
+				zfree(*(char **)p);
+				*(char **)p = string;
+			}
+			// delete if newly blank
+			// 0s are considered blanks
+			int mask = menu_col_mask(item);
+			for(x = 0; x < ALEN(menu_cols); x++) {
+				if(!(mask & (1 << x)))
+					continue;
+				char *p = (char *)&item->menu[row] + menu_cols[x].fieldoff;
+				if(menu_cols[x].isint) {
+					if(*(int *)p)
+						break;
+				} else
+					if(*(char **)p)
+						break;
+			}
+			if(x == ALEN(menu_cols)) { // newly blank; auto-del
+				menu_callback(w, -1, -2);
+				return;
+			}
+		}
+	}
+	if(do_resize)
+		resize_menu_table(w);
+	QPushButton *b;
+	b = w->parent()->findChild<QPushButton *>("up");
+	b->setEnabled(row);
+	b = w->parent()->findChild<QPushButton *>("down");
+	b->setEnabled(row < item->nmenu - 1);
+	b = w->parent()->findChild<QPushButton *>("dup");
+	b->setEnabled(row < item->nmenu);
+	b = w->parent()->findChild<QPushButton *>("del");
+	b->setEnabled(row < item->nmenu);
+}
+
 /*
  * some item in one of the menu bar pulldowns was pressed. All of these
  * routines are direct X callbacks.
@@ -1075,11 +1354,11 @@ static int readback_item(
 	  case 0x237: item->min = get_dsb_value(w);			break;
 	  case 0x238: item->max = get_dsb_value(w);			break;
 	  case 0x239: item->digits = get_sb_value(w); set_digits(item->digits);	break;
-	  case 0x23a: (void)read_text_button(w, &item->menu);		break;
 	  case 0x23b:
 	  case 0x23c:
-	  case 0x23d:  item->dcombo = (DCOMBO)(tp->code - 0x23a);	break;
-		
+	  case 0x23d:  item->dcombo = (DCOMBO)(tp->code - 0x23b);	break;
+	  case 0x23e:  item->multicol ^= TRUE;	sensitize_formedit(); fill_menu_table(menu_w);	break;
+
 	  case 0x210:
 	  case 0x211:
 	  case 0x212:
@@ -1160,7 +1439,6 @@ static int readback_item(
 	  case 0x225: (void)read_text_button(w, &item->skip_if);	break;
 
 	  case 0x226: (void)read_text_button(w, &item->pressed);	break;
-	  case 0x227: (void)read_text_button(w, &item->added);		break;
 	  case 0x228: (void)read_text_button(w, &form->planquery);	break;
 	  case 0x229: (void)read_text_button(w, &item->sumprint);	break;
 

@@ -114,7 +114,7 @@ database; some are decorative or display computed information.
 <LI><B>Number</B><BR>
 	Input fields may be interpreted as numbers, but their format
 	and values are not enforced.  The Number field enforces a
-	numeric format and a specific range.
+	numeric format and a specific range.<P>
 
 <LI><B>Time</B><BR>
 	A variation of the Input field. The database representation is
@@ -151,17 +151,21 @@ database; some are decorative or display computed information.
 	into the static part of the canvas.<P>
 
 <LI><B>Choice Group</B><BR>
-	Choice groups are a group of Choice buttons, automatically
+	Choice groups are multiple Choice buttons, automatically
 	arranged in a grid, and surrounded by a border.  Each button
-	is described by a separate entry in the Choice/flag code, 
-	show in summary as, and button label fields.  The main label,
-	if non-blank, is displayed as part of the border.<P>
+	has a label, unique code, and optional summary display code
+	specified in the Menu table.  The main label, if non-blank, is
+	displayed as part of the border.  Unlike Choice fields, these
+	may not share a field name and database column with other
+	fields; all choices for this field must be within this
+	group.<P>
 
 <LI><B>Choice Menu</B><BR>
-	A choide menu collects the buttons in a group of Choice fields
-	or a Choice Group into a single button which allows selection
-	of the choice with a pop-up menu.  Configuration is the same as
-	with choice groups.<P>
+	A choice menu collects the buttons in a Choice Group into a
+	single button which allows selection of the choice with a
+	pop-up menu.  Configuration is the same as with choice groups,
+	except that the main label is displayed to the left of the
+	button.<P>
 
 <LI><B>Label</B><BR>
 	Labels are purely decorative. They print an arbitrary one-line
@@ -188,12 +192,23 @@ database; some are decorative or display computed information.
 	with the Choice/flag code button in the form editor.<P>
 
 <LI><B>Flag Group</B><BR>
-	Flag groups are a like a collection of Flag fields, automatically
-	laid out and surrounded by a border.  Since they are assigned
-	to a single field, their value is actually a set of values.
-	If the flag code assigned to a label is in the set, that flag is
-	set.  See <A HREF="grammar.html#gi">the grammar documentation</A>
-	for more details on how to deal with sets.<P>
+	Flag groups are the same a Choice Groups, except that multiple
+	(or no) flags may be set at one time (and the checkbox also
+	usually looks different).  These can either be assigned to a
+	single field, or split into one field per flag using the
+	Multi-field checkbox.  When assigned to a single field, the
+	value stored in the database is a string-as-set, with all set
+	flags' codes in the set.  This means, among other things, that
+	all flag codes must be unique within the group.  See
+	<A HREF="grammar.html#gi">the grammar documentation</A>
+	for more details on how to deal with sets.  Configuration of
+	single-field groups is the same as for Choice Groups.<P>
+
+	For multi-field groups, the Menu table allows configuration of
+	individual flags' database column and field name, as well.
+	It is no longer required that codes be unique, like normal
+	Flag fields.  The flag's summary column and width are also
+	individually configurable.<P>
 
 <LI><B>Flag List</B><BR>
 	This is a scrollable list of flag options; clicking one toggles it.
@@ -320,22 +335,27 @@ a field in the card:
 	fields which are grouped by a common database column (and a
 	common internal field name, too).<P>
 
+<LI><B>Summary column</B><BR>
+	If the width is nonzero, this value specifies the order of fields
+	in summary lines. No two fields may have the same summary column
+	number, but there may be gaps.<P>
+
 <LI><B>Width in summary</B><BR>
 	If the width is nonzero, the database string referenced by the
 	field will appear in the summary, with as many characters as
 	specified. Two blanks are appended in the textual outputs.<P>
 
-<LI><B>Summary column</B><BR>
-	If the width is nonzero, this value specifies the order of fields
-	in summary lines. No two fields may have the same summary column
-	number, but there may be gaps.<P>
+<LI><B>Show in summary</B><BR>
+	If this is non-blank, the text displayed for this field in the
+	summary is the result of evaluating this as an expression.  Unlike
+	Shown in Summary as, this applies to all field types.<P>
 
 <LI><B>Choice/flag code</B><BR>
 	The string that Flag and Choice fields store in the database,
 	if active.  No two Choice fields with the same internal name
 	may have the same code.<P>
 
-<LI><B>Shown as</B><BR>
+<LI><B>Shown in summary as</B><BR>
 	If this string is set, it will be displayed in the summary in
 	place of the choice/flag code. Basically, it is a mnemonic name
 	for the choice/flag code that a user can understand.<P>
@@ -345,11 +365,6 @@ a field in the card:
 	format controls what gets printed into the card, and how user
 	input is interpreted.<P>
 
-<LI><B>Label text</B><BR>
-	All field types come with some kind of text string that is
-	printed into the field in the card. This string is always literal,
-	it cannot be an expression.<P>
-
 <LI><B>Label justification</B><BR>
 	Labels can be centered, left-aligned, or right-aligned. This is
 	not shown in the card canvas, press the Preview button to see
@@ -357,6 +372,22 @@ a field in the card:
 
 <LI><B>Label font</B><BR>
 	The font used for the label. Five fonts are available.<P>
+
+<LI><B>Label text</B><BR>
+	All field types come with some kind of text string that is
+	printed into the field in the card. This string is always literal,
+	it cannot be an expression.<P>
+
+<LI><B>Input justification</B><BR>
+	Input can be centered, left-aligned, or right-aligned. This is
+	not shown in the card canvas, press the Preview button to see
+	the effect.<P>
+
+<LI><B>Input font</B><BR>
+	The font used for the input area. Five fonts are available. It is
+	recommended to use Courier for Note fields (and, by extension,
+	for Input and Time fields) because printing functions print
+	notes using a fixed-width font.<P>
 
 <LI><B>Max input length</B><BR>
 	The maximum number of characters than can be entered into an
@@ -402,16 +433,38 @@ a field in the card:
 	string containing a date. For example, to make the Time field
 	default to today, use (date), not {date}.<P>
 
-<LI><B>Input justification</B><BR>
-	Input can be centered, left-aligned, or right-aligned. This is
-	not shown in the card canvas, press the Preview button to see
-	the effect.<P>
+<LI><B>Menu</B><BR>
+	For input fields, this attaches a menu to the input field with
+	suggested values.  The table to the left can be filled with
+	predefined values.  The checkboxes to the right are for
+	filling the menu with existing values in the database, as well.
+	Static indicates that only the predefined values are used, if
+	any.  Dynamic indicates that values of this field from the
+	current search results are added below the predefined ones.
+	All indicates that values of this field from the entire
+	database are added below the predefined ones.<P>
 
-<LI><B>Input font</B><BR>
-	The font used for the input area. Five fonts are available. It is
-	recommended to use Courier for Note fields (and, by extension,
-	for Input and Time fields) because printing functions print
-	notes using a fixed-width font.<P>
+	For Choice Group, Choice Menu, Flag Group and Flag List
+	fields, this configures the individual choices and flags.  The
+	Label, Code and Sum Code columns correspond to individual
+	fields' Label text, Choice/flag code and shown in summary
+	configuration, respectively.  In addition, for multi-field
+	Flag Group and Flag List fields, Field Name, DB Col, Sum Col,
+	Sum Width columns are added, which correspond to the Internal
+	field name, Database column, Summary column and Width in
+	summary configuration, respectively.<P>
+
+	The bottom row of the table is always blank, and is therefore
+	ignored.  To add a new row, fill in the blank one, and a new
+	blank row will appear below it for further additions.<P>
+
+	Below the table are four buttons which operate on the
+	currently selected table row, which is the last row clicked on
+	or tabbed into; this is usually indicated by highligting the
+	row.  The arrow buttons move the selected row up and down in
+	the list.  The Delete button removes the current row (with no
+	undo!), and the Duplicate button copies the selected row to the
+	immediately following row.<P>
 
 <LI><B>Calendar interface</B><BR>
 	If the <I>plan</I> calendar program (see below) reads a grok
@@ -439,10 +492,10 @@ a field in the card:
 
 <LI><B>Invisible if</B><BR>
 	If the named expression evaluates to <I>true</I>, the field is
-	excluded from the card. The expression is evaluated only once,
-	when the database is read from disk. This can be used to hide
-	entries if the wrong user has read the database. Invisibility
-	does not affect the summary.<P>
+	excluded from the card. The expression is evaluated every time
+	the database changes. This can be used to hide entries if the
+	wrong user has read the database. Invisibility does not affect
+	the summary.<P>
 
 <LI><B>Read-only if</B><BR>
 	If the named expression evaluates to <I>true</I>, the field
@@ -450,13 +503,14 @@ a field in the card:
 	database is read from disk.<P>
 
 <LI><B>Skip if</B><BR>
-	Normally, pressing Return in an Input or Time field advances
-	the cursor to the next field (fields are ordered by their bottom
-	left corner, in Y-major order). If the named expression of the
-	next field evaluates to <I>true</I>, the field is skipped and the
-	cursor is put elsewhere. This expression is evaluated every time
-	return is pressed in the previous field.  A constant expression
-	such as <TT>true</TT> is also useful.<P>
+	Normally, pressing Return or Tab in an Input or Time field
+	advances the cursor to the next field (fields are ordered by
+	their bottom left corner, in Y-major order). If the named
+	expression of the next field evaluates to <I>true</I>, the
+	field is skipped and the cursor is put elsewhere. This
+	expression is evaluated every time return is pressed in the
+	previous field.  A constant expression such as <TT>true</TT>
+	is also useful.<P>
 
 <LI><B>Action when pressed</B><BR>
 	If the button is pressed, this expression is evaluated. The

@@ -25,7 +25,7 @@ static DQUERY *add_dquery(FORM *fp) {return(0);}
 static void remake_dbase_pulldown(void) {}
 #endif
 
-#define STORE(t,s) do{if(t)free((void*)t);t=(s)&&*(s)?mystrdup(s):0;}while(0)
+#define STORE(t,s) do{zfree(t);t=mystrdup(s);}while(0)
 
 static const char * const itemname[NITEMS] = {
 	"None", "Label", "Print", "Input", "Time", "Note", "Choice", "Flag",
@@ -119,7 +119,7 @@ BOOL write_form(
 		/* see item_create() for defaults */
 		write_str("type       ", itemname[item->type]); /* always written */
 		/* following 4 have dynamic defaults, so they're always written */
-		write_str("name       ", item->name ? item->name : "");
+		write_str("name       ", STR(item->name));
 		write_2intc("pos        ", item->x,  || true, item->y, || true);
 		write_2intc("size       ", item->xs, || true, item->ys, || true);
 		write_2intc("mid        ", item->xm, || true, item->ym, || true);
@@ -141,9 +141,22 @@ BOOL write_form(
 		write_str("freeze     ", item->freeze_if);
 		write_str("invis      ", item->invisible_if);
 		write_str("skip       ", item->skip_if);
-		write_str("menu       ", item->menu);
-		if(item->type == IT_INPUT)
-			write_int("dcombo     ", item->dcombo);
+		if(IS_MENU(item->type)) {
+			write_int("mcol       ", item->multicol);
+			write_int("nmenu      ", item->nmenu);
+			for(int n = 0; n < item->nmenu; n++) {
+				MENU &m = item->menu[n];
+				write_str("menu       ", STR(m.label)); // should never by 0
+				write_str("_m_code    ", m.flagcode);
+				write_str("_m_codetxt ", m.flagtext);
+				write_str("_m_name    ", m.name);
+				write_int("_m_column  ", m.column);
+				write_int("_m_sumcol  ", m.sumcol);
+				write_int("_m_sumwid  ", m.sumwidth);
+			}
+			if(item->type == IT_INPUT)
+				write_int("dcombo     ", item->dcombo);
+		}
 		write_str("default    ", item->idefault);
 		write_int("maxlen     ", item->maxlen, != 100);
 		if(item->type == IT_NUMBER) {
@@ -153,7 +166,6 @@ BOOL write_form(
 		write_int("ijust      ", item->inputjust, != J_LEFT);
 		write_int("ifont      ", item->inputfont, || true); /* dynamic default */
 		write_str("p_act      ", item->pressed);
-		write_str("a_act      ", item->added);
 		if (item->plan_if)
 		    fprintf(fp, "plan_if    %c\n",	item->plan_if);
 
@@ -237,6 +249,7 @@ BOOL read_form(
 	ITEM			*item = 0;	/* item pointer, 0=form hdr */
 	int			i;		/* item counter */
 	CHART			*chart = 0;	/* next chart component */
+	MENU			*menu = 0;	/* next menu item */
 
 	path = resolve_tilde(path, "gf");
 	if (!(fp = fopen(path, "r"))) {
@@ -267,6 +280,7 @@ BOOL read_form(
 				return(FALSE);
 			}
 			chart = NULL;
+			menu = NULL;
 			item  = form->items[form->nitems-1];
 			item->selected = FALSE;
 			item->ch_curr  = 0;
@@ -312,7 +326,8 @@ BOOL read_form(
 			} else if (!strcmp(key, "query_q")) {
 				if (dq)
 					STORE(dq->query, p);
-			} else if (!strcmp(key, "help") && *p++ == '\'') {
+			} else if (!strcmp(key, "help") && (*p++ == '\'' ||
+							    p[-1] == '`')) {
 				if (form->help) {
 					if ((form->help = (char *)realloc(form->help,
 							   strlen(form->help) +
@@ -384,8 +399,31 @@ BOOL read_form(
 					STORE(item->invisible_if, p);
 			else if (!strcmp(key, "skip"))
 					STORE(item->skip_if, p);
-			else if (!strcmp(key, "menu"))
-					STORE(item->menu, p);
+			else if (!strcmp(key, "mcol"))
+				 	item->multicol = atoi(p);
+			else if (!strcmp(key, "nmenu")) {
+					if ((item->nmenu = atoi(p)))
+						item->menu =
+							(MENU *)calloc(item->nmenu,
+								sizeof(MENU));
+			}
+			else if (!strcmp(key, "menu")) {
+					menu = !menu ?
+						item->menu : menu+1;
+					if(menu) STORE(menu->label, p);
+			}
+			else if (menu && !strcmp(key, "_m_code"))
+					STORE(menu->flagcode, p);
+			else if (menu && !strcmp(key, "_m_codetxt"))
+					STORE(menu->flagtext, p);
+			else if (menu && !strcmp(key, "_m_name"))
+					STORE(menu->name, p);
+			else if (menu && !strcmp(key, "_m_column"))
+					menu->column = atoi(p);
+			else if (menu && !strcmp(key, "_m_sumcol"))
+					menu->sumcol = atoi(p);
+			else if (menu && !strcmp(key, "_m_sumwid"))
+					menu->sumwidth = atoi(p);
 			else if (!strcmp(key, "dcombo"))
 					item->dcombo = (DCOMBO)atoi(p);
 			else if (!strcmp(key, "default"))
@@ -402,8 +440,6 @@ BOOL read_form(
 					item->inputfont = atoi(p);
 			else if (!strcmp(key, "p_act"))
 					STORE(item->pressed, p);
-			else if (!strcmp(key, "a_act"))
-					STORE(item->added, p);
 			else if (!strcmp(key, "showplan"))
 					;	/* 1.5: now called planquery */
 			else if (!strcmp(key, "plan_if"))
@@ -463,6 +499,11 @@ BOOL read_form(
 		}
 	}
 	fclose(fp);
+	/* verify_form() will also create the symtab */
+	if(!verify_form(form, NULL, mainwindow)) {
+		form_delete(form);
+		return(FALSE);
+	}
 	return(TRUE);
 }
 

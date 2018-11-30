@@ -262,9 +262,9 @@ void toset(char *a, char sep, char esc);
 // sep/esc of a & s are the same
 bool find_elt(const char *a, const char *s, int len, int *begin, int *after,
 	      char sep, char esc);
-// sep/esc is a's, esep/eesc is s's if esep non-0 (may be same or different)
-bool find_elt(const char *a, const char *s, int len, int *begin, int *after,
-	      char asep, char aesc, char ssep, char sesc);
+// find unescaped 0-terminated elt s in non-empty set a, as above.
+bool find_unesc_elt(const char *a, const char *s, int *begin, int *after,
+		    char sep, char esc);
 
 
 /*---------------------------------------- formfile.c ------------*/
@@ -302,6 +302,8 @@ void item_delete(
 	int		nitem);		/* the current item, insert point */
 ITEM *item_clone(
 	register ITEM	*parent);	/* item to clone */
+void menu_delete(MENU *m);
+void menu_clone(MENU *m);
 
 /*---------------------------------------- formwin.c ------------*/
 
@@ -515,6 +517,17 @@ BOOL find_file(
 void fatal(const char *fmt, ...);
 char *mystrdup(
 	const char	*s);
+/* I'm tired of double-checking every string */
+/* making allocations always return non-0 would only partly fix, as initial */
+/* pointers are still NULL. */
+#define STR(s) ((s) ? (s) : "") // sort of from former formfile.c
+#define BLANK(s) (!(s) || !*(s))
+/* C allows NULL frees, but some memory trackers that replace free() don't */
+#define zfree(p) do { \
+	if(p) \
+		free(p); \
+	/* p = NULL; */ \
+} while(0)
 void print_button(QWidget *w, const char *fmt, ...);
 #define print_text_button print_button
 void print_text_button_s(QWidget *w, const char *str);
@@ -575,3 +588,5 @@ void add_layout_qss(
 void popup_nonmodal(QDialog *d);
 // Convert QString to char * by allocating enough memory
 char *qstrdup(const QString &str);
+
+#define ALEN(a) (int)(sizeof(a)/sizeof((a)[0]))

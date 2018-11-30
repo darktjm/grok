@@ -179,6 +179,19 @@ typedef struct {		/*----- storage for visible chart bars */
 	int	color;		/* bar color 0..7 */
 } BAR;
 
+typedef struct {
+	/* These fields override the equivalent ITEM fields */
+	char	*label;		/* Must be non-blank and unique within menu */
+	/* flag info for all but IT_INPUT */
+	char	*flagcode;	/* Must be unique within menu, and non-blank if not IT_MENU or IT_RADIO */
+	char	*flagtext;
+	/* multicol info for IT_MULTI, IT_FLAGS */
+	char	*name;		/* Must be non-blank and unique within form */
+	int	column;		/* must be unique within form */
+	int	sumcol;		/* must be unique within form if sumwidth > 0 */
+	int	sumwidth;
+} MENU;
+
 typedef struct item {
 	ITYPE	type;		/* one of IT_* */
 	char	*name;		/* field name, used in expressions */
@@ -214,13 +227,14 @@ typedef struct item {
 	int	maxlen;		/* max length of input field */
 	double	min, max;	/* NUMBER range */
 	int	digits;		/* NUMBER digits past decimal */
-	char	*menu;		/* combo box static entries & multi-item labels */
+	int	nmenu;		/* number of items in menu array */
+	MENU	*menu;		/* combo box static entries & multi-item config */
+	BOOL	multicol;	/* TRUE if menu[] has multiple column defs */
 	DCOMBO	dcombo;		/* INPUT combo box dynamic entry type */
 	JUST	inputjust;	/* input field justification */
 	int	inputfont;	/* input font, F_* */
 				/*----- for BUTTON */
 	char	*pressed;	/* command that button execs when pressed */
-	char	*added;		/* command that button execs when added */
 				/*----- for CHART */
 	double	ch_xmin;	/* coord of left edge */
 	double	ch_xmax;	/* coord of right edge */
@@ -240,12 +254,18 @@ typedef struct item {
 } ITEM;
 
 
+/* TRUE if the item type uses multicol */
+
+#define IS_MULTI(t) (t == IT_MULTI || t == IT_FLAGS)
+
+/* TRUE if the item type uses the menu */
+
+#define IS_MENU(t) (t == IT_INPUT || t == IT_MENU || t == IT_RADIO || IS_MULTI(t))
+
 /* TRUE if the item type accesses some database field */
 
-#define IN_DBASE(t) (t==IT_INPUT || t==IT_TIME ||\
-		     t==IT_NOTE  || t==IT_CHOICE || t==IT_FLAG ||\
-		     t==IT_NUMBER || t==IT_MENU || t==IT_RADIO ||\
-		     t==IT_MULTI || t==IT_FLAGS)
+#define IN_DBASE(t) (t==IT_TIME  || t==IT_NUMBER || IS_MENU(t) ||\
+		     t==IT_NOTE  || t==IT_CHOICE || t==IT_FLAG)
 
 
 /*
@@ -261,6 +281,17 @@ typedef struct item {
  * and the user interafe in formwin.c.
  * (In the menus, "item" has been renamed to "field".)
  */
+
+/* I didn't want to use C++ except where needed for Qt, but this isn't
+ * worth using C alteratives. */
+#include <unordered_map>
+#include <functional> // for hash
+#include <string> // yes, converting to string every time is stupid
+
+// using namespace std;  // conflicts too much; just live with std:: prefix
+
+typedef std::unordered_map<char *, int, std::hash<std::string>,
+					std::equal_to<std::string>> FIELDS;
 
 typedef struct dquery {
 	BOOL	suspended;	/* if TRUE, remove from pulldown */
@@ -289,6 +320,7 @@ typedef struct form {
 	int	autoquery;	/* query to do when loading, -1=none */
 	DQUERY	*query;		/* default queries for query pulldown */
 	char	*planquery;	/* default query for -p option */
+	FIELDS	*fields;	/* map fields to item#/menu# */
 } FORM;
 
 

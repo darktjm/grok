@@ -250,7 +250,7 @@ void write_preferences(void)
 	fprintf(fp, "pdevice	%c\n",	pref.pdevice);
 	fprintf(fp, "pspoola	%s\n",	pref.pspooler_a);
 	fprintf(fp, "pspoolp	%s\n",	pref.pspooler_p);
-	fprintf(fp, "pfile	%s\n",	pref.pfile ? pref.pfile : "");
+	fprintf(fp, "pfile	%s\n",	STR(pref.pfile));
 	fprintf(fp, "linelen	%d\n",	pref.linelen);
 	fclose(fp);
 }
