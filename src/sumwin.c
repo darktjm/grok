@@ -161,11 +161,22 @@ static void sum_callback(int item_position)
  * if row < 0, create a header line.
  */
 
+struct menu_item {
+	const ITEM *item;
+	int m;
+};
+
 static int compare(
 	register const void *u,
 	register const void *v)
 {
-	return((*(ITEM **)u)->sumcol - (*(ITEM **)v)->sumcol);
+	const struct menu_item *mi0 = (const struct menu_item *)u;
+	const struct menu_item *mi1 = (const struct menu_item *)v;
+	int col0 = mi0->item->multicol ? mi0->item->menu[mi0->m].sumcol :
+					 mi0->item->sumcol;
+	int col1 = mi1->item->multicol ? mi1->item->menu[mi1->m].sumcol :
+					 mi1->item->sumcol;
+	return col0 - col1;
 }
 
 
@@ -176,75 +187,97 @@ void make_summary_line(
 	QTreeWidget	*w,		/* non-0: add line to table widget */
 	int		lrow)		/* >=0: replace row #lrow */
 {
-	static int	nsorted;	/* size of <sorted> array */
-	static ITEM	**sorted;	/* sorted item pointer list */
+	static int	nsorted = 0;	/* size of <sorted> array */
+	static struct menu_item	*sorted;	/* sorted item pointer list */
 	const char	*data;		/* data string from the database */
-	char		databuf[200];	/* buffer for data with ':' stripped */
-	ITEM		*item;		/* contains info about formatting */
-	int		x = 0;		/* index to next free char in buf */
+	int		data_len;
+	const ITEM	*item;		/* contains info about formatting */
+	int		x = -1;		/* index to next free char in buf */
 	int		i;		/* item counter */
 	int		j;		/* char copy counter */
 	QTreeWidgetItem *twi = 0;	
 	int		lcol = 0;
+	int		ncol, m;
+	char		*allocdata = NULL;
+	int		sumwidth;
 
 	*buf = 0;
 	if (!card || !card->dbase || !card->form || row >= card->dbase->nrows)
 		return;
-	if (card->form->nitems > nsorted) {
-		nsorted = card->form->nitems + 3;
-		if (sorted)
-			free((void *)sorted);
-		if (!(sorted = (ITEM **)malloc(nsorted * sizeof(ITEM *)))) {
-			nsorted = 0;
-			return;
-		}
-	}
-	for (i=0; i < card->form->nitems; i++)
-		sorted[i] = card->form->items[i];
-	qsort((void *)sorted, card->form->nitems, sizeof(ITEM *), compare);
-
-	for (i=0; i < card->form->nitems; i++) {
-		item = sorted[i];
-		if (!IN_DBASE(item->type) || item->sumwidth < 1)
+	for(i=ncol=m=0; i < card->form->nitems; i++) {
+		const ITEM *item = card->form->items[i];
+		if (!IN_DBASE(item->type)) // FIXME: allow Print in summary
 			continue;
+		if (!item->multicol && item->sumwidth <= 0)
+			continue;
+		if (item->multicol) {
+			for(m++; m < item->nmenu; m++)
+				if(item->menu[m].sumwidth > 0)
+					break;
+			if(m == item->nmenu) {
+				m = -1;
+				continue;
+			}
+			i--; // keep processing same item
+		}
+		if (ncol >= nsorted) {
+			if(!nsorted)
+				sorted = (struct menu_item *)malloc((nsorted = card->form->nitems) * sizeof(*sorted));
+			else
+				sorted = (struct menu_item *)realloc(sorted, (nsorted *= 2) * sizeof(*sorted));
+		}
+		sorted[ncol].item = item;
+		sorted[ncol++].m = m;
+	}
+	qsort((void *)sorted, ncol, sizeof(struct menu_item), compare);
+
+	for (i=0; i < ncol; i++) {
+		item = sorted[i].item;
+		m = sorted[i].m;
 		if (row >= 0 && item->sumprint) {
 			int saved_row = card->row;
 			card->row = row;
 			data = evaluate(card, item->sumprint);
 			card->row = saved_row;
+			data_len = BLANK(data) ? 0 : strlen(data);
+		} else if(row < 0) {
+			data = item->type==IT_CHOICE ? item->name : item->label;
+			if(item->multicol)
+				data = item->menu[m].label;
+			data_len = BLANK(data) ? 0 : strlen(data);
+			if (data_len && data[data_len-1] == ':')
+				--data_len;
+			// skip over rest of IT_CHOICE group
+			// only save the matching choice, if any
+			if (item->type == IT_CHOICE) {
+				for(i++; i < ncol; i++)
+					if(sorted[i].item->type != IT_CHOICE ||
+					   sorted[i].item->sumcol != item->sumcol)
+						break;
+				i--;
+			}
 		} else {
-			data = row<0 ? item->type==IT_CHOICE ? item->name
-							     : item->label
-				     : dbase_get(card->dbase,row,item->column);
-
-			if (row < 0 && data && data[j=strlen(data)-1] == ':') {
-				strncpy(databuf, data, sizeof(databuf));
-				databuf[j] = 0;
-				databuf[sizeof(databuf)-1] = 0;
-				data = databuf;
-			}
-			if (item->type == IT_CHOICE && row < 0) {
-				for (j=0; j < i; j++)
-					if (item->sumcol == sorted[j]->sumcol)
+			data = dbase_get(card->dbase,row, item->multicol?
+						    item->menu[m].column :
+						    item->column);
+			// skip over rest of IT_CHOICE group
+			// only save the matching choice, if any
+			if (item->type == IT_CHOICE) {
+				for(i++; i < ncol; i++) {
+					if(sorted[i].item->type != IT_CHOICE ||
+					   sorted[i].item->sumcol != item->sumcol)
 						break;
-				if (j < i)
-					continue;
-			}
-			if (item->type == IT_CHOICE && row >= 0 &&
-			    (!data || !item->flagcode
-				   || strcmp(data,item->flagcode))){
-				for (j=i+1; j < card->form->nitems; j++)
-					if(!strcmp(item->name,sorted[j]->name))
-						break;
-				if (j < card->form->nitems)
-					continue;
-				data = 0;
+					if(!BLANK(data) &&
+					   !strcmp(data, STR(sorted[i].item->flagcode)))
+						item = sorted[i].item;
+				}
+				i--;
 			}
 			if ((item->type == IT_CHOICE || item->type == IT_FLAG)
 				    && item->flagtext && item->flagcode && data
 				    && !strcmp(data, item->flagcode))
 				data = item->flagtext;
-			if (item->type == IT_MENU || item->type == IT_RADIO) {
+			if ((item->type == IT_MENU || item->type == IT_RADIO)) {
 				for(j = 0; j < item->nmenu; j++)
 					if(!strcmp(STR(item->menu[j].flagcode),
 						   STR(data)))
@@ -253,12 +286,43 @@ void make_summary_line(
 				   !BLANK(item->menu[j].flagtext))
 					data = item->menu[j].flagtext;
 			}
-			if (item->type == IT_TIME && row >= 0)
+			if (item->multicol && !BLANK(item->menu[m].flagtext) &&
+			    !strcmp(STR(data), item->menu[m].flagcode))
+				data = item->menu[m].flagtext;
+			if (!item->multicol && (item->type == IT_FLAGS || item->type == IT_MULTI)) {
+				int qbegin, qafter;
+				char sep, esc;
+				char *v = NULL;
+				int nv = 0;
+				get_form_arraysep(card->form, &sep, &esc);
+				for(j = 0; j < item->nmenu; j++) {
+					MENU *menu = &item->menu[j];
+					if(find_unesc_elt(data, menu->flagcode,
+							  &qafter, &qbegin,
+							  sep, esc))
+						v = set_elt(v, nv++,
+							    BLANK(menu->flagtext) ?
+							    menu->flagcode : menu->flagtext);
+				}
+				data = allocdata = v;
+			}
+			if (item->type == IT_TIME)
 				data = format_time_data(data, item->timefmt);
+			data_len = BLANK(data) ? 0 : strlen(data);
 		}
-		if (data)
-			strncpy(buf+x, data, 80);
-		buf[x + item->sumwidth] = 0;
+		sumwidth = item->multicol ? item->menu[m].sumwidth :
+			                    item->sumwidth;
+		if (data_len > 80)
+			data_len = 80;
+		if(data_len > sumwidth)
+			data_len = sumwidth;
+		memcpy(buf+x, data, data_len);
+		buf[x + data_len] = 0;
+		if (allocdata) {
+			free(allocdata);
+			allocdata = NULL;
+		}
+		buf[x + sumwidth] = 0;
 		for (j=x; buf[j]; j++)
 			if (buf[j] == '\n')
 				buf[j--] = 0;
@@ -275,14 +339,11 @@ void make_summary_line(
 			twi->setText(lcol++, buf + x);
 		}
 		x += j = strlen(buf+x);
-		for (; j < item->sumwidth && j < 80; j++)
+		for (; j < sumwidth && j < 80; j++)
 			buf[x++] = ' ';
 		buf[x++] = ' ';
 		buf[x++] = ' ';
 		buf[x]   = 0;
-		while (++i < card->form->nitems-1 &&
-					item->sumcol == sorted[i]->sumcol);
-		i--;
 	}
 	if (x == 0)
 		sprintf(buf, row < 0 ? "" : "card %d", row);

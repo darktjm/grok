@@ -171,17 +171,38 @@ void form_delete(
 		    i->type == IT_FLAGS || i->type == IT_MULTI)
 #define ISFLAG(i) (i->type == IT_FLAG  || i->type == IT_CHOICE)
 
-static void verify_col(const FORM *form, const char *type, int **acol,
-		       int *nacol, char *msg, int *i, const char *name,
-		       int col, int id)
+#define add_msg_const(m, i, s) do { \
+	memcpy(m + i, s, sizeof(s) - 1); \
+	i += sizeof(s) - 1; \
+} while(0)
+
+static int add_field_name(char *msg, const FORM *form, int id)
 {
+	const ITEM *item = form->items[id % form->nitems];
+	if(!IN_DBASE(item->type))
+		return sprintf(msg, "\"%s\" (#%d)", STR(item->label), id);
+	else if(!item->multicol)
+		return sprintf(msg, "\"%s\" (#%d)",
+			       !BLANK(item->label) ? item->label : STR(item->name),
+			       id);
+	else
+		return sprintf(msg, "\"%s\" (#%d)-\"%s\" (#%d)",
+			       STR(item->label), id % form->nitems,
+			       STR(item->menu[id / form->nitems].label),
+			       id / form->nitems);
+}
+
+static int verify_col(const FORM *form, const char *type, int **acol,
+		      int *nacol, char *msg, int col, int id)
+{
+	int i = 0;
 	// GUI doesn't allow >999 anyway (but that was a guess as well)
 	// and it's "personal" databases, so how could there be so many?
 	if(col > 9999) {
-		*i += sprintf(msg+*i,
-			"%s uses a very large %s column (%d)\n",
-			name, type, col);
-		return;
+		add_msg_const(msg, i, "Field ");
+		i += add_field_name(msg+i, form, id);
+		return i + sprintf(msg+i, " uses a very large %s column (%d)\n",
+				   type, col);
 	}
 	if(col >= *nacol) {
 		int oacol = *nacol;
@@ -190,17 +211,29 @@ static void verify_col(const FORM *form, const char *type, int **acol,
 		memset(*acol + oacol, 0, (*nacol - oacol) * sizeof(**acol));
 	}
 	if((*acol)[col]) {
+		int oid = (*acol)[col] - 1;
 		const ITEM *it = form->items[id % form->nitems];
-		const ITEM *oit = form->items[((*acol)[col] - 1) % form->nitems];
+		const ITEM *oit = form->items[oid % form->nitems];
 		if(it->type == IT_CHOICE && oit->type == IT_CHOICE &&
-		   strcmp(it->name, oit->name))
-			*i+=sprintf(msg+*i, "(choice) has different internal name as #%d, but has same %s\n",
-				    (*acol)[col] - 1, type);
-		else if(it->type != IT_CHOICE || oit->type != IT_CHOICE)
-			*i+=sprintf(msg+*i, "%s uses same internal name as field \"%s\" (#%d)\n",
-				    name, oit->name, (*acol)[col] - 1);
+		   strcmp(it->name, oit->name)) {
+			add_msg_const(msg, i, "Field ");
+			i += add_field_name(msg+i, form, id);
+			add_msg_const(msg, i, " (choice) has different internal name as ");
+			i += add_field_name(msg+i, form, oid);
+			return i+sprintf(msg+i, ", but has same %s column\n",
+					 type);
+		} else if(it->type != IT_CHOICE || oit->type != IT_CHOICE) {
+			add_msg_const(msg, i, "Field ");
+			i += add_field_name(msg+i, form, id);
+			i += sprintf(msg+i, " uses same %s column as field ",
+				     type);
+			i += add_field_name(msg+i, form, oid);
+			msg[i++] = '\n';
+			return i;
+		}
 	} else
 		(*acol)[col] = id + 1;
+	return 0;
 }
 
 BOOL verify_form(
@@ -212,7 +245,6 @@ BOOL verify_form(
 	ITEM		*item, *it;	/* item pointer */
 	int		nq;		/* query pointer */
 	DQUERY		*dq;		/* query pointer */
-	char		name[256];	/* current item's name */
 	char		msg[16384];	/* error messages */
 	int		i0, i = 0;	/* next free byte in msg[] */
 	int		sumwidth = 0;	/* total length of summary */
@@ -234,10 +266,10 @@ BOOL verify_form(
 	    (!form->asep && form->aesc == '|') ||
 	    (!form->aesc && form->asep == '\\')) {
 		if (form->asep == '\\') {
-			i += sprintf(msg + i, "Array delimiter same as array escape; using vertical bar\n");
+			i += sprintf(msg+i, "Array delimiter same as array escape; using vertical bar\n");
 			form->asep = '|';
 		} else {
-			i += sprintf(msg + i, "Array escape same as array delimiter; using backslash\n");
+			i += sprintf(msg+i, "Array escape same as array delimiter; using backslash\n");
 			form->aesc = '\\';
 		}
 	}
@@ -265,8 +297,6 @@ BOOL verify_form(
 			item->multicol = false; // silent fix
 		if(!item->multicol)
 			sumwidth += item->sumwidth;
-		sprintf(name, "Field \"%s\" (#%d)",
-					STR(item->name), nitem);
 		if (IN_DBASE(item->type) && !item->multicol && BLANK(item->name)) {
 			if(!BLANK(item->label)) {
 				item->name = strdup(item->label);
@@ -283,39 +313,59 @@ BOOL verify_form(
 				sprintf(newname, "item%d", nitem);
 				item->name = mystrdup(newname);
 			}
-			i += sprintf(msg+i, "%s has no internal name, using %s\n",
-								name, item->name);
+			add_msg_const(msg, i, "Field ");
+			i += add_field_name(msg+i, form, nitem);
+			i += sprintf(msg+i, " has no internal name, using %s\n",
+								item->name);
 		}
+		// FIXME: also check for other invalid characters
 		if (IN_DBASE(item->type) && !item->multicol &&
 		    isdigit(*item->name)) {
 			*item->name += 'A' - '0';
-			i += sprintf(msg+i, "%s has a leading digit on its internal name, using %s\n",
-				     				name, item->name);
+			add_msg_const(msg, i, "Field ");
+			i += add_field_name(msg+i, form, nitem);
+			i += sprintf(msg+i, " has a leading digit on its internal name, using %s\n",
+				     				item->name);
 		}
 		if (item->xs <= 0 || item->ys <= 0) {
 			if (!item->xs) item->xs = 10;
 			if (!item->ys) item->ys = 10;
-			i += sprintf(msg+i, "%s has zero size, setting to %d %d\n",
-						name, item->xs, item->ys);
+			add_msg_const(msg, i, "Field ");
+			i += add_field_name(msg+i, form, nitem);
+			i += sprintf(msg+i, " has zero size, setting to %d %d\n",
+						item->xs, item->ys);
 		}
 		if (!item->label && (item->type == IT_BUTTON ||
 				     item->type == IT_LABEL)) {
-			i += sprintf(msg+i, "%s has no label, using \"%s\"\n",
-								name, name);
+			add_msg_const(msg, i, "Field ");
+			char *name = msg+i;
+			i += add_field_name(msg+i, form, nitem);
 			item->label = mystrdup(name);
+			i += sprintf(msg+i, " has no label, using \"%s\"\n",
+								item->label);
 		}
 		if (!item->flagcode && ISFLAG(item)) {
 			item->flagcode = mystrdup(item->type == IT_CHOICE ? item->name : "1");
-			i += sprintf(msg+i, "%s has no flag code, setting to %s\n", name, STR(item->flagcode));
+			add_msg_const(msg, i, "Field ");
+			i += add_field_name(msg+i, form, nitem);
+			i += sprintf(msg+i, " has no flag code, setting to %s\n", STR(item->flagcode));
 		}
-		if (!item->pressed && item->type == IT_BUTTON)
-			i += sprintf(msg+i, "%s has no button action\n", name);
+		if (!item->pressed && item->type == IT_BUTTON) {
+			add_msg_const(msg, i, "Field ");
+			i += add_field_name(msg+i, form, nitem);
+			add_msg_const(msg, i, " has no button action\n");
+		}
 		if (item->multicol) {
 			// FIXME: enforce this in GUI as well
 			//  that way this will never be an error
 			//  either that, or add these flags to the table (ugh)
-			if(!item->nosort || item->defsort)
-				i += sprintf(msg+i, "%s does not support sorting; disabled\n", name);
+			if(!item->nosort || item->defsort) {
+				add_msg_const(msg, i, "Field ");
+				item->multicol = FALSE; // don't give menu item name
+				i += add_field_name(msg+i, form, nitem);
+				item->multicol = TRUE;
+				add_msg_const(msg, i, " does not support sorting; disabled\n");
+			}
 			item->nosort = TRUE;
 			item->defsort = FALSE;
 		}
@@ -325,7 +375,9 @@ BOOL verify_form(
 				if(item->multicol)
 					sumwidth += menu->sumwidth;
 				if(!menu->label) {
-					i += sprintf(msg+i, "%s has a blank label", name);
+					add_msg_const(msg, i, "Field ");
+					i += add_field_name(msg+i, form, nitem + m * form->nitems);
+					add_msg_const(msg, i, " has a blank label");
 					if(item->type == IT_INPUT ||
 					   (!menu->flagcode && !menu->flagtext &&
 					    (!item->multicol ||
@@ -333,7 +385,7 @@ BOOL verify_form(
 						memmove(item->menu + m,
 							item->menu + m + 1,
 							(item->nmenu - m - 1) * sizeof(MENU));
-						i += sprintf(msg+i, ", deleting\n");
+						add_msg_const(msg, i, ", deleting\n");
 						item->nmenu--;
 						--m;
 						continue;
@@ -365,11 +417,15 @@ BOOL verify_form(
 					}
 					if(isdigit(*menu->name))
 						*menu->name += 'A' - '0';
-					i += sprintf(msg+i, "%s-%s has no internal name, setting to %s\n", name, menu->label, menu->name);
+					add_msg_const(msg, i, "Field ");
+					i += add_field_name(msg+i, form, nitem + m * form->nitems);
+					i += sprintf(msg+i, " has no internal name, setting to %s\n", menu->name);
 				}
 				if(item->type != IT_INPUT && BLANK(menu->flagcode)) {
 					menu->flagcode = strdup(item->multicol ? "1" : menu->label);
-					i += sprintf(msg+i, "%s has blank code; setting to %s\n", name, menu->flagcode);
+					add_msg_const(msg, i, "Field ");
+					i += add_field_name(msg+i, form, nitem + m * form->nitems);
+					i += sprintf(msg+i, " has blank code; setting to %s\n", menu->flagcode);
 				}
 			}
 			// second loop for menu items now that label/code fixed
@@ -379,12 +435,14 @@ BOOL verify_form(
 					MENU *omenu = &item->menu[n];
 					if(!strcmp(STR(menu->label),
 						   STR(omenu->label))) {
-					    i += sprintf(msg+i, "%s has duplicate label %s", name, STR(menu->label));
+					    add_msg_const(msg, i, "Field ");
+					    i += add_field_name(msg+i, form, nitem + n * form->nitems);
+					    i += sprintf(msg+i, " has duplicate label %s", STR(menu->label));
 					    if(item->type == IT_INPUT) {
 						memmove(item->menu + n,
 							item->menu + n + 1,
 							(item->nmenu - n - 1) * sizeof(MENU));
-						i += sprintf(msg+i, ", deleting last one\n");
+						add_msg_const(msg, i, ", deleting\n");
 						item->nmenu--;
 						--n;
 						continue;
@@ -395,8 +453,11 @@ BOOL verify_form(
 					if(item->type != IT_INPUT && 
 					   !item->multicol &&
 					   !strcmp(STR(menu->flagcode),
-						   STR(omenu->flagcode)))
-					    i += sprintf(msg+i, "%s has duplicate code %s\n", name, STR(menu->flagcode));
+						   STR(omenu->flagcode))) {
+					    add_msg_const(msg, i, "Field ");
+					    i += add_field_name(msg+i, form, nitem + n * form->nitems);
+					    i += sprintf(msg+i, " has duplicate code %s\n", STR(menu->flagcode));
+					}
 				}
 			}
 		}
@@ -407,10 +468,13 @@ BOOL verify_form(
 				if(it != sym->end())
 					oitem = form->items[it->second % form->nitems];
 				if(oitem && (item->type != IT_CHOICE ||
-					     oitem->type != IT_CHOICE))
-					i += sprintf(msg+i, "%s has a the same name as \"%s\" (#%d)\n", name,
-						     oitem->label, it->second % form->nitems);
-				else if (oitem) {
+					     oitem->type != IT_CHOICE)) {
+					add_msg_const(msg, i, "Field ");
+					i += add_field_name(msg+i, form, nitem);
+					add_msg_const(msg, i, " has the same name as ");
+					i += add_field_name(msg+i, form, it->second);
+					msg[i++] = '\n';
+				} else if (oitem) {
 					// both are IT_CHOICE w/ same name
 					const char *m  = 0;
 					if      (item->column   != oitem->column)
@@ -420,27 +484,33 @@ BOOL verify_form(
 					else if (item->sumwidth != oitem->sumwidth)
 						m = "summary width";
 					// flag code dups checked below
-					if (m)
+					if (m) {
+						add_msg_const(msg, i, "Field ");
+						i += add_field_name(msg+i, form, nitem);
 						i += sprintf(msg+i,
-							"(choice) has same internal name as #%d, but has different %s\n",
+							" (choice) has same internal name as #%d, but has different %s\n",
 							     it->second % form->nitems,
 							     m);
+					}
 				} else
 					(*sym)[item->name] = nitem;
-				verify_col(form, "dbase", &dcol, &ndcol, msg, &i, name, item->column, nitem);
+				i += verify_col(form, "dbase", &dcol, &ndcol, msg+i, item->column, nitem);
 				if(item->sumwidth)
-					verify_col(form, "summary", &scol, &nscol, msg, &i, name, item->sumcol, nitem);
+					i += verify_col(form, "summary", &scol, &nscol, msg+i, item->sumcol, nitem);
 			} else
 				for(int m = 0; m < item->nmenu; m++) {
 					auto it = sym->find(item->menu[m].name);
-					if(it != sym->end())
-						i += sprintf(msg+i, "%s-%d has a duplicate internal name %s\n",
-							     name, m, item->menu[m].name);
-					else
+					if(it != sym->end()) {
+						add_msg_const(msg, i, "Field ");
+						i += add_field_name(msg+i, form, nitem + m * form->nitems);
+						i += sprintf(msg+i, " has the same internal name (%s) as ",
+							     item->menu[m].name);
+						i += add_field_name(msg+i, form, it->second);
+					} else
 						(*sym)[item->menu[m].name] = nitem + form->nitems * m;
-					verify_col(form, "dbase", &dcol, &ndcol, msg, &i, name, item->menu[m].column, nitem + m * form->nitems);
+					i += verify_col(form, "dbase", &dcol, &ndcol, msg+i, item->menu[m].column, nitem + m * form->nitems);
 					if(item->menu[m].sumwidth)
-						verify_col(form, "summary", &scol, &nscol, msg, &i, name, item->menu[m].sumcol, nitem + m * form->nitems);
+						i += verify_col(form, "summary", &scol, &nscol, msg+i, item->menu[m].sumcol, nitem + m * form->nitems);
 				}
 		}
 		if (i > (int)sizeof(msg)-1024) {
@@ -455,15 +525,16 @@ BOOL verify_form(
 	for (nitem=0; nitem < form->nitems; nitem++) {
 		item = form->items[nitem];
 		if (item->type == IT_CHOICE) {
-			sprintf(name, "Field \"%s\" (#%d)", item->name, nitem);
 			for (ni=nitem+1; ni < form->nitems; ni++) {
 				it = form->items[ni];
 				if (it->type == IT_CHOICE &&
 				    !strcmp(item->name, it->name) &&
 				    !strcmp(item->flagcode, it->flagcode)) {
+					add_msg_const(msg, i, "Field ");
+					i += add_field_name(msg+i, form, ni);
 					i += sprintf(msg+i,
-		       "%s has same internal name as #%d, but has same flag code\n",
-							name, ni);
+		       " has same internal name as #%d, but has same flag code\n",
+							ni);
 				}
 			}
 			if (i > (int)sizeof(msg)-1024) {
@@ -476,9 +547,10 @@ BOOL verify_form(
 	free(scol);
 	if (form->nitems && sumwidth == 0)
 		i += sprintf(msg+i, "Summary is empty, all summary widths are 0\n");
-	if (i)
+	if (i) {
+		msg[i] = 0;
 		create_error_popup(shell, 0, msg);
-	else {
+	} else {
 		for (i=nitem=0; nitem < form->nitems; nitem++) {
 			item = form->items[nitem];
 			if (item->type == IT_NOTE && item->maxlen <= 100)

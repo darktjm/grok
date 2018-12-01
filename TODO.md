@@ -16,11 +16,10 @@ games again...
 Features in Progress
 --------------------
 
-- Support stepping over all possible values of a field with a menu.
-  Maybe ? instead of + to select Choice/flag codes and ?+ to select
-  combo/label text.  To support the multi-field thing, you'd need a
-  way to select the group (perhaps any field name in the group) and
-  then you can step through the possible field names with ?&.
+- Layout in Flag Groups doesn't work right.  I could've sworn it
+  worked before.  At least two columns are too narrow on one layout I
+  tried.  Maybe I need to lose the QGridLayout and just lay them out
+  manually.
 
 Bugs
 ----
@@ -52,13 +51,13 @@ Bugs
     effect throughout the hierarchy to adjust to this size, but
     instead, I have to call adjustSize() manually on the parent
     widgets.  Twice.  Calling updateGeometry() doesn't seem to do
-    anything.
+    anything, except when it does.
 
 - The layout of the form item editor needs tweaking.  At the very
   least, the chart options do not seem to have the right label
   width.  Also, items in the scroll area are too wide, or the scroll
   area is too narrow, depending on how you look at it, but only if
-  the cart options appear. Otherwise, the opposite issue exists.  It
+  the chart options appear. Otherwise, the opposite issue exists.  It
   appears that the layout is partially being influenced by invisible
   widgets.
 
@@ -73,7 +72,7 @@ Bugs
 
 - Look more closely at all Qt-related licenses.  I don't want this
   program to be GPL.  In particular, QUiLoader seems to use a
-  different license (or at least Trolltech thought it important
+  different license (or at least The Qt Co. thought it important
   enough to list the license in the introductory text).
 
 - Note fields are currently not able to limit maximum length.
@@ -122,7 +121,7 @@ Minor UI Improvements
 - file dialog is always GTK+.  Is there a way to make it "native QT"?
 
 - Use SH_FormLayoutLabelAlignment to determine label aligment in form
-  editor.
+  editor.  Maybe add a "default" alignment for card labels, as well.
 
 - Make some of the more global look & feel preferences available in
   the preferences dialog.  Fine-tuning can still be done with style
@@ -149,7 +148,7 @@ Minor UI Improvements
 - Some shortcuts, such as ^G and ^Q, should be made global.  This
   would be obsoleted by the use of .ui files.
 
-- Named query editor:
+- Named query editor, Menu editor:
 
     - Maybe retain column width betwen invocations, or even in prefs.
       I don't want to do the common Windows thing and make all
@@ -171,8 +170,6 @@ Minor UI Improvements
 - Actually look into the plan interface.  At the very least reduce its
   footprint on the form editor my making the radio group a menu.
   Maybe even make it a one-liner.
-
-- Support setting step size for numeric fields.
 
 Important UI improvements
 -------------------------
@@ -236,11 +233,10 @@ Important UI improvements
   reverting all of my attempts to make the GUI look less like it was
   designed by a 6-year-old).
 
-- Support partly automated layout by sorting the form's widgets and
-  laying them out in a grid, instead.  Probably also necessary in
-  order to support Android or other small displays.  Maybe at least
-  support automatic "line breaking" similar to the Choice/Flag Group
-  widgets.
+- Support partly automated layout by layout out the form's widgets
+  in a grid, instead.  Probably also necessary in order to support
+  Android or other small displays.  Maybe at least support automatic
+  "line breaking" similar to the Choice/Flag Group widgets.
 
 - Translation of GUI labels.  Maybe even an option to provide
   translation on database values (or at least database labels). This
@@ -293,6 +289,12 @@ Important UI improvements
 Infrastructure Improvements
 ---------------------------
 
+- Support stepping over all possible values of a field with a menu.
+  Maybe ? instead of + to select Choice/flag codes and ?+ to select
+  combo/label text.  To support the multi-field thing, you'd need a
+  way to select the group (perhaps any field name in the group) and
+  then you can step through the possible field names with ?&.
+
 - Support non-mutable expressions.  As mentioned below, it's possible
   to do mass edits with mutating search expressions.  For example, I
   could say `(_size = 0)` to alter `size` in every single record
@@ -311,12 +313,11 @@ Infrastructure Improvements
 - Either disallow backslash as a field separator or allow separate
   specification of the escape character, like I did for arrays.
   Perhaps also support some of the other CSV conventions, like
-  optional quotes around values and an optional header line.
+  optional quotes around values and an optional header line.  Then
+  again, maybe that sort of thing belongs in an "import" feature.
 
 - Make Print widget's name refer to the label text, rather than a
-  database column.  All other unstored columns should not support
-  being named, as expressions assume the name corresponds to the
-  field's database column.
+  database column.
 
 -   Support UTF-8.  This was going somewhere in the IUP port, but I have
     abandoned this and it is at 0% again.  I don't like the idea of
@@ -469,6 +470,8 @@ Card Improvements
   default.  Maybe have more state than just deps on/off when refilling
   the form.
 
+- Support setting step size for numeric fields.
+
 - I thought I read somewhere that Qt has a popup form of the
   multi-select list.  If so, support that, since it's more compact.
 
@@ -477,7 +480,8 @@ Card Improvements
   formula or automatic comma-separated).
 
 - On "Done", clear all invisible fields to their default value.
-  Currently, I only do that for chart options.
+  Currently, I only do that for chart options and, to a lesser extent,
+  menus.
 
 - Add "Never blank" flag (requires a default value) and a "Unique"
   flag similar to SQL.  Unique implies Never Blank, unlike SQL's
@@ -761,6 +765,10 @@ Stuff that will probably never fly
   idea how to replace the functionality").  Did I mention that I have
   no respect for professional UI people (or UX people, as they now
   call themselves)?
+
+- Port to HTML/JavaScript, as I had intended with my own program.
+  grok would be a standalone or fastcgi process that serves up the
+  forms and also provides list filler results ("AJAX").
 
 -   Literate code.  In 2003, I switched to literate programming.  It
     takes longer, and doesn't really have all of the advantages

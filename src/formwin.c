@@ -94,9 +94,9 @@ static const struct {
     { offsetof(MENU, flagtext) }
 };
 
-#define MENU_COMBO  (1<<0)
-#define MENU_SINGLE (1<<0 | 1<<3 | 1<<6)
-#define MENU_MULTI  ~0
+#define MENU_COMBO  (1<<0)			/* only label */
+#define MENU_SINGLE (1<<0 | 1<<3 | 1<<6)	/* label, flagcode, flagtext */
+#define MENU_MULTI  ~0				/* everything */
 
 static int menu_col_mask(const ITEM *item)
 {
@@ -117,11 +117,9 @@ static void fill_menu_row(QTableWidget *tw, const ITEM *item, int row)
 			tw->setItem(row, j, (twi = new QTableWidgetItem));
 		if(row == item->nmenu)
 			twi->setText("");
-		else if(menu_cols[j].isint) {
-			QString s;
-			s.asprintf("%d", *(int *)p);
-			twi->setText(s);
-		} else
+		else if(menu_cols[j].isint)
+			twi->setText(QString::asprintf("%d", *(int *)p));
+		else
 			twi->setText(STR(*(char **)p));
 	}
 }
@@ -184,7 +182,10 @@ static void resize_menu_table(QTableWidget *tw)
 	// this resize probably isn't necessary, but better to be safe
 	tw->resizeRowsToContents();
 	int h = tw->rowHeight(0) * (item->nmenu + 1);
-	h += item->nmenu; // assume 1-pixel grid
+	// actually, I guess the grid isn't an issue
+	// h += item->nmenu; // assume 1-pixel grid
+	// however, I do observe a 2-pixel shortage.  I have no idea why.
+	h+=2;
 	if(mask != MENU_COMBO)
 		h += tw->horizontalHeader()->sizeHint().height();
 	if(w > tw->width())
@@ -593,6 +594,7 @@ void create_formedit_window(
 			w = new QWidget;
 			hform->addWidget(w, 2);
 			QVBoxLayout *v = new QVBoxLayout(w);
+			v->setMargin(0);
 			menu_w = new QTableWidget;
 			// copied from querywin.c
 			menu_w->setShowGrid(false);
@@ -804,6 +806,17 @@ void sensitize_formedit(void)
 				tp->code == 0x106 ? form->proc :
 				tp->code == 0x113 ? item != 0 : true);
 			tp->widget->setVisible(tp->sensitive & mask);
+		}
+		if (tp->type == 'M' && (tp->sensitive & mask)) {
+			// For some reason, Qt loses the headers when
+			// the widget becomes invisible.  Restore them.
+			menu_w->setHorizontalHeaderLabels(menu_col_labels);
+			// It also narrows the widget and doesn't expand
+			// I don't know how to fix it.
+			// Calling resize_table_widget() makes it worse.
+			// This seems to help, though.  Maybe I should
+			// call it for all newly visible widgets.
+			menu_w->updateGeometry();
 		}
 		if ((mask & (MUL)) &&
 		    ((tp->code >= 0x204 && tp->code <= 0x207) || tp->code == 0x236)) {
@@ -1107,13 +1120,9 @@ static void menu_callback(QTableWidget *w, int x, int y)
 		}
 		if(row < item->nmenu) {
 			void *p = (char *)&item->menu[row] + menu_cols[x].fieldoff;
-			if(menu_cols[x].isint) {
+			if(menu_cols[x].isint)
 				*(int *)p = atoi(STR(string));
-				// always update in case of format error
-				qs.asprintf("%d", *(int *)p);
-				twi->setText(qs);
-				free(string);
-			} else {
+			else {
 				zfree(*(char **)p);
 				*(char **)p = string;
 			}

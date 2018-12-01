@@ -195,15 +195,24 @@ static QLabel *mk_label(QWidget *wform, ITEM &item, int w, int h)
 	return lab;
 }
 
-static QGroupBox *mk_groupbox(QWidget *wform, ITEM &item)
+static QWidget *mk_groupbox(QWidget *wform, ITEM &item)
 {
-	QGroupBox *gb = new QGroupBox(item.label, wform);
-	gb->setObjectName("label");
-	gb->move(item.x, item.y);
-	gb->resize(item.xs, item.ys);
-	gb->setAlignment(JUST(item.labeljust));
-	gb->setProperty(font_prop[item.labelfont], true);
-	return gb;
+	QWidget *w;
+	// Turns out QGroubBox always makes room for a title
+	if(!BLANK(item.label)) {
+		QGroupBox *gb = new QGroupBox(wform);
+		gb->setTitle(item.label);
+		gb->setAlignment(JUST(item.labeljust));
+		gb->setProperty(font_prop[item.labelfont], true);
+		w = gb;
+	} else
+		// so use a widget if no title.  I'd use a frame, but I have
+		// no idea what style to use
+		w = new QWidget(wform);
+	w->setObjectName("label");
+	w->move(item.x, item.y);
+	w->resize(item.xs, item.ys);
+	return w;
 }
 
 // The only way to suppress an event is to override it.  Qt doesn't
@@ -1171,7 +1180,11 @@ void fillout_item(
 			char *code = item->menu[n].flagcode;
 			if(item->type == IT_RADIO)
 				w->setChecked(!strcmp(STR(code), STR(data)));
-			else if(!data || !*data) // shortcut
+			else if(item->multicol) {
+				data = dbase_get(card->dbase, card->row,
+						 item->menu[n].column);
+				w->setChecked(!strcmp(STR(data), code));
+			} else if(BLANK(data)) // shortcut
 				w->setChecked(false);
 			else {
 				int qbegin, qafter;
