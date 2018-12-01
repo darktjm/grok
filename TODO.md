@@ -13,14 +13,6 @@ games again...
 
    -- Thomas J. Moore
 
-Features in Progress
---------------------
-
-- Layout in Flag Groups doesn't work right.  I could've sworn it
-  worked before.  At least two columns are too narrow on one layout I
-  tried.  Maybe I need to lose the QGridLayout and just lay them out
-  manually.
-
 Bugs
 ----
 
@@ -206,16 +198,6 @@ Important UI improvements
   make database switches (at least via the GUI) make saves optional,
   as well. Since button actions are the only way other than the menu
   to switch databases, this should be prtty easy.
-
-- Date/Time edit popups.  Qt's QDateTime and related widgets might
-  work, but they have a few flaws: the spinner disappears if the
-  date popup is present, and the spinner at least relies on the
-  fixed format of the field to select which part of the date/time to
-  modify.  My old HTML GUI added a time field directly to the
-  calendar popup, which seems best.  I haven't experimented much
-  with them, though, so maybe it's at least possible to support
-  grok's parser for input, even if only to be immediately changed to
-  the fixed format.
 
 - Use QUiLoader for the main GUI.  Give every action and major widget
   a name, and map that to the user-supplied .ui file. That's
@@ -457,6 +439,32 @@ Infrastructure Improvements
 
 Card Improvements
 -----------------
+
+-   Make Date/Time edit widgets work the way I want them to.  Until
+    these issues are fixed, I have made the use of Qt date/time 
+    widgets optional.  The fact that they reduce the display space
+    with the arrow/spinner button(s) and don't support durations
+    larger than 23:59 isn't that big a deal.
+
+    - Maybe make the "use widgets" switch a global pref, instead
+
+    - Qt wants to restrict selection and editing to fixed "fields"
+      within the fixed-format date, disallowing entry of special
+      values (like grok and form.cgi's "today"/"tomorrow"/etc.)
+      or values formatted differently (form.cgi ran through a
+      list of recognizable strftime formats, such as ISO
+      YYYY-MM-DD and the locale default).
+
+    - Also, numbers do not wrap: moving minutes from 59 to 00 or day
+      from max(month) to 1 is simply not allowed, rather than
+      incrementing the next field up.  The only field that
+      partially supports wrapping is hours when in am/pm mode,
+      which allows going from am to pm (but only 11a<->12p, not
+      11p<->12a).
+
+- Optionally display/retain seconds in time fields.  Maybe as a global
+  preference rather than per-field, although some fields may be too
+  narrow for that.
 
 - Add per-field help text.  If present, automatically add this to the
   form-wide help, as well, similar to form.cgi's help facility.

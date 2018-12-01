@@ -1302,6 +1302,13 @@
 	Duration:  The number is interpreted as a number of seconds, and is
 	           displayed in hour:minute (no a/p) format.
 
+	In addition, the entry widget can be a widget designed specially
+	for date entry by selecting the Widget checkbox.  This provides
+	cursor/spin box adjustment of date fields, as well as a calendar
+	popup for dates.  However, it limits durations to less than 24
+	hours, reduces the amount of space for display, and disallows entry
+	of several grok-supported special values, such as "tomorrow".
+
 	Note that internal calculations are always done in seconds. If the
 	result is not in the range used by the time format (such as numbers
 	greater than 24*60*60 for Time, or numbers not dividable by 24*60*60

@@ -129,12 +129,12 @@ static void fill_menu_table(QTableWidget *tw)
 {
 	QSignalBlocker sb(tw);
 	if(curr_item >= form->nitems) {
-		tw->clear();
+		tw->setRowCount(0);
 		return;
 	}
 	const ITEM *item = form->items[curr_item];
 	if(!((1U<<item->type) & (MNU))) {
-		tw->clear();
+		tw->setRowCount(8);
 		return;
 	}
 	int row, col;
@@ -277,6 +277,7 @@ static struct _template {
 	{ TIM, 'r',	0x20a,	"Time",			"fe_time",	},
 	{ TIM, 'r',	0x20b,	"Date+time",		"fe_time",	},
 	{ TIM, 'r',	0x20c,	"Duration",		"fe_time",	},
+	{ TIM, 'f',	0x23f,	"Widget",		"fe_time",	},
 	{ ANY, '-',	 0,	" ",			0,		},
 
 	{ ANY, 'L',	 0,	"Label Justification:",	"fe_ljust",	},
@@ -318,7 +319,7 @@ static struct _template {
 	{ IDF, 'L',	 0,	"Input default:",	"fe_def",	},
 	{ IDF, 'T',	0x220,	" ",			"fe_def",	},
 	{ MNU, 'L',	 0,	"Menu",			"fe_menu",	},
-	{ MNU, 'M',	0x23f,	" ",			"fe_menu",	},
+	{ MNU, 'M',	 0,	" ",			"fe_menu",	},
 	{   0, 'R',	 0,	" ",			"fe_menu",	},
 	{ INP, 'r',	0x23b,	"Static",		"fe_menu",	},
 	{ INP, 'r',	0x23c,	"Dynamic",		"fe_menu",	},
@@ -807,17 +808,16 @@ void sensitize_formedit(void)
 				tp->code == 0x113 ? item != 0 : true);
 			tp->widget->setVisible(tp->sensitive & mask);
 		}
-		if (tp->type == 'M' && (tp->sensitive & mask)) {
-			// For some reason, Qt loses the headers when
-			// the widget becomes invisible.  Restore them.
-			menu_w->setHorizontalHeaderLabels(menu_col_labels);
-			// It also narrows the widget and doesn't expand
-			// I don't know how to fix it.
-			// Calling resize_table_widget() makes it worse.
-			// This seems to help, though.  Maybe I should
-			// call it for all newly visible widgets.
+		if (tp->type == 'M' && (tp->sensitive & mask))
+			// Qt sometimes narrows the menu table when
+			// visibility is toggled.  I don't know how
+			// to fix it.
+			// Calling resize_table_widget() makes it
+			// worse.
+			// This seems to help, though.  On the other
+			// hand, setting it for all newly visible widgets
+			// does nothing but revert this fix.
 			menu_w->updateGeometry();
-		}
 		if ((mask & (MUL)) &&
 		    ((tp->code >= 0x204 && tp->code <= 0x207) || tp->code == 0x236)) {
 			tp->widget->setEnabled(!item->multicol);
@@ -969,6 +969,7 @@ static void fillout_formedit_widget(
 	  case 0x20a: set_toggle(w, item->timefmt == T_TIME);		break;
 	  case 0x20b: set_toggle(w, item->timefmt == T_DATETIME);	break;
 	  case 0x20c: set_toggle(w, item->timefmt == T_DURATION);	break;
+	  case 0x23f: set_toggle(w, item->timewidget);			break;
 
 	  case 0x260:
 	  case 0x261:
@@ -1431,6 +1432,7 @@ static int readback_item(
 	  case 0x20a: item->timefmt = T_TIME;		all = TRUE;	break;
 	  case 0x20b: item->timefmt = T_DATETIME;	all = TRUE;	break;
 	  case 0x20c: item->timefmt = T_DURATION;	all = TRUE;	break;
+	  case 0x23f: item->timewidget ^= TRUE;				break;
 
 	  case 0x21f: item->maxlen   = get_sb_value(w);			break;
 	  case 0x206: item->sumcol   = get_sb_value(w);			break;

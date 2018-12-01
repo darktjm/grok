@@ -132,6 +132,7 @@ BOOL write_form(
 		write_int("nosort     ", item->nosort);
 		write_int("defsort    ", item->defsort);
 		write_int("timefmt    ", item->timefmt);
+		write_int("timewidget ", item->timewidget);
 		write_str("code       ", item->flagcode);
 		write_str("codetxt    ", item->flagtext);
 		write_str("label      ", item->label);
@@ -381,6 +382,8 @@ BOOL read_form(
 					item->defsort = atoi(p) ? TRUE : FALSE;
 			else if (!strcmp(key, "timefmt"))
 					item->timefmt = (TIMEFMT)atoi(p);
+			else if (!strcmp(key, "timewidget"))
+					item->timewidget = atoi(p);
 			else if (!strcmp(key, "code"))
 					STORE(item->flagcode, p);
 			else if (!strcmp(key, "codetxt"))

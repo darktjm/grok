@@ -270,6 +270,21 @@ struct CardComboBox : public QComboBox {
 	OVERRIDE_FOCUS(QComboBox)
 };
 
+struct CardDateTimeEdit : public QDateTimeEdit {
+	CardDateTimeEdit(CARD *c, int i, QWidget *p) : QDateTimeEdit(p) OVERRIDE_INIT(c,i)
+	OVERRIDE_FOCUS(QDateTimeEdit)
+};
+
+struct CardDateEdit : public QDateEdit {
+	CardDateEdit(CARD *c, int i, QWidget *p) : QDateEdit(p) OVERRIDE_INIT(c,i)
+	OVERRIDE_FOCUS(QDateEdit)
+};
+
+struct CardTimeEdit : public QTimeEdit {
+	CardTimeEdit(CARD *c, int i, QWidget *p) : QTimeEdit(p) OVERRIDE_INIT(c,i)
+	OVERRIDE_FOCUS(QTimeEdit)
+};
+
 struct CardListWidget : public QListWidget {
 	CardListWidget(CARD *c, int i, QWidget *p) : QListWidget(p) OVERRIDE_INIT(c,i)
 	OVERRIDE_FOCUS(QListWidget)
@@ -362,10 +377,37 @@ static void create_item_widgets(
 		if (item.xm > 6)
 		  carditem->w1 = mk_label(wform, item, item.xm - 6, item.ys);
 		{
-		  QLineEdit *le;
+		  QLineEdit *le = NULL;
 		  CardInputComboBox *cb = NULL;
+		  QDateTimeEdit *dt = NULL;
 		  QWidget *w;
-		  if (item.type != IT_INPUT || (!item.nmenu && !item.dcombo) || !editable) {
+		  if (item.type == IT_TIME && item.timewidget) {
+			switch(item.timefmt) {
+			    case T_DATE:
+				dt = new CardDateEdit(card, nitem, wform);
+				dt->setDisplayFormat(pref.mmddyy ? "M/dd/yy" :
+						                   "d.MM.yy");
+				dt->setCalendarPopup(true);
+				break;
+			    case T_TIME:
+			    case T_DURATION:
+				dt = new CardTimeEdit(card, nitem, wform);
+				dt->setDisplayFormat(pref.ampm ? "H:mma" :
+						                 "HH:mm");
+				break;
+			    case T_DATETIME:
+				dt = new CardDateTimeEdit(card, nitem, wform);
+				dt->setDisplayFormat(pref.mmddyy ?
+						       (pref.ampm ? "M/dd/yy  H:mma" :
+						                    "M/dd/yy  HH:mm") :
+						       (pref.ampm ? "d.MM.yy  H:mma" :
+							            "d.MM.yy  HH:mm"));
+				dt->setCalendarPopup(true);
+				break;
+			}
+			w = dt;
+		  	// le = dt->lineEdit();  // protected, of course.  I hate Qt.
+		  } else if (item.type != IT_INPUT || (!item.nmenu && !item.dcombo) || !editable) {
 			le = new CardLineEdit(card, nitem, wform);
 			w = le;
 		  } else {
@@ -381,18 +423,28 @@ static void create_item_widgets(
 		  w->setObjectName("input");
 		  w->move(item.x + item.xm, item.y);
 		  w->resize(item.xs - item.xm, item.ys);
-		  le->setAlignment(JUST(item.inputjust));
+		  if(dt)
+			dt->setAlignment(JUST(item.inputjust));
+		  else
+			le->setAlignment(JUST(item.inputjust));
 		  w->setProperty(font_prop[item.inputfont], true);
-		  le->setMaxLength(item.maxlen?item.maxlen:10);
-		  le->setReadOnly(!editable);
-		  // le->setTextMargins(l, r, 2, 2);
+		  if(dt) {
+			/* item.maxlen doesn't make sense for dates, anyway */
+			dt->setReadOnly(!editable);
+		  } else {
+			le->setMaxLength(item.maxlen?item.maxlen:10);
+			le->setReadOnly(!editable);
+			// le->setTextMargins(l, r, 2, 2);
+		  }
 		  if (editable) {
 #if 0 // Screw it.  Updating after every keystroke is insane (and breaks dates).
 			  // Make this update way too often, just like IT_NOTE.
 			  set_qt_cb(QLineEdit, textChanged, le,
 				    card_callback(nitem, card, false));
 #endif
-			  if (cb)
+			  if (dt)
+				  set_spin_cb(dt, card_callback(nitem, card, true));
+			  else if (cb)
 				  // Only update dependent widgets when done
 				  set_combo_cb(cb, card_callback(nitem, card, true));
 			  else
@@ -528,7 +580,7 @@ static void create_item_widgets(
 		l->setSpacing(0); // default; qss may override
 		l->setMargin(0);
 		add_layout_qss(l, "buttongroup");
-		unsigned int ncol = ~0U, col = 0, row = 0, curwidth = 0, n;
+		unsigned int ncol = item.nmenu, col = 0, row = 0, curwidth = 0, n, bw;
 		unsigned int mwidth = carditem->w0->contentsRect().width();
 		for(n = 0; n < (unsigned int)item.nmenu; n++) {
 			QAbstractButton *b;
@@ -538,52 +590,65 @@ static void create_item_widgets(
 				b = new CardCheckBox(card, nitem, item.menu[n].label, carditem->w0);
 			b->setProperty(font_prop[item.inputfont], true);
 			b->ensurePolished();
-			if(colwidth[col] < (unsigned int)b->sizeHint().width())
-				colwidth[col] = b->sizeHint().width();
-			curwidth += colwidth[col];
+			bw = b->sizeHint().width();
+			if(colwidth[col] < bw) {
+				curwidth += bw - colwidth[col];
+				colwidth[col] = bw;
+			}
 			// FIXME:  the layout's content margins may need
 			//         to be added as well.
-			if(col > 0)
+			if(col > 0 && !row)
 				curwidth += l->spacing();
-			if(ncol > 1 && curwidth > mwidth) {
+			while(ncol > 1 && curwidth > mwidth) {
 				// The first row is cut off at col
 				// Remaing rows are cut by 1 at a time
-				ncol = n > col ? ncol - 1 : col;
-				if(n > col && ncol > 1) {
-					unsigned int pncol;
+				ncol = row ? ncol - 1 : col;
+				if(row && ncol > 1) {
 					memset(colwidth, 0, ncol * sizeof(*colwidth));
-					do {
-						pncol = ncol;
-						curwidth = col = 0;
-						QListIterator<QObject *>iter(carditem->w0->children());
-						while(iter.hasNext()) {
-							QWidget *w = dynamic_cast<QAbstractButton *>(iter.next());
-							if(!w)
-								continue;
-							if(colwidth[col] < (unsigned int)w->sizeHint().width())
-								colwidth[col] = w->sizeHint().width();
-							curwidth += colwidth[col];
-							// FIXME:  the layout's content margins may need
-							//         to be added as well.
-							if(col > 0)
-								curwidth += l->spacing();
-							if(curwidth > mwidth) {
-								--ncol;
-								break;
-							}
-							if(++col == ncol)
-								col = curwidth = 0;
+					curwidth = row = col = 0;
+					QListIterator<QObject *>iter(carditem->w0->children());
+					while(iter.hasNext()) {
+						QWidget *w = dynamic_cast<QAbstractButton *>(iter.next());
+						if(!w)
+							continue;
+						bw = w->sizeHint().width();
+						if(colwidth[col] < bw) {
+							curwidth += bw - colwidth[col];
+							colwidth[col] = bw;
 						}
-					} while(pncol != ncol && ncol > 1);
+						// FIXME:  the layout's content margins may need
+						//         to be added as well.
+						if(col > 0 && !row)
+							curwidth += l->spacing();
+						if(curwidth > mwidth)
+							break;
+						if(++col == ncol) {
+							col = 0;
+							++row;
+						}
+					}
 				} else {
-					col = 1;
-					curwidth = b->sizeHint().width();
+					curwidth -= colwidth[col];
+					// FIXME:  the layout's content margins may need
+					//         to be removed as well.
+					if(col > 0)
+						curwidth -= l->spacing();
+					++row;
+					col = 0;
+					bw = b->sizeHint().width();
+					if(colwidth[col] < bw) {
+						curwidth += bw - colwidth[col];
+						colwidth[col] = bw;
+					}
 				}
-			} else if(++col >= ncol)
-				col = curwidth = 0;
+			}
+			if(++col >= ncol) {
+				col = 0;
+				++row;
+			}
 			set_button_cb(b, card_callback(nitem, card, c, n), bool c);
 		}
-		col = 0;
+		row = col = 0;
 		QListIterator<QObject *>iter(carditem->w0->children());
 		while(iter.hasNext()) {
 			QWidget *w = dynamic_cast<QAbstractButton *>(iter.next());
@@ -595,6 +660,7 @@ static void create_item_widgets(
 				++row;
 			}
 		}
+		free(colwidth);
 		break;
 	  }
 	  case IT_CHOICE:			/* diamond on/off switch */
@@ -892,26 +958,32 @@ void card_readback_texts(
 			break;
 
 		  case IT_TIME:
-			data = read_text_button(card->items[nitem].w0, 0);
-			while (*data == ' ' || *data == '\t' || *data == '\n')
-				data++;
-			if (!*data)
-				*buf = 0;
-			else {
-				switch(card->form->items[nitem]->timefmt) {
-				  case T_DATE:
-					time = parse_datestring(data);
-					break;
-				  case T_TIME:
-					time = parse_timestring(data, FALSE);
-					break;
-				  case T_DURATION:
-					time = parse_timestring(data, TRUE);
-					break;
-				  case T_DATETIME:
-					time = parse_datetimestring(data);
-				}
+			if (card->form->items[nitem]->timewidget) {
+				time = reinterpret_cast<QDateTimeEdit *>
+					(card->items[nitem].w0)->dateTime().toSecsSinceEpoch();
 				sprintf(buf, "%ld", (long)time);
+			} else {
+				data = read_text_button(card->items[nitem].w0, 0);
+				while (*data == ' ' || *data == '\t' || *data == '\n')
+					data++;
+				if (!*data)
+					*buf = 0;
+				else {
+					switch(card->form->items[nitem]->timefmt) {
+					    case T_DATE:
+						time = parse_datestring(data);
+						break;
+					    case T_TIME:
+						time = parse_timestring(data, FALSE);
+						break;
+					    case T_DATETIME:
+						time = parse_datetimestring(data);
+						break;
+					    case T_DURATION:
+						time = parse_timestring(data, TRUE);
+					}
+					sprintf(buf, "%ld", (long)time);
+				}
 			}
 			(void)store(card, nitem, buf);
 			if (which >= 0)
@@ -1085,6 +1157,15 @@ void fillout_item(
 
 	switch(item->type) {
 	  case IT_TIME:
+		if (item->timewidget) {
+			if (!deps) {
+				QDateTime dt;
+				dt.setSecsSinceEpoch(atol(STR(data)));
+				reinterpret_cast<QDateTimeEdit *>(w0)->
+					setDateTime(dt);
+			}
+			break;
+		}
 		data = format_time_data(data, item->timefmt);
 		FALLTHROUGH
 	  case IT_INPUT:

@@ -363,7 +363,13 @@ a field in the card:
 <LI><B>Time format</B><BR>
 	Time fields have four different formats, as described above. The
 	format controls what gets printed into the card, and how user
-	input is interpreted.<P>
+	input is interpreted.  In addition, the entry widget can be a
+	widget designed specially for date entry by selecting the Widget
+	checkbox.  This provides cursor/spin box adjustment of date fields,
+	as well as a calendar popup for dates.  However, it limits
+	durations to less than 24 hours, reduces the amount of space for
+	display, and disallows entry of several grok-supported special
+	values, such as "tomorrow".<P>
 
 <LI><B>Label justification</B><BR>
 	Labels can be centered, left-aligned, or right-aligned. This is
