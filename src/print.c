@@ -267,9 +267,10 @@ static void print_card_a(
 	char		buf[1024];	/* summary line buffer */
 	const char	*label;		/* if C format, label in left column */
 	const char	*data;		/* data string from the database */
-	int		i;		/* item counter */
+	int		i, mi;		/* item counter */
 	int		len;		/* output line length */
 	int		label_len = 0;	/* width of label column if C format */
+	char		sep, esc;	/* array/set separator/esc */
 
 	switch(pref.pformat) {
 	  case 'S':
@@ -297,22 +298,49 @@ static void print_card_a(
 		break;
 
 	  case 'C':
+		/* FIXME: maybe instead of 1 line per flag, show ,-separated
+		 * list of set flags (or just print set flags, period) */
+		get_form_arraysep(curr_card->form, &sep, &esc);
 		for (i=0; i < curr_card->nitems; i++) {
 			item = curr_card->form->items[i];
-			len = strlen(item->label ? item->label :
-				     item->name  ? item->name  : "--");
-			if (len > label_len)
-				label_len = len;
+			if(item->type == IT_MULTI || item->type == IT_FLAGS) {
+				for(int m = 0; m < item->nmenu; m++) {
+					len = strlen(item->menu[m].label);
+					if(len > label_len)
+						label_len = len;
+				}
+			} else {
+				len = strlen(item->label ? item->label :
+					     item->name  ? item->name  : "--");
+				if (len > label_len)
+					label_len = len;
+			}
 		}
 		label_len += 2;
-		for (i=0; i < curr_card->nitems; i++) {
+		for (i=mi=0; i < curr_card->nitems; i++) {
 			item  = curr_card->form->items[i];
-			data  = dbase_get(curr_card->dbase, num, item->column);
-			label = item->label ? item->label :
-				item->name  ? item->name  : "--";
+			if(IN_DBASE(item->type) && !item->multicol)
+				data  = dbase_get(curr_card->dbase, num, item->column);
+			else
+				data = NULL;
+			if(item->type == IT_MULTI || item->type == IT_FLAGS) {
+				if(mi == item->nmenu) {
+					mi = 0;
+					continue;
+				}
+				if(item->multicol) {
+					data = dbase_get(curr_card->dbase, num, item->menu[mi].column);
+					label = item->menu[mi].label;
+				}
+				mi++;
+				i--;
+			} else
+				label = item->label ? item->label :
+					item->name  ? item->name  : "--";
 			switch(item->type) {
 			  case IT_INPUT:
 			  case IT_NOTE:
+			  case IT_NUMBER:
 				break;
 			  case IT_TIME:
 				data = format_time_data(data, item->timefmt);
@@ -324,6 +352,28 @@ static void print_card_a(
 				label = item->name  ? item->name  : "--";
 				data  = item->label ? item->label : c?c : "--";
 				break; }
+			  case IT_MENU:
+			  case IT_RADIO: {
+				int m;
+				for(m = 0; m < item->nmenu; m++)
+					if(!strcmp(STR(data), STR(item->menu[m].flagcode)))
+						  break;
+				data = m < item->nmenu ? item->menu[m].label : "--";
+				break;
+			  }
+			  case IT_MULTI:
+			  case IT_FLAGS: {
+				bool fl;
+				if (item->multicol)
+					fl = !strcmp(STR(data), item->menu[mi-1].flagcode);
+				else {
+					  int qbegin, qafter;
+					  fl = find_unesc_elt(data, item->menu[mi-1].flagcode,
+							      &qbegin, &qafter, sep, esc);
+				}
+				data = fl ? "yes" : "no";
+				break;
+			  }
 			  case IT_FLAG:
 				data = !data || !item->flagcode || strcmp(data,
 						item->flagcode) ? "no" : "yes";

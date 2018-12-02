@@ -162,6 +162,10 @@ Minor UI Improvements
 - Actually look into the plan interface.  At the very least reduce its
   footprint on the form editor my making the radio group a menu.
   Maybe even make it a one-liner.
+  
+    - Note that -p doesn't support Flag List or Flag Group fields in
+      either mode, really, and probably never will since I don't want
+      to add more fields to the menu table.
 
 Important UI improvements
 -------------------------
@@ -215,10 +219,10 @@ Important UI improvements
   reverting all of my attempts to make the GUI look less like it was
   designed by a 6-year-old).
 
-- Support partly automated layout by layout out the form's widgets
-  in a grid, instead.  Probably also necessary in order to support
-  Android or other small displays.  Maybe at least support automatic
-  "line breaking" similar to the Choice/Flag Group widgets.
+- Support partly automated layout by laying out the form's widgets
+  in an automatic grid, instead.  Probably also necessary in order to
+  support Android or other small displays.  Maybe at least support
+  automatic "line breaking" similar to the Choice/Flag Group widgets.
 
 - Translation of GUI labels.  Maybe even an option to provide
   translation on database values (or at least database labels). This
@@ -259,6 +263,11 @@ Important UI improvements
 
 - Support multiple named summary listings.  Also, have a way to query
   what fields are in that listing.
+
+- Add a summary line preview (at least the headers) to the form editor
+  canvas and preview.  Perhaps even allow drag & drop to move around
+  and resize.  Better yet, remove the col/width fields entirely and make
+  the "preview" thing the way to set those values.
 
 - Support multiple views; i.e. multiple main windows.
 
@@ -319,7 +328,7 @@ Infrastructure Improvements
     must be supported.  Anything that scans one character at a time
     needs to be re-evaluated.
 
-  - Database checks in verify_form().  Right now, it only validates
+-   Database checks in verify_form().  Right now, it only validates
     the form definition itself, but not the data in the database.
     Instead, all incompatible data should be brought up in a single
     dialog with a checkbox next to each offering to convert, ingore, or
@@ -563,10 +572,6 @@ Major Card Features
   just make it a captured application.  I'll look into what Qt has
   to offer in that respect.
 
-- Add a summary line preview (at least the headers) to the form editor
-  canvas and preview.  Perhaps even allow drag & drop to move around
-  and resize.
-
 - Remove the chart widget, and replace it with a generic inset widget.
   Static charts can be made using external programs like R.  Making
   them interactive might be difficult, though.  I mean, the only
@@ -587,8 +592,8 @@ Major Feature: Foreign Database References
 ------------------------------------------
 
 - Make an easy way to access fields in other databases.  This is
-  almost a prerequisite for foreign key support.  This makes the
-  above item a little more complicated, as multiple modified
+  almost a prerequisite for foreign key support.  This makes no
+  auto-save on switch a little more complicated, as multiple modified
   databases may be in play.  It is also not currently possible to
   set an alternate sort order or search string.  Only
   foreach/FOREACH have the ability to alter the search string

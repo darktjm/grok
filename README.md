@@ -15,6 +15,10 @@ If you don't like the default installation locations, edit grok.pro.
 In particular, the PREFIX variable is the installation root.  You may
 also need to tweak the yacc-related configuration.
 
+Obtain the latest version at:
+
+> <https://bitbucket.org/darktjm/grok/downloads/?tab=tags>
+
 ---------------------------------------
 
 grok, formerly called "xmbase-grok", before which it was called

@@ -1270,7 +1270,7 @@ void fillout_item(
 			else {
 				int qbegin, qafter;
 				w->setChecked(find_unesc_elt(data, code,
-						       &qafter, &qbegin, sep, esc));
+						       &qbegin, &qafter, sep, esc));
 			}
 			n++;
 		}

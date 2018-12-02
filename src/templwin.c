@@ -327,7 +327,7 @@ static void askname(
 
 	text = new QLineEdit;
 	form->addWidget(text);
-	set_text_cb(text, text_callback());
+	set_textr_cb(text, text_callback());
 
 	b = new QDialogButtonBox;
 	form->addWidget(b);

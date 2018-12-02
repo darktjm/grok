@@ -487,6 +487,14 @@ void destroy_summary_menu(
 QWidget *create_summary_widget(void);	/* just create the list widget */
 void create_summary_menu(
 	CARD		*card);		/* card with query results */
+/* get_summary_cols() fills (*res)[] with sorted list of summary columns */
+/* nres is alloced size of res, and return value is # of filled entries */
+/* menu is non-NULL for multi-column fields */
+struct menu_item {
+	const ITEM *item;
+	const MENU *menu;
+};
+int get_summary_cols(struct menu_item **res, int *nres, const FORM *form);
 void make_summary_line(
 	char		*buf,		/* text buffer for result line */
 	CARD		*card,		/* card with query results */
@@ -576,7 +584,10 @@ void add_layout_qss(
     QObject::connect(dynamic_cast<_t *>(_w), QOverload<_p>::of(&_t::_sig), [=](__VA_ARGS__){ _f; })
 #define set_button_cb(_w, _f, ...) \
     set_qt_cb(QAbstractButton, clicked, _w, _f, __VA_ARGS__)
+/* for some reason, editingFinished is generated way too often sometimes */
 #define set_text_cb(_w, _f) set_qt_cb(QLineEdit, editingFinished, _w, _f)
+/* use this one if it's important to generate less often */
+#define set_textr_cb(_w, _f) set_qt_cb(QLineEdit, returnPressed, _w, _f)
 #define set_spin_cb(_w, _f) set_qt_cb(QAbstractSpinBox, editingFinished, _w, _f)
 #define set_dialog_cancel_cb(_w, _f) set_qt_cb(QDialog, rejected, _w, _f)
 #define set_file_dialog_cb(_w, _f, _v) set_qt_cb(QFileDialog, fileSelected, \

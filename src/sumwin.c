@@ -161,51 +161,23 @@ static void sum_callback(int item_position)
  * if row < 0, create a header line.
  */
 
-struct menu_item {
-	const ITEM *item;
-	int m;
-};
-
 static int compare(
 	register const void *u,
 	register const void *v)
 {
 	const struct menu_item *mi0 = (const struct menu_item *)u;
 	const struct menu_item *mi1 = (const struct menu_item *)v;
-	int col0 = mi0->item->multicol ? mi0->item->menu[mi0->m].sumcol :
-					 mi0->item->sumcol;
-	int col1 = mi1->item->multicol ? mi1->item->menu[mi1->m].sumcol :
-					 mi1->item->sumcol;
+	int col0 = mi0->menu ? mi0->menu->sumcol : mi0->item->sumcol;
+	int col1 = mi1->menu ? mi1->menu->sumcol : mi1->item->sumcol;
 	return col0 - col1;
 }
 
-
-void make_summary_line(
-	char		*buf,		/* text buffer for result line */
-	CARD		*card,		/* card with query results */
-	int		row,		/* database row */
-	QTreeWidget	*w,		/* non-0: add line to table widget */
-	int		lrow)		/* >=0: replace row #lrow */
+int get_summary_cols(struct menu_item **res, int *nres, const FORM *form)
 {
-	static int	nsorted = 0;	/* size of <sorted> array */
-	static struct menu_item	*sorted;	/* sorted item pointer list */
-	const char	*data;		/* data string from the database */
-	int		data_len;
-	const ITEM	*item;		/* contains info about formatting */
-	int		x = -1;		/* index to next free char in buf */
-	int		i;		/* item counter */
-	int		j;		/* char copy counter */
-	QTreeWidgetItem *twi = 0;	
-	int		lcol = 0;
-	int		ncol, m;
-	char		*allocdata = NULL;
-	int		sumwidth;
+	int i, ncol, m;
 
-	*buf = 0;
-	if (!card || !card->dbase || !card->form || row >= card->dbase->nrows)
-		return;
-	for(i=ncol=m=0; i < card->form->nitems; i++) {
-		const ITEM *item = card->form->items[i];
+	for(i=ncol=0,m=-1; i < form->nitems; i++) {
+		const ITEM *item = form->items[i];
 		if (!IN_DBASE(item->type)) // FIXME: allow Print in summary
 			continue;
 		if (!item->multicol && item->sumwidth <= 0)
@@ -220,20 +192,49 @@ void make_summary_line(
 			}
 			i--; // keep processing same item
 		}
-		if (ncol >= nsorted) {
-			if(!nsorted)
-				sorted = (struct menu_item *)malloc((nsorted = card->form->nitems) * sizeof(*sorted));
+		if (ncol >= *nres) {
+			if(!*nres)
+				*res = (struct menu_item *)malloc((*nres = form->nitems) * sizeof(**res));
 			else
-				sorted = (struct menu_item *)realloc(sorted, (nsorted *= 2) * sizeof(*sorted));
+				*res = (struct menu_item *)realloc(*res, (*nres *= 2) * sizeof(**res));
 		}
-		sorted[ncol].item = item;
-		sorted[ncol++].m = m;
+		(*res)[ncol].item = item;
+		(*res)[ncol++].menu = item->multicol ? &item->menu[m] : NULL;
 	}
-	qsort((void *)sorted, ncol, sizeof(struct menu_item), compare);
+	qsort((void *)*res, ncol, sizeof(struct menu_item), compare);
+	return ncol;
+}
+
+void make_summary_line(
+	char		*buf,		/* text buffer for result line */
+	CARD		*card,		/* card with query results */
+	int		row,		/* database row */
+	QTreeWidget	*w,		/* non-0: add line to table widget */
+	int		lrow)		/* >=0: replace row #lrow */
+{
+	static int	nsorted = 0;	/* size of <sorted> array */
+	static struct menu_item	*sorted;	/* sorted item pointer list */
+	const char	*data;		/* data string from the database */
+	int		data_len;
+	const ITEM	*item;		/* contains info about formatting */
+	const MENU	*menu;
+	int		x = 0;		/* index to next free char in buf */
+	int		i;		/* item counter */
+	int		j;		/* char copy counter */
+	QTreeWidgetItem *twi = 0;	
+	int		lcol = 0;
+	int		ncol;
+	char		*allocdata = NULL;
+	int		sumwidth;
+
+	*buf = 0;
+	if (!card || !card->dbase || !card->form || row >= card->dbase->nrows)
+		return;
+	ncol = get_summary_cols(&sorted, &nsorted, card->form);
 
 	for (i=0; i < ncol; i++) {
 		item = sorted[i].item;
-		m = sorted[i].m;
+		menu = sorted[i].menu;
 		if (row >= 0 && item->sumprint) {
 			int saved_row = card->row;
 			card->row = row;
@@ -242,8 +243,8 @@ void make_summary_line(
 			data_len = BLANK(data) ? 0 : strlen(data);
 		} else if(row < 0) {
 			data = item->type==IT_CHOICE ? item->name : item->label;
-			if(item->multicol)
-				data = item->menu[m].label;
+			if(menu)
+				data = menu->label;
 			data_len = BLANK(data) ? 0 : strlen(data);
 			if (data_len && data[data_len-1] == ':')
 				--data_len;
@@ -257,8 +258,8 @@ void make_summary_line(
 				i--;
 			}
 		} else {
-			data = dbase_get(card->dbase,row, item->multicol?
-						    item->menu[m].column :
+			data = dbase_get(card->dbase,row, menu?
+						    menu->column :
 						    item->column);
 			// skip over rest of IT_CHOICE group
 			// only save the matching choice, if any
@@ -286,9 +287,9 @@ void make_summary_line(
 				   !BLANK(item->menu[j].flagtext))
 					data = item->menu[j].flagtext;
 			}
-			if (item->multicol && !BLANK(item->menu[m].flagtext) &&
-			    !strcmp(STR(data), item->menu[m].flagcode))
-				data = item->menu[m].flagtext;
+			if (menu && !BLANK(menu->flagtext) &&
+			    !strcmp(STR(data), menu->flagcode))
+				data = menu->flagtext;
 			if (!item->multicol && (item->type == IT_FLAGS || item->type == IT_MULTI)) {
 				int qbegin, qafter;
 				char sep, esc;
@@ -299,10 +300,13 @@ void make_summary_line(
 					MENU *menu = &item->menu[j];
 					if(find_unesc_elt(data, menu->flagcode,
 							  &qafter, &qbegin,
-							  sep, esc))
-						v = set_elt(v, nv++,
-							    BLANK(menu->flagtext) ?
-							    menu->flagcode : menu->flagtext);
+							  sep, esc)) {
+						char *e = BLANK(menu->flagtext) ?
+							menu->flagcode : menu->flagtext;
+						v = set_elt(v, nv++, e);
+						if(v && v == e)
+							v = strdup(v);
+					}
 				}
 				data = allocdata = v;
 			}
@@ -310,8 +314,7 @@ void make_summary_line(
 				data = format_time_data(data, item->timefmt);
 			data_len = BLANK(data) ? 0 : strlen(data);
 		}
-		sumwidth = item->multicol ? item->menu[m].sumwidth :
-			                    item->sumwidth;
+		sumwidth = menu ? menu->sumwidth : item->sumwidth;
 		if (data_len > 80)
 			data_len = 80;
 		if(data_len > sumwidth)

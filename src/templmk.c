@@ -20,35 +20,82 @@
  * combination of date, time, and other commands.
  */
 
+static void print_esc_q(FILE *fp, const char *s, char sep, char esc)
+{
+	putc('"', fp);
+	for(; *s; s++) {
+		if(*s == '"')
+			putc('\\', fp);
+		/* there is no way this will work right if sep is " */
+		if(*s == esc || *s == sep) {
+			putc(esc, fp);
+			if(esc == '"') {
+				putc('\\', fp);
+				putc(esc, fp);
+			}
+		}
+		putc(*s, fp);
+	}
+	putc('"', fp);
+}
+
 static void print_data_expr(
 	FILE		*fp,		/* file to print to */
-	ITEM		*item)		/* item to print */
+	const ITEM	*item,		/* item to print */
+	const MENU	*menu,		/* menu item to print */
+	bool		restrict = false)
 {
+	int sumwidth = menu ? menu->sumwidth : item->sumwidth;
 	switch(item->type) {
 	  case IT_CHOICE:
 	  case IT_FLAG:
-		fprintf(fp, "\\{expand(_%s)}", item->name);
+	  case IT_MENU:
+	  case IT_RADIO:
+#define prefix do { \
+	fputs("\\{", fp); \
+	if(restrict) \
+		fputs("substr(", fp); \
+} while(0)
+		prefix;
+		fprintf(fp, "expand(_%s)", item->name);
+#define suffix do { \
+	if(restrict) \
+		fprintf(fp, ",0,%d)", sumwidth); \
+	putc('}', fp); \
+} while(0)
+		suffix;
+		break;
+
+	  case IT_MULTI:
+	  case IT_FLAGS:
+		prefix;
+		fprintf(fp, "expand(_%s)", item->multicol ? menu->name : item->name);
+		suffix;
 		break;
 
 	  case IT_TIME:
+		prefix;
 		switch(item->timefmt) {
 		  case T_DATE:
-			fprintf(fp, "\\{date(_%s)}", item->name);
+			fprintf(fp, "date(_%s)", item->name);
 			break;
 		  case T_TIME:
-			fprintf(fp, "\\{time(_%s)}", item->name);
+			fprintf(fp, "time(_%s)", item->name);
 			break;
 		  case T_DURATION:
-			fprintf(fp, "\\{duration(_%s)}", item->name);
+			fprintf(fp, "duration(_%s)", item->name);
 			break;
 		  case T_DATETIME:
-			fprintf(fp, "\\{date(_%s)} \\{time(_%s)",
+			fprintf(fp, "date(_%s).\" \".time(_%s)",
 						item->name, item->name);
 		}
+		suffix;
 		break;
 
 	  default:
-		fprintf(fp, "\\{_%s}", item->name);
+		prefix;
+		fprintf(fp, "_%s", item->name);
+		suffix;
 	}
 }
 
@@ -60,8 +107,6 @@ static void print_data_expr(
  * the data entries in the data list.
  */
 
-static int compare(register const void *u, register const void *v)
-	{ return(*(int *)u - *(int *)v); }
 static void *allocate(int n)
 	{ void *p=malloc(n); if (!p) fatal("no memory"); return(p); }
 
@@ -71,17 +116,20 @@ const char *mktemplate_html(
 {
 	register CARD	*card = curr_card;
 	FILE		*fp;		/* output HTML file */
-	int		*itemorder;	/* order of items in summary */
-	int		nitems;		/* number of items in summary */
-	int		i, j, io;	/* item counter */
-	ITEM		**ip;		/* current item */
+	struct menu_item *itemorder;	/* order of items in summary */
+	int		nitems, nalloc;	/* number of items in summary */
+	int		i, j, m;	/* item counter */
+	const ITEM	*item;		/* current item */
+	const MENU	*menu;		/* current menu selection */
 	char		*name;		/* current field name */
-	int		primary_i = -1;	/* item that is hyperlinked */
+	const ITEM	*primary_i = NULL;	/* item that is hyperlinked */
+	char		sep, esc;
 
 	if (!card || !card->dbase || !card->form)
 		return("no database");
 	if (!(fp = fopen(oname, "w")))
 		return("failed to create HTML file");
+	get_form_arraysep(card->form, &sep, &esc);
 							/*--- header ---*/
 	fprintf(fp,
 		"\\{SUBST HTML}\n"
@@ -94,36 +142,36 @@ const char *mktemplate_html(
 	if (mode != 2) {
 		fprintf(fp, "<H2>Summary:</H2>\n<TABLE BORDER=0 CELLSPACING=3 "
 				"CELLPADDING=4 BGCOLOR=#e0e0e0>\n<TR>");
-		itemorder = (int *)allocate(2 * card->form->nitems * sizeof(int));
-		ip = card->form->items;
-		for (nitems=i=0; i < card->form->nitems; i++)
-			if (ip[i]->sumwidth) {
-				itemorder[nitems++] = ip[i]->sumcol;
-				itemorder[nitems++] = i;
-			}
-		nitems /= 2;
-		qsort((void *)itemorder, nitems, 2*sizeof(int), compare);
+		nalloc = card->form->nitems;
+		itemorder = (struct menu_item *)allocate(nalloc * sizeof(*itemorder));
+		nitems = get_summary_cols(&itemorder, &nalloc, card->form);
 		for (i=0; i < nitems; i++) {
-			io = itemorder[i*2+1];
-			if (!IN_DBASE(ip[io]->type))
+			item = itemorder[i].item;
+			menu = itemorder[i].menu;
+			if (item->type == IT_CHOICE && i &&
+			    itemorder[i-1].item->type == IT_CHOICE &&
+			    itemorder[i-1].item->column == item->column)
 				continue;
-			if (!io || strcmp(ip[io]->name, ip[io-1]->name))
-				fprintf(fp,"<TH ALIGN=LEFT BGCOLOR=#a0a0c0>%s",
-								ip[io]->name);
+			fprintf(fp,"<TH ALIGN=LEFT BGCOLOR=#a0a0c0>%.*s",
+				menu ? menu->sumwidth : item->sumwidth,
+				menu ? menu->label :
+					BLANK(item->label) ? item->name
+							   : item->label);
 		}
 		fprintf(fp, "\n\\{FOREACH}\n<TR>");
 		for (i=0; i < nitems; i++) {
-			io = itemorder[i*2+1];
-			if (!IN_DBASE(ip[io]->type))
-				continue;
-			if (io && !strcmp(ip[io]->name, ip[io-1]->name))
+			item = itemorder[i].item;
+			menu = itemorder[i].menu;
+			if (item->type == IT_CHOICE && i &&
+			    itemorder[i-1].item->type == IT_CHOICE &&
+			    itemorder[i-1].item->column == item->column)
 				continue;
 			fprintf(fp, "<TD VALIGN=TOP>");
-			if (!i) {
-				primary_i = io;
+			if (!i) {  // FIXME:  pick a better candidate
+				primary_i = item;
 				fprintf(fp, "<A HREF=#\\{(this)}>");
 			}
-			print_data_expr(fp, ip[io]);
+			print_data_expr(fp, item, menu, true);
 			if (!i) fprintf(fp, "</A>");
 			fprintf(fp, "&nbsp;");
 		}
@@ -136,24 +184,44 @@ const char *mktemplate_html(
 			"<HR><H1>Data</H1>\n"
 			"<TABLE BORDER=0>\n"
 			"\\{FOREACH}\n");
-		for (i=0, ip=card->form->items; i < card->form->nitems; i++) {
-			if (!IN_DBASE(ip[i]->type))
+		for (i=0,m=-1; i < card->form->nitems; i++) {
+			item = card->form->items[i];
+			if (!IN_DBASE(item->type)) // FIXME: allow Print
 				continue;
-			name = ip[i]->name;
-			if (ip[i]->type == IT_CHOICE) {
+			name = item->name;
+			if (item->type == IT_CHOICE) {
 				for (j=0; j < i; j++)
-					if (!strcmp(ip[j]->name, name))
+					if (!strcmp(card->form->items[j]->name, name))
 						break;
 				if (j < i)
 					continue;
 			}
-			fprintf(fp,
-				"\\{IF {_%s != \"\"}}\n"
-				"<TR><TD ALIGN=RIGHT VALIGN=TOP><B>", name);
-			fprintf(fp, i==primary_i ? "<A NAME=\\{(this)}>%s:</A>"
+			if (item->type == IT_MULTI || item->type == IT_FLAGS) {
+				if(++m == item->nmenu) {
+					m = -1;
+					continue;
+				}
+				menu = &item->menu[m];
+				if(item->multicol)
+					name = menu->name;
+				--i;
+			} else
+				menu = NULL;
+			fprintf(fp, "\\{IF {_%s", name);
+			if(menu && !item->multicol) {
+				fputs("|*", fp);
+				print_esc_q(fp, menu->flagcode, sep, esc);
+			}
+			fputs(" != \"\"}}\n"
+			      "<TR><TD ALIGN=RIGHT VALIGN=TOP><B>", fp);
+			fprintf(fp, item==primary_i ? "<A NAME=\\{(this)}>%s:</A>"
 						 : "%s:", name);
 			fprintf(fp, "</B><TD>");
-			print_data_expr(fp, ip[i]);
+			if (!menu || item->multicol)
+				print_data_expr(fp, item, menu);
+			else
+				fputs(BLANK(menu->flagtext) ? menu->flagcode
+				      			    : menu->flagtext, fp);
 			fprintf(fp, "\n\\{ENDIF}\n");
 		}
 		fprintf(fp, "<TR><TD COLSPAN=2><HR>\n\\{END}\n</TABLE>\n");

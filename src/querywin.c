@@ -318,16 +318,20 @@ void print_query_info(void)
 	int		i, j, n;	/* index to next free char in msg */
 	char		comma = ' ';	/* delimiter between message items */
 	int		item;		/* item (field) counter */
+	int		mi;		/* menu counter */
 	ITEM		*ip;		/* current item (field) */
+	char		sep, esc;
 
+	get_form_arraysep(form, &sep, &esc);
 	strcpy(msg, "Fields:");
 	i = j = strlen(msg);
-	for (item=0; item < form->nitems; item++) {
+	for (item=0, mi = -1; item < form->nitems; item++) {
 		ip = form->items[item];
 		switch(ip->type) {
 		  case IT_INPUT:
 		  case IT_TIME:
 		  case IT_NOTE:
+		  case IT_NUMBER:
 			sprintf(msg+i, "%c %s", comma, ip->name);
 			break;
 
@@ -335,6 +339,30 @@ void print_query_info(void)
 		  case IT_CHOICE:
 			sprintf(msg+i, "%c %s=%s", comma, ip->name,
 							  ip->flagcode);
+			break;
+
+		  case IT_FLAGS: // FIXME: implement
+		  case IT_MULTI: // FIXME: implement
+			if(!ip->multicol) {
+				if(++mi == ip->nmenu) {
+					mi = -1;
+					continue;
+				}
+				sprintf(msg+i, "%c %s=%s", comma, ip->name,
+				       			ip->menu[mi].flagcode);
+				--item;
+				break;
+			}
+			FALLTHROUGH
+		  case IT_MENU:
+		  case IT_RADIO:
+			if(++mi == ip->nmenu) {
+				mi = -1;
+				continue;
+			}
+			sprintf(msg+i, "%c %s=%s", comma, ip->multicol ? ip->menu[mi].name : ip->name,
+							  ip->menu[mi].flagcode);
+			--item;
 			break;
 
 		  default:

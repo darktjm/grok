@@ -52,6 +52,7 @@ const char		plan_code[] = "tlwWrecnmsSTA";	/* code 0x260..0x26c */
 #define MUL 1U<<IT_MULTI | 1U<<IT_FLAGS
 #define MNU INP  | SNG | MUL
 #define BAS ITX | FLG | SNG | MUL
+#define PLN ITX | FLG | SNG
 #define IDF TXT | FLG | SNG | MUL
 #define BUT 1U<<IT_BUTTON
 #define CHA 1U<<IT_CHART
@@ -326,26 +327,26 @@ static struct _template {
 	{ INP, 'r',	0x23d,	"All",			"fe_menu",	},
 	{ TXT, '-',	 0,	" ",			0,		},
 
-	{ BAS, 'L',	 0,	"Calendar interface:",	"fe_plan",	},
+	{ PLN, 'L',	 0,	"Calendar interface:",	"fe_plan",	},
 	{   0, 'R',	 0,	" ",			0,		},
 	{ TIM, 'r',	0x260,  "Date+time",		"fe_plan",	},
-	{ BAS, 'r',	0x261,  "Length",		"fe_plan",	},
-	{ BAS, 'r',	0x262,  "Early warn",		"fe_plan",	},
-	{ BAS, 'r',	0x263,  "Late warn",		"fe_plan",	},
-	{ BAS, 'r',	0x264,  "Day repeat",		"fe_plan",	},
+	{ PLN, 'r',	0x261,  "Length",		"fe_plan",	},
+	{ PLN, 'r',	0x262,  "Early warn",		"fe_plan",	},
+	{ PLN, 'r',	0x263,  "Late warn",		"fe_plan",	},
+	{ PLN, 'r',	0x264,  "Day repeat",		"fe_plan",	},
 	{ TIM, 'r',	0x265,  "End date",		"fe_plan",	},
-	{ BAS, 'L',	 0,	"",			"fe_plan",	},
+	{ PLN, 'L',	 0,	"",			"fe_plan",	},
 	{   0, 'R',	 0,	" ",			0,		},
-	{ BAS, 'r',	0x266,  "Color",		"fe_plan",	},
-	{ BAS, 'r',	0x267,  "Note",			"fe_plan",	},
-	{ BAS, 'r',	0x268,  "Message",		"fe_plan",	},
-	{ BAS, 'r',	0x269,  "Script",		"fe_plan",	},
-	{ BAS, 'r',	0x26a,  "Suspended",		"fe_plan",	},
-	{ BAS, 'r',	0x26b,  "No time",		"fe_plan",	},
-	{ BAS, 'r',	0x26c,  "No alarm",		"fe_plan",	},
-	{ BAS, 'L',	 0,	"Shown in calendar if:","fe_plan",	},
-	{ BAS, 'T',	0x228,	" ",			"fe_plan",	},
-	{ BAS, '-',	 0,	" ",			0,		},
+	{ PLN, 'r',	0x266,  "Color",		"fe_plan",	},
+	{ PLN, 'r',	0x267,  "Note",			"fe_plan",	},
+	{ PLN, 'r',	0x268,  "Message",		"fe_plan",	},
+	{ PLN, 'r',	0x269,  "Script",		"fe_plan",	},
+	{ PLN, 'r',	0x26a,  "Suspended",		"fe_plan",	},
+	{ PLN, 'r',	0x26b,  "No time",		"fe_plan",	},
+	{ PLN, 'r',	0x26c,  "No alarm",		"fe_plan",	},
+	{ PLN, 'L',	 0,	"Shown in calendar if:","fe_plan",	},
+	{ PLN, 'T',	0x228,	" ",			"fe_plan",	},
+	{ PLN, '-',	 0,	" ",			0,		},
 
 	{ ANY, 'L',	 0,	"Grayed out if:",	"fe_gray",	},
 	{ ANY, 'C',	0x222,	" ",			"fe_gray",	0, offsetof(ITEM, gray_if) },
@@ -488,7 +489,6 @@ void create_formedit_window(
 	struct _template	*tp;
 	int			n, len, off;	/* width of first column */
 	QBoxLayout		*vform, *hform = 0;
-	QButtonGroup		*bg=0;
 	QScrollArea		*scroll=0;
 	QWidget			*w=0;
 	QVBoxLayout		*scroll_l, *chart_l;
@@ -694,8 +694,6 @@ void create_formedit_window(
 				hform = l;
 				w = 0;
 			}
-			if(tp->type == 'R')
-				bg = new QButtonGroup(shell);
 			break;
 		    case 'f':
 			hform->addWidget((w = new QCheckBox(tp->text)));
@@ -704,7 +702,7 @@ void create_formedit_window(
 			{
 				QRadioButton *r = new QRadioButton(tp->text);
 				hform->addWidget((w = r));
-				bg->addButton(r);
+				r->setAutoExclusive(false);
 			}
 			break;
 		    case 'B':
@@ -1366,7 +1364,10 @@ static int readback_item(
 	  case 0x239: item->digits = get_sb_value(w); set_digits(item->digits);	break;
 	  case 0x23b:
 	  case 0x23c:
-	  case 0x23d:  item->dcombo = (DCOMBO)(tp->code - 0x23b);	break;
+	  case 0x23d:  item->dcombo = (DCOMBO)(tp->code - 0x23b);
+		      for (code=0x23b; code <= 0x23d; code++)
+				fillout_formedit_widget_by_code(code);
+		       break;
 	  case 0x23e:  item->multicol ^= TRUE;	sensitize_formedit(); fill_menu_table(menu_w);	break;
 
 	  case 0x210:

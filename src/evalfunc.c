@@ -368,12 +368,54 @@ char *f_expand(
 		return(0);
 	for (i=0; i < yycard->form->nitems; i++) {
 		ITEM *item = yycard->form->items[i];
-		if (item->column == column &&
-		   (item->type == IT_CHOICE || item->type == IT_FLAG) &&
+		if(item->multicol) {
+			int m;
+			for(m = 0; m < item->nmenu; m++)
+				if(item->menu[m].column == column) {
+					if(item->menu[m].flagtext &&
+					   !strcmp(value, item->menu[m].flagcode))
+						return mystrdup(item->menu[m].flagtext);
+					break;
+				}
+			if(m < item->nmenu)
+				break;
+		}
+		if (item->column != column)
+			continue;
+		if ((item->type == IT_CHOICE || item->type == IT_FLAG) &&
 		    item->flagcode &&
 		    item->flagtext &&
 		    !strcmp(value, item->flagcode))
 			return(mystrdup(item->flagtext));
+		if (item->type == IT_FLAGS || item->type == IT_MULTI) {
+			char sep, esc;
+			int m;
+			int qbegin, qafter = -1;
+			char *v = NULL;
+			int nv = 0;
+			get_form_arraysep(yycard->form, &sep, &esc);
+			for(m = 0; m < item->nmenu; m++) {
+				if(find_unesc_elt(value, item->menu[m].flagcode,
+						  &qbegin, &qafter, sep, esc)) {
+					char *e = BLANK(item->menu[m].flagtext) ?
+						item->menu[m].flagcode :
+						item->menu[m].flagtext;
+					v = set_elt(v, nv++, e);
+					if(v == e)
+						v = strdup(v);
+				}
+			}
+			return v;
+		}
+		if (item->type == IT_MENU || item->type == IT_RADIO) {
+			int m;
+			for(m = 0; m < item->nmenu; m++)
+				if(!strcmp(value, item->menu[m].flagcode))
+					break;
+			if(m < item->nmenu && item->menu[m].flagtext)
+				return mystrdup(item->menu[m].flagtext);
+			break;
+		}
 	}
 	return(mystrdup(value));
 }
@@ -995,7 +1037,7 @@ char *set_elt(char *array, int n, char *val)
 char *f_setelt(char *array, int n, char *val)
 {
     array = set_elt(array, n, val);
-    if(val)
+    if(val && val != array)
 	free(val);
     return array;
 }

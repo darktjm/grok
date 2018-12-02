@@ -223,7 +223,7 @@ I needn't have worried, since the bug causing it was introduced after
 2.0.1, anyway.  Maybe I need a release manager.  Then again, it's not
 likely anywone but me cares.  It's not like I advertise this anywhere.
 
-Version 2.2 (git tag grok-2.2, SVN 528), released 1.12.18
+Version 2.2 (git tag grok-2.2, SVN 528), released 12.1.18
   * Date widgets were updating after every keystroke, which
     essentially disallows all entry other than direct editing of the
     value, barely.  This bug was introduced in 2.0.
