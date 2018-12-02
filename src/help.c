@@ -22,6 +22,7 @@
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
+#include "HtmlCssUtils.hpp"
 
 static void done_callback    (void);
 static void context_callback (void);
@@ -207,10 +208,41 @@ void bind_help(
 	QWidget		*parent,
 	const char	*topic)
 {
+	static QWidget *w = NULL;
+	static QString helpfont;
 	char *message = get_text(topic);
 	message = add_card_help(topic, message);
 	if(message) {
-		parent->setWhatsThis(message);
+		/* Qt gives HTML WhatsThis? better treatment than plain text */
+		/* Plain text gets a narrow widget with auto-wrap, which */
+		/* always looks awful. */
+		/* HTML gets sized to the HTML's natural boundaries, which */
+		/* can be overridden by not allowing line breaks. */
+		/* With conversion, it's still bad in some places */
+		/* I should probably allow HTML snippets; maybe auto-detect */
+		QString s(QString(message).toHtmlEscaped());
+		/* Using <pre> is OK, but it's monospaced, which isn't always */
+		/* best.  However, I guess some help uses monospacing for */
+		/* formatting.  */
+		/* note that some sort of tag needs to be in there, or else */
+		/* mightBeRichText() will think it's plain text */
+		/* toHtmlEscaped() is rarely enough */
+#if 0
+		s.prepend("<pre>");
+		s.append("</pre>");
+#else
+		if(!w) {
+			w = new QWidget;
+			w->setProperty("helpFont", true);
+			w->setProperty("whatsThisFont", true);
+			w->ensurePolished();
+			helpfont = HtmlCssUtils::encodeCssFont(w->font());
+			delete w;
+		}
+		s.prepend("<div style=\"white-space: pre; " + helpfont + "\">");
+		s.append("</div>");
+#endif
+		parent->setWhatsThis(s);
 		free(message);
 	}
 }

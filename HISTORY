@@ -248,6 +248,16 @@ Version 2.2 (git tag grok-2.2, SVN 528), released 12.1.18
   * Added Flag Group fields, which provide automatic layout for Flag
     fields, if you prefer them over the Flag List field type.
 
+Note that I put more changes into 2.2.1 (released the same day) than
+expected, but there were a lot of problems to fix.  One which wasn't a
+problem, but technically a new, incompatible feature:
+  * Automatic HTML export templates now repsect sumwidth in summary lists
+    by shortening headers and data if necessary
+
+Also, I feel that making help text more legible is a critical enough
+feature that I'm releasing 2.2.2 (grok 2.2.1, SVN 530, 12.2.18) just
+for that.
+
 Databases which use the new widget types (Number, Choice Group, Choice
 Menu, Flag Group, Flag Menu) will not function correctly in 2.1 or
 earlier.  Combo boxes and special date/time widgets will revert to

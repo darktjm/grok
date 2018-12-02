@@ -103,6 +103,10 @@
 "/* Former helpFont:  pretty font for help popups */\n"
 /*   Font in text area displaying help text% */
 "*[helpFont=\"true\"] { font: 14px \"Helvetica\"; }\n"
+"/* What's This? default font.  Setting QWhatsThat's font doesn't help */\n"
+"/* Until What's This? help converted to HTML, monospacing is best */\n"
+"/* This must come after helpFont to override it. */\n"
+"*[whatsThisFont=\"true\"] { font: 10pt \"Courier\"; }\n"
 "/* Former helvFont:  Helv font for widgets */\n"
 /*   Search text widget% */
 /*   User widget font% */

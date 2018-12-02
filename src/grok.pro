@@ -53,11 +53,11 @@ SOURCES += canvdraw.c cardwin.c chart.c chartdrw.c convert.c dbase.c dbfile.c \
            editwin.c eval.c evalfunc.c formfile.c formop.c formwin.c help.c \
 	   main.c mainwin.c popup.c prefwin.c print.c printwin.c query.c \
 	   querywin.c sectwin.c sumwin.c template.c templmk.c templwin.c \
-	   util.c
+	   util.c HtmlCssUtils.cpp
 YACCSOURCES += parser.y
 HEADERS = bm_icon.h bm_left.h bm_right.h config.h form.h grok.h proto.h \
           resource.h version.h layout-qss.h chart-widget.h canv-widget.h \
-	  ../misc/Grok.xpm
+	  ../misc/Grok.xpm HtmlCssUtils.hpp
 
 # Install target; should probably depend on unix but right now, everything does
 target.path = $${PREFIX}/bin

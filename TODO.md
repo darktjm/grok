@@ -170,11 +170,18 @@ Minor UI Improvements
 Important UI improvements
 -------------------------
 
-- Do something about the help text.  Either make my own What's This?
-  override or format the help text in a way that the built-in What's
-  this displays better (perhaps even rich text).  Also, verify that all
-  help topics are actually present in grok.hlp, and that all topics
-  present in grok.hlp are actually used.
+-   Do something about the help text.  Converting the built-in text to
+    basic HTML imrpoved the appearance a bit, so at least
+    appearance-related changes can wait. It is not possible to
+    globally override QWhatsThis.  Instead, I'd have to subclass
+    every widget with whatsThis text and override the keyboard and
+    mouse events (probably among others) to call my own routine,
+    instead.  Making a pseudo-what's this cursor would probably be
+    way too much trouble.
+
+    Also, verify that all help topics are actually present in
+    grok.hlp, and that all topics present in grok.hlp are actually
+    used.
 
 - Do something about the manual.  I actually prefer a latex manual,
   which could be converted to HTML if desired.  The current HTML
