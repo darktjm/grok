@@ -116,7 +116,7 @@ BOOL evalbool(
 {
 	if (!(exp = evaluate(card, exp)))
 		return(FALSE);
-	while (*exp == ' ' || *exp == '\t')
+	while (*exp == ' ' || *exp == '\t' || *exp == '\n')
 		exp++;
 	return(*exp && *exp != '0' && *exp != 'f' && *exp != 'F');
 }
@@ -126,7 +126,7 @@ BOOL subevalbool(
 {
 	if (!(exp = subeval(exp)))
 		return(FALSE);
-	while (*exp == ' ' || *exp == '\t')
+	while (*exp == ' ' || *exp == '\t' || *exp == '\n')
 		exp++;
 	return(*exp && *exp != '0' && *exp != 'f' && *exp != 'F');
 }
@@ -245,6 +245,8 @@ static const struct symtab { const char *name; int token; } symtab[] = {
 			{ "bsub",	BSUB	},
 			{ "esc",	ESC	},
 			{ "toset",	TOSET	},
+			{ "detab",	DETAB	},
+			{ "align",	ALIGN	},
 			{ 0,		0	}
 };
 
@@ -280,7 +282,7 @@ int Xparserlex(void)
 	register ITEM	**item;
 	char		msg[100], token[100], *tp=token;
 
-	while (*yytext == ' ' || *yytext == '\t')		/* blanks */
+	while (*yytext == ' ' || *yytext == '\t' || *yytext == '\n')		/* blanks */
 		yytext++;
 	if (!*yytext)						/* eof */
 		return(0);

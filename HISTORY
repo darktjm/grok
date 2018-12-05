@@ -262,3 +262,46 @@ Databases which use the new widget types (Number, Choice Group, Choice
 Menu, Flag Group, Flag Menu) will not function correctly in 2.1 or
 earlier.  Combo boxes and special date/time widgets will revert to
 plain input fields in 2.1 or earlier.
+
+Version 2.3 (in progress)
+  * sub() and gsub() were replacing too many characters in mid-string
+    replacements.  This bug was introduced in 2.1.
+  * Print output was exceeding line length by one for notes and card
+    data.
+  * Many Export/template-related changes:
+    * Exports with errors would go into an infinite loop retrying the
+      eport, requiring a kill to correct.  This bug was introduced in
+      2.1.
+    * There are no longer buffer overflow issues due to long template
+      expressions.  Previous revisions simply bumped the buffer size;
+      now it's limited only by memory.
+    * Expressions in templates may now be blank or just whitespace
+    * Whitespace stripped around expressions in templates may now
+      include newlines.  With the last item, this means newlines
+      can be inserted in templates for legibility without
+      affecting the output.
+    * Templates now support flags a-z.  The html exporter is now only
+      one, supporting -s and -d for the old behavior.  Since
+      flags are appended to the template name for command-line,
+      old uses of html-s and html-d still work the same.
+    * Templates no longer insert a newline at the end of file.  If you
+      need one, just add it to the template itself.
+    * Added templates to resemble the Print routines.  "Low, ASCII
+      only" is called "text" and "Medium, overstrike ASCII" is called
+      "fancytext".  The output formats are selected using flags:
+      "Summary" is "-s", "Summary with notes" is "-n-s", and "Cards" is
+      "-d".  Note that other combinations are now possible; e.g.,
+      "-n" combines "Summary with notes" with "Cards".  Note that
+      these exports are limited by the "Printer line length"
+      preference, just like the print routines were.  Also, unlike the
+      print routines, the templates wrap not only the data, but also
+      the header.
+    * Added -n flag (add notes to summary) to "html" for consistency
+    * In HTML exports, links are no longer added to summary lines if
+      there is no detail listing link target.
+    * In HTML exports, the column to link is chosen based on default sort
+      key and field type rather than always picking the left-most.
+ * Added detab and align functions for expressions
+
+Reliance on details of the HTML templates or their format is
+discouraged.  A number of changes were introduced in this release.

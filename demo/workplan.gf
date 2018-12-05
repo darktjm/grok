@@ -1,13 +1,8 @@
 grok
 name       workplan
 dbase      workplan
-comment    
 cdelim     :
-rdonly     0
-proc       0
-grid       4 4
 size       685 241
-divider    0
 autoq      1
 query_s    0
 query_n    Unfinished
@@ -38,44 +33,13 @@ pos        12 12
 size       104 28
 mid        52 28
 sumwid     4
-sumcol     0
 column     0
-search     0
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
-code       
-codetxt    
 label      ID
 ljust      1
 lfont      1
-gray       
-freeze     
-invis      
-skip       
 default    (max(_id)+1)
-pattern    
-minlen     1
 maxlen     10
-ijust      0
 ifont      0
-p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Input
@@ -87,10 +51,6 @@ sumwid     6
 sumcol     1
 column     1
 search     1
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       
 codetxt    
 label      Name
@@ -101,27 +61,8 @@ freeze
 invis      
 skip       
 default    
-pattern    
-minlen     1
-maxlen     100
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Input
@@ -133,10 +74,6 @@ sumwid     6
 sumcol     2
 column     2
 search     1
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       
 codetxt    
 label      Project
@@ -147,27 +84,8 @@ freeze
 invis      
 skip       
 default    
-pattern    
-minlen     1
-maxlen     100
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Input
@@ -178,11 +96,7 @@ mid        56 28
 sumwid     1
 sumcol     3
 column     3
-search     0
-rdonly     0
-nosort     0
 defsort    1
-timefmt    0
 code       
 codetxt    
 label      Priority
@@ -193,27 +107,9 @@ freeze
 invis      
 skip       
 default    2
-pattern    
-minlen     1
 maxlen     10
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Input
@@ -224,11 +120,6 @@ mid        44 28
 sumwid     2
 sumcol     6
 column     5
-search     0
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       
 codetxt    
 label      Days
@@ -239,27 +130,9 @@ freeze
 invis      
 skip       
 default    2
-pattern    
-minlen     1
 maxlen     10
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Time
@@ -267,45 +140,19 @@ name       begin
 pos        544 12
 size       124 28
 mid        52 20
-sumwid     0
-sumcol     0
 column     4
-search     0
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       
 codetxt    
 label      Begin
-ljust      0
 lfont      1
 gray       
 freeze     
 invis      
 skip       
 default    (date)
-pattern    
-minlen     1
 maxlen     10
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Input
@@ -317,10 +164,6 @@ sumwid     80
 sumcol     8
 column     7
 search     1
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       
 codetxt    
 label      Title
@@ -331,28 +174,10 @@ freeze
 invis      
 skip       
 default    
-pattern    
-minlen     1
 maxlen     1000
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
 plan_if    n
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Time
@@ -363,43 +188,19 @@ mid        52 20
 sumwid     6
 sumcol     7
 column     9
-search     0
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       
 codetxt    
 label      Finish
-ljust      0
 lfont      1
 gray       
 freeze     
 invis      
 skip       
 default    
-pattern    
-minlen     1
 maxlen     10
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
 plan_if    t
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Label
@@ -407,14 +208,8 @@ name       label
 pos        12 76
 size       52 28
 mid        52 28
-sumwid     0
-sumcol     0
 column     0
 search     1
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       
 codetxt    
 label      Status
@@ -425,27 +220,9 @@ freeze
 invis      
 skip       
 default    
-pattern    
-minlen     1
 maxlen     0
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Choice
@@ -456,42 +233,18 @@ mid        52 28
 sumwid     4
 sumcol     5
 column     6
-search     0
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       t
 codetxt    TODO
 label      Todo
-ljust      0
 lfont      0
 gray       
 freeze     
 invis      
 skip       
 default    t
-pattern    
-minlen     1
 maxlen     0
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Choice
@@ -502,42 +255,18 @@ mid        52 28
 sumwid     4
 sumcol     5
 column     6
-search     0
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       p
 codetxt    prog
 label      In progress
-ljust      0
 lfont      0
 gray       
 freeze     
 invis      
 skip       
 default    t
-pattern    
-minlen     1
 maxlen     0
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Choice
@@ -548,42 +277,18 @@ mid        52 28
 sumwid     4
 sumcol     5
 column     6
-search     0
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       e
 codetxt    test
 label      In test
-ljust      0
 lfont      0
 gray       
 freeze     
 invis      
 skip       
 default    t
-pattern    
-minlen     1
 maxlen     0
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Choice
@@ -594,88 +299,40 @@ mid        52 28
 sumwid     4
 sumcol     5
 column     6
-search     0
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       o
 codetxt    ok
 label      Done
-ljust      0
 lfont      0
 gray       
 freeze     
 invis      
 skip       
 default    t
-pattern    
-minlen     1
 maxlen     0
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Choice
 name       status
 pos        392 76
-size       76 28
+size       80 28
 mid        52 28
 sumwid     4
 sumcol     5
 column     6
-search     0
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       d
 codetxt    def
 label      Deferred
-ljust      0
 lfont      0
 gray       
 freeze     
 invis      
 skip       
 default    t
-pattern    
-minlen     1
 maxlen     0
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Note
@@ -683,43 +340,18 @@ name       description
 pos        12 112
 size       660 116
 mid        52 16
-sumwid     0
-sumcol     0
 column     8
 search     1
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       
 codetxt    
 label      Description
-ljust      0
 lfont      1
 gray       
 freeze     
 invis      
 skip       
 default    
-pattern    
-minlen     1
 maxlen     10000
-ijust      0
 ifont      4
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
 plan_if    m
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0

@@ -132,6 +132,7 @@ CARD *create_card_menu(
 	card->wstat = card->wcard = 0;
 	if (ydiv) {
 	    card->wstat = new QWidget(wform);
+	    card->wstat->setAutoFillBackground(true);  // should be true already, but isn't?
 	    card->wstat->resize(xs+6, ydiv);
 	    card->wstat->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 	    card->wstat->setObjectName("staticform");

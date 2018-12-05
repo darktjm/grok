@@ -63,20 +63,22 @@ static struct menu {
 	const char *text;
 	QWidget	*widget;
 } menu[] = {
-	{ 'L',	0,	dbbr(Invalid), "Template:"		},
-	{ 'S',	0x10,	dbbr(Invalid), "scroll",		},
+	{ 'L',	0,	dbbr(Invalid), "Template:"	},
+	{ 'S',	0x10,	dbbr(Invalid), "scroll"		},
+	{ 'L',	0,	dbbr(Invalid), "Flags:"		},
+	{ 'T',	0x11,	dbbr(Invalid), "text"		},
 	{ 'B',	0x20,	dbbr(Action),  "Create"		},
 	{ 'b',	0x21,	dbbr(Action),  "Dup"		},
 	{ 'b',	0x22,	dbbr(Action),  "Edit"		},
 	{ 'q',	0x23,	dbbr(Action),  "Delete"		},
 	{ '-',	0,	dbbr(Invalid), "div"		},
 	{ 'L',	0,	dbbr(Invalid), "Output file:"	},
-	{ 'T',	0x30,	dbbr(Invalid), "text",		},
+	{ 'T',	0x30,	dbbr(Invalid), "text"		},
 	{ 'B',	0x40,	dbbr(Action),  "Browse"		},
 	{ 'b',	0x41,	dbbr(Accept),  "Export"		},
 	{ 'b',	0x42,	dbbb(Cancel),  0		},
 	{ 'q',	0x43,	dbbb(Help),    0		},
-	{  0,   0,	dbbr(Invalid), 0			}
+	{  0,   0,	dbbr(Invalid), 0		}
 };
 
 void create_templ_popup(void)
@@ -136,13 +138,25 @@ void create_templ_popup(void)
 		form->addWidget(hb);
 	    if (mp->type == 'q')
 		hb = 0;
-	    if (mp->type == 'T' && pref.xfile)
+	    if (mp->code == 0x30 && pref.xfile)
 		print_text_button(w, pref.xfile);
+	    if (mp->code == 0x11 && pref.xflags) {
+		char buf[53];
+		int i, m;
+		char *p;
+		for (i = 0, m = 1, p = buf; i < 26; i++, m <<= 1)
+		    if (pref.xflags & m) {
+			*p++ = '-';
+			*p++ = 'a' + i;
+		    }
+		*p = 0;
+		print_text_button(w, buf);
+	    }
 
 	    if (mp->type == 'b' || mp->type == 'q' || mp->type == 'B')
 		set_button_cb(w, button_callback(mp->code));
 	    if (mp->type == 'T')
-		set_text_cb(w, button_callback(mp->code));
+		set_textr_cb(w, button_callback(mp->code));
 	    mp->widget = w;
 	}
 	// close does a reject by default, so no extra callback needed
@@ -195,9 +209,23 @@ static BOOL do_export(void)
 {
 	struct menu	*mp;		/* for finding text widget */
 	const char	*err;
+	char		*f, *p;
 
+	for (mp=menu; mp->code != 0x11; mp++);
+	f = read_text_button_noblanks(mp->widget, NULL);
+	pref.xflags = 0;
+	for(p = f; *p; p++) {
+		if(*p == '-')
+			p++;
+		if(*p < 'a' || *p > 'z') {
+			create_error_popup(shell,0,"Options are letters a-z only");
+			return FALSE;
+		}
+		pref.xflags |= 1U<<(*p - 'a');
+	}
 	for (mp=menu; mp->code != 0x30; mp++);
 	read_text_button_noblanks(mp->widget, &pref.xfile);
+	
 	if (!pref.xfile) {
 		create_error_popup(shell,0,"Please enter an output file name");
 		return(FALSE);
@@ -205,7 +233,7 @@ static BOOL do_export(void)
 	if (!get_list_seq())
 		return(FALSE);
 
-	if ((err = exec_template(pref.xfile, 0, pref.xlistpos, curr_card))) {
+	if ((err = exec_template(pref.xfile, 0, pref.xlistpos, pref.xflags, curr_card))) {
 		create_error_popup(shell, 0, "Export failed:\n%s", err);
 		return(FALSE);
 	}

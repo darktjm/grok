@@ -246,6 +246,8 @@ char *f_toset(char *a);
 char *f_union(char *a, char *b);
 char *f_intersect(char *a, char *b);
 char *f_setdiff(char *a, char *b);
+char *f_detab(char *s, int start, int tabstop);
+char *f_align(char *s, char *pad, int len, int where);
 
 /* get a form's separator information */
 void get_form_arraysep(FORM *form, char *sep, char *esc);
@@ -407,6 +409,7 @@ const char *exec_template(
 	char		*oname,		/* output file name, 0=stdout */
 	const char	*name,		/* template name to execute */
 	int		seq,		/* if name is 0, execute by seq num */
+	unsigned long	flags,		/* template flags a..z */
 	CARD		*card);		/* need this for form name */
 char *copy_template(
 	QWidget		*shell,		/* export window widget */
@@ -417,9 +420,6 @@ BOOL delete_template(
 	QWidget		*shell,		/* export window widget */
 	int		seq,		/* template to delete, >= NBUILTINS */
 	CARD		*card);		/* need this for form name */
-const char *eval_template(
-	const char	*iname,		/* template filename */
-	char		*oname);	/* default output filename, 0=stdout */
 const char *substitute_setup(
 	char		**array,	/* where to store substitutions */
 	char		*instr);	/* x=y x=y ... command string */
@@ -432,9 +432,10 @@ void create_templ_popup(void);
 
 /*---------------------------------------- templmk.c ------------*/
 
-const char *mktemplate_html(
-	char		*oname,		/* default output filename, 0=stdout */
-	int		mode);		/* 0=both, 1=summary, 2=data list */
+/* These write a template to fp and return 0 on success, message on error */
+const char *mktemplate_html(FILE *fp);
+const char *mktemplate_plain(FILE *fp);
+const char *mktemplate_fancy(FILE *fp);
 
 /*---------------------------------------- printwin.c ------------*/
 

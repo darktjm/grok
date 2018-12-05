@@ -16,6 +16,12 @@ games again...
 Bugs
 ----
 
+- Clicking on a radio button (update=ALL) causes menu table to narrow
+  in form editor.
+
+- Sometimes 1st widget of card appears even though no record is
+  selected in main card window display.
+
 - Main window sizing issues:
 
     - The summary list is too wide.  The right-most column almost
@@ -74,6 +80,17 @@ Bugs
   the use of QString as the target for sprintf, but some still
   remain.
 
+- The Canvas doesn't always highlight the widget loaded into the form
+  editor window.  In particular, the first one and the one that gets
+  selected after deleting a widget don't get highlighted.
+
+- .gf/db in "other" directories act strangely.
+
+- missing .db files are created w/o .db extension
+
+- procdemo has memory allocation error popup after form edit/reload,
+  but continues to work OK
+
 Code Improvements
 -----------------
 
@@ -107,6 +124,16 @@ Code Improvements
 
 Minor UI Improvements
 ---------------------
+
+- Move search mode selection to menu, or something.  Maybe add hotkeys
+  so it's easier to do.  I rarely switch, and having that big old
+  menu button take up space while the search text shrinks is awful
+  (maybe also remove the Search button while I'm at it, since
+  pressing return does the same thing).  Plus, I"m not even sure I
+  understand what all of those options do.  I only use the first and
+  last.  I should read the code.  Maybe this ties into why the alpha
+  buttons don't work.  Maybe make ctrl-f switch the mode to the last
+  by default?
 
 - Put database name and modified flag in title bar
 
@@ -161,17 +188,22 @@ Minor UI Improvements
 
 - Actually look into the plan interface.  At the very least reduce its
   footprint on the form editor my making the radio group a menu.
-  Maybe even make it a one-liner.
-  
+  Maybe even make it a one-liner (i.e., menu & plan_if on one line).
+
     - Note that -p doesn't support Flag List or Flag Group fields in
       either mode, really, and probably never will since I don't want
       to add more fields to the menu table.
+
+- Use combo box for flag field, giving -s, -d, -n.  Look into making
+  the combo box label different from the text, and label them
+  appropriately.  Alternately, just add checkboxes above the field for
+  those three specific flags.
 
 Important UI improvements
 -------------------------
 
 -   Do something about the help text.  Converting the built-in text to
-    basic HTML imrpoved the appearance a bit, so at least
+    basic HTML improved the appearance a bit, so at least
     appearance-related changes can wait. It is not possible to
     globally override QWhatsThis.  Instead, I'd have to subclass
     every widget with whatsThis text and override the keyboard and
@@ -198,11 +230,12 @@ Important UI improvements
 
 - Document the "standard" Qt command-line options, especially given
   that they seem to only be documented in the
-  QApplication/QGuiApplication constructor documentation.
+  QApplication/QGuiApplication constructor documentation.  I'd rather
+  be able to provide a link to existing documentation.
 
 - Add list of field names to expression grammar help text, similar to
   fields text in query editor.  Or, just make that a separate
-  universal popup.
+  universal popup.  Or, add it to Database Info.
 
 - Remove Rambo Quit, and make Quit and window-close work like that
   instead.  This matches what most other applications do.  Also,
@@ -238,13 +271,31 @@ Important UI improvements
   probably want to use more standard translation methods (e.g. LANG=
   instead of a pulldown, .po[t] files)
 
+- Support an external editor.  Or maybe make the built-in one better.
+  I'm leaning on the former, since I don't want to implement a text
+  editor in grok, but if there's already somthing pre-built, such as
+  the scintilla support, I'll use it.  Qt's current QTextEdit requires
+  work to make it usable.  It doesn't even support control characters
+  in the text, so it's useless for editing "fancy" templates.
+
 - Export to window.  In fact, replace Print interface with
   automatically generated text templates, and support Export to pipe
-  (e.g. 1st character is vertical bar) for "printing".  Making it a
-  combo box with the defined printers would sort of compensate for
-  losing those preferences, I guess.  Note that the overstrike
-  feature can be done with the new regex functions, .g. bold ==
-  `gsub(s, ".", "\\0\008\\0")`)
+  (e.g. 1st character is vertical bar) for "printing".  Making the
+  file name a combo box with the defined printers (or even just a
+  generic list of user-supplied export targets, edited in a dynamic
+  table like menus and named queries) would sort of compensate for 
+  losing those preferences, I guess.  Stripping out all references to
+  PostScript output is no big loss, since it didn't do anything,
+  anyway.
+
+    - To replace Print's options to select which card(s) to print,
+      export GUI needs those options as well.  It currently only
+      supports search results, I think, so it needs radio
+      buttons for all and current row.  The command line doesn't
+      need any special treatment, though, since there is no
+      current row and not specifying a search string does not
+      force the default query (I'm not even sure the command
+      line understands the named queries).
 
     - Maybe support "transient" templates, which aren't saved to
       files. This is to compensate for lack of an SQL command
@@ -268,8 +319,9 @@ Important UI improvements
 
 - Remove width limits in summary list.
 
-- Support multiple named summary listings.  Also, have a way to query
-  what fields are in that listing.
+- Support multiple named summary listings (i.e., column order and
+  default sort).  Also, have a way to query what fields are in that
+  listing.
 
 - Add a summary line preview (at least the headers) to the form editor
   canvas and preview.  Perhaps even allow drag & drop to move around
@@ -286,6 +338,17 @@ Important UI improvements
 
 Infrastructure Improvements
 ---------------------------
+
+- Add =~ from perl, since that what was apparently originally planned.
+  It's not going to be quite like perl in any case, though, since
+  perl's =~ syntax is very different from grok's.  I guess =~ is less
+  verbose than match().  Merging tr() sub() and gsub() into =~ seems
+  like a bad idea, though.
+
+- Add global pref to support regex patterns in basic search strings,
+  since that was apparently part of the original plan wrt regexes.
+  Right now, you have to do (match(_field,"regex")), and can't search
+  across multiple fields easily like regular searches do.
 
 - Support stepping over all possible values of a field with a menu.
   Maybe ? instead of + to select Choice/flag codes and ?+ to select
@@ -315,7 +378,8 @@ Infrastructure Improvements
   again, maybe that sort of thing belongs in an "import" feature.
 
 - Make Print widget's name refer to the label text, rather than a
-  database column.
+  database column.  Support Print widgets in listing, expressions,
+  and anywhere else a column is usually required.
 
 -   Support UTF-8.  This was going somewhere in the IUP port, but I have
     abandoned this and it is at 0% again.  I don't like the idea of
@@ -389,6 +453,8 @@ Infrastructure Improvements
 - Have "s in s" return the location of the first string in the second,
   plus one to keep it boolean.  Or, just leave it alone and let
   people who want this use match() instead.
+
+- Add ELSE and ELSEIF to template controls.
 
 - Have a generic SQL exporter similar to the HTML one.  This may also
   involve cascading if foreign keys are in.  This is much easier to do
@@ -499,7 +565,7 @@ Card Improvements
 - I thought I read somewhere that Qt has a popup form of the
   multi-select list.  If so, support that, since it's more compact.
 
-- Multi-select and choice group fields should support "collapsing" the
+- Multi-select and flag group fields should support "collapsing" the
   main widget into a textual representation of selected items (either
   formula or automatic comma-separated).
 
@@ -621,6 +687,11 @@ Major Feature: Foreign Database References
       indb(dbname, search, expr).  Or, add an optional first
       argument prefixed by a char, like the sort thing above:
       foreach(:"databse"[, "search"], "expr")
+
+    - Allow importing templates from other databases (and this database)
+      using \\{IMPORT *db* *template* *search*}.  Maybe an optional
+      first parameter is a variable to load template result into for
+      further text mangling.
 
 - SQL-style many-to-one foreign key references.  The "child" database
   contains a set of fields which must match a similar set of fields

@@ -716,6 +716,7 @@ char *f_printf(
 		} else if (*fmt != '%') {
 			*bp++ = *fmt++;
 		} else {
+			/* FIXME: no ., no * */
 			for (ctl=fmt+1; strrchr("0123456789.-", *ctl); ctl++);
 			if (*ctl == 'l')
 				ctl++;
@@ -856,7 +857,7 @@ char *re_sub(char *s, char *e, char *r, bool all)
 	    }
 	}
 	res.append(rstr);
-	off = m.capturedEnd() + 1;
+	off = m.capturedEnd();
 	if(!all)
 	    break;
     }
@@ -1349,4 +1350,69 @@ char *f_setdiff(char *a, char *b)
 	return NULL;
     }
     return a;
+}
+
+char *f_detab(char *s, int start, int tabstop)
+{
+	char *d, *p, *q;
+	int ntab = countchars(s, "\t");
+	if(!ntab)
+		return s;
+	if(tabstop < 1)
+		tabstop = 1;
+	if(start < 0)
+		start = tabstop + start % tabstop;
+	d = (char *)malloc(strlen(s) + ntab * tabstop + 1);
+	for(p = s, q = d; *p; p++, start++) {
+		if(*p != '\t')
+			*q++ = *p;
+		else {
+			int i = tabstop - (start % tabstop);
+			while(i--) {
+				*q++ = ' ';
+				start++;
+			}
+			start--;
+		}
+	}
+	*q = 0;
+	free(s);
+	return d;
+}
+
+char *f_align(char *s, char *pad, int len, int where)
+{
+	int slen = s ? strlen(s) : 0;
+	char *ns;
+	char padc = BLANK(pad) ? ' ' : *pad;
+	zfree(pad);
+	if(slen == len)
+		return s;
+	if(slen > len) {
+		if(len <= 0) {
+			zfree(s);
+			return NULL;
+		}
+		if(where > 0)
+			memmove(s, s + slen - len, len);
+		else if(!where)
+			memmove(s, s + (slen - len) / 2, len);
+		s[len] = 0;
+		return s;
+	}
+	ns = (char *)malloc(len + 1);
+	if(where > 0) {
+		memset(ns, padc, len - slen);
+		memcpy(ns + len - slen, s, slen);
+	} else if(where < 0) {
+		memset(ns + slen, padc, len - slen);
+		memcpy(ns, s, slen);
+	} else {
+		memset(ns, padc, (len - slen) / 2);
+		memcpy(ns + (len - slen) / 2, s, slen);
+		memset(ns + slen + (len - slen) / 2, padc, (len - slen + 1) / 2);
+	}
+	ns[len] = 0;
+	zfree(s);
+	return ns;
 }

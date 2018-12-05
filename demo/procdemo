@@ -1,5 +1,5 @@
 #!/bin/sh
-echo "$*" >/dev/console
+echo "$*" >&2
 case ${1:-x} in
   -r)	cat /etc/passwd
 	;;

@@ -3,12 +3,7 @@ name       bibliofile
 dbase      biblio
 comment    bibliography of history references. (c) James C. McPherson 10/1995. version 1.0. email mljmcphe@dingo.cc.uq.oz.au, j.mcpherson@central1.library.uq.oz.au
 cdelim     |
-rdonly     0
-proc       0
-grid       4 4
 size       776 331
-divider    0
-autoq      -1
 help	'	Biblio	(c) James C. McPherson, 10/1995 v1.0
 help	'
 help	'The format of the database follows the Oxbridge style for footnotes, namely
@@ -33,7 +28,6 @@ help	'I, James McPherson, hereby place the Bibliofile card idea fully in the pub
 help	'domain. Anybody may use the Bibliofile idea and accompanying perl code, and
 help	'modifications may be made also, on the condition that modifications get
 help	'sent to me at mljmcphe@dingo.cc.uq.oz.au.
-
 query_s    0
 query_n    Article
 query_q    ={Article}
@@ -45,45 +39,13 @@ pos        12 12
 size       460 28
 mid        92 28
 sumwid     15
-sumcol     0
 column     0
 search     1
-rdonly     0
-nosort     0
 defsort    1
-timefmt    0
-code       
-codetxt    
 label      Author
 ljust      1
 lfont      0
-gray       
-freeze     
-invis      
-skip       
-default    
-pattern    
-minlen     1
-maxlen     100
-ijust      0
 ifont      0
-p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Flag
@@ -95,42 +57,18 @@ sumwid     2
 sumcol     3
 column     2
 search     1
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       (ed)
 codetxt    T
 label      Editor
-ljust      0
 lfont      0
 gray       
 freeze     
 invis      
 skip       
 default    
-pattern    
-minlen     1
 maxlen     0
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Flag
@@ -142,42 +80,18 @@ sumwid     2
 sumcol     6
 column     8
 search     1
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       Art
 codetxt    A
 label      Article
-ljust      0
 lfont      0
 gray       
 freeze     
 invis      
 skip       
 default    
-pattern    
-minlen     1
 maxlen     0
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Input
@@ -189,10 +103,6 @@ sumwid     25
 sumcol     1
 column     1
 search     1
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       
 codetxt    
 label      Title
@@ -203,28 +113,8 @@ freeze
 invis      
 skip       
 default    
-pattern    
-minlen     1
-maxlen     100
-ijust      0
 ifont      1
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Input
@@ -232,14 +122,8 @@ name       Address
 pos        12 84
 size       756 28
 mid        92 28
-sumwid     0
-sumcol     0
 column     3
 search     1
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       
 codetxt    
 label      Address
@@ -250,28 +134,8 @@ freeze
 invis      
 skip       
 default    
-pattern    
-minlen     1
-maxlen     100
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Input
@@ -283,10 +147,6 @@ sumwid     20
 sumcol     4
 column     4
 search     1
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       
 codetxt    
 label      Publisher
@@ -297,28 +157,8 @@ freeze
 invis      
 skip       
 default    
-pattern    
-minlen     1
-maxlen     100
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Input
@@ -330,10 +170,6 @@ sumwid     5
 sumcol     5
 column     5
 search     1
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       
 codetxt    
 label      Date
@@ -344,28 +180,8 @@ freeze
 invis      
 skip       
 default    
-pattern    
-minlen     1
-maxlen     100
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Input
@@ -373,14 +189,8 @@ name       Pages
 pos        392 156
 size       176 28
 mid        64 28
-sumwid     0
-sumcol     0
 column     9
-search     0
-rdonly     0
 nosort     1
-defsort    0
-timefmt    0
 code       
 codetxt    
 label      Pages
@@ -391,28 +201,8 @@ freeze
 invis      
 skip       
 default    
-pattern    
-minlen     1
-maxlen     100
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Input
@@ -424,10 +214,7 @@ sumwid     2
 sumcol     10
 column     10
 search     1
-rdonly     0
-nosort     0
 defsort    1
-timefmt    0
 code       
 codetxt    
 label      Edition
@@ -438,28 +225,9 @@ freeze
 invis      
 skip       
 default    
-pattern    
-minlen     1
 maxlen     5
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Input
@@ -467,14 +235,8 @@ name       item5
 pos        12 192
 size       708 28
 mid        92 28
-sumwid     0
-sumcol     0
 column     6
 search     1
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
 code       
 codetxt    
 label      Call Number
@@ -485,28 +247,8 @@ freeze
 invis      
 skip       
 default    
-pattern    
-minlen     1
-maxlen     100
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Note
@@ -514,46 +256,12 @@ name       Annotation
 pos        12 228
 size       756 56
 mid        92 28
-sumwid     0
-sumcol     0
 column     7
 search     1
-rdonly     0
-nosort     0
-defsort    0
-timefmt    0
-code       
-codetxt    
 label      Annotation
-ljust      0
 lfont      0
-gray       
-freeze     
-invis      
-skip       
-default    
-pattern    
-minlen     1
-maxlen     100
-ijust      0
+maxlen     128
 ifont      0
-p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0
 
 item
 type       Input
@@ -565,10 +273,7 @@ sumwid     15
 sumcol     11
 column     11
 search     1
-rdonly     0
-nosort     0
 defsort    1
-timefmt    0
 code       
 codetxt    
 label      Key
@@ -579,25 +284,6 @@ freeze
 invis      
 skip       
 default    
-pattern    
-minlen     1
 maxlen     20
-ijust      0
 ifont      0
 p_act      
-a_act      
-q_dbase    
-query      
-q_summ     1
-q_first    0
-q_last     1
-q_last     1
-ch_xrange  0 0
-ch_yrange  0 0
-ch_auto    0 0
-ch_grid    0 0
-ch_snap    0 0
-ch_label   0 0
-ch_xexpr   
-ch_yexpr   
-ch_ncomp   0

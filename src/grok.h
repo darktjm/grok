@@ -31,6 +31,7 @@ struct pref {
 	char	*pfile;		/* print file (if pdevice==F) */
 	char	*xfile;		/* export file */
 	int	xlistpos;	/* last chosen line in export list, 0=top */
+	int	xflags;		/* last set of export flags */
 	int	linelen;	/* truncate printer line after n chars (79) */
 	double	scale;		/* scale factor for cards */
 	int	sumlines;	/* number of summary lines */

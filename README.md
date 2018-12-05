@@ -67,7 +67,7 @@ made some changes to the latest version I found, released 23 May 2001:
 
 The first checkin of this project is an exact copy of this archive.  I
 initially made changes to address issues I noticed while using grok
-with my own databsae, and released those changes as "1.5.1":
+with my own database, and released those changes as "1.5.1":
 
 > <https://bitbucket.org/darktjm/grok/get/xmbase_grok-1.5.1.tar.bz2>
 

@@ -27,7 +27,7 @@
  **			find and exec templates				    **
  *****************************************************************************/
 
-#define NBUILTINS	3		/* number of builtins (with modes) */
+#define NBUILTINS	ALEN(builtins)	/* number of builtins (with modes) */
 #define MAXFILES	128		/* max # of user-defined templates */
 
 static int	ntemps;			/* # of valid user-defined templates */
@@ -36,18 +36,23 @@ static char	*templates[MAXFILES];	/* list of user-defd template names */
 static struct builtins {
 	const char	*name;
 	const char	*desc;
-	const char	*(*func)(char *, int);
-	int		mode;
-} builtins[NBUILTINS] = {
-	{ "html",	"  (builtin HTML)",		mktemplate_html, 0 },
-	{ "html-s",	"(builtin HTML, summary only)",	mktemplate_html, 1 },
-	{ "html-d",	"(builtin HTML, data only)",	mktemplate_html, 2 }
+	const char	*(*func)(FILE *);
+} builtins[] = {
+	{ "html",	"(auto HTML)",		mktemplate_html },
+	{ "text",	"(auto text)",		mktemplate_plain },
+	{ "fancytext",	"(auto fancy text)",	mktemplate_fancy },
 };
 
 static void *allocate(int n)
 	{void *p=malloc(n); if (!p) fatal("no memory"); return(p);}
 
 int get_template_nbuiltins(void) { return(NBUILTINS); }
+
+static const char *eval_template(
+	FILE		*ifp,		/* template file */
+	const char	*iname,		/* template name */
+	unsigned long	flags,		/* flags a..z */
+	char		*oname);	/* default output filename, 0=stdout */
 
 
 /*
@@ -128,38 +133,53 @@ const char *exec_template(
 	char		*oname,		/* output file name, 0=stdout */
 	const char	*name,		/* template name to execute */
 	int		seq,		/* if name is 0, execute by seq num */
+	unsigned long	flags,		/* flags a..z */
 	CARD		*card)		/* need this for form name */
 {
-	char		tmp[1024];	/* temp file for builtin template */
+	FILE		*fp;		/* template file (input) */
 	char		*path;		/* template file path */
-	const char	*p;		/* template file path */
 	const char	*ret;		/* returned error message or 0 */
 
 	if (!ntemps)
 		list_templates(0, card);
 	if (name) {
-		for (seq=0; seq < NBUILTINS; seq++)
-			if (!strcmp(name, builtins[seq].name))
-				break;
-		if (seq == NBUILTINS)
-			for (; seq < ntemps + NBUILTINS; seq++)
-				if (!strcmp(name, templates[seq - NBUILTINS]))
+		int len = strlen(name);
+		while(1) {
+			for (seq=0; seq < NBUILTINS; seq++)
+				if (!memcmp(name, builtins[seq].name, len) &&
+				    !builtins[seq].name[len])
 					break;
+			if (seq == NBUILTINS)
+				for (; seq < ntemps + NBUILTINS; seq++)
+					if (!memcmp(name, templates[seq - NBUILTINS], len) &&
+					    !templates[seq - NBUILTINS][len])
+						break;
+			if(seq < ntemps + NBUILTINS)
+				break;
+			if(len < 2 || name[len - 2] != '-' ||
+			   name[len - 1] < 'a' || name[len - 1] > 'z')
+				break;
+			flags |= 1U<<(name[len -1] - 'a');
+			len -= 2;
+		}
 	}
 	if (seq >= NBUILTINS + ntemps)
 		return("no such template");
 	if (seq < NBUILTINS) {
-		if (!(p = getenv("TMPDIR")))
-			p = "/usr/tmp";
-		strncpy(tmp, p, sizeof(tmp)-32);
-		sprintf(tmp+strlen(tmp), "/groktm%d", getpid());
-		unlink(tmp);
-		if (!(ret = (*builtins[seq].func)(tmp, builtins[seq].mode)))
-			ret = eval_template(tmp, oname);
-		unlink(tmp);
+		fp = tmpfile();
+		if(!fp)
+			return "Can't open temporary file for template output";
+		if (!(ret = (*builtins[seq].func)(fp))) {
+			rewind(fp);
+			ret = eval_template(fp, builtins[seq].name, flags, oname);
+		} else
+			fclose(fp);
 	} else {
 		path = get_template_path(templates[seq - NBUILTINS], 0, card);
-		ret = eval_template(path, oname);
+		if (!(fp = fopen(path, "r")))
+			ret = "failed to open template file";
+		else
+			ret = eval_template(fp, path, flags, oname);
 		free(path);
 	}
 	return(ret);
@@ -185,9 +205,15 @@ char *copy_template(
 
 	tar = get_template_path(tar, 0, card);
 	if (seq < NBUILTINS) {
-		if ((err = (*builtins[seq].func)(tar, builtins[seq].mode)))
-			create_error_popup(shell, 0,
-					"Failed to create %s:\n%s", tar, err);
+		if (!(ofp = fopen(tar, "w")))
+			create_error_popup(shell, errno,
+					   err = "Failed to create %s", tar);
+		else {
+			if ((err = (*builtins[seq].func)(ofp)))
+				create_error_popup(shell, 0,
+						   "Failed to create %s:\n%s", tar, err);
+			fclose(ofp);
+		}
 	} else {
 		src = get_template_path(0, seq, card);
 		if (!(ifp = fopen(src, "r")))
@@ -238,12 +264,12 @@ BOOL delete_template(
  **				parse template				    **
  *****************************************************************************/
 
-#define ISSPACE(c) ((c)==' ' || (c)=='\t')
+#define ISSPACE(c) ((c)==' ' || (c)=='\t' || (c)=='\n')
 #define ISOCTAL(c) ((c)>='0' && (c)<='7')
 #define NEST		10
 
 static char html_subst[] = "<=&lt; >=&gt; &=&amp; \n=<BR>";
-static const char *eval_command(char *, BOOL *);
+static const char *eval_command(char *, BOOL *, unsigned long);
 static const char *putstring(const char *);
 
 struct forstack { long offset; int num; int nquery; int *query; char *array; };
@@ -282,10 +308,13 @@ static int		forskip;	/* # of empty loops, skip to END */
  */
 
 const char *eval_template(
-	const char	*iname,		/* template filename */
+	FILE		*fp,		/* template file */
+	const char	*iname,		/* template name */
+	unsigned long	flags,		/* flags a..z */
 	char		*oname)		/* default output filename, 0=stdout */
 {
-	char		word[4096];	/* command string in \{ } */
+	char		*word;		/* command string in \{ } */
+	int		wordlen;
 	const char	*p;
 	int		indx = 0;	/* next free char in word[] */
 	int		line = 1;	/* line number in template */
@@ -295,6 +324,7 @@ const char *eval_template(
 	BOOL		eat_nl = FALSE;	/* ignore \n after \{COMMAND} */
 	int		i;
 
+	ifp = fp;
 	default_row   = curr_card->row;
 	default_query = 0;
 	if ((default_nquery = curr_card->nquery)) {
@@ -307,12 +337,12 @@ const char *eval_template(
 	outname = oname ? mystrdup(resolve_tilde(oname, 0)) : 0;
 	ofp = 0;
 
-	if (!(ifp = fopen(iname, "r")))
-		return("failed to open template file");
+	word = (char *)malloc((wordlen = 32));
 	for (prevc=0;; prevc=c) {
 		c = fgetc(ifp);
 		if (feof(ifp)) {
-			putstring("\n");
+			// I fail to see the need for excess newlines
+			// putstring("\n");
 			*word = 0;
 			break;
 		}
@@ -328,35 +358,36 @@ const char *eval_template(
 			}
 			if (!bracelevel) {
 				word[indx] = 0;
-				if ((p = eval_command(word, &eat_nl))) {
+				if ((p = eval_command(word+1, &eat_nl, flags))) {
 					if (!strcmp(p, "QUIT"))
 						*word = 0;
-					else
+					else {
+						int len = strlen(iname) + strlen(p) + 20;
+						if(len > wordlen)
+							word = (char *)realloc(word, (wordlen = len));
 						sprintf(word, "%s line %d: %s",
 							iname, line, p);
+					}
 					break;
 				}
 			} else {
-				if (indx == sizeof(word)-1) {
-					sprintf(word, 
-						"%s line %d: command too long",
-						iname, line);
-					break;
-				}
+				/* + 1 for terminating 0, + 1 for EXPR's terminating brace */
+				if (indx == wordlen - 2)
+					word = (char *)realloc(word, (wordlen *= 2));
 				word[indx++] = c;
 			}
 		} else {
 			word[0] = 0;
 			if (prevc == '\\') {
+				word[0] = c;
 				if (c == '{') {
-					indx = 0;
+					indx = 1;
 					bracelevel++;
-				} else
-					word[0] = c;
+				}
 				c = 0;
 			} else if (c != '\\')
 				word[0] = c;
-			if (!n_false_if && !forskip && word[0] &&
+			if (!n_false_if && !forskip && !bracelevel &&
 						(word[0] != '\n' || !eat_nl)) {
 				word[1] = 0;
 				if ((p = putstring(word))) {
@@ -395,7 +426,12 @@ const char *eval_template(
 			free(subst[i]);
 			subst[i] = 0;
 		}
-	return(*word ? mystrdup(word) : 0);
+	if (*word)
+		return word;
+	else {
+		free(word);
+		return NULL;
+	}
 }
 
 
@@ -407,10 +443,10 @@ const char *eval_template(
 
 static const char *eval_command(
 	char		*word,		/* command to evaluate */
-	BOOL		*eat_nl)	/* if command, set to true (skip \n) */
+	BOOL		*eat_nl,	/* if command, set to true (skip \n) */
+	unsigned long	flags)		/* template flags a..z */
 {
-	char		cmd[256];	/* extracted command word */
-	char		*p, *q;		/* for searching the command */
+	char		*cmd;		/* extracted command word */
 	const char	*pc, *err;
 	struct forstack	*sp;		/* current foreach stack level */
 	int		i, nq, *qu;
@@ -418,23 +454,29 @@ static const char *eval_command(
 	*eat_nl = TRUE;
 	while (ISSPACE(*word)) word++;
 	for (i=strlen(word); i && ISSPACE(word[i-1]); i--);
-	for (p=word, q=cmd; q < cmd+255 && *p>='A' && *p<='Z'; *q++ = *p++);
-	*q = 0;
-	while (ISSPACE(*p)) p++;
-
+	for (cmd=word; *word>='A' && *word<='Z'; word++);
 	for (i=0; opcode_list[i].name; i++)
-		if (!strcmp(opcode_list[i].name, cmd))
+		if (!memcmp(opcode_list[i].name, cmd, word - cmd) &&
+		    !opcode_list[i].name[word - cmd])
 			break;
+	while (ISSPACE(*word)) word++;
 	switch(opcode_list[i].opcode) {
 	  case O_IF:
 		if (n_false_if) {
 			n_false_if++;
 			return(0);
 		}
-		if (evalbool(curr_card, p))
-			n_true_if++;
-		else
-			n_false_if++;
+		if ((*word == '-' || *word == '+') && word[1] >= 'a' && word[1] <= 'z' && !word[2]) {
+			if(!!(flags & (1U<<(word[1] - 'a'))) == (*word == '-'))
+				n_true_if++;
+			else
+				n_false_if++;
+		} else {
+			if (evalbool(curr_card, word))
+				n_true_if++;
+			else
+				n_false_if++;
+		}
 		break;
 
 	  case O_ENDIF:
@@ -454,30 +496,30 @@ static const char *eval_command(
 		if (forlevel == NEST-1)
 			return("FOREACH nested too deep");
 
-		if (*p == '[') {
+		if (*word == '[') {
 			/* array foreach is not like the others.. */
-			p++;
-		        while (ISSPACE(*p)) p++;
-			bool nonblank = *p == '+';
+			word++;
+		        while (ISSPACE(*word)) word++;
+			bool nonblank = *word == '+';
 			if(nonblank) {
-				p++;
-				while (ISSPACE(*p)) p++;
+				word++;
+				while (ISSPACE(*word)) word++;
 			}
-			if(!isalpha(*p))
+			if(!isalpha(*word))
 				return "Array FOREACH must specify variable";
 			sp = &forstack[++forlevel];
 			sp->offset = ftell(ifp);
 			/* nquery -> variable + 1 */
 			/*           or -(variable + 1) if nonblank */
-			sp->nquery = *p >= 'a' ? *p - 'a' : *p + 26 - 'A';
+			sp->nquery = *word >= 'a' ? *word - 'a' : *word + 26 - 'A';
 			if(nonblank)
 				sp->nquery = -(sp->nquery + 1);
 			else
 				sp->nquery++;
 			sp->query  = NULL;
-			p++;
-		        while (ISSPACE(*p)) p++;
-			sp->array = mystrdup(evaluate(curr_card, p));
+			word++;
+		        while (ISSPACE(*word)) word++;
+			sp->array = mystrdup(evaluate(curr_card, word));
 			{
 				char sep, esc;
 				get_form_arraysep(curr_card->form, &sep, &esc);
@@ -500,8 +542,8 @@ static const char *eval_command(
 			}
 			break;
 		}
-		if (*p) {
-			query_any(SM_SEARCH, curr_card, p);
+		if (*word) {
+			query_any(SM_SEARCH, curr_card, word);
 			nq = curr_card->nquery;
 			qu = curr_card->query;
 		} else {
@@ -570,7 +612,7 @@ static const char *eval_command(
 			fclose(ofp);
 		if (outname)
 			free(outname);
-		outname = mystrdup(evaluate(curr_card, p));
+		outname = mystrdup(evaluate(curr_card, word));
 		ofp = 0;
 		break;
 
@@ -578,24 +620,29 @@ static const char *eval_command(
 		if (forskip || n_false_if)
 			break;
 		/* (char *) cast is safe because no \-sust is needed */
-		substitute_setup(subst, !strcmp(p, "HTML") ? (char *)html_subst : p);
+		substitute_setup(subst, !strcmp(word, "HTML") ? (char *)html_subst : word);
 		break;
 
 	  case O_EXPR:
 		*eat_nl = FALSE;
 		if (forskip || n_false_if)
 			break;
-		*--p = '{';
-		strcat(p, "}");
-		pc = evaluate(curr_card, p);
-		cmd[1] = 0;
+		if(!*word) // Allow newline suppression with blank expr
+			break;
+		/* word is now guaranteed to have space before & after */
+		/* I have no idea why this never crashed before */
+		*--word = '{';
+		strcat(word, "}");
+
+		pc = evaluate(curr_card, word);
 		if(!pc)
 			return "error in expression";
+		cmd[1] = 0;
 		while ((cmd[0] = *pc++))
 			if ((err = putstring(subst[(unsigned char)cmd[0]] ? subst[(unsigned char)cmd[0]] : cmd)))
 				return(err);
 		break;
-	
+
 	  case O_QUIT:
 		if (!forskip && !n_false_if)
 			return "QUIT";

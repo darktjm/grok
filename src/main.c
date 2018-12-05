@@ -165,7 +165,7 @@ int main(
 			fprintf(stderr,"%s: %s: no match\n",progname,formname);
 			_exit(0);
 		}
-		if ((p = exec_template(0, tmpl, 0, curr_card)))
+		if ((p = exec_template(0, tmpl, 0, 0, curr_card)))
 			fprintf(stderr, "%s %s: %s\n", progname, formname, p);
 		fflush(stdout);
 		_exit(0);

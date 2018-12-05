@@ -12,6 +12,8 @@
 #include "form.h"
 #include "proto.h"
 
+#define TAB	8		/* tab stops every 8 characters */
+
 static struct var {		/* variables 0..25 are a..z, cleared when */
 	char	*string;	/* switching databases. 26..51 are A..Z, */
 	double	value;		/* which are never cleared. */
@@ -19,7 +21,7 @@ static struct var {		/* variables 0..25 are a..z, cleared when */
 } var[52];
 
 static int	f_len	(char  *s)  { return(s ? strlen(s) : 0); }
-static char    *f_str	(double d)  { char buf[100]; sprintf(buf,"%.12lg",d);
+static char    *f_str	(double d)  { char buf[100]; sprintf(buf,"%.*lg",DBL_DIG + 1, d);
 					return(mystrdup(buf)); }
 static int	f_cmp	(char  *s,
 			 char  *t)  { int r = strcmp(STR(s), STR(t));
@@ -73,7 +75,7 @@ void init_variables(void) { int i; for (i=0; i < 26; i++) setsvar(i, 0); }
 %token		YEAR MONTH DAY HOUR MINUTE SECOND LEAP JULIAN
 %token		SECTION_ DBASE_ FORM_ PREVFORM SWITCH THIS LAST DISP FOREACH
 %token		HOST USER UID GID SYSTEM ACCESS BEEP ERROR PRINTF MATCH SUB
-%token		GSUB BSUB ESC TOSET
+%token		GSUB BSUB ESC TOSET DETAB ALIGN
 
 %left 's' /* Force a shift; i.e., prefer longer versions */
 %left ',' ';'
@@ -140,6 +142,12 @@ string	: STRING			{ $$ = $1; }
 	| string INTERSECT  string	{ $$ = f_intersect($1, $3);}
 	| string DIFF  string		{ $$ = f_setdiff($1, $3);}
 	| TOSET '(' string ')'		{ $$ = f_toset($3); }
+	| DETAB '(' string ')'		{ $$ = f_detab($3, 0, TAB); }
+	| DETAB '(' string ',' numarg ')'	{ $$ = f_detab($3, $5, TAB); }
+	| DETAB '(' string ',' numarg ',' number ')'	{ $$ = f_detab($3, $5, $7); }
+	| ALIGN '(' string ',' numarg ')'		{ $$ = f_align($3, NULL, $5, -1); }
+	| ALIGN '(' string ',' numarg ',' string ')'	{ $$ = f_align($3, $7, $5, -1); }
+	| ALIGN '(' string ',' numarg ',' string ',' number ')'	{ $$ = f_align($3, $7, $5, $9); }
 	| FIELD %prec 's'			{ $$ = f_field($1, yycard->row); }
 	| FIELD '[' number ']' 		{ $$ = f_field($1, $3); }
 	| FIELD '=' string		{ $$ = f_assign($1, yycard->row, $3);

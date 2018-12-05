@@ -56,7 +56,7 @@
 	   am making no progress.  The fix for all of these is to manually
 	   move and resize the window after loading a database, if needed.
 
-           *  Qt often moves the main window when it resizes it after a
+	   *  Qt often moves the main window when it resizes it after a
 	      database load.
 
 	   *  Randomly, the window will end up too big after a database
@@ -1215,7 +1215,7 @@
        number field may specify to show the phone number, unless it is empty
        in which case the mobile phone number should be shown:
 
-       Show in summary: {_phone ? _phone : _mobile}
+	Show in summary: {_phone ? _phone : _mobile}
 %% fe_plan
 	PLAN INTERFACE
 
@@ -1495,49 +1495,49 @@
 
 	Numerical Operations: arithmetic operators use standard C precedences.
 
-	  (n)             number
-	  {s}             in number context, convert string to a number
-	  n ? n : n    select n2 if n1 is nonzero, n3 if zero
-	  n , n          evaluate both numbers, return second
-	  -n            sign change
-	  !n              boolean NOT
-	  ~n             bit-wise NOT
-	  n + n         add
-	  n - n         subtract
-	  n * n         multiply
-	  n / n          divide, n/0 is 1
-	  n % n        modulus, n%0 is 1
-	  n & n        bit-wise AND
-	  n && n      boolean AND
-	  n | n          bit-wise OR
-	  n || n         boolean OR
-	  n ^ n         bit-wise XOR
-	  n << n       bit-wise left shift
-	  n >> n       bit-wise right shift
-	  n == n       equal
-	  n != n        not equal
-	  n < n         less than
-	  n > n         greater than
-	  n <= n       less than or equal
-	  n >= n       greater than or equal
-	  abs (n)       absolute value
-	  int (n)	number truncated to integer
-	  sqrt (n)      square root
-	  exp (n)       exponential
-	  log (n)        logarithm to base 10
-	  ln (n)          logarithm to base e
-	  pow(n, n)    n1 raised to n2
-	  sin (n)        sine
-	  cos (n)       cosine
-	  tan (n)        tangent
-	  asin (n)      arc sine
-	  acos (n)     arc cosine
-	  atan (n)      arc tangent
-	  atan2(n,n)  quadrant-aligned arc tangent
-	  len (s)        string length
-	  # s            string length
-	  bound(n,n,n)   n1 bounded by n2 and n3
-	  random         a random number in the range [0.0, 1.0]
+	  (n)		number
+	  {s}		in number context, convert string to a number
+	  n ? n : n		select n2 if n1 is nonzero, n3 if zero
+	  n , n		evaluate both numbers, return second
+	  -n		sign change
+	  !n		boolean NOT
+	  ~n		bit-wise NOT
+	  n + n		add
+	  n - n		subtract
+	  n * n		multiply
+	  n / n		divide, n/0 is 1
+	  n % n		modulus, n%0 is 1
+	  n & n		bit-wise AND
+	  n && n		boolean AND
+	  n | n		bit-wise OR
+	  n || n		boolean OR
+	  n ^ n		bit-wise XOR
+	  n << n		bit-wise left shift
+	  n >> n		bit-wise right shift
+	  n == n		equal
+	  n != n		not equal
+	  n < n		less than
+	  n > n		greater than
+	  n <= n		less than or equal
+	  n >= n		greater than or equal
+	  abs (n)		absolute value
+	  int (n)		number truncated to integer
+	  sqrt (n)		square root
+	  exp (n)		exponential
+	  log (n)		logarithm to base 10
+	  ln (n)		logarithm to base e
+	  pow(n, n)		n1 raised to n2
+	  sin (n)		sine
+	  cos (n)		cosine
+	  tan (n)		tangent
+	  asin (n)		arc sine
+	  acos (n)		arc cosine
+	  atan (n)		arc tangent
+	  atan2(n,n)		quadrant-aligned arc tangent
+	  len (s)		string length
+	  # s		string length
+	  bound(n,n,n)	n1 bounded by n2 and n3
+	  random		a random number in the range [0.0, 1.0]
 
 
 	String Operations: note that string comparisons return strings, and
@@ -1545,166 +1545,168 @@
 	are used on the result. Printf arguments generally need to be
 	parenthesized also.
 
-	  "string"      literal string
-	  {s}             string
-	  (n)             in string context, convert number to string
-	  s ; s           evaluate both strings, return second
-	  s . s           concatenate strings
-	  s ? s : s     select s2 if s1 evaluates nz, s3 if zero
-	  s == s       strings are equal
-	  s != s         strings are not equal
-	  s < s          lexicographically less than
-	  s > s          lexicographically greater than
-	  s <= s        lexicographically less than or equal
-	  s >= s        lexicographically greater than or equal
-	  s in s        first string is contained in second string
-	  chop(s)      s without trailing newline
-	  substr(s,n,n)  substring of the s1; n1 is start index and n2 is length
-	  printf (args)   formatted string, args is comma-separated expr list
-	  tr (s, s)     translate first string according to rules in second.
-	                rules are a space-separated list of c=s, where c
+	  "string"		literal string
+	  {s}		string
+	  (n)		in string context, convert number to string
+	  s ; s		evaluate both strings, return second
+	  s . s		concatenate strings
+	  s ? s : s		select s2 if s1 evaluates nz, s3 if zero
+	  s == s		strings are equal
+	  s != s		strings are not equal
+	  s < s		lexicographically less than
+	  s > s		lexicographically greater than
+	  s <= s		lexicographically less than or equal
+	  s >= s		lexicographically greater than or equal
+	  s in s		first string is contained in second string
+	  chop(s)		s without trailing newline
+	  substr(s,n,n)	substring of the s1; n1 is start index and n2 is length
+	  printf (args)		formatted string, args is comma-separated expr list
+	  tr (s, s)		translate first string according to rules in second.
+			rules are a space-separated list of c=s, where c
 			is replaced by s.  Backslash-substitutions are
 			performed on the rules string.
-	  bsub(s)	Perform simple backslash-escape substitution on s.
-	  		Recognized escapes are \<octal>, \n, \t, \r.  All
+	  bsub(s)		Perform simple backslash-escape substitution on s.
+			Recognized escapes are \<octal>, \n, \t, \r.  All
 			others just escape the next character.
-	  match(s, s)	Returns the offset, plus one, of the regular expression
+	  match(s, s)		Returns the offset, plus one, of the regular expression
 			of the second string in the first string.
-	  sub(s, s, s)  Returns the first string, with the first
+	  sub(s, s, s)		Returns the first string, with the first
 			occurrence of the regular expression in the second
 			string replaced by the third string.  The third
 			string supports \0 .. \9 and \{n} to refer to
 			subexpressions in the regular expression.
-	  gsub(s, s, s) Like sub(s, s, s), except all occurrences are replaced.
-	  esc(s, s)     Returns the first string with all characters in the
-	                second string prefixed by the first character
-		        in the second string.
+	  gsub(s, s, s)	Like sub(s, s, s), except all occurrences are replaced.
+	  esc(s, s)		Returns the first string with all characters in the
+			second string prefixed by the first character
+			in the second string.
+	  align(s, n, s, n)	Align 1st s in field of width 1st n, padding with
+			2nd s aligned according to 2nd n.  2nd s is optional, space
+			if missing or blank.  2nd n is optional, negative if missing.
+			Alignment location is left if <0, right if >0, centered if 0
+	  detab(s, n, n)	Expand tabs in s to spaces.  first n is initial offset from
+	  		left, second is tabstop.  Second and third arguments
+			are optional, 0 and 8 by default.
 
-
-        Strings as arrays: a string may be interpreted as an array of
+	Strings as arrays: a string may be interpreted as an array of
 	strings, stored as the elements, separated by a separator.
 	Occurrences of the separator or the escape character are prefixed
 	by the escape character.  An empty string is ambiguous; it is
 	interpreted as a 1-element array with a blank value.
 
-	esc(s)         Escape s like an array element
-	## s           Number of array elements in s
-	s [ n ]        Array element #n of s (0-based), (unescaped)
-	s [ n ] -> v   Return array where element #n is set to v (escaped).
-	               If n is larger than ## s, blanks are inserted
-	               If n is negative, append.  Note that appending to
-		       an empty string will set element 1, not element 0.
-		       Trailing blank elements are also trimmed after adding v
-	foreach ( var, s, s )
-	               Evaluate third argument for each element in array
-		       given by second argument, setting var to the current
-		       element before evaluation.
-	foreach ( var, + s, s )
-	               The same as above, but only for non-blank elements
-	foreach ( var, s, s, s )
-	               Evaluate fourth argument for each element in array
-		       given by second argument when evaluating the third
-		       argument returns true, setting var to the current
-		       element before evaluation.
-	foreach ( var, + s, s, s )
-	               The same as above, but only for non-blank elements
+	  esc(s)		Escape s like an array element
+	  ## s		Number of array elements in s
+	  s [ n ]		Array element #n of s (0-based), (unescaped)
+	  s [ n ] -> v		Return array where element #n is set to v (escaped).
+			If n is larger than ## s, blanks are inserted
+			If n is negative, append.  Note that appending to
+			an empty string will set element 1, not element 0.
+			Trailing blank elements are also trimmed after adding v
+	  foreach ( var, s, s )	Evaluate third argument for each element in array
+			given by second argument, setting var to the current
+			element before evaluation.
+	  foreach ( var, + s, s )	The same as above, but only for non-blank elements
+	  foreach ( var, s, s, s )	Evaluate fourth argument for each element in array
+			given by second argument when evaluating the third
+			argument returns true, setting var to the current
+			element before evaluation.
+	  foreach ( var, + s, s, s )	The same as above, but only for non-blank elements
 
 
-        Arrays as sets: sets are arrays with no blank or duplicate
+	Arrays as sets: sets are arrays with no blank or duplicate
 	elements, sorted by an internal sorter.  A single-element set can
 	be made using esc(s).  To test for the presence of e in s, use
 	s |* esc(e) != ""
 
-	toset (s)      Returns array s converted to a valid set
-	s |+ s         Returns the union of two sets.
-	s |* s         Returns the intersection of two sets.
-        s |- s         Returns the first set, with all elements in second removed
+	  toset (s)		Returns array s converted to a valid set
+	  s |+ s		Returns the union of two sets.
+	  s |* s		Returns the intersection of two sets.
+	  s |- s		Returns the first set, with all elements in second removed
 
 
 	Variables: variables are letters a through z and A through Z that can
 	hold strings or numbers. When a variable is assigned to, the result
 	of the assignment is returned. All lower-case variables are reset to
-	the empty string (or 0) when a 	database is loaded from disk.
+	the empty string (or 0) when a database is loaded from disk.
 
-	  var              value of variable
-	  var = s        assign string to variable
-	  var = n        assign number to variable
-	  var .= s        append string to variable
-	  var += n      add number to variable
-	  var -= n      subtract number from variable
-	  var *= n      multiply variable by number
-	  var /= n       divide variable by number
-	  var %= n     assign modulo with number to variable
-	  var &= n      logical AND with variable
-	  var |= n        logical OR with variable
-	  var++          post-increment
-	  var--          post-decrement
-	  ++var          pre-increment
-	  --var          pre-decrement
+	  var		value of variable
+	  var = s		assign string to variable
+	  var = n		assign number to variable
+	  var .= s		append string to variable
+	  var += n		add number to variable
+	  var -= n		subtract number from variable
+	  var *= n		multiply variable by number
+	  var /= n		divide variable by number
+	  var %= n		assign modulo with number to variable
+	  var &= n		logical AND with variable
+	  var |= n		logical OR with variable
+	  var++		post-increment
+	  var--		post-decrement
+	  ++var		pre-increment
+	  --var		pre-decrement
 
 
 	Database Access
 
-	  _field             database field of current card, field is number or name
-	  _field [n]        database field from any card
-	  this                number of current card, 0 is first
-	  last                number of last card
-	  avg (_field)    average of field in all cards
-	  qavg (_field)   average of field in current query result
-	  savg (_field)   average of field in all cards of this section
-	  dev (_field)    standard deviation of field in all cards
-	  qdev (_field)   standard deviation of field in current query result
-	  sdev (_field)   standard deviation of field in all cards of this section
-	  min (_field)    minimum value of field in all cards
-	  qmin (_field)   minimum value of field in current query result
-	  smin (_field)   minimum value of field in all cards of this section
-	  max (_field)   maximum value of field in all cards
-	  qmax (_field)  maximum value of field in current query result
-	  smax (_field)  maximum value of field in all cards of this section
-	  sum (_field)   sum of field in all cards
-	  qsum (_field)  sum of field in current query result
-	  ssum (_field)  sum of field in all cards of this section
-	  dbase            name of current database file
-	  form              name of the current file
-	  prevform       name of the previous form file
-	  expand (_field)  returns the mnemonic value of choice and flag fields
-	  expand (_field[n]) same for card n
-	  section        the current card's section
-	                 this is a section number if in numeric context,
-			 and a name in string context
-	  section [n]    the section of card n
+	  _field		database field of current card, field is number or name
+	  _field [n]		database field from any card
+	  this		number of current card, 0 is first
+	  last		number of last card
+	  avg (_field)		average of field in all cards
+	  qavg (_field)	average of field in current query result
+	  savg (_field)	average of field in all cards of this section
+	  dev (_field)		standard deviation of field in all cards
+	  qdev (_field)	standard deviation of field in current query result
+	  sdev (_field)	standard deviation of field in all cards of this section
+	  min (_field)		minimum value of field in all cards
+	  qmin (_field)	minimum value of field in current query result
+	  smin (_field)	minimum value of field in all cards of this section
+	  max (_field)	maximum value of field in all cards
+	  qmax (_field)	maximum value of field in current query result
+	  smax (_field)	maximum value of field in all cards of this section
+	  sum (_field)	sum of field in all cards
+	  qsum (_field)	sum of field in current query result
+	  ssum (_field)	sum of field in all cards of this section
+	  dbase		name of current database file
+	  form		name of the current file
+	  prevform		name of the previous form file
+	  expand (_field)	returns the mnemonic value of choice and flag fields
+	  expand (_field[n])	same for card n
+	  section		the current card's section
+			this is a section number if in numeric context,
+			and a name in string context
+	  section [n]		the section of card n
 
 	  The foreach functions do not return a value, and do not affect
 	  the return value of the expression.  The expression is evaluated
 	  only for side effects.
 
-	  foreach (s)    evaluate the string as an expression for all cards
-	  foreach (s, s) evaluate the second string as an expression for all
-	                 cards where evaluating the first string as an
-			 expression returns true (after stripping spaces,
-			 not blank and first character is not 0, f, or F.
+	  foreach (s)		evaluate the string as an expression for all cards
+	  foreach (s, s)	evaluate the second string as an expression for all
+			cards where evaluating the first string as an
+			expression returns true (after stripping spaces,
+			not blank and first character is not 0, f, or F.
 
-          The switch function only works as an action for buttons:
+	The switch function only works as an action for buttons:
 
-	  switch("", "")              do nothing
-	  switch("", "*")            put all cards in summary
-	  switch("", "{expr}")    all cards for which {expr} is not "0" or empty
-	  switch("", "(expr)")    all cards for which (expr) is not 0
-	  switch("", "string")     all cards that contain search string
-	  switch("name", "x")   switch to form "name", then do query "x"
+	  switch("", "")	do nothing
+	  switch("", "*")	put all cards in summary
+	  switch("", "{expr}")	all cards for which {expr} is not "0" or empty
+	  switch("", "(expr)")	all cards for which (expr) is not 0
+	  switch("", "string")	all cards that contain search string
+	  switch("name", "x")	switch to form "name", then do query "x"
 
 
 	Operating System Access
 
-	  system (s)      execute shell command and return stdout
-	  $envvar         environment variable
-	  host               local host name
-	  user               user's login name
-	  uid                 user's numeric user ID
-	  gid                 user's numeric group ID
-	  access(s,n)   1 if any/r/w/x permission for file s for n=0/1/2/4
-	  beep              ring terminal bell, return ""
-	  error (args)    like printf but into a window, return ""
+	  system (s)		execute shell command and return stdout
+	  $envvar		environment variable
+	  host		local host name
+	  user		user's login name
+	  uid		user's numeric user ID
+	  gid		user's numeric group ID
+	  access(s,n)		1 if any/r/w/x permission for file s for n=0/1/2/4
+	  beep		ring terminal bell, return ""
+	  error (args)		like printf but into a window, return ""
 
 
 	Time Conversion: dates and times are stored as number of seconds since
@@ -1712,17 +1714,17 @@
 	this means that a time is a significantly larger number than a duration,
 	even if both have the same hh:mm string representation.
 
-	  time               current time as hh:mm or hh:mm[ap]
-	  time (n)          number as hh:mm or hh:mm[ap]
-	  date               today's date as dd.mm.yy or mm/dd/yy (string)
-	  date (n)         number as dd.mm.yy or mm/dd/yy
-	  duration(n)    number of seconds as hh:mm
-	  date              seconds since January 1, 1970 (number)
-	  year (n)         n as four-digit year
-	  month (n)      n as month 1..12
-	  day (n)          n as day 1..31
-	  hour (n)         n as hour 0..23
-	  minute (n)      n as minute 0..59
-	  second (n)     n as second 0..59
-	  julian (n)        n as julian date 0..365
-	  leap (n)         1 if the time n is in a leap year, 0 otherwise
+	  time		current time as hh:mm or hh:mm[ap]
+	  time (n)		number as hh:mm or hh:mm[ap]
+	  date		today's date as dd.mm.yy or mm/dd/yy (string)
+	  date (n)		number as dd.mm.yy or mm/dd/yy
+	  duration(n)		number of seconds as hh:mm
+	  date		seconds since January 1, 1970 (number)
+	  year (n)		n as four-digit year
+	  month (n)		n as month 1..12
+	  day (n)		n as day 1..31
+	  hour (n)		n as hour 0..23
+	  minute (n)		n as minute 0..59
+	  second (n)		n as second 0..59
+	  julian (n)		n as julian date 0..365
+	  leap (n)		1 if the time n is in a leap year, 0 otherwise

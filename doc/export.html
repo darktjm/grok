@@ -39,14 +39,30 @@ template list and pressing the Edit button. This method also works for
 builtin templates.
 
 <P>The template only contains the instructions for creating the output
-file that is the result of the export operation. After selecting a
-template, the full path of the output file must be entered into the text
-field under the template list, or selected using the Browse button. When
-both the template and the output file are defined, the Export button
-performs the export operation and removes the dialog.  Note that it
-is possible to write templates that ignore the output file name in the
-dialog and write to one or more files defined in the template. None of
-the builtin templates do that.
+file that is the result of the export operation.  Some templates may
+also support flags; setting these can be considered part of selecting
+the template.  Flags a through z may be set in the field below the
+template list; all other flags are unset.  The flags may be given raw
+or prefixed individually with a dash.  After selecting a template, the
+full path of the output file must be entered into the text field under
+the template list, or selected using the Browse button. When both the
+template and the output file are defined, the Export button performs
+the export operation and removes the dialog.  Note that it is possible
+to write templates that ignore the output file name in the dialog and
+write to one or more files defined in the template. None of the
+builtin templates do that.
+
+<P>The built-in templates normally export a summary listing, followed
+by a detailed card listing.  This can be modified with the following
+flags:
+
+<UL>
+<LI> <B>-s</B> disables the card listing ("summary only").
+<LI> <B>-d</B> disables the summary listing ("data only").  Note that
+if both -s and -d are specified, neither listing will be included.
+<LI> <B>-n</B> includes non-blank Note field contents into the
+summary listing, if present.
+</UL>
 
 <P>Template exports can also be started from the command line. The command
 
@@ -60,6 +76,19 @@ phone</I> that satisfy the search expression or search string <I>/415</I>
 built-in template names.  The search expression is optional. Commands
 like this could be run hourly from the crontab to update a HTML web page
 from a grok database.
+
+<P>To specify flags on the command-line, append each flag to set to
+the template name as a dash, followed by the flag letter.  If no
+template is found with the given name, a flag is stripped off the end,
+set, and the search is restarted.  Any number of flags can be given in
+this way.
+
+<P>For example, the following command only exports the summary
+listing with notes:
+
+<PRE>
+     grok -x phone html-s-n /415 > phone.html
+</PRE>
 
 
 <A NAME="ec">
@@ -172,6 +201,12 @@ can be put into lines of their own without in troducing unwanted newlines.
 	<I>text</I> may contain expressions and template expressions,
 	including <TT>FOREACH</TT> loops and other conditionals.
 	IF statements can be nested arbitrarily.<P>
+
+	As described above, the user may specify one or more flags to
+	be set for an export, each corresponding to one of the 26
+	letters a through z,  The <I>expr</I> for <TT>IF</TT> may test
+	for a flag being set using <TT>-</TT><I>flag</I> and unset
+	using <TT>+</TT><I>flag</I>.
 
 <LI><TT>\{SUBST</TT> <I>c</I><TT>=</TT><I>string c</I><TT>=</TT><I>string</I> ... <TT>}</TT><BR>
 	Some characters are unwanted in output files. For example,

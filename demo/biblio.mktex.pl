@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/bin/env perl
 
 ## (c) James C. McPherson, 06-10-1995, v1.0
 ## mljmcphe@dingo.cc.uq.oz.au

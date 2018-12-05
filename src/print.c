@@ -170,7 +170,8 @@ static void overstrike(
 	strcpy(buf, text);
 	for (p=buf, q=text; *p; p++) {
 		*q++ = underline ? '_' : *p;
-		if (!underline || *p != ' ') {
+		/* this used to bold spaces, but why? */
+		if (*p != ' ') {
 			*q++ = '\b';
 			*q++ = *p;
 		}
@@ -235,7 +236,7 @@ static void print_formatted(
 	while (p && *p) {
 		for (len=0; len < in0; len++)
 			*q++ = ' ';
-		while (*p && *p != '\n' && len <= len0) {
+		while (*p && *p != '\n' && len < len0) {
 			if (*p == '\t') {
 				while (++len % TAB)
 					*q++ = ' ';
@@ -244,6 +245,10 @@ static void print_formatted(
 				len += *p == '\b' ? -1 : 1;
 				*q++ = *p++;
 			}
+		}
+		if(*p == '\b' && p[1]) {
+			*q++ = *p++;
+			*q++ = *p++;
 		}
 		while (nl && q != out && q[-1] == ' ')
 			q--;

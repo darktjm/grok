@@ -261,11 +261,11 @@ static struct _template {
 	{ ANY, 'L',	 0,	"Internal field name:",	"fe_int",	},
 	{ ANY, 't',	0x204,	" ",			"fe_int",	},
 	{ BAS, 'L',	 0,	"Database column:",	"fe_column",	},
-	{ BAS, 'i',	0x205,	" ",			"fe_column",	},
+	{ BAS, 'i',	0x205,	" ",			"fe_column",	0, 999 },
 	{ BAS, 'l',	 0,	"Summary column:",	"fe_sum",	},
-	{ BAS, 'i',	0x206,	" ",			"fe_sum",	},
+	{ BAS, 'i',	0x206,	" ",			"fe_sum",	0, 999 },
 	{ BAS, 'l',	 0,	"Width in summary:",	"fe_sum",	},
-	{ BAS, 'i',	0x207,	" ",			"fe_sum",	},
+	{ BAS, 'i',	0x207,	" ",			"fe_sum",	0, 100 },
 	{ BAS, 'L',	 0,	"Show in summary:",	"fe_sump",	},
 	{ BAS, 'T',	0x229,	" ",			"fe_sump",	},
 	{ FLG, 'L',	 0,	"Choice/flag code:",	"fe_flag",	},
@@ -310,13 +310,13 @@ static struct _template {
 	{ FT2, 'r',	0x218,	"HelvB",		"fe_ifont",	},
 	{ FT2, 'r',	0x219,	"Courier",		"fe_ifont",	},
 	{ ITP, 'L',	 0,	"Max input length:",	"fe_range",	},
-	{ ITP, 'i',	0x21f,	" ",			"fe_range",	},
+	{ ITP, 'i',	0x21f,	" ",			"fe_range",	0, 999999},
 	{ NUM, 'L',	 0,	"Min Value",		"fe_range",	},
 	{ NUM, 'd',	0x237,	" ",			"fe_range",	},
 	{ NUM, 'l',	 0,	"Max Value",		"fe_range",	},
 	{ NUM, 'd',	0x238,	" ",			"fe_range",	},
 	{ NUM, 'l',	 0,	"Digits",		"fe_range",	},
-	{ NUM, 'i',	0x239,	" ",			"fe_range",	},
+	{ NUM, 'i',	0x239,	" ",			"fe_range",	0, 20},
 	{ IDF, 'L',	 0,	"Input default:",	"fe_def",	},
 	{ IDF, 'T',	0x220,	" ",			"fe_def",	},
 	{ MNU, 'L',	 0,	"Menu",			"fe_menu",	},
@@ -414,7 +414,7 @@ static struct _template {
 	{   0, 'R',	 0,	" ",			0,		},
 	{ CHA, 'r',	0x313,	"drag field",		"fe_chart",	},
         // FIXME:  this should probably be a combo box with field names
-	{ CHA, 'i',	0x315,	" ",			"fe_chart",	},
+	{ CHA, 'i',	0x315,	" ",			"fe_chart",	0, 999},
 	{ CHA, 'l',	 0,	"multiplied by",	"fe_chart",	},
 	{ CHA, 'd',	0x316,	" ",			"fe_chart",	},
 	{ CHA, 'l',	 0,	"plus",			"fe_chart",	},
@@ -434,7 +434,7 @@ static struct _template {
 	{   0, 'R',	 0,	" ",			0,		},
 	{ CHA, 'r',	0x323,	"drag field",		"fe_chart",	},
         // FIXME:  this should probably be a combo box with field names
-	{ CHA, 'i',	0x325,	" ",			"fe_chart",	},
+	{ CHA, 'i',	0x325,	" ",			"fe_chart",	0, 999},
 	{ CHA, 'l',	 0,	"multiplied by",	"fe_chart",	},
 	{ CHA, 'd',	0x326,	" ",			"fe_chart",	},
 	{ CHA, 'l',	 0,	"plus",			"fe_chart",	},
@@ -655,7 +655,7 @@ void create_formedit_window(
 			hform->addWidget((w = sb));
 			sb->setMinimumWidth(100);
 			// FIXME:  What should the range be?
-			sb->setRange(0, 999);
+			sb->setRange(0, tp->role);
 			break;
 		    }
 		    case 'd': {
@@ -675,15 +675,6 @@ void create_formedit_window(
 			    hform->addWidget((w = cb));
 			    break;
 		    }
-		    // FIXME:  add new widget type: mult-edit
-		    //   text input/static combo:
-		    //     menu items (label text)
-		    //   cycle gadgets, radio groups:
-		    //     menu items (label text), Choice/flag code,
-		    //     Shown in summary
-		    //   multi-select, checkbox groups: same as cycle, plus:
-		    //     Database column, Internal Field Name
-		    //     [maybe enabled by a checkbox: flag vs. array]
 		    case 'F':
 		    case 'R':
 			{
