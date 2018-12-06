@@ -21,7 +21,7 @@
 #include "proto.h"
 #include "version.h"
 
-static void usage(void), mkdir_callback(void), make_grokdir(void);
+static void usage(void), make_grokdir(void);
 static void init_pixmaps(void);
 
 QApplication		*app;		/* application handle */
@@ -165,7 +165,7 @@ int main(
 			fprintf(stderr,"%s: %s: no match\n",progname,formname);
 			_exit(0);
 		}
-		if ((p = exec_template(0, tmpl, 0, 0, curr_card)))
+		if ((p = exec_template(0, 0, tmpl, 0, 0, curr_card)))
 			fprintf(stderr, "%s %s: %s\n", progname, formname, p);
 		fflush(stdout);
 		_exit(0);
@@ -271,21 +271,11 @@ static void usage(void)
  * separate routine to avoid having a big buffer on the stack in main().
  */
 
-static void mkdir_callback(void)
-{
-	char *path = resolve_tilde((char *)GROKDIR, 0); /* GROKDIR has no trailing / */
-	(void)chmod(path, 0700);
-	(void)mkdir(path, 0700);
-	if (access(path, X_OK))
-		create_error_popup(mainwindow, errno,
-					"Cannot create directory %s", path);
-}
-
 static void make_grokdir(void)
 {
 	char *path = resolve_tilde((char *)GROKDIR, 0); /* GROKDIR has no trailing / */
-	if (access(path, X_OK))
-		create_query_popup(mainwindow, mkdir_callback, 0,
+	if (access(path, X_OK) &&
+	    create_query_popup(mainwindow, 0,
 "Cannot access directory %s\n\n"
 "This directory is required to store the grok configuration\n"
 "file, and it is the default location for forms and databases.\n"
@@ -298,7 +288,13 @@ static void make_grokdir(void)
 "grok from, it will be used in place of %s, but you may\n"
 "not be able to create new forms and databases, and con-\n"
 "figuration changes will not be saved.",
-						path, GROKDIR, GROKDIR);
+						path, GROKDIR, GROKDIR)) {
+	    (void)chmod(path, 0700);
+	    (void)mkdir(path, 0700);
+	    if (access(path, X_OK))
+		create_error_popup(mainwindow, errno,
+					"Cannot create directory %s", path);
+	}
 }
 
 

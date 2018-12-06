@@ -261,7 +261,10 @@
 	     here primarily to allow the Ctrl-F shortcut.
 
 	Print:
-	     Print selected cards to a printer, to a file, or to a window.
+	     Print selected cards to a printer or to a file.
+
+	Export:
+	     Export selected cards to a file or to a window.
 
 	Preferences:
 	     Pops up a window that allows changing the global configuration.
@@ -288,10 +291,6 @@
 	        be entered. This is used to start a new form that is more or
 	        less similar to an existing form.
 
-	About:
-	     Pops up a window displaying the program version and an address
-	     to complain to if something doesn't work.
-
 	Save:
 	     Save the current database unconditionally, whether it was modified
 	     or not. If it was modified, the fact is noted under the Search line. The
@@ -300,21 +299,27 @@
 	     editor is started.
 
 	Quit:
-	     Save the current database if it was modified, and exit. This is equivalent
-	     to closing the window. Warning - if a grok window is destroyed
-	     rather than closed, grok will NOT save, and exit without
-	     warning.
-
-	Rambo Quit:
-	     Quit without saving. Changes made to cards after the last Save
-	     will be lost. You will be asked to confirm if changes were made.
-%% rambo
-	RAMBO QUIT
+	     Exit grok.  If the current database was modified, prompt to
+	     save or abandon changes.  This is equivalent to closing the
+	     main window normally.  Warning - if a grok window is
+	     destroyed rather than closed, grok will NOT save, and exit
+	     without warning.
+%% quit
+	QUIT
 
 	You have made changes to the current database that have not been
-	saved to disk. If you want to discard these changes, press OK. If
-	you want to save the changes, press Cancel, and choose Quit from
-	the File pulldown.
+	saved to disk.  If you want to discard these changes, press OK. If
+	you want to save the changes and quit, press Save.  If you don't
+	want to quit after all, press Cancel.
+%% switchsave
+	DATABASE SWITCH
+
+	You have made changes to the current database that have not been
+	saved to disk.  Grok can only store one database in memory at a
+	time, and you have initiated an operation which may change the
+	loaded database.  If you want to discard these changes, press OK.
+	If you want to save the changes and proceed, press Save.  If you
+	don't want to perform the operation after all, press Cancel.
 %% pd_dbase
 	DATABASE PULLDOWN
 
@@ -560,49 +565,75 @@
 	database back to disk using the File->Save or File->Quit buttons, or
 	by selecting another database from the Database pulldown. For more
 	details, choose Introduction from the Help pulldown in the top right corner.
-%% print
-	PRINT
+%% export
+	EXPORT
 
-	The print menu prints selected cards of the current database. Databases
+	The export menu prints selected cards of the current database. Databases
 	can be selected with the Database pulldown. The order of the cards printed
-	is the same as in the summary list. The data is printed by writing to stdin
-	of the spooler commands as defined with the Preferences menu, or to a
-	file, or to a window.
+	is the same as in the summary list.
 
-	Cards to print: selects which cards should be printed. Current only
+	At the top of the window, select which cards to print.  Current only
 	    prints only the card currently displayed in the lower half of the
 	    main menu. Search or query prints all cards displayed in the
 	    summary window in the upper half of the main menu, and All
 	    prints all cards.
 
-	Output format: specifies which information to include in the printout.
-	    Summary generates a simple hardcopy of the summary list in the
-	    main menu. Summary with notes prints all note fields in addition
-	    to the summary line, as text blocks below the respective summary
-	    line. Cards prints all printable data fields in a two-column list.
+	Next, select an intermediate file format.  This will be converted to
+	    graphics on your printer.  Presently, text-only printers are not
+	    supported.  The top three entries are the built-in HTML, plain
+	    text, and fancy text output formats.  Other entries are custom
+	    formats created for the database.  See the full on-line documentation
+	    for details on this, and the buttons immediately below the list.
 
-	Output quality: ASCII prints straight ASCII text; overstrike ASCII is
-	    equivalent but uses backspacing to achieve boldface and underlines;
-	    and PostScript attempts to improve readability by using different fonts
-	    and lines. Overstrike output is understood by programs such as more
-	    or less. This setting determines whether the PostScript print spooler
-	    or the ASCII print spooler, as defined in the Preferences menu, is used.
+	Next, select flags for the file format.  The built-in file formats
+	    support the Summary, Notes, and Cards flags.  Summary prints
+	    a simple hardcopy of the summary list in the main menu.   Notes
+	    inserts all note fields interleaved with the summary.
+	    Cards prints all printable data fields in a two-column list.
+	    At least one of Summary or Cards should be selected.
 
-	Output device: Printer sends the data to the spooler as defined in the
-	    Preferences menu. File writes to a file, and Window creates a
-	    window and displays the data.
+	Next, select an output file.  The button next to the text field pops up
+	    a file dialog for convenience.
 
-	The Print button starts the operation; the Cancel button removes the
-	Print popup without generating output. Changed settings in the menu
-	are remembered either way.
+	The Preview button opens a window to view the export results.
+
+	The Export button starts the operation; the Cancel button removes the
+	Export popup without generating output. Changed settings in
+	the menu are remembered either way.
+%% print
+	PRINT
+
+	The print menu prints selected cards of the current database. Databases
+	can be selected with the Database pulldown. The order of the cards printed
+	is the same as in the summary list.
+
+	At the top of the window, select which cards to print.  Current only
+	    prints only the card currently displayed in the lower half of the
+	    main menu. Search or query prints all cards displayed in the
+	    summary window in the upper half of the main menu, and All
+	    prints all cards.
+
+	Next, select an intermediate file format.  This will be converted to
+	    graphics on your printer.  Presently, text-only printers are not
+	    supported.  The top three entries are the built-in HTML, plain
+	    text, and fancy text output formats.  Other entries are custom
+	    formats created for the database for the Export feature.
+
+	Next, select flags for the file format.  The built-in file formats
+	    support the Summary, Notes, and Cards flags.  Summary prints
+	    a simple hardcopy of the summary list in the main menu.   Notes
+	    inserts all note fields interleaved with the summary.
+	    Cards prints all printable data fields in a two-column list.
+	    At least one of Summary or Cards should be selected.
+
+	The Print and Preview buttons start the operation; the Cancel button
+	removes the Print popup without generating output. Changed settings in
+	the menu are remembered either way.
 %% editprint
-	PRINT WINDOW
+	VIEW WINDOW
 
-	This window was created with the File->Print function. In the print
-	panel, the output device was set to Window. Other choices are Printer
-	or File. This window is supposed to be a preview. Only plain ASCII
-	can be displayed. The contents reflect the selection in Cards to
-	print in the print panel. Once installed, the window does not change.
+	This window was created with the File->Export function's Preview button.
+	This window only supports text or HTML templates.
 %% msg_clear
 	CLEAR
 
@@ -666,21 +697,12 @@
 	    column is checked. This is useful for people's names to search for
 	    first and last initial.
 
-	Print spoolers: the system command that is used to print PostScript or
-	    ASCII, respectively. The print mode depends on the Print Quality
-	    setting in the Print menu. Typical settings are lp (System V) or
-	    lpr (BSD). ASCII and PostScript spoolers can be set independently
-	    in case special PostScript options or lptops scripts need to be
-	    run. Full shell syntax (using the shell in $SHELL) is supported,
-	    including pipes and redirections. NOTE: printing PostScript is
-	    not currently supported.
-
 	Summary lines: the number of lines displayed in the summary window below
 	    the search area. This choice takes effect only when grok is restarted.
 
-	Printer line length: the number of characters after which lines are
-	    truncated when printing with File->Print (any device). The default
-	    is 79, but some printers allow more without wrapping.
+	Text export line length: the number of characters after which lines are
+	    truncated when exporting using the built-in text or fancytext
+	    templates.  The default is 79.
 
 	Card scaling factor: if the screen resolution is very low, it may be
 	    necessary to enter a number less than 1 to reduce the sizes of items
@@ -1173,8 +1195,9 @@
 	If the width is nonzero, the field is put into the summary in the main
 	window. The width is the number of characters that go into the list.
 	Grok separates columns by two spaces. The sum of all widths should
-	not exceed 79 because they would get truncated to 79 characters
-	when printed (File->Print can print summaries).
+	not exceed the maximum text export line length because they would get
+	truncated to that length when exported using the built-in text or
+	fancytext templates.
 
 	The summary column specifies the order of fields with nonzero summary
 	widths in the summary. The fields with the lowest summary column number
@@ -1332,7 +1355,7 @@
 	It is recommended that Helvetica is used for labels, and Courier is
 	used as input font for Input, Time, and Note fields. It is highly
 	recommended to use Courier as input font for Note fields because
-	printing functions (File->Print) print notes using a fixed-size font.
+	text exports format based on a fixed-size font.
 %% fe_ltxt
 	LABEL TEXT
 
@@ -1358,7 +1381,7 @@
 	It is recommended that Helvetica is used for labels, and Courier is
 	used as input font for Input, Time, and Note fields. It is highly
 	recommended to use Courier as input font for Note fields because
-	printing functions (File->Print) print notes using a fixed-size font.
+	text exports format based on a fixed-sie font.
 %% fe_range
 	MAX INPUT LENGTH
 

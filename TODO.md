@@ -16,6 +16,9 @@ games again...
 Bugs
 ----
 
+- Printing plain text prints using a propotional font, even the
+  overstrike text which explicitly says not to using HTML.
+
 - Clicking on a radio button (update=ALL) causes menu table to narrow
   in form editor.
 
@@ -84,12 +87,21 @@ Bugs
   editor window.  In particular, the first one and the one that gets
   selected after deleting a widget don't get highlighted.
 
+- The canvas' close event is called on edit shutdown, even though it
+  fortunately seems to have little effect.  Anything which disables
+  the close callback like that should probably just be destroy'd.
+
 - .gf/db in "other" directories act strangely.
 
 - missing .db files are created w/o .db extension
 
 - procdemo has memory allocation error popup after form edit/reload,
-  but continues to work OK
+  but continues to work OK.  This is because write_form helpfully creates
+  an invalid database file, which is checked first (and fails) and then
+  reverts to the correct command file.  That whole mess needs to be
+  examined in detail; see above two items for some other reasons why.
+  For now, I could just bypass the form_write() code if the db is
+  procedural, but something better should be done.
 
 Code Improvements
 -----------------
@@ -194,10 +206,10 @@ Minor UI Improvements
       either mode, really, and probably never will since I don't want
       to add more fields to the menu table.
 
-- Use combo box for flag field, giving -s, -d, -n.  Look into making
-  the combo box label different from the text, and label them
-  appropriately.  Alternately, just add checkboxes above the field for
-  those three specific flags.
+- Use combo box for template flag field, giving -s, -d, -n.  Look into
+  making the combo box label different from the text, and label them
+  appropriately.  For now, I've just put radio buttons next to the
+  text box.
 
 Important UI improvements
 -------------------------
@@ -237,12 +249,6 @@ Important UI improvements
   fields text in query editor.  Or, just make that a separate
   universal popup.  Or, add it to Database Info.
 
-- Remove Rambo Quit, and make Quit and window-close work like that
-  instead.  This matches what most other applications do.  Also,
-  make database switches (at least via the GUI) make saves optional,
-  as well. Since button actions are the only way other than the menu
-  to switch databases, this should be prtty easy.
-
 - Use QUiLoader for the main GUI.  Give every action and major widget
   a name, and map that to the user-supplied .ui file. That's
   probably the only way I'll ever be able to support Android or
@@ -278,40 +284,18 @@ Important UI improvements
   work to make it usable.  It doesn't even support control characters
   in the text, so it's useless for editing "fancy" templates.
 
-- Export to window.  In fact, replace Print interface with
-  automatically generated text templates, and support Export to pipe
-  (e.g. 1st character is vertical bar) for "printing".  Making the
-  file name a combo box with the defined printers (or even just a
-  generic list of user-supplied export targets, edited in a dynamic
-  table like menus and named queries) would sort of compensate for 
-  losing those preferences, I guess.  Stripping out all references to
-  PostScript output is no big loss, since it didn't do anything,
-  anyway.
+- Support Export to pipe.  I don't care about the old print spoolers,
+  though.
 
-    - To replace Print's options to select which card(s) to print,
-      export GUI needs those options as well.  It currently only
-      supports search results, I think, so it needs radio
-      buttons for all and current row.  The command line doesn't
-      need any special treatment, though, since there is no
-      current row and not specifying a search string does not
-      force the default query (I'm not even sure the command
-      line understands the named queries).
+- Support recent export names in combo box
+  
+- Figure out how to save print options between sessions.
 
-    - Maybe support "transient" templates, which aren't saved to
-      files. This is to compensate for lack of an SQL command
-      line. Problem with this is the frustration when it crashes
-      and the template is lost.  So maybe not such a good idea.
-      It's not so hard to manage the files.  On the other hand,
-      a history could be saved to disk, just like readline
-      support in the SQL command-line tools.
-
-        - While it's easy enough to force the use of files in the GUI,
-	  it might be nice to either read a template from
-	  stdin or give it as a (very long) command-line
-	  option, like I do with sed all the time.  Grok was
-	  always supposed to be a command-line query tool as
-	  well, and this allows more control over the output
-	  format.
+- Support entering a template from the command-line.  Either a very
+  long command-line option like I do with sed all the time, or a
+  special template named - that is read from stdin.  This makes grok
+  more suited as a command-line query tool, with complete control over
+  the output format.
 
 - Do something about scaling factor.  Either use it to adjust font
   sizes at the same time, or drop it entirely.  Really only relevant
@@ -444,11 +428,15 @@ Infrastructure Improvements
       anyway, to make *_if updates faster.
 
 - Support at least some level of undo.  Right now, the best you can do
-  is Rambo-Quit and reload.  There isn't even a way to prevent
-  saving when switching databases, which would be hard to work
-  around given that only one can be loaded at a time.  Periodic
-  autosave could be useful as well, similar to editors' recovery
-  files.  Formatting the recovery file as an undo log would be ideal.
+  is abandon all changes and reload.  Periodic autosave could be
+  useful as well, similar to editors' recovery files.  Formatting
+  the recovery file as an undo log would be ideal.
+
+- Support some way of diffing databases.  I'm not sure how best to
+  deal with the fact that there's no key, and sort order is pretty
+  random.  Maybe always sort by default sort field first, at least.
+  I'm also not sure how to present changes.  This will probably be way
+  more work than it's worth.
 
 - Have "s in s" return the location of the first string in the second,
   plus one to keep it boolean.  Or, just leave it alone and let

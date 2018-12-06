@@ -108,7 +108,8 @@ void create_edit_popup(
 	const char		*title,		/* menu title string */
 	char			**initial,	/* initial default text */
 	BOOL			readonly,	/* not modifiable if TRUE */
-	const char		*helptag)	/* help tag */
+	const char		*helptag,	/* help tag */
+	QTextDocument		*initdoc)	/* full initial document */
 {
 	QBoxLayout		*form, *buttons = 0;
 	QPushButton		*but=0;
@@ -170,6 +171,10 @@ void create_edit_popup(
 	text->setLineWrapMode(QTextEdit::NoWrap);
 	if (!BLANK(initial))
 		print_text_button_s(text, *initial);
+	if (initdoc) {
+		initdoc->setParent(text);
+		text->setDocument(initdoc);
+	}
 	text->setProperty("colSheet", true);
 	text->ensurePolished();
 	// size(0, "M").width() -> averageCharWidth()
@@ -197,21 +202,18 @@ static void done_callback(void)
 }
 
 
-static void discard(void)
-{
-	if (sourcefile)
-		free(sourcefile);
-	else if (!BLANK(source))
-		free(*source);
-	sourcefile = 0;
-	source = 0;
-	destroy_edit_popup();
-}
-
 static void cancel_callback(void)
 {
-	create_query_popup(shell, discard, "msg_discard",
-		"Press OK to confirm discarding\nall changes to the text");
+	if(create_query_popup(shell, "msg_discard",
+		"Press OK to confirm discarding\nall changes to the text")) {
+	    if (sourcefile)
+			free(sourcefile);
+		else if (!BLANK(source))
+			free(*source);
+		sourcefile = 0;
+		source = 0;
+		destroy_edit_popup();
+	}
 }
 
 

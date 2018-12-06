@@ -8,7 +8,7 @@ TARGET = grok
 	PREFIX = $$[QT_INSTALL_PREFIX]
 }
 
-QT = core gui widgets
+QT = core gui widgets printsupport
 
 # This probably can't be done portably
 # Both qmake and the shell strip quotes from this
@@ -51,7 +51,7 @@ DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs depr
 # Input
 SOURCES += canvdraw.c cardwin.c chart.c chartdrw.c convert.c dbase.c dbfile.c \
            editwin.c eval.c evalfunc.c formfile.c formop.c formwin.c help.c \
-	   main.c mainwin.c popup.c prefwin.c print.c printwin.c query.c \
+	   main.c mainwin.c popup.c prefwin.c query.c \
 	   querywin.c sectwin.c sumwin.c template.c templmk.c templwin.c \
 	   util.c HtmlCssUtils.cpp
 YACCSOURCES += parser.y

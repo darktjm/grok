@@ -27,8 +27,6 @@ struct pref	pref;		/* global preferences */
 
 static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
 static QDialog		*shell;		/* popup menu shell */
-static QLineEdit	*w_spoola;	/* ascii spool text */
-static QLineEdit	*w_spoolp;	/* ascii spool text */
 static QSpinBox		*w_linelen;	/* truncate printer lines */
 static QSpinBox		*w_lines;	/* summary lines text */
 static QDoubleSpinBox	*w_scale;	/* card scale text */
@@ -45,20 +43,7 @@ void destroy_preference_popup(void)
 	if (have_shell) {
 		int	i;
 		double	d;
-		char	*p;
 
-		p = read_text_button(w_spoola, 0);
-		if (*p && strcmp(p, pref.pspooler_a)) {
-			free(pref.pspooler_a);
-			pref.pspooler_a = mystrdup(p);
-			modified = TRUE;
-		}
-		p = read_text_button(w_spoolp, 0);
-		if (*p && strcmp(p, pref.pspooler_p)) {
-			free(pref.pspooler_p);
-			pref.pspooler_p = mystrdup(p);
-			modified = TRUE;
-		}
 		i = w_linelen->value();
 		if (i > 39 && i <= 250 && pref.linelen != i) {
 			pref.linelen = i;
@@ -132,16 +117,7 @@ void create_preference_popup(void)
 							/*-- print spooler --*/
 	form->addWidget(mk_separator(), row++, 0, 1, 2);
 
-	form->addWidget(new QLabel("PostScript print spooler:"), row, 0);
-	form->addWidget(w_spoolp = new QLineEdit, row++, 1);
-	w_spoolp->setMinimumWidth(200); // should be enough to set it once
-	set_text_cb(w_spoolp, spool_callback());
-
-	form->addWidget(new QLabel("ASCII print spooler:"), row, 0);
-	form->addWidget(w_spoola = new QLineEdit, row++, 1);
-	set_text_cb(w_spoola, spool_callback());
-
-	form->addWidget(new QLabel("Printer line length:"), row, 0);
+	form->addWidget(new QLabel("Text export line length:"), row, 0);
 	form->addWidget(w_linelen = new QSpinBox, row++, 1);
 	w_linelen->setRange(40, 250);
 	set_spin_cb(w_linelen, spool_callback());
@@ -174,8 +150,6 @@ void create_preference_popup(void)
 	set_dialog_cancel_cb(shell, done_callback());
 	popup_nonmodal(shell);
 
-	print_text_button_s(w_spoola,        pref.pspooler_a);
-	print_text_button_s(w_spoolp,        pref.pspooler_p);
 	w_linelen->setValue(pref.linelen);
 	w_lines->setValue(pref.sumlines);
 	w_scale->setValue(pref.scale);
@@ -209,8 +183,6 @@ static void spool_callback(void)
 {
 	int				i;
 
-	(void)read_text_button(w_spoola, &pref.pspooler_a);
-	(void)read_text_button(w_spoolp, &pref.pspooler_p);
 	i = w_linelen->value();
 	if (i > 39 && i <= 250)
 		pref.linelen = i;
@@ -244,13 +216,9 @@ void write_preferences(void)
 	fprintf(fp, "unique	%s\n",	pref.uniquedb     ? "yes" : "no");
 	fprintf(fp, "scale	%.*lg\n",	DBL_DIG + 1, pref.scale);
 	fprintf(fp, "lines	%d\n",	pref.sumlines);
+	fprintf(fp, "xflags	%d\n",	pref.xflags);
+	/* not going to add xfile & xlistpos */
 	fprintf(fp, "pselect	%c\n",	pref.pselect);
-	fprintf(fp, "pformat	%c\n",	pref.pformat);
-	fprintf(fp, "pqual	%c\n",	pref.pquality);
-	fprintf(fp, "pdevice	%c\n",	pref.pdevice);
-	fprintf(fp, "pspoola	%s\n",	pref.pspooler_a);
-	fprintf(fp, "pspoolp	%s\n",	pref.pspooler_p);
-	fprintf(fp, "pfile	%s\n",	STR(pref.pfile));
 	fprintf(fp, "linelen	%d\n",	pref.linelen);
 	fclose(fp);
 }
@@ -273,11 +241,6 @@ void read_preferences(void)
 	pref.scale	= 1.0;
 	pref.sumlines	= 8;
 	pref.pselect	= 'S';
-	pref.pformat	= 'S';
-	pref.pquality	= 'A';
-	pref.pdevice	= 'P';
-	pref.pspooler_a	= mystrdup(PSPOOL_A);
-	pref.pspooler_p	= mystrdup(PSPOOL_P);
 	pref.linelen	= 79;
 
 	path = resolve_tilde((char *)PREFFILE, 0); /* PREFFILE has no final / */
@@ -305,13 +268,8 @@ void read_preferences(void)
 		if (!strcmp(key, "unique"))	pref.uniquedb	 = value;
 		if (!strcmp(key, "scale"))	pref.scale	 = atof(p);
 		if (!strcmp(key, "lines"))	pref.sumlines	 = value;
+		if (!strcmp(key, "xflags"))	pref.xflags	 = value;
 		if (!strcmp(key, "pselect"))	pref.pselect	 = *p;
-		if (!strcmp(key, "pformat"))	pref.pformat	 = *p;
-		if (!strcmp(key, "pqual"))	pref.pquality	 = *p;
-		if (!strcmp(key, "pdevice"))	pref.pdevice	 = *p;
-		if (!strcmp(key, "pspoola"))	{ free(pref.pspooler_a); pref.pspooler_a	 = mystrdup(p); }
-		if (!strcmp(key, "pspoolp"))	{ free(pref.pspooler_p); pref.pspooler_p	 = mystrdup(p); }
-		if (!strcmp(key, "pfile"))	pref.pfile	 = mystrdup(p);
 		if (!strcmp(key, "linelen"))	pref.linelen	 = atoi(p);
 	}
 	fclose(fp);

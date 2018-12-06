@@ -37,7 +37,6 @@
 static void append_search_string(char *);
 static void file_pulldown	(int);
 static void newform_pulldown	(int);
-static void help_pulldown	(int);
 static void dbase_pulldown	(int);
 static void section_pulldown	(int);
 static void mode_callback	(int);
@@ -112,7 +111,7 @@ void create_mainwindow()
 			Qt::CTRL|Qt::Key_F);
 	menu->addAction("&Print...", [=](){file_pulldown(1);},
 			Qt::CTRL|Qt::Key_P);
-	menu->addAction("&Export", [=](){file_pulldown(2);},
+	menu->addAction("&Export...", [=](){file_pulldown(2);},
 			Qt::CTRL|Qt::Key_E);
 	menu->addAction("P&references...", [=](){file_pulldown(3);},
 			Qt::CTRL|Qt::Key_R);
@@ -124,12 +123,10 @@ void create_mainwindow()
 	submenu->addAction("&Edit current form...", [=](){newform_pulldown(0);});
 	submenu->addAction("&Create new form from scratch...", [=](){newform_pulldown(1);});
 	submenu->addAction("Create, use current as &template...", [=](){newform_pulldown(2);});
-	menu->addAction("&About...", [=](){file_pulldown(5);});
 	menu->addAction("&Save", [=](){file_pulldown(6);},
 			Qt::CTRL|Qt::Key_S);
 	menu->addAction("&Quit", [=](){file_pulldown(7);},
 			Qt::CTRL|Qt::Key_Q);
-	menu->addAction("Rambo Quit", [=](){file_pulldown(8);});
 	
 	dbpulldown = menu = menubar->addMenu("&Database");
 	menu->setTearOffEnabled(true);
@@ -152,18 +149,19 @@ void create_mainwindow()
 	menu = menubar->addMenu("&Help");
 	menu->setTearOffEnabled(true);
 
-	menu->addAction("On &context", [=](){help_pulldown(0);},
+	menu->addAction("&About...", [=](){create_about_popup();});
+	menu->addAction("On &context", [=](){QWhatsThis::enterWhatsThisMode();},
 			Qt::CTRL|Qt::Key_H);
-	menu->addAction("Current &database", [=](){help_pulldown(1);},
+	menu->addAction("Current &database", [=](){create_dbase_info_popup(curr_card);},
 			Qt::CTRL|Qt::Key_D);
 	menu->addSeparator();
-	menu->addAction("&Introduction", [=](){help_pulldown(2);});
-	menu->addAction("&Getting help", [=](){help_pulldown(3);});
-	menu->addAction("&Troubleshooting", [=](){help_pulldown(4);});
-	menu->addAction("&Files and programs", [=](){help_pulldown(5);});
-	menu->addAction("&Expression grammar", [=](){help_pulldown(6);},
+	menu->addAction("&Introduction", [=](){help_callback(mainwindow, "intro");});
+	menu->addAction("&Getting help", [=](){help_callback(mainwindow, "help");});
+	menu->addAction("&Troubleshooting", [=](){help_callback(mainwindow, "trouble");});
+	menu->addAction("&Files and programs", [=](){help_callback(mainwindow, "files");});
+	menu->addAction("&Expression grammar", [=](){help_callback(mainwindow, "grammar");},
 			Qt::CTRL|Qt::Key_G);
-	menu->addAction("&Variables and QSS", [=](){help_pulldown(7);});
+	menu->addAction("&Variables and QSS", [=](){help_callback(mainwindow, "resources");});
 
 	w = new QWidget;
 	mainwindow->setCentralWidget(w);
@@ -737,6 +735,17 @@ void switch_form(
 	char		name[1024], *p;	/* capitalized formname */
 	int		i;
 
+	if (curr_card && curr_card->dbase &&
+	    curr_card->dbase->modified &&
+	    !curr_card->dbase->rdonly &&
+	    !curr_card->form->rdonly &&
+	    /* this can only happen in a button switch() */
+	    /* but may as well test GUI is present */
+	    mainwindow &&
+	    !create_save_popup(mainwindow, curr_card->dbase,
+			       curr_card->form, "switchsave",
+			       "OK to discard changes and switch databases?"))
+		return;
 	if(mainwindow)
 		mainwindow->setUpdatesEnabled(false);
 	if (curr_card) {
@@ -749,13 +758,13 @@ void switch_form(
 		if (curr_card->dbase) {
 			if (curr_card->dbase->modified &&
 			   !curr_card->dbase->rdonly &&
-			   !curr_card->form->rdonly)
-				if (!write_dbase(curr_card->dbase,
-						 curr_card->form, FALSE)) {
-					if(mainwindow)
-						mainwindow->setUpdatesEnabled(true);
-					return;
-				}
+			   !curr_card->form->rdonly &&
+			   !write_dbase(curr_card->dbase,
+					curr_card->form, FALSE)) {
+				if(mainwindow)
+					mainwindow->setUpdatesEnabled(true);
+				return;
+			}
 			dbase_delete(curr_card->dbase);
 			free((void *)curr_card->dbase);
 		}
@@ -868,8 +877,6 @@ static void find_and_select(
  * routines are direct X callbacks.
  */
 
-static void rambo_quit(void) { exit(0); }
-
 static void file_pulldown(
 	int				item)
 {
@@ -894,9 +901,9 @@ static void file_pulldown(
 		create_preference_popup();
 		break;
 
-	  case 5:						/* about */
-		create_about_popup();
-		break;
+	  /* 4 is edit submenu */
+
+	  /* 5 was About; moved to Help menu */
 
 	  case 6:						/* save */
 		if (curr_card && curr_card->form && curr_card->dbase)
@@ -911,24 +918,16 @@ static void file_pulldown(
 		print_info_line();
 		break;
 
-	  case 7:						/* quit */
-		if (curr_card &&  curr_card->dbase
-			      &&  curr_card->dbase->modified
-			      && !curr_card->form->rdonly
-			      && !write_dbase(curr_card->dbase,
-					      curr_card->form, FALSE))
-			break;
-		exit(0);
-
-	  case 8:						/* rambo quit*/
-		if (curr_card &&  curr_card->dbase
-			      && !curr_card->dbase->rdonly
-			      &&  curr_card->dbase->modified
-			      && !curr_card->form->rdonly)
-			create_query_popup(mainwindow, rambo_quit, "rambo",
-				"OK to discard changes and quit?");
-		else
+	  case 7:						/* quit*/
+		if (!curr_card ||  !curr_card->dbase
+			       ||  curr_card->dbase->rdonly
+			       ||  !curr_card->dbase->modified
+			       ||  curr_card->form->rdonly ||
+		    create_save_popup(mainwindow, curr_card->dbase, curr_card->form,
+				"quit", "OK to discard changes and quit?"))
 			exit(0);
+
+	  /* 8 was Rambo Quit; removed */
 	}
 }
 
@@ -944,8 +943,9 @@ static void newform_pulldown(
 			   !curr_card->dbase->rdonly	&&
 			    curr_card->dbase->modified	&&
 			   !curr_card->form->rdonly	&&
-			   !write_dbase(curr_card->dbase,
-					curr_card->form, FALSE))
+			   !create_save_popup(mainwindow, curr_card->dbase,
+					      curr_card->form, "switchsave",
+					      "OK to discard changes and edit form?"))
 						return;
 			create_formedit_window(curr_card->form, FALSE, FALSE);
 		} else
@@ -964,52 +964,14 @@ static void newform_pulldown(
 			   !curr_card->dbase->rdonly	&&
 			    curr_card->dbase->modified	&&
 			   !curr_card->form->rdonly	&&
-			   !write_dbase(curr_card->dbase,
-					curr_card->form, FALSE))
+			   !create_save_popup(mainwindow, curr_card->dbase,
+					      curr_card->form, "switchsave",
+					      "OK to discard changes and edit form?"))
 						return;
 			create_formedit_window(curr_card->form, TRUE, TRUE);
 		} else
 			create_error_popup(mainwindow, 0,
 			"Please choose database from Database pulldown first");
-		break;
-	}
-}
-
-
-static void help_pulldown(
-	int				item)
-{
-	switch (item) {
-	  case 0:						/* context */
-		QWhatsThis::enterWhatsThisMode();
-		break;
-
-	  case 1:						/* database */
-		create_dbase_info_popup(curr_card);
-		break;
-
-	  case 2:						/* intro */
-		help_callback(mainwindow, "intro");
-		break;
-
-	  case 3:						/* help */
-		help_callback(mainwindow, "help");
-		break;
-
-	  case 4:						/* trouble */
-		help_callback(mainwindow, "trouble");
-		break;
-
-	  case 5:						/* files */
-		help_callback(mainwindow, "files");
-		break;
-
-	  case 6:						/* expr */
-		help_callback(mainwindow, "grammar");
-		break;
-
-	  case 7:						/* resources */
-		help_callback(mainwindow, "resources");
 		break;
 	}
 }

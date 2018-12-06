@@ -32,14 +32,19 @@
  */
 
 static const char about_message[] =
-	"\n"
+	"<div style=\"white-space: pre;\">\n"
 	"Graphical Resource Organizer Kit\n"
 	"Version " VERSION "\n"
 	"Compiled " __DATE__ "\n\n"
 	"Author: Thomas Driemeyer <thomas@bitrot.de>\n"
-	"Qt port, fixes, and enhancements by Thomas J. Moore\n\n"
-	"Homepage: http://www.bitrot.de/grok.html\n"
-	"Better yet, https://bitbucket.org/darktjm/grok\n";
+/*	"Homepage: <a href=\"http://www.bitrot.de/grok.html\">http://www.bitrot.de/grok.html</a>\n" */
+	"Qt port, fixes, and enhancements by Thomas J. Moore\n"
+	"<a href=\"https://bitbucket.org/darktjm/grok\">https://bitbucket.org/darktjm/grok</a>\n"
+	"Check for latest version at:\n"
+	"<a href=\"https://bitbucket.org/darktjm/grok/downloads/?tab=tags\">https://bitbucket.org/darktjm/grok/downloads/?tab=tags</a>\n"
+	"Report issues with this version at:\n"
+	"<a href=\"https://bitbucket.org/darktjm/grok/issues\">https://bitbucket.org/darktjm/grok/issues</a>\n<"
+	"/div>";
 
 void create_about_popup(void)
 {
@@ -83,22 +88,28 @@ void create_error_popup(QWidget *widget, int error, const char *fmt, ...)
 /*---------------------------------------------------------- question -------*/
 /*
  * put up a dialog with a message, and wait for the user to press either
- * the OK or the Cancel button. When the OK button is pressed, call the
- * callback. If Cancel is pressed, the callback is not called. The widget
+ * the OK or the Cancel button. Return true if OK was pressed.
+ * If Cancel is pressed, the callback is not called. The widget
  * is some window that the popup goes on top of. The help message is some
  * string that appears in grok.hlp after %%.
+ *
+ * If dbase and form are non-NULL, add a Save button which is like OK, but
+ * saves the database first.
  */
 
-/*VARARGS*/
-void create_query_popup(
-	QWidget		*widget,		/* window that caused this */
-	void		(*callback)(void),	/* OK callback */
-	const char	*help,			/* help text tag for popup */
-	const char	*fmt, ...)		/* message */
+bool create_save_popup(
+	QWidget		*widget,	/* window that caused this */
+	DBASE		*dbase,		/* form and items to write */
+	FORM		*form,		/* contains column delimiter */
+	const char	*help,		/* help text tag for popup */
+	const char	*fmt, ...)	/* message */
 {
 	va_list		parm;
 	QMessageBox::StandardButtons buttons = QMessageBox::Ok | QMessageBox::Cancel;
+	QMessageBox::StandardButton def = QMessageBox::Cancel;
 
+	if(dbase && form)
+		buttons |= (def = QMessageBox::Save);
 	va_start(parm, fmt);
 	QString msg(QString::vasprintf(fmt, parm));
 	va_end(parm);
@@ -111,17 +122,18 @@ void create_query_popup(
 	// a loop.
 	while(1) {
 		switch(QMessageBox::question(widget, "Grok Dialog", msg,
-					     buttons, QMessageBox::Cancel)) {
+					     buttons, def)) {
 		    case QMessageBox::Ok:
-			callback();
-			return;
+			return true;
+		    case QMessageBox::Save:
+			return write_dbase(dbase, form, FALSE);
 		    case QMessageBox::Help:
 			// this will be immediately pushed to the back
 			// when question() runs again.  <sigh>
 			help_callback(widget, help);
 			break;
 		    default:
-			return;
+			return false;
 		}
 	}
 }

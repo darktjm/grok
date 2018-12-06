@@ -115,7 +115,8 @@ void create_edit_popup(
 	const char	*title,		/* menu title string */
 	char		**initial,	/* initial default text */
 	BOOL		readonly,	/* not modifiable if TRUE */
-	const char	*helptag);	/* help tag */
+	const char	*helptag,	/* help tag */
+	QTextDocument	*initdoc = 0);	/* full initial document */
 void edit_file(
 	const char	*name,		/* file name to read */
 	BOOL		readonly,	/* not modifiable if TRUE */
@@ -374,11 +375,13 @@ extern QVBoxLayout	*mainform;	/* form for summary table */
 
 void create_about_popup(void);
 void create_error_popup(QWidget *widget, int error, const char *fmt, ...);
-void create_query_popup(
-	QWidget		*widget,		/* window that caused this */
-	void		(*callback)(void),	/* OK callback */
+bool create_save_popup(
+	QWidget		*widget,	/* window that caused this */
+	DBASE		*dbase,		/* form and items to write */
+	FORM		*form,		/* contains column delimiter */
 	const char	*help,		/* help text tag for popup */
 	const char	*fmt, ...);	/* message */
+#define create_query_popup(w,...) create_save_popup(w, NULL, NULL, __VA_ARGS__)
 void create_dbase_info_popup(
 	CARD		*card);
 
@@ -390,10 +393,6 @@ void write_preferences(void);
 void read_preferences(void);
 
 extern struct pref	pref;		/* global preferences */
-
-/*---------------------------------------- print.c ------------*/
-
-void print(void);
 
 /*---------------------------------------- template.c ------------*/
 
@@ -407,9 +406,10 @@ void list_templates(
 	CARD		*card);		/* need this for form name */
 const char *exec_template(
 	char		*oname,		/* output file name, 0=stdout */
+	FILE		*ofp,		/* output file descriptor if already open */
 	const char	*name,		/* template name to execute */
 	int		seq,		/* if name is 0, execute by seq num */
-	unsigned long	flags,		/* template flags a..z */
+	int		flags,		/* template flags a..z */
 	CARD		*card);		/* need this for form name */
 char *copy_template(
 	QWidget		*shell,		/* export window widget */
@@ -427,8 +427,8 @@ void backslash_subst(char *);
 
 /*---------------------------------------- templwin.c ------------*/
 
-void destroy_templ_popup(void);
 void create_templ_popup(void);
+void create_print_popup(void);
 
 /*---------------------------------------- templmk.c ------------*/
 
@@ -436,11 +436,6 @@ void create_templ_popup(void);
 const char *mktemplate_html(FILE *fp);
 const char *mktemplate_plain(FILE *fp);
 const char *mktemplate_fancy(FILE *fp);
-
-/*---------------------------------------- printwin.c ------------*/
-
-void destroy_print_popup(void);
-void create_print_popup(void);
 
 /*---------------------------------------- query.c ------------*/
 
@@ -602,3 +597,4 @@ void popup_nonmodal(QDialog *d);
 char *qstrdup(const QString &str);
 
 #define ALEN(a) (int)(sizeof(a)/sizeof((a)[0]))
+#define APTR_OK(a, s) ((a)-(s) < ALEN(s))

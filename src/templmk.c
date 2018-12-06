@@ -299,7 +299,7 @@ static const char *mktemplate_text(
 	const MENU	*menu;		/* current menu selection */
 	char		*name;		/* current field name */
 	char		buf[1024], *s;	/* ugh - fixed summary line buffer */
-	int		len, label_len;
+	int		len, label_len = 0;
 	int		sumwidth;
 
 	if (!card || !card->dbase || !card->form)

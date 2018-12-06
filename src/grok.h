@@ -23,12 +23,6 @@ struct pref {
 	BOOL	incremental;	/* searches and queries are incremental */
 	BOOL	uniquedb;	/* only unique names in dbase pulldown */
 	char	pselect;	/* print: C=curr, S=search, A=all */
-	char	pformat;	/* print: S=summary, N=summary+note, C=cards */
-	char	pquality;	/* print: A=ascii, O=overstrike, P=PostScript*/
-	char	pdevice;	/* print: P=printer, F=file, W=window */
-	char	*pspooler_a;	/* print spool command, ascii */
-	char	*pspooler_p;	/* print spool command, PostScript */
-	char	*pfile;		/* print file (if pdevice==F) */
 	char	*xfile;		/* export file */
 	int	xlistpos;	/* last chosen line in export list, 0=top */
 	int	xflags;		/* last set of export flags */

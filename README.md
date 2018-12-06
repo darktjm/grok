@@ -2,18 +2,20 @@ grok - Graphical Resource Organizer Kit
 =======================================
 
 For people who don't read long READMEs, I'll describe compilation and
-installation first:
+installation first.  Before starting, install Qt 5 (this was tested
+with 5.11.2):
 
->     # install Qt5 (this was tested with 5.11.2)
 >     cd src; qmake && make
 >     # if you want to install it now:
 >     sudo make install
->     # if you want to install it later:
->     make install INSTALL_TARGET=/install/root
+>     # if you want to package it:
+>     make install INSTALL_TARGET=/tmp/pkg_root
 
-If you don't like the default installation locations, edit grok.pro.
-In particular, the PREFIX variable is the installation root.  You may
-also need to tweak the yacc-related configuration.
+If you don't like the default installation locations, you can set
+PREFIX in the qmake command or edit grok.pro.  You may also need to tweak
+the yacc-related configuration in grok.pro.
+
+>     qmake PREFIX=/usr/local
 
 Obtain the latest version at:
 

@@ -51,7 +51,8 @@ int get_template_nbuiltins(void) { return(NBUILTINS); }
 static const char *eval_template(
 	FILE		*ifp,		/* template file */
 	const char	*iname,		/* template name */
-	unsigned long	flags,		/* flags a..z */
+	int		flags,		/* flags a..z */
+	FILE		*ofp,		/* output file, if already open */
 	char		*oname);	/* default output filename, 0=stdout */
 
 
@@ -131,9 +132,10 @@ void list_templates(
 
 const char *exec_template(
 	char		*oname,		/* output file name, 0=stdout */
+	FILE		*ofp,		/* output file descriptor if already open */
 	const char	*name,		/* template name to execute */
 	int		seq,		/* if name is 0, execute by seq num */
-	unsigned long	flags,		/* flags a..z */
+	int		flags,		/* flags a..z */
 	CARD		*card)		/* need this for form name */
 {
 	FILE		*fp;		/* template file (input) */
@@ -159,7 +161,7 @@ const char *exec_template(
 			if(len < 2 || name[len - 2] != '-' ||
 			   name[len - 1] < 'a' || name[len - 1] > 'z')
 				break;
-			flags |= 1U<<(name[len -1] - 'a');
+			flags |= 1<<(name[len -1] - 'a');
 			len -= 2;
 		}
 	}
@@ -171,7 +173,7 @@ const char *exec_template(
 			return "Can't open temporary file for template output";
 		if (!(ret = (*builtins[seq].func)(fp))) {
 			rewind(fp);
-			ret = eval_template(fp, builtins[seq].name, flags, oname);
+			ret = eval_template(fp, builtins[seq].name, flags, ofp, oname);
 		} else
 			fclose(fp);
 	} else {
@@ -179,7 +181,7 @@ const char *exec_template(
 		if (!(fp = fopen(path, "r")))
 			ret = "failed to open template file";
 		else
-			ret = eval_template(fp, path, flags, oname);
+			ret = eval_template(fp, path, flags, ofp, oname);
 		free(path);
 	}
 	return(ret);
@@ -269,7 +271,7 @@ BOOL delete_template(
 #define NEST		10
 
 static char html_subst[] = "<=&lt; >=&gt; &=&amp; \n=<BR>";
-static const char *eval_command(char *, BOOL *, unsigned long);
+static const char *eval_command(char *, BOOL *, int);
 static const char *putstring(const char *);
 
 struct forstack { long offset; int num; int nquery; int *query; char *array; };
@@ -288,6 +290,7 @@ static const struct { enum opcode opcode; const char *name; } opcode_list[] = {
 };
 
 static FILE		*ofp;		/* output file */
+static bool		close_ofp;	/* close output file? */
 static char		*outname;	/* current output filename, 0=stdout */
 static FILE		*ifp;		/* template file */
 static char		*subst[256];	/* current character substitutions */
@@ -308,9 +311,10 @@ static int		forskip;	/* # of empty loops, skip to END */
  */
 
 const char *eval_template(
-	FILE		*fp,		/* template file */
+	FILE		*iifp,		/* template file */
 	const char	*iname,		/* template name */
-	unsigned long	flags,		/* flags a..z */
+	int		flags,		/* flags a..z */
+	FILE		*iofp,		/* output file, if already open */
 	char		*oname)		/* default output filename, 0=stdout */
 {
 	char		*word;		/* command string in \{ } */
@@ -324,7 +328,7 @@ const char *eval_template(
 	BOOL		eat_nl = FALSE;	/* ignore \n after \{COMMAND} */
 	int		i;
 
-	ifp = fp;
+	ifp = iifp;
 	default_row   = curr_card->row;
 	default_query = 0;
 	if ((default_nquery = curr_card->nquery)) {
@@ -335,7 +339,8 @@ const char *eval_template(
 	n_true_if = n_false_if = forskip = 0;
 	forlevel = -1;
 	outname = oname ? mystrdup(resolve_tilde(oname, 0)) : 0;
-	ofp = 0;
+	ofp = iofp;
+	close_ofp = !iofp;
 
 	word = (char *)malloc((wordlen = 32));
 	for (prevc=0;; prevc=c) {
@@ -408,7 +413,7 @@ const char *eval_template(
 					iname);
 	}
 	fclose(ifp);
-	if (ofp)
+	if (ofp && close_ofp)
 		fclose(ofp);
 	if (outname)
 		free(outname);
@@ -444,7 +449,7 @@ const char *eval_template(
 static const char *eval_command(
 	char		*word,		/* command to evaluate */
 	BOOL		*eat_nl,	/* if command, set to true (skip \n) */
-	unsigned long	flags)		/* template flags a..z */
+	int		flags)		/* template flags a..z */
 {
 	char		*cmd;		/* extracted command word */
 	const char	*pc, *err;
@@ -467,7 +472,7 @@ static const char *eval_command(
 			return(0);
 		}
 		if ((*word == '-' || *word == '+') && word[1] >= 'a' && word[1] <= 'z' && !word[2]) {
-			if(!!(flags & (1U<<(word[1] - 'a'))) == (*word == '-'))
+			if(!!(flags & (1<<(word[1] - 'a'))) == (*word == '-'))
 				n_true_if++;
 			else
 				n_false_if++;
@@ -608,12 +613,13 @@ static const char *eval_command(
 	  case O_FILE:
 		if (forskip || n_false_if)
 			break;
-		if (ofp)
+		if (ofp && close_ofp)
 			fclose(ofp);
 		if (outname)
 			free(outname);
 		outname = mystrdup(evaluate(curr_card, word));
 		ofp = 0;
+		close_ofp = true;
 		break;
 
 	  case O_SUBST:

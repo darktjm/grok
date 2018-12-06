@@ -12,13 +12,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <QtWidgets>
+#include <QtPrintSupport>
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
 
 #define NLINES	15		/* number of lines in list widget */
 
-static void button_callback(int code);
+static void button_callback(int code, bool set = false);
 static void file_export_callback(const QString &file);
 
 static void mklist(void);
@@ -36,7 +37,7 @@ static BOOL	modified;	/* preferences have changed */
  * destroy popup. Remove it from the screen, and destroy its widgets.
  */
 
-void destroy_templ_popup(void)
+static void destroy_templ_popup(void)
 {
 	if (have_shell) {
 		if (modified)
@@ -63,35 +64,54 @@ static struct menu {
 	const char *text;
 	QWidget	*widget;
 } menu[] = {
-	{ 'L',	0,	dbbr(Invalid), "Template:"	},
-	{ 'S',	0x10,	dbbr(Invalid), "scroll"		},
-	{ 'L',	0,	dbbr(Invalid), "Flags:"		},
-	{ 'T',	0x11,	dbbr(Invalid), "text"		},
-	{ 'B',	0x20,	dbbr(Action),  "Create"		},
-	{ 'b',	0x21,	dbbr(Action),  "Dup"		},
-	{ 'b',	0x22,	dbbr(Action),  "Edit"		},
-	{ 'q',	0x23,	dbbr(Action),  "Delete"		},
-	{ '-',	0,	dbbr(Invalid), "div"		},
-	{ 'L',	0,	dbbr(Invalid), "Output file:"	},
-	{ 'T',	0x30,	dbbr(Invalid), "text"		},
-	{ 'B',	0x40,	dbbr(Action),  "Browse"		},
-	{ 'b',	0x41,	dbbr(Accept),  "Export"		},
-	{ 'b',	0x42,	dbbb(Cancel),  0		},
-	{ 'q',	0x43,	dbbb(Help),    0		},
-	{  0,   0,	dbbr(Invalid), 0		}
+	{ 'M',	0x50,	0,		"menu"			},
+	{ 'L',	0,	0,		"Using Template:"	},
+	{ 'S',	0x10,	0,		"scroll"		},
+	{ 'B',	0x20,	dbbr(Action),	"Create"		},
+	{ 'b',	0x21,	dbbr(Action),	"Dup"			},
+	{ 'b',	0x22,	dbbr(Action),	"Edit"			},
+	{ 'q',	0x23,	dbbr(Action),	"Delete"		},
+	{ '-',	0,	0,		"div"			},
+	{ 'L',	0,	0,		"WIth Flags:"		},
+	{ 'T',	0x11,	0,		"text"			},
+	{ 'F',	0x12,	-'d',		"Summary"		},
+	{ 'F',	0x13,	'n',		"Notes"			},
+	{ 'f',	0x14,	-'s',		"Cards"			},
+	{ 'L',	0,	1,		"To File:"		},
+	{ 'T',	0x30,	0,		"text"			},
+	{ 'q',	0x40,	dbbr(Action),	"..."			},
+	{ 'B',	0x41,	dbbr(Accept),	"Export"		},
+	{ 'b',	0x44,	dbbr(Accept),	"Preview"		},
+	{ 'b',	0x42,	dbbb(Cancel),	0			},
+	{ 'q',	0x43,	dbbb(Help),	0			}
 };
 
-void create_templ_popup(void)
+static struct menu print_buttons[] = {
+	{ 'b',	0x46,	dbbr(Accept),	"Print"			},
+	{ 'b',	0x47,	dbbr(Accept),	"Preview"		},
+	{ 'b',	0x42,	dbbb(Cancel),	0			},
+	{ 'q',	0x45,	dbbb(Help),	0			}
+};
+
+static QStringList what_rows = {
+	"Current card only", "Current search results", "All cards in current section", "All cards"
+};
+static const char select_codes[] = "CSeA";
+
+#define BUILTIN_FLAGS "sdn"
+
+static void create_templ_print_popup(bool print)
 {
 	struct menu	*mp;			/* current menu[] entry */
 	QWidget		*w=0;
 	QBoxLayout	*form;
 	QDialogButtonBox *hb = 0;
+	QBoxLayout	*hbox = 0;
 
 	destroy_templ_popup();
 
 	if (!curr_card) {
-		create_error_popup(mainwindow, 0, "Select a database to export");
+		create_error_popup(mainwindow, 0, "Select a database to %s", print ? "print" : "export");
 		return;
 	}
 
@@ -99,7 +119,10 @@ void create_templ_popup(void)
 	// Instead, I'll do nothing.  It makes more sense to issue a reject
 	// (the default behavior), anyway - tjm
 	shell = new QDialog;
-	shell->setWindowTitle("Grok Export");
+	if (print)
+		shell->setWindowTitle("Grok Print");
+	else
+		shell->setWindowTitle("Grok Export");
 	set_icon(shell, 1);
 	form = new QVBoxLayout(shell);
 	add_layout_qss(form, "exportform");
@@ -107,19 +130,33 @@ void create_templ_popup(void)
 	/* Same applies to setSpacing() */
 	bind_help(shell, "tempname");
 
-	for (mp=menu; mp->type; mp++) {
+	form->addWidget(new QLabel(print ? "Print" : "Export"));
+
+	for (mp=menu; APTR_OK(mp, menu); mp++) {
+	    w = NULL;
 	    switch(mp->type) {
-	      case 'B': hb = new QDialogButtonBox; FALLTHROUGH
+	      case 'B': if(!print) hb = new QDialogButtonBox; FALLTHROUGH
 	      case 'b':
-	      case 'q': {
+	      case 'q':
+		  if(!print) {
 		      w = mk_button(hb, mp->text, mp->role);
-		      if(mp->role == dbbr(Accept))
+		      if(mp->code == 0x41)
 			      reinterpret_cast<QPushButton *>(w)->setDefault(true);
-		      break;
+		  }
+		break;
+	      case 'F':
+	      case 'f': w = new QCheckBox(mp->text);	break;
+	      case 'M': {
+		  const char *psel = strchr(select_codes, pref.pselect);
+		  QComboBox *cb = new QComboBox;
+		  cb->addItems(what_rows);
+		  cb->setCurrentIndex(psel ? (int)(psel - select_codes) : 1);
+		  w = cb;
+		  break;
 	      }
-	      case 'T': w = new QLineEdit; w->setObjectName(mp->text);	break;
-	      case '-': w = mk_separator();		break;
-	      case 'L':	w = new QLabel(mp->text);	break;
+	      case 'T': if(!print || mp->code == 0x11) { w = new QLineEdit; w->setObjectName(mp->text); } break;
+	      case '-': if(!print) w = mk_separator();		break;
+	      case 'L':	if(!print || !mp->role) w = new QLabel(mp->text);  break;
 	      case 'S': {
 		  w = list = new QListWidget;
 		  list->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -132,20 +169,34 @@ void create_templ_popup(void)
 		  break;
 	      }
 	    }
-	    if (!hb && w)
-		form->addWidget(w);
-	    if (mp->type == 'b' || mp->type == 'q')
+	    if (!w)
+		continue;
+	    if (mp->type == 'T') {
+		hbox = new QHBoxLayout;
+		form->addLayout(hbox);
+	    }
+	    if (!hb)
+		(hbox ? hbox : form)->addWidget(w);
+	    if (mp->type == 'B')
 		form->addWidget(hb);
-	    if (mp->type == 'q')
+	    if (mp->type == 'q' || mp->type == 'f') {
 		hb = 0;
+		hbox = 0;
+	    }
 	    if (mp->code == 0x30 && pref.xfile)
 		print_text_button(w, pref.xfile);
+	    if (mp->code >= 0x12 && mp->code < 0x20) {
+		bool notf = mp->role < 0;
+		int flag = notf ? -mp->role : mp->role;
+		flag = 1 << (flag - 'a');
+		set_toggle(w, !(pref.xflags & flag) == notf);
+	    }
 	    if (mp->code == 0x11 && pref.xflags) {
 		char buf[53];
 		int i, m;
 		char *p;
 		for (i = 0, m = 1, p = buf; i < 26; i++, m <<= 1)
-		    if (pref.xflags & m) {
+		    if (pref.xflags & m && !strchr(BUILTIN_FLAGS, 'a' + i)) {
 			*p++ = '-';
 			*p++ = 'a' + i;
 		    }
@@ -155,9 +206,26 @@ void create_templ_popup(void)
 
 	    if (mp->type == 'b' || mp->type == 'q' || mp->type == 'B')
 		set_button_cb(w, button_callback(mp->code));
-	    if (mp->type == 'T')
+	    else if (mp->type == 'F' || mp->type == 'f')
+		set_button_cb(w, button_callback(mp->code, set), bool set);
+	    else if (mp->type == 'M')
+		set_popup_cb(w, button_callback(mp->code + i), int, i);
+	    else if (mp->code == 0x30)
 		set_textr_cb(w, button_callback(mp->code));
+	    else if(mp->type == 'T')
+		set_text_cb(w, button_callback(mp->code));
 	    mp->widget = w;
+	}
+	if(print) {
+		hb = new QDialogButtonBox;
+		form->addWidget(hb);
+		for (mp=print_buttons; APTR_OK(mp, print_buttons); mp++) {
+			w = mk_button(hb, mp->text, mp->role);
+			if(mp->code == 0x46)
+				reinterpret_cast<QPushButton *>(w)->setDefault(true);
+			set_button_cb(w, button_callback(mp->code));
+			mp->widget = w;
+		}
 	}
 	// close does a reject by default, so no extra callback needed
 	set_dialog_cancel_cb(shell, button_callback(0x42));
@@ -167,6 +235,15 @@ void create_templ_popup(void)
 	modified = FALSE;
 }
 
+void create_templ_popup(void)
+{
+    create_templ_print_popup(false);
+}
+
+void create_print_popup(void)
+{
+    create_templ_print_popup(true);
+}
 
 /*
  * put the current list of templates into the template list widget
@@ -204,25 +281,73 @@ static int get_list_seq(void)
 	}
 }
 
+#define SECT_OK(db,r) ((db)->currsect < 0 ||\
+		       (db)->currsect == (db)->row[r]->section)
+
+/* This is nasty, but curr_card is used too much to just make a replacement */
+static CARD *old_curr_card = 0;
+static void set_export_card(void)
+{
+	static CARD new_card;
+
+	if(pref.pselect == 'S' || !curr_card || !curr_card->dbase)
+		return;
+	old_curr_card = curr_card;
+	new_card = *curr_card;
+	curr_card = &new_card;
+	switch(pref.pselect) {
+	    case 'C':
+		curr_card->nquery = curr_card->qcurr < curr_card->nquery;
+		if(curr_card->nquery) {
+			curr_card->query = (int *)malloc(sizeof(*curr_card->query));
+			curr_card->query[0] = curr_card->qcurr;
+		} else
+			curr_card->query = NULL;
+		break;
+	    case 'e': {
+		int n;
+		for(int i = n = 0; i < curr_card->dbase->nrows; i++)
+			if(SECT_OK(curr_card->dbase, i))
+				n++;
+		curr_card->nquery = n;
+		if(curr_card->nquery) {
+			curr_card->query = (int *)malloc(curr_card->nquery * sizeof(*curr_card->query));
+			/* sorting sorts dbase, so no need to resort */
+			for(int i = n = 0; i < curr_card->dbase->nrows; i++)
+				if(SECT_OK(curr_card->dbase, i))
+					curr_card->query[n++] = i;
+		} else
+			curr_card->query = NULL;
+		break;
+	    }
+	    case 'A':
+		curr_card->nquery = curr_card->dbase->nrows;
+		if(curr_card->nquery) {
+			curr_card->query = (int *)malloc(curr_card->nquery * sizeof(*curr_card->query));
+			/* sorting sorts dbase, so no need to resort */
+			for(int i = 0; i < curr_card->dbase->nrows; i++)
+				curr_card->query[i] = i;
+		} else
+			curr_card->query = NULL;
+		break;
+	}
+}
+
+
+static void unset_export_card(void)
+{
+	if(old_curr_card) {
+		zfree(curr_card->query);
+		curr_card = old_curr_card;
+		old_curr_card = NULL;
+	}
+}
 
 static BOOL do_export(void)
 {
 	struct menu	*mp;		/* for finding text widget */
 	const char	*err;
-	char		*f, *p;
 
-	for (mp=menu; mp->code != 0x11; mp++);
-	f = read_text_button_noblanks(mp->widget, NULL);
-	pref.xflags = 0;
-	for(p = f; *p; p++) {
-		if(*p == '-')
-			p++;
-		if(*p < 'a' || *p > 'z') {
-			create_error_popup(shell,0,"Options are letters a-z only");
-			return FALSE;
-		}
-		pref.xflags |= 1U<<(*p - 'a');
-	}
 	for (mp=menu; mp->code != 0x30; mp++);
 	read_text_button_noblanks(mp->widget, &pref.xfile);
 	
@@ -233,17 +358,76 @@ static BOOL do_export(void)
 	if (!get_list_seq())
 		return(FALSE);
 
-	if ((err = exec_template(pref.xfile, 0, pref.xlistpos, pref.xflags, curr_card))) {
+	set_export_card();
+	if ((err = exec_template(pref.xfile, NULL, 0, pref.xlistpos, pref.xflags, curr_card))) {
+		unset_export_card();
 		create_error_popup(shell, 0, "Export failed:\n%s", err);
 		return(FALSE);
 	}
+	unset_export_card();
 	modified = TRUE;
+	return(TRUE);
+}
+
+static BOOL export_to_doc(QTextDocument &doc)
+{
+	const char	*err;
+
+	if (!get_list_seq())
+		return(FALSE);
+
+	FILE *f = tmpfile();
+	if(!f) {
+		create_error_popup(shell, 0, "Can't create output file");
+		return(FALSE);
+	}
+	set_export_card();
+	if ((err = exec_template(0, f, 0, pref.xlistpos, pref.xflags, curr_card))) {
+		unset_export_card();
+		create_error_popup(shell, 0, "Export failed:\n%s", err);
+		fclose(f);
+		return(FALSE);
+	}
+	unset_export_card();
+	fflush(f);
+	unsigned long len = ftell(f);
+	rewind(f);
+	char *cdoc = (char *)malloc(len + 1);
+	if(!cdoc) {
+		create_error_popup(shell, 0, "No memory for results");
+		fclose(f);
+		return(FALSE);
+	}
+	fread(cdoc, len, 1, f);
+	fclose(f);
+	cdoc[len] = 0;
+	QString s(cdoc);
+	free(cdoc);
+	if(s.indexOf('\b') != -1) {
+		/* QTextDocument can't handle overstrike */
+		/* so converte it to HTML */
+		s = s.toHtmlEscaped();
+		s.replace(QRegularExpression("_\b(.)"), "<U>\\1</U>");
+		s.replace("_", "<U> </U>");
+		s.replace(QRegularExpression(".\b(.)"), "<B>\\1</B>");
+		s.replace(QRegularExpression("</B>( *)<B>"), "\\1");
+		s.replace("</U><U>", "");
+		s.prepend("<div style=\"white-space: pre; font-face: monospace;\">");
+		s.append("</div>");
+		doc.setHtml(s);
+	} else {
+		if(Qt::mightBeRichText(s))
+			doc.setHtml(s);
+		else
+			doc.setPlainText(s);
+	}
 	return(TRUE);
 }
 
 
 static void button_callback(
-	int				code)
+	int				code,
+	bool				set)
 {
 	switch(code) {
 	  case 0x20:						/* Create */
@@ -274,7 +458,9 @@ static void button_callback(
 		break;
 	  case 0x40:						/* Browse */
 	{
-		QFileDialog *d = new QFileDialog(shell, "xfile");
+		QFileDialog *d = new QFileDialog(shell, "Select Export Output File");
+		if(pref.xfile)
+			d->selectFile(pref.xfile);
 		d->setAcceptMode(QFileDialog::AcceptSave);
 		set_file_dialog_cb(d, file_export_callback(fn), fn);
 		// close does a reject by default, so no extra callback needed
@@ -282,6 +468,71 @@ static void button_callback(
 		delete d;
 		break;
 	}
+	  case 0x11: {						/* flags */
+		  char *p, *f;
+		  struct menu *mp;
+		  bool rewrite = false;
+		  pref.xflags = 0;
+		  for (mp=menu; APTR_OK(mp, menu); mp++)
+			  if(mp->code >= 0x12 && mp->code < 0x20) {
+				  QCheckBox *b = dynamic_cast<QCheckBox *>(mp->widget);
+				  bool notf = mp->role < 0;
+				  int flag = notf ? -mp->role : mp->role;
+				  if(b->isChecked() == !notf)
+					  pref.xflags |= 1<<(flag - 'a');
+			  }
+		  for (mp=menu; mp->code != 0x11; mp++);
+		  f = read_text_button_noblanks(mp->widget, NULL);
+		  for(p = f; *p; p++) {
+			  if(*p == '-')
+				  p++;
+			  /* FIXME: put this in a validator */
+			  if(*p < 'a' || *p > 'z') {
+				  *p = 0;
+				  rewrite = true;
+				  create_error_popup(shell,0,"Options are letters a-z only");
+				  break;
+			  }
+			  pref.xflags |= 1<<(*p - 'a');
+			  if(strchr(BUILTIN_FLAGS, *p)) {
+				  char *q = p + 1, fl = *p;
+				  if(p > f && p[-1] == '-')
+					  p--;
+				  if(!*q)
+					  *p = 0;
+				  else
+					  memmove(p, q, strlen(q) + 1);
+				  p--;
+				  rewrite = true;
+				  for(struct menu *mp=menu; APTR_OK(mp, menu); mp++) {
+					  if(mp->code >= 0x12 && mp->code < 0x20 &&
+					     (mp->role == fl || mp->role == -fl)) {
+						  set_toggle(mp->widget, mp->role > 0);
+						  break;
+					  }
+				  }
+			  }
+		  }
+		  if(rewrite) {
+			  QSignalBlocker sb(mp->widget);
+			  print_text_button_s(mp->widget, f);
+		  }
+		  break;
+	  }
+	  case 0x12:
+	  case 0x13:
+	  case 0x14: {
+		struct menu *mp;
+		for(mp = menu; mp->code != code; mp++);
+		bool notf = mp->role < 0;
+		int flag = notf ? -mp->role : mp->role;
+		flag = 1 << (flag - 'a');
+		if(set == !notf)
+			pref.xflags |= flag;
+		else
+			pref.xflags &= ~flag;
+		break;
+	  }
 	  case 0x30:						/* text */
 	  case 0x41:						/* Export */
 		if (do_export())
@@ -291,6 +542,48 @@ static void button_callback(
 	  case 0x43:						/* Help */
 		help_callback(shell, "export");
 		break;
+	  case 0x45:						/* Help */
+		help_callback(shell, "print");
+		break;
+	  case 0x44: {						/* Preview */
+		QTextDocument *d =  new QTextDocument;
+		if(!export_to_doc(*d)) {
+			delete d;
+			break;
+		}
+		/* create_edit_popup will take ownership of d */
+		create_edit_popup("Export Preview", NULL, TRUE, "editprint", d);
+		break;
+	  }
+	  case 0x46:
+	  case 0x47: {	 					/* Print */
+		QTextDocument d;
+		modified = TRUE;
+		if(!export_to_doc(d))
+			break;
+		destroy_templ_popup();
+		QPrinter pr;
+		if(code == 0x46) {
+			QPrintDialog pd(&pr, mainwindow);
+			/* not sure if this is needed or does anything */
+			pd.setOption(QAbstractPrintDialog::PrintToFile);
+			if(pd.exec() == QDialog::Accepted)
+				d.print(&pr);
+		} else {
+			QPrintPreviewDialog pd(&pr, mainwindow);
+			QObject::connect(&pd, &QPrintPreviewDialog::paintRequested,
+					 &d, &QTextDocument::print);
+			pd.exec(); /* dialog will do the printing if requested */
+		}
+		break;
+	  }
+	  case 0x50:
+	  case 0x51:
+	  case 0x52:
+	  case 0x53: {	 					/* Cards */
+		pref.pselect = select_codes[code - 0x50];
+		modified = TRUE;
+	  }
 	}
 }
 

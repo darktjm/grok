@@ -1198,16 +1198,6 @@ void readback_formedit(void)
  * if the entire canvas must be redrawn.
  */
 
-static void cancel_callback(void)
-{
-	destroy_formedit_window();
-	destroy_canvas_window();
-	destroy_query_window();
-	form_delete(form);
-	free((void *)form);
-	form = 0;
-}
-
 #define get_sb_value(w) reinterpret_cast<QSpinBox *>(w)->value()
 #define get_dsb_value(w) reinterpret_cast<QDoubleSpinBox *>(w)->value()
 
@@ -1321,8 +1311,15 @@ static int readback_item(
 		      form = 0;
 	 	      return(0);
 
-	  case 0x110: create_query_popup(shell, cancel_callback,
-				"form_cancel", "Ok to discard changes?");
+	  case 0x110: if(create_query_popup(shell,
+				"form_cancel", "Ok to discard changes?")) {
+			destroy_formedit_window();
+			destroy_canvas_window();
+			destroy_query_window();
+			form_delete(form);
+			free((void *)form);
+			form = 0;
+		      }
 	 	      return(0);
 
 	  case IT_LABEL:
