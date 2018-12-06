@@ -409,7 +409,10 @@ static BOOL export_to_doc(QTextDocument &doc)
 		fclose(f);
 		return(FALSE);
 	}
-	fread(cdoc, len, 1, f);
+	/* Weird that glibc complains about ignoring read failure but not write */
+	/* especially given how unlikely this particular read is to fail */
+	if(fread(cdoc, len, 1, f) != 1)
+		exit(1);
 	fclose(f);
 	cdoc[len] = 0;
 	QString s(cdoc);
