@@ -359,7 +359,18 @@ static BOOL do_export(void)
 		return(FALSE);
 
 	set_export_card();
-	if ((err = exec_template(pref.xfile, NULL, 0, pref.xlistpos, pref.xflags, curr_card))) {
+	if(pref.xfile[0] != '|')
+		err = exec_template(pref.xfile, NULL, 0, pref.xlistpos, pref.xflags, curr_card);
+	else {
+		FILE *f = popen(pref.xfile + 1, "w");
+		if(!f)
+			err = "Can't open pipe";
+		else {
+			err = exec_template(NULL, f, 0, pref.xlistpos, pref.xflags, curr_card);
+			pclose(f);
+		}
+	}
+	if (err) {
 		unset_export_card();
 		create_error_popup(shell, 0, "Export failed:\n%s", err);
 		return(FALSE);
@@ -403,23 +414,36 @@ static BOOL export_to_doc(QTextDocument &doc)
 	cdoc[len] = 0;
 	QString s(cdoc);
 	free(cdoc);
+	static QWidget *w = NULL;
+	static QFont printfont; // only for plain text; HTML assumed to be OK
+	if(!w) {
+		w = new QWidget;
+		w->setProperty("printFont", true);
+		w->setProperty("courierFont", true);
+		w->ensurePolished();
+		printfont = w->font();
+		delete w;
+	}
 	if(s.indexOf('\b') != -1) {
 		/* QTextDocument can't handle overstrike */
 		/* so converte it to HTML */
 		s = s.toHtmlEscaped();
-		s.replace(QRegularExpression("_\b(.)"), "<U>\\1</U>");
+		s.replace(QRegularExpression("_\b(&[^;]+;|.)"), "<U>\\1</U>");
 		s.replace("_", "<U> </U>");
-		s.replace(QRegularExpression(".\b(.)"), "<B>\\1</B>");
+		s.replace(QRegularExpression("(&[^;]+;|.)\b(&[^;]+;|.)"), "<B>\\1</B>");
 		s.replace(QRegularExpression("</B>( *)<B>"), "\\1");
 		s.replace("</U><U>", "");
-		s.prepend("<div style=\"white-space: pre; font-face: monospace;\">");
+		s.prepend("<div style=\"white-space: pre;\">");
 		s.append("</div>");
 		doc.setHtml(s);
+		doc.setDefaultFont(printfont);
 	} else {
 		if(Qt::mightBeRichText(s))
 			doc.setHtml(s);
-		else
+		else {
+			doc.setDefaultFont(printfont);
 			doc.setPlainText(s);
+		}
 	}
 	return(TRUE);
 }
@@ -459,7 +483,7 @@ static void button_callback(
 	  case 0x40:						/* Browse */
 	{
 		QFileDialog *d = new QFileDialog(shell, "Select Export Output File");
-		if(pref.xfile)
+		if(pref.xfile && pref.xfile[0] != '|')
 			d->selectFile(pref.xfile);
 		d->setAcceptMode(QFileDialog::AcceptSave);
 		set_file_dialog_cb(d, file_export_callback(fn), fn);
@@ -562,19 +586,20 @@ static void button_callback(
 		if(!export_to_doc(d))
 			break;
 		destroy_templ_popup();
-		QPrinter pr;
 		if(code == 0x46) {
-			QPrintDialog pd(&pr, mainwindow);
+			QPrintDialog pd(pref.printer, mainwindow);
 			/* not sure if this is needed or does anything */
 			pd.setOption(QAbstractPrintDialog::PrintToFile);
 			if(pd.exec() == QDialog::Accepted)
-				d.print(&pr);
+				d.print(pref.printer);
 		} else {
-			QPrintPreviewDialog pd(&pr, mainwindow);
+			QPrintPreviewDialog pd(pref.printer, mainwindow);
 			QObject::connect(&pd, &QPrintPreviewDialog::paintRequested,
 					 &d, &QTextDocument::print);
 			pd.exec(); /* dialog will do the printing if requested */
 		}
+		// just setting modified won't work, since popup is dead
+		write_preferences();
 		break;
 	  }
 	  case 0x50:

@@ -593,7 +593,8 @@
 	    At least one of Summary or Cards should be selected.
 
 	Next, select an output file.  The button next to the text field pops up
-	    a file dialog for convenience.
+	    a file dialog for convenience.  The file name can be a command, instead
+	    by prefixing the name with |.
 
 	The Preview button opens a window to view the export results.
 
@@ -1581,6 +1582,8 @@
 	  s <= s		lexicographically less than or equal
 	  s >= s		lexicographically greater than or equal
 	  s in s		first string is contained in second string
+	  s =~ s		first string matches regex in second string
+	  s !~ s		first string mismatches regex in second string
 	  chop(s)		s without trailing newline
 	  substr(s,n,n)	substring of the s1; n1 is start index and n2 is length
 	  printf (args)		formatted string, args is comma-separated expr list

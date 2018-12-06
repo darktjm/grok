@@ -396,6 +396,7 @@ void print_info_line(void)
 		}
 		if (s >= 0 ? dbase->sect[s].rdonly : dbase->rdonly)
 			strcat(buf, " (read only)");
+		mainwindow->setWindowModified(dbase->modified);
 		if (s >= 0 ? dbase->sect[s].modified : dbase->modified)
 			strcat(buf, " (modified)");
 	}
@@ -812,7 +813,11 @@ void switch_form(
 		else
 			p = name;
 		if (mainwindow) {
+			QString t(p);
 			mainwindow->setWindowIconText(p);
+			t.prepend("grok ");
+			t.append(" [*]");
+			mainwindow->setWindowTitle(t);
 			fillout_card(curr_card, FALSE);
 		}
 	} else

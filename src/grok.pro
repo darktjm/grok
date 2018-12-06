@@ -57,7 +57,7 @@ SOURCES += canvdraw.c cardwin.c chart.c chartdrw.c convert.c dbase.c dbfile.c \
 YACCSOURCES += parser.y
 HEADERS = bm_icon.h bm_left.h bm_right.h config.h form.h grok.h proto.h \
           resource.h version.h layout-qss.h chart-widget.h canv-widget.h \
-	  ../misc/Grok.xpm HtmlCssUtils.hpp
+	  ../misc/Grok.xpm HtmlCssUtils.hpp saveprint.h
 
 # Install target; should probably depend on unix but right now, everything does
 target.path = $${PREFIX}/bin

@@ -14,6 +14,7 @@
  * global preferences
  */
 
+class QPrinter;
 struct pref {
 	BOOL	ampm;		/* US time format if TRUE, sane if FALSE */
 	BOOL	mmddyy;		/* US date format if TRUE, European if FALSE */
@@ -32,6 +33,7 @@ struct pref {
 	int	sortcol;	/* initially form->defsort, then sort pulldn */
 	BOOL	revsort;	/* initially FALSE, then line1 of sort pulldn*/
 	BOOL	autoquery;	/* run form.autoquery after every change? */
+	QPrinter *printer;	/* printer settings */
 };
 
 #define COL_CHART_N	8		/* number of chart colors */

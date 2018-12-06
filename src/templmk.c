@@ -14,6 +14,8 @@
 #include "form.h"
 #include "proto.h"
 
+/* FIXME:  none of these routines check results of writes for errors */
+
 
 /*
  * given an item, print an expression that will represent the data, using a

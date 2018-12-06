@@ -164,11 +164,11 @@ void f_foreach(
 #define ISSYM_B(c) (((c)>='a' && (c)<='z') || ((c)>='A' && (c)<='Z'))
 #define ISSYM(c)   (ISDIGIT(c) || (c)=='_' || ISSYM_B(c))
 
-static const char *pair_l  = "=!<><>&|+/-*%|&.+--#|||";
-static const char *pair_r  = "====<>&|========+->#+*-";
+static const char *pair_l  = "=!<><>&|+/-*%|&.+--#|||=!";
+static const char *pair_r  = "====<>&|========+->#+*-~~";
 static const short value[] = { EQ, NEQ, LE, GE, SHL, SHR, AND, OR,
 			 PLA, DVA, MIA, MUA, MOA, ORA, ANA, APP, INC, DEC_,
-			 AAS, ALEN_, UNION, INTERSECT, DIFF};
+			 AAS, ALEN_, UNION, INTERSECT, DIFF, REQ, RNEQ};
 
 static const struct symtab { const char *name; int token; } symtab[] = {
 			{ "this",	THIS	},

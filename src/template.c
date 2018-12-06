@@ -158,6 +158,26 @@ const char *exec_template(
 						break;
 			if(seq < ntemps + NBUILTINS)
 				break;
+			/* stdin only possible in non-interactive mode */
+			if(!app && len == 1 && name[0] == '+') {
+				/* It'd be nice, but FOREACH seeks */
+				// return eval_template(stdin, "stdin", flags, ofp, oname);
+				static char buf[1024];
+				int n;
+				fp = tmpfile();
+				if(!fp)
+					return "Can't open temporary file for template output";
+				while(1) {
+					n = fread(buf, 1, sizeof(buf), stdin);
+					// FIXME: retry on EAGAIN or EINTR
+					if(!n) // FIXME: report errors
+						break;
+					fwrite(buf, n, 1, fp);
+				}
+				fflush(fp); // FIXME: report errors
+				rewind(fp);
+				return eval_template(fp, "stdin", flags, ofp, oname);
+			}
 			if(len < 2 || name[len - 2] != '-' ||
 			   name[len - 1] < 'a' || name[len - 1] > 'z')
 				break;

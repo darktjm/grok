@@ -16,6 +16,8 @@
 #include <float.h>
 #include <unistd.h>
 #include <QtWidgets>
+#include <QtPrintSupport>
+#include "saveprint.h"
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
@@ -220,6 +222,17 @@ void write_preferences(void)
 	/* not going to add xfile & xlistpos */
 	fprintf(fp, "pselect	%c\n",	pref.pselect);
 	fprintf(fp, "linelen	%d\n",	pref.linelen);
+	/* This will abort if write_prefs called from non-GUI runs */
+	QByteArray ba;
+	QDataStream ds(&ba, QIODevice::WriteOnly);
+	ds << *pref.printer;
+	ba = ba.toHex();
+	int off = 0, len = ba.size();
+	do {
+		fprintf(fp, "printer	%.*s\n", len > 256 ? 256 : len, ba.data() + off);
+		off += 256;
+		len -= 256;
+	} while(len > 0);
 	fclose(fp);
 }
 
@@ -236,12 +249,17 @@ void read_preferences(void)
 	char		*p;		/* for scanning line */
 	char		*key;		/* first char of first word in line */
 	int		value;		/* value of second word in line */
+	QByteArray	printer;
 
 	pref.letters	= TRUE;
 	pref.scale	= 1.0;
 	pref.sumlines	= 8;
 	pref.pselect	= 'S';
 	pref.linelen	= 79;
+	/* non-graphical runs don't need printer */
+	/* this will break if non-graphical app ever writes prefs */
+	if(app)
+		pref.printer = new QPrinter;
 
 	path = resolve_tilde((char *)PREFFILE, 0); /* PREFFILE has no final / */
 	if (!(fp = fopen(path, "r")))
@@ -271,6 +289,11 @@ void read_preferences(void)
 		if (!strcmp(key, "xflags"))	pref.xflags	 = value;
 		if (!strcmp(key, "pselect"))	pref.pselect	 = *p;
 		if (!strcmp(key, "linelen"))	pref.linelen	 = atoi(p);
+		if (!strcmp(key, "printer"))	printer += QByteArray::fromHex(p);
 	}
 	fclose(fp);
+	if(pref.printer && printer.size()) {
+		QDataStream ds(&printer, QIODevice::ReadOnly);
+		ds >> *pref.printer;
+	}
 }

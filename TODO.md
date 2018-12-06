@@ -16,9 +16,6 @@ games again...
 Bugs
 ----
 
-- Printing plain text prints using a propotional font, even the
-  overstrike text which explicitly says not to using HTML.
-
 - Clicking on a radio button (update=ALL) causes menu table to narrow
   in form editor.
 
@@ -147,9 +144,8 @@ Minor UI Improvements
   buttons don't work.  Maybe make ctrl-f switch the mode to the last
   by default?
 
-- Put database name and modified flag in title bar
-
 - file dialog is always GTK+.  Is there a way to make it "native QT"?
+  Setting style does not affect this.
 
 - Use SH_FormLayoutLabelAlignment to determine label aligment in form
   editor.  Maybe add a "default" alignment for card labels, as well.
@@ -205,11 +201,6 @@ Minor UI Improvements
     - Note that -p doesn't support Flag List or Flag Group fields in
       either mode, really, and probably never will since I don't want
       to add more fields to the menu table.
-
-- Use combo box for template flag field, giving -s, -d, -n.  Look into
-  making the combo box label different from the text, and label them
-  appropriately.  For now, I've just put radio buttons next to the
-  text box.
 
 Important UI improvements
 -------------------------
@@ -284,18 +275,7 @@ Important UI improvements
   work to make it usable.  It doesn't even support control characters
   in the text, so it's useless for editing "fancy" templates.
 
-- Support Export to pipe.  I don't care about the old print spoolers,
-  though.
-
 - Support recent export names in combo box
-  
-- Figure out how to save print options between sessions.
-
-- Support entering a template from the command-line.  Either a very
-  long command-line option like I do with sed all the time, or a
-  special template named - that is read from stdin.  This makes grok
-  more suited as a command-line query tool, with complete control over
-  the output format.
 
 - Do something about scaling factor.  Either use it to adjust font
   sizes at the same time, or drop it entirely.  Really only relevant
@@ -323,16 +303,15 @@ Important UI improvements
 Infrastructure Improvements
 ---------------------------
 
-- Add =~ from perl, since that what was apparently originally planned.
-  It's not going to be quite like perl in any case, though, since
-  perl's =~ syntax is very different from grok's.  I guess =~ is less
-  verbose than match().  Merging tr() sub() and gsub() into =~ seems
-  like a bad idea, though.
-
 - Add global pref to support regex patterns in basic search strings,
   since that was apparently part of the original plan wrt regexes.
   Right now, you have to do (match(_field,"regex")), and can't search
   across multiple fields easily like regular searches do.
+
+- Allow preference changes (temporary or permanent) on the command
+  line.  This allows the command line to be somewhat independent on
+  GUI preferences.  Full independence would break backwards
+  compatibility.
 
 - Support stepping over all possible values of a field with a menu.
   Maybe ? instead of + to select Choice/flag codes and ?+ to select
@@ -438,10 +417,6 @@ Infrastructure Improvements
   I'm also not sure how to present changes.  This will probably be way
   more work than it's worth.
 
-- Have "s in s" return the location of the first string in the second,
-  plus one to keep it boolean.  Or, just leave it alone and let
-  people who want this use match() instead.
-
 - Add ELSE and ELSEIF to template controls.
 
 - Have a generic SQL exporter similar to the HTML one.  This may also
@@ -496,6 +471,10 @@ Infrastructure Improvements
       Windows likes using \ and ;, although / is at least
       supported. Note that the OS/2 changes in 1.5.4 already
       addressed this a bit.
+
+    - Installation paths
+
+    - Use of /dev/null, /tmp
 
 - Port to another OS.  Easiest would probably be MacOS, if it weren't
   for the fact that I have no Mac to test on and dropped my Apple

@@ -64,7 +64,7 @@ void init_variables(void) { int i; for (i=0; i < 26; i++) setsvar(i, 0); }
 %token	<dval>	NUMBER
 %token	<sval>	STRING SYMBOL
 %token	<ival>	FIELD VAR
-%token		EQ NEQ LE GE SHR SHL AND OR IN UNION INTERSECT DIFF
+%token		EQ NEQ LE GE SHR SHL AND OR IN UNION INTERSECT DIFF REQ RNEQ
 %token		PLA MIA MUA MOA DVA ANA ORA INC DEC_ APP AAS ALEN_
 %token		AVG DEV AMIN AMAX SUM
 %token		QAVG QDEV QMIN QMAX QSUM
@@ -87,7 +87,7 @@ void init_variables(void) { int i; for (i=0; i < 26; i++) setsvar(i, 0); }
 %left '^'
 %left '&'
 %left IN
-%left EQ NEQ
+%left EQ NEQ REQ RNEQ
 %left '<' '>' LE GE
 %left SHL SHR
 %left '-' '+' UNION DIFF INTERSECT
@@ -129,6 +129,10 @@ string	: STRING			{ $$ = $1; }
 							(f_cmp($1, $3) == 0));}
 	| string NEQ string		{ $$ = f_str((double)
 							(f_cmp($1, $3) != 0));}
+	| string REQ  string		{ $$ = f_str((double)
+							(re_match($1, $3) > 0));}
+	| string RNEQ string		{ $$ = f_str((double)
+							(re_match($1, $3) == 0));}
 	| string LE  string		{ $$ = f_str((double)
 							(f_cmp($1, $3) <= 0));}
 	| string GE  string		{ $$ = f_str((double)
