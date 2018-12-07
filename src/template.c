@@ -6,12 +6,7 @@
 
 #include "config.h"
 #include <sys/types.h>
-#ifdef DIRECT
-#include <sys/dir.h>
-#define  dirent direct
-#else
 #include <dirent.h>
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

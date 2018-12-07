@@ -21,9 +21,10 @@ strings use the <TT>%g</TT> format (unless <TT>printf</TT> is used);
 conversions from strings to numbers skips leading blanks and converts
 like <TT>atof</TT>. Trailing non-numeric characters are ignored.
 
-<P>Expressions are interpreted, not compiled. This means that all parts of
+<P>Expressions are evaluated as they are parsed. This means that all parts of
 the expression are evaluated, <TT>?:</TT>, <TT>&amp;&amp;</TT>, and <TT>||</TT>
-do not short-circuit.
+do not short-circuit.  Reliance on order of evaluation in anything
+other than comma and semicolon lists may break in a future release.
 
 <P>In the following tables, <B>n</B> stands for a number or a
 numerical expression, and <B>s</B> stands for a literal string or a
@@ -186,7 +187,7 @@ pressed</I> expressions for Button-type fields in the form editor. It
 does nothing until the button expression evaluation is finished. It
 then switches grok to a new form as if the Database pulldown had been
 used (see the Editing Forms chapter for details about the difference
-between <I>databases</I> and <I>forms</I>. The first argument is the
+between <I>databases</I> and <I>forms</I>). The first argument is the
 new form name, the second argument is the query expression or search
 string that determines which cards are displayed in the summary
 initially. The possible combinations are:
@@ -261,8 +262,8 @@ not return anything.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <TT>=</TT> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Change a field in the database, current card
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I><TT>[</TT><B>n</B><TT>] =</TT> <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0> Change a field in the database, any card
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I><TT>[</TT><B>n</B><TT>] =</TT> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0> Change a field in the database, any card
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>expand(</TT><I>_field</I><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from the database, current card, with flag or choice value expanded to mnemonic string (*)
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>expand(</TT><I>_field</I><TT>[</TT><B>n</B><TT>])</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from the database, any card, with flag or choice value expanded to mnemonic string (*)
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>expand(</TT><I>_field</I><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from the database, current card, with flag or choice value expanded to mnemonic string
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>expand(</TT><I>_field</I><TT>[</TT><B>n</B><TT>])</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from the database, any card, with flag or choice value expanded to mnemonic string
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>this</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the current card, 0 is first
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>last</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the last card, 0 is first
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>disp</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the currently displayed card, or -1 if none
@@ -292,8 +293,6 @@ not return anything.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>foreach(</TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Apply expression to all cards; see above
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>foreach(</TT><B>s</B>, <B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Apply expression to all matching cards; see above
 </TABLE>
-
-<P>(*) The <TT>expand</TT> keyword was introduced in grok version 1.5.
 
 
 <A NAME="gf">

@@ -8,21 +8,14 @@
 
 <TABLE CELLPADDING=4 BORDER=0 CELLSPACING=4>
 <TR BGCOLOR=#a0a0e0><TH>file<TH>location<TH>contents
-<TR> <TD><TT>grok</TT>      <TD> GBIN              <TD> main executable
-<TR> <TD><TT>grok.hlp</TT>  <TD> GLIB              <TD> ascii help texts
-<TR> <TD><TT>Manual.ps</TT> <TD> GLIB              <TD> this PostScript manual
-<TR> <TD><TT>grokdir</TT>   <TD> GLIB              <TD> demo application directory
+<TR> <TD><TT>grok</TT>      <TD> /usr/bin          <TD> main executable
+<TR> <TD><TT>grok.hlp</TT>  <TD> /usr/share/grok   <TD> ascii help texts
+<TR> <TD><TT>index.html</TT><TD> /usr/share/doc/grok<TD> this HTML manual
+<TR> <TD><TT>grokdir</TT>   <TD> /usr/share/grok   <TD> demo application directory
 <TR> <TD><TT>.grok</TT>     <TD> <TT>~</TT>        <TD> default form and database directory
 <TR> <TD><TT>.grokrc</TT>   <TD> <TT>~/.grok</TT>  <TD> configuration data for grok
-<TR> <TD><TT>grok.xpm</TT>  <TD> LIBDIR            <TD> X pixmap icon, optional
-<TR> <TD><TT>Grok.icon</TT> <TD> <TT>~/.icons</TT> <TD> full-color icon, SGI systems only
+<TR> <TD><TT>Grok.xpm</TT>  <TD> /usr/share/icons  <TD> full-color icon
 </TABLE>
-
-<P>``GBIN'' stands for the directory specified in the <TT>GBIN</TT> macro
-in the Imakefile or Makefile.alt, by default /usr/local/bin. ``GLIB'' is
-also in the Imakefile or Makefile.alt, the default is /usr/local/lib.
-``LIBDIR'' is provided by imake and depends on the system, and is
-typically /usr/lib/X11.
 
 <P>Every grok application consists of one ``form'' file and one or more
 ``database'' files. The form file describes the card layout and the data
@@ -42,10 +35,10 @@ subdirectories, they are searched for more <TT>.db</TT> files recursively.
 <P>grok searches for form files in four locations, in the following order:
 
 <OL>
-<LI> the current directory,
+<LI> $GROK_FORM, if defined; otherwise the current directory
 <LI> ./grokdir,
 <LI> ~/.grok,
-<LI> GLIB/grokdir
+<LI> /usr/share/grok/grokdir
 </OL>
 
 <P>All the form files ending with <TT>.gf</TT> found in these directories

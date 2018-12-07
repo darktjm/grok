@@ -3,7 +3,7 @@ grok - Graphical Resource Organizer Kit
 
 For people who don't read long READMEs, I'll describe compilation and
 installation first.  Before starting, install Qt 5 (this was tested
-with 5.11.2):
+with 5.11.3):
 
 >     cd src; qmake && make
 >     # if you want to install it now:

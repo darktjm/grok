@@ -329,6 +329,7 @@ static struct _template {
 
 	{ PLN, 'L',	 0,	"Calendar interface:",	"fe_plan",	},
 	{   0, 'R',	 0,	" ",			0,		},
+    /* FIXME:  make this a choice menu (with None/blank as a choice) */
 	{ TIM, 'r',	0x260,  "Date+time",		"fe_plan",	},
 	{ PLN, 'r',	0x261,  "Length",		"fe_plan",	},
 	{ PLN, 'r',	0x262,  "Early warn",		"fe_plan",	},
@@ -344,6 +345,8 @@ static struct _template {
 	{ PLN, 'r',	0x26a,  "Suspended",		"fe_plan",	},
 	{ PLN, 'r',	0x26b,  "No time",		"fe_plan",	},
 	{ PLN, 'r',	0x26c,  "No alarm",		"fe_plan",	},
+    /* FIXME:  planquery is form-wide, so it should be in top area */
+    /*         I guess it's down here to keep the plan-related stuff together */
 	{ PLN, 'L',	 0,	"Shown in calendar if:","fe_plan",	},
 	{ PLN, 'T',	0x228,	" ",			"fe_plan",	},
 	{ PLN, '-',	 0,	" ",			0,		},

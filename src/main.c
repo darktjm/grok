@@ -250,7 +250,7 @@ int main(
 static void usage(void)
 {
 	fprintf(stderr, "Usage: %s [options] [form ['query']]\n", progname);
-	fprintf(stderr, "       %s -x form template ['query']\n", progname);
+	fprintf(stderr, "       %s -x form template[flags] ['query']\n", progname);
 	fprintf(stderr, "    Options:\n%s%s%s%s%s%s%s%s%s\n",
 			"\t-h\tprint this help text\n",
 			"\t-d\tdump fallback Qt Style Sheet and exit\n",

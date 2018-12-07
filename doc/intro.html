@@ -20,7 +20,7 @@ strings. A <I>card</I> presents one row of the database. For example,
 the phone list stores one person per row, with various columns for name,
 address, phone number, and so on.
 
-<P>In addition top the card, the main window also displays a scrollable
+<P>In addition to the card, the main window also displays a scrollable
 <I>summary</I> listing containing one line per card, allowing fast lookup
 of cards. Pressing on a line in the summary puts the corresponding row
 into the card part of the window. The main window also contains controls
@@ -30,8 +30,8 @@ language, or using customizable standard queries.
 
 <P>This chapter is intended as a user manual. For details on the
 implementation of databases, and for advanced operations such as building
-new applications with grok, refer to the chapter ``Creating and Editing
-Forms''.
+new applications with grok, refer to the chapter
+<A HREF="formedit.html">``Creating and Editing Forms''</A>.
 
 
 <A NAME="ib">
@@ -60,9 +60,10 @@ database are searched for keywords. Note the single quotes enclosing
 the query to protect blanks, parentheses, and double quotes from the
 shell.
 
-<P>grok supports the following command-line options:
+<P>grok supports the following command-line options:</P>
 
-<TT>grok</TT> [<I>options</I>] [<I>database</I> ['<I>query</I>']]
+<TT>grok</TT> [<I>options</I>] [<I>database</I> ['<I>query</I>']]<BR>
+<TT>grok</TT> -x <I>database</I> <I>template</I>[<I>flags</I>] ['<I>query</I>']]
 
 <UL>
 <LI><TT>-h</TT><BR>
@@ -95,6 +96,17 @@ shell.
 	form editor. If that expression is undefined too, print all
 	cards. The <I>database</I> argument is mandatory for <TT>-p</TT>.
 
+<LI><TT>-x</TT><BR>
+	Evaluate the <I>template</I> and print the results to stdout.
+	The format is defined by the template, and the query is
+	usually, but not necessarily, used by the template to select
+	results.  The template named <TT>+</TT> refers to standard
+	input.  Other templates include the built-in templates and
+	templates defined for the database.  Any number of flags for
+	the template can be appended to the name, each as a dash
+	followed by the flag letter (a-z).  See the chapter on
+	<A HREF="export.html">exports</A> for details.
+
 <LI><TT>-f</TT><BR>
 	Do not fork on startup. This is mainly a debugging tool; it
 	prevents grok from putting itself into the background.<P>
@@ -109,8 +121,30 @@ shell.
 
 </UL>
 
-<!-- FIXME:  document these -->
 In addition, the standard Qt command-line options are supported.
+At the time of this writing, they are documented at the
+<A HREF="http://doc.qt.io/qt-5/qguiapplication.html#QGuiApplication">QGuiApplication
+constructor documentation</A> and the
+<A HREF="http://doc.qt.io/qt-5/qapplication.html#QApplication">QApplication
+constructor documentation</A>.  Note that these are only recognized if
+the application's GUI is started, and they may be placed anywhere as
+they are essentially removed by Qt itself before the above arguments
+are processed.  Some important options are:
+
+<UL>
+<LI><TT>-style=</TT><I>style</I> <TT>-style</TT> <I>style</I><BR>
+	Changes the entire appearance of the application.  Available
+	style plugins vary by installation.  One particular style of
+	note, since this application used to be MOtif-based, is the
+	<A HREF="https://github.com/qt/qtstyleplugins.git">motif</A>
+	plugin.  The style can also be overridden using the
+	environment variable <TT>QT_STYLE_OVERRIDE</TT>.
+<LI><TT>-stylesheet=</TT><I>file</I> <TT>-stylesheet</TT> <I>file</I><BR>
+	As mentioned above, the <I>file</I> contains a Qt Style Sheet that
+	supplements and overrides (rather than replaces) the built-in
+	style sheet.
+</UL>
+
 
 
 <A NAME="ic">
@@ -126,11 +160,12 @@ choose the database to display from the <TT>Database</TT> pulldown.
 This pulldown presents all files in the <TT>~/.grok</TT> directory
 that end with the extension <TT>.gf</TT>, with the extension removed.
 (If a new database is created, it is not necessary to choose a database,
-see next chapter.) Sometimes, the Database pulldown shows some databases
-more than once. The reason is usually that the database is found in
-two different places or using different paths; the duplicates can be
-eliminated by enabling the ``Don't show duplicate databases'' in the
-preferences menu available under the ``File'' pulldown.
+see <A HREF="formedit.html">next chapter</A>.) Sometimes, the Database
+pulldown shows some databases more than once. The reason is usually
+that the database is found in two different places or using different
+paths; the duplicates can be eliminated by enabling the ``Don't show
+duplicate databases'' in the preferences menu available under the
+``File'' pulldown.
 
 <P>The next step is choosing a <I>section</I> of the database. Not
 all databases have section; if the <TT>Section</TT> pulldown in the
@@ -157,17 +192,12 @@ file was read-only, or the application author has restricted write
 access). Text entry fields normally have a pink background; read-only
 text fields have a gray background.
 
-<P>There is a special multi-line version of text entry field called a
-<I>note</I>, which always has a gray background regardless of its writable
-status. On some systems it is necessary to press in the upper left corner
-of the inset area, or on already existing text to get a cursor.
-
 <P>Below the card, there are buttons to skip to the next or previous
 card, to create a new card (<I>New</I>), to duplicate the currently
 displayed card, or to delete the currently displayed card. New cards
 may be created with defaults specified by the application designer. If
-the database has sections, there is an additional buttons that moves
-the card into a different section.
+the database has sections, there is an additional menu button that
+moves the card into a different section.
 
 <P>grok can optionally display a row of letter buttons below the summary
 area that restrict the summary to display only cards whose first text
@@ -178,7 +208,6 @@ mode in the preferences menu that can be called with the ``Preferences''
 choice in the ``File'' pulldown. The ``Letter search checks all words''
 mode in the same menu extends the letter search to check all words in
 the first text field of each card, instead of just the first.
-
 
 <A NAME="id">
 <H2>Searches and Queries</H2>
@@ -192,11 +221,11 @@ equivalent to what the Unix command <TT>fgrep&nbsp;-i</TT> does.
 <P>More sophisticated queries can be performed by entering a query
 expression beginning with <TT>(</TT> or <TT>{</TT>. For a description
 of the syntax and the difference between parenthesized and braced
-expressions, the the ``Expression Grammar'' chapter. To get a feel for
-expressions, enable ``Show query search expressions'' in the preferences
-menu and choose a canned query from the ``Query'' pulldown. The query
-expression will be shown in the Search text field and can then be
-edited there.
+expressions, the the <A HREF="grammar.html">``Expression Grammar''</A>
+chapter. To get a feel for expressions, enable ``Show query search
+expressions'' in the preferences menu and choose a canned query from
+the ``Query'' pulldown. The query expression will be shown in the
+Search text field and can then be edited there.
 
 <P>The Query pulldown always begins with the ``All'' choice that puts
 all cards in the database, or all cards in the current section if one
@@ -210,27 +239,35 @@ in the summary, thus narrowing the previous search or query.  To return
 to a complete listing, choose ``All'' in the Query pulldown.  If the
 incremental mode is disabled, all cards are checked.
 
+<!-- FIXME: document search type menu button -->
 
 <A NAME="ie">
 <H2>Printing</H2>
 
 <P>The File pulldown has a ``Print...'' choice that pops up the
-printing menu. It allows selecting the cards to print, the output
-format, the output quality, and the output device. Medium quality uses
-overstrike ASCII to simulate boldfacing and underlining as supported
-by many programs such as <I>more</I> and most printer drivers. It uses
-character-backspace-character or underbar-backspace-character sequences
-to highlight field names and header lines.
+printing menu. It allows selecting the cards to print and the output
+format.  These formats always include the built-in HTML, text, and
+fancy text options; they may also have database-specific formats
+created for exporting; see below.  Normally, HTML is the best option.
+The other two are retained to match the old print functionality.  The
+text format is plain text in a typewriter font wrapped or truncated to
+the ``Text export line Length'' preference.  The fancy text format is the
+same, but text overstrike is used to add underlining and bolding.
 
-<P>If ``Printer'' is chosen as output device, the printout is sent
-to the Unix command line specified in the preferences menu. Typical
-print spooler strings are ``lp'' (on System V) or ``lpr'' (on
-BSD systems). It is also possible to enter shell commands such as
-``cat&nbsp;&gt;&nbsp;/dev/tty''. The PostScript printer is specified
-separately because a RIP program or special lp options may have to
-be specified; this is currently not used because the ``PostScript''
-quality choice in the print menu is not yet implemented.
+<P>Each output format may also support flags, which can be entered in
+the text field as the letters a-z.  The default formats support
+Summary, Notes, and Cards flags.  If Summary is set, the summary
+listing will be included.  If Notes is also set, all fields of type
+Note will be interspersed, unlabeled, in the summary listing under
+their row.  If Cards is set, a detail listing of all cards will be
+included below the summary, if present.
 
+<P>The Preview button then provides a grphic preview before printing
+(which can be begun using a button in the preview interface), and the
+Print button goes straight to the printer selection.  These two allow
+adjustment of other print options, such as paper size, page selection,
+and printer name.  Always use the Preview button first if you are
+unsure that the output format will be to your liking.
 
 <A NAME="if">
 <H2>Exporting</H2>
@@ -238,11 +275,21 @@ quality choice in the print menu is not yet implemented.
 <P>The File pulldown also has an ``Export...'' choice that pops up the
 Export menu. Exporting means creating one or more files that contain the
 data in the current database, or a subset of this data, in a particular
-format controlled by a <I>template</I>. There are built-in templates
-that create HTML (world-wide web) pages from the database.  It is
-also possible to write custom templates. For details, see the chapter
-``Template Exports''.
+format controlled by a <I>template</I>.  You may notice that the
+listed templates are the same as for printing; this is no
+coincidence.  Templates also define the printer output format.  The
+built-in templates create HTML, plain text, and overstrike text, as
+described above.  It is also possible to write custom templates using
+the buttons below the template list.  For details, see the chapter
+<A HREF="export.html">``Template Exports''</A>. 
 
+<P>While exporting is very similar to printing, the output destinations
+are different.  The Preview button displays the results in a window
+(which is not the same as the printing Preview window).  The Export
+button exports to a file, specified in the "To File:" text box.  A
+file may be selected using a GUI by pressing the "..." button next to
+it.  The output may be redirected to a command by giving a command
+instead, prefixed with a vertical bar (|).
 
 <A NAME="ig">
 <H2>Miscellaneous</H2>
@@ -250,11 +297,10 @@ also possible to write custom templates. For details, see the chapter
 <P>When a database is changed, the changes are not immediately written
 to the database file (with the <TT>.db</TT> extension). It is written
 when ``Save'' or ``Quit'' in the File pulldown is chosen, or when a
-new database is chosen from the Database pulldown. Under mwm-based
-window managers, double-clicking the top left corner button in the
-window decoration also saves, but there may be window managers that do
-not support the necessary WM protocols for this. The status line below
-the search text field displays ``(modified)'' if the database has been
+new database is chosen from the Database pulldown.  Closing the window
+normally also allows saving.  Killing the program or killing the
+window will not save.  The title bar has a * indicator, and the
+search text field displays ``(modified)'' if the database has been
 changed but not written back.
 
 <P>Note that grok does not attempt to sequence database accesses. It does
@@ -271,8 +317,9 @@ including the names and paths of all loaded files and their sizes.
 <P>In case of trouble, it is <B>strongly</B> recommended to read the
 other help texts available under the Help pulldown, especially the
 ``Troubleshooting'' section. The Help pulldown will only work if the
-<TT>grok.hlp</TT> file is installed in the directory specified in the
-GLIB macro in the Makefile (Imakefile, or Makefile.alt), by default
-/usr/local/lib.
+<TT>grok.hlp</TT> file is installed in proper directory, by default
+/usr/share/grok.
+
+<!-- FIXME: change /usr/share/grok to correct path when installing docs -->
 
 </BODY></HTML>

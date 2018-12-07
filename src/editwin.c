@@ -204,7 +204,7 @@ static void done_callback(void)
 
 static void cancel_callback(void)
 {
-	if(create_query_popup(shell, "msg_discard",
+	if(create_query_popup(shell, "msg_delete",
 		"Press OK to confirm discarding\nall changes to the text")) {
 	    if (sourcefile)
 			free(sourcefile);

@@ -301,13 +301,17 @@ Version 2.3 (in progress)
       there is no detail listing link target.
     * In HTML exports, the column to link is chosen based on default sort
       key and field type rather than always picking the left-most.
-    * Exports may now be previewed in a window, like print-to-window.
+    * Exports may now be previewed in a window, like old print-to-window.
+    * If the first character of an export file name is |, pipe the
+      export result to the following command instead of writing to file
  * Added detab, align, =~, !~ for expressions
  * Printing has been replaced by Qt's native print mechanism operating
    on template outputs.  Print-to-window is now Qt's print preview
-   mechanism.  All former print options have equivalents in the new
+   mechanism.  Print-to-file should be supported by the Qt dialog
+   directly.  All former print options have equivalents in the new
    Print GUI.  The only thing missing is printing to a text-only printer,
-   which must now be done on the command line using exports.
+   which must now be done using exports either on the command line or
+   by exporting to a pipe.
 
 This hasn't been explicitly stated before, but the specific format of
 automatically generated exports may change without notice.  If you

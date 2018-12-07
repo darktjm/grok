@@ -16,15 +16,6 @@
  * script that dumps all predefined symbols on your system's cpp (not included
  * because it is copylefted).
  *
- * Configurable parameters are:
- *
- *   FIXMBAR		on some systems, pulldowns always come up empty.
- *			Define this to enable a weird hack that fixes this.
- *   NOMSEP		remove all separator lines in pulldowns. Surprisingly
- *			many Motif implementations have trouble with this.
- *			Defining this fixes empty or truncated pulldowns
- *   DIRECT		for BSD systems that use the older "direct" package,
- *			if /usr/include/dirent.h does not exist
  */
 
 /*---------------------------------------------------------------------------*/
@@ -45,14 +36,6 @@
 /*
  * The rest is for porting only.
  */
-
-#if !defined(sgi)
-#define NOMSEP		1
-#endif
-
-#if defined(osf) || defined(bsdi)
-#define DIRECT	1
-#endif
 
 #ifdef __GNUC__
 #define FALLTHROUGH __attribute__((fallthrough));

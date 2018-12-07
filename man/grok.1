@@ -4,6 +4,9 @@ grok \- Desktop Database Manager and GUI Builder
 .SH SYNOPSIS
 .B grok
 [-h] [-d] [-v] [-t] [-T] [-p] [-f] [\fIform\fR [\fIquery\fR]]
+
+.B grok
+-x \fIform\fR \fItemplate\fR[\fIflags\fR] [\fIquery\fR]
 .SH DESCRIPTION
 .B grok
 is a database manager that displays two-dimensional databases using a
@@ -45,6 +48,11 @@ warn, day repeat, end date, color, note, message, script, suspend flag,
 no-time flag, and no-alarm flag. Colons, newlines, and backslashes in
 fields are escaped with a backslash. If no query string is given, the
 default plan query defined in the form is used.
+.IP \-x
+Evaluates the given
+.I template
+and returns the results to standard output.  This provides much more
+control over output format than the -t, -T, and -p options.
 .IP \-f
 Don't fork on startup. This is useful for debugging.
 .IP form
@@ -60,6 +68,16 @@ database to display initially. If there is no default query, all cards are
 displayed. The query argument can be used to override the default query.
 This option should always be quoted with single quotes to keep the shell
 from interpreting the query string.
+.IP template
+The available templates are the built-in \fBhtml\fR, \fBtext\fR, and
+\fBfancytext\fR templates, as well as any user-created templates for
+the database.  The template may also be
+.I +
+to read the template from standard input.
+.IP flags
+Template flags a-z are normally all unset.  They may be set by
+appending a dash (\fB-\fR) and then the flag letter to the template name.
+Any number of flags may be set in this way.
 .LP
 There are different types of queries: '*' selects all cards, '/string'
 performs a case-insensitive string search, '{expr}' selects all cards for

@@ -11,9 +11,10 @@ that comes up when grok is started deals with database presentation and
 modification; to edit the presentation, or to create a new database,
 start the form editor from the File pulldown in the main window.
 
-<P>The form editor is a separate window that is rather more complicated
-than the standard database user interface. It is basically a simple UI
-builder that allows the user to create and position UI elements in a card.
+<P>The form editor is a separate pair of windows that is rather more
+complicated than the standard database user interface. It is basically
+a simple UI builder that allows the user to create and position UI
+elements in a card.
 
 <A NAME="mb">
 <H2>General Setup</H2>
@@ -21,9 +22,9 @@ builder that allows the user to create and position UI elements in a card.
 <P>The first step when creating a new database is choosing a form name.
 This is the name that will appear in the Database pulldown in the main
 window (actually, the pulldown should be called Form, but I fear that
-would confuse casual users). Every form references a database whose
-contents it presents; this name must also be chosen. Typically, both
-names are the same.
+would confuse casual users<!--<SUP><A HREF="#footnote">*</A></SUP>-->.
+Every form references a database whose contents it presents; this name
+must also be chosen. Typically, both names are the same.
 
 <P>Both the form name and database names are also the file names the form
 and the database will be stored in. The form name gets the extension
@@ -38,7 +39,7 @@ when the database or form is changed, it is written back to that path.
 When a new database is created, and its name does not begin with ``/''
 or ``~''  as defined in the second line of the form editor, it is stored
 in the same directory as its form file. The default is always ~/.grok.
-The Help-&gt;Database popup shows which paths are actually used.
+The Help-&gt;Current Database popup (Ctrl-D) shows which paths are actually used.
 
 <P>The database is a two-dimensional array of strings. The rows are called
 <I>cards</I>, and the columns are called <I>fields</I>. Rows are separated
@@ -54,6 +55,16 @@ is changed when the database already contains data.
 a form that is has the read-only flag set will not be able to change
 any cards, and will not be able to write back.
 
+<P>Turning on Timestamps/Synchronizable for a database creates a third
+file, with the same path as the database file but with a <TT>.ts</TT>
+extension.  This contains a timestamp for each row in the database
+indicating when it was last modified.  This is currently only used to
+display the "card created" and "last changed" dates displayed above
+the card in the main window.  A future version of grok may support
+maerging with synchronization to choose the most recent versions of
+each line.<!-- I wouldn't count on it, though -->   It is recommended
+that you turn this on, since it does not take a lot of disk space.
+
 <P>A procedural database does not read a file, but calls a script that
 provides the data in the same format that the file would contain. If
 the <TT>procedural</TT> button is turned on, the referenced database
@@ -68,6 +79,15 @@ delimiter character and separating rows with newlines. If the delimiter
 or newlines appear in as part of a data string, it must be escaped with
 a backslash.
 
+<P>Some template control and search expression functions support
+<A HREF="grammar.html#gi">interpreting strings as arrays</A>.  In
+addition, some field types store multiple values in a single field
+using this interpretation.  Array elements are delimited by the
+defined Array elt delimiter, and any characters prefixed by the Array
+elt escape are not special.  These two may not be the same, as that
+would make representing empty array elements impossible.  They may be
+the same as the dbase field delim, though.
+
 <P>A comment can be specified that should give the name of the author
 of the form, or special caveats. The comment is displayed only in the
 form editor window.
@@ -80,11 +100,12 @@ form editor window.
 have, but doesn't look as nice and shows extra information. Fields appear
 as blue rectangular boxes, some of which are divided in the middle
 (depending on the field type). The current field, whose specification
-is displayed in the form editor window. A field can be moved by
-left-clicking somewhere inside the field (but not too close to an edge)
-and dragging. The size can be changed by dragging one of the four edges,
-and the divider can also be dragged. Fields should not overlap. The card
-canvas can be resized; fields should not overlap the canvas window edges.
+is displayed in the form editor window, has a yellow background. A
+field can be moved by left-clicking somewhere inside the field (but
+not too close to an edge) and dragging. The size can be changed by
+dragging one of the four edges, and the divider can also be dragged.
+Fields should not overlap. The card canvas can be resized; fields
+should not overlap the canvas window edges.
 
 <P>The canvas is divided in two parts by a horizontal fat line. The
 divider can be moved vertically by dragging the little square that
@@ -103,18 +124,19 @@ makes it a good place to place form switch buttons that would otherwise
 become unavailable when no card is displayed.
 
 <P>There are several types of fields. Not all of them store data in the
-database; some are decorative or display computed information.
+database; some are decorative or display computed information.  Unless
+otherwise stated, all field types are in-database values that should
+not be put into the static part of the canvas.
 
 <UL>
 <LI><B>Input</B><BR>
 	This is the main type of field. It displays an editable (unless
-	turned off) string in the database, along with a label.  Input
-	fields should not be put into the static part of the canvas.<P>
+	turned off) string in the database, along with a label.<P>
 
 <LI><B>Number</B><BR>
 	Input fields may be interpreted as numbers, but their format
 	and values are not enforced.  The Number field enforces a
-	numeric format and a specific range.<P>
+	numeric format and a specific range.<P> 
 
 <LI><B>Time</B><BR>
 	A variation of the Input field. The database representation is
@@ -126,16 +148,14 @@ database; some are decorative or display computed information.
 	field, it is converted to the numeric representation, reformatted,
 	and reprinted. Time fields are useful because they can be used in
 	expressions for calculation; expressions always see the numeric
-	database string.  Time fields should not be put into the static
-	part of the canvas.<P>
+	database string.<P>
 
 <LI><B>Note</B><BR>
 	A note is a multi-line Input field. It should be used only
 	for multi-line text input because it cannot be tabbed over, and
 	because pressing Return when entering data into the card into
 	a Note actually inserts a newline, rather than skipping to the
-	next field as an Input-type field would.  Note fields should
-	not be put into the static part of the canvas.<P>
+	next field as an Input-type field would.<P>
 
 <LI><B>Choice</B><BR>
 	Unlike all other types, many choice fields reference the same
@@ -147,8 +167,7 @@ database; some are decorative or display computed information.
 	at any time; the database string then matches the Choice/flag
 	code of that field. Most attributes of a <TT>Choice</TT> item,
 	when changed, are copied to all other <TT>Choice</TT> items that
-	have the same internal name.  Choice fields should not be put
-	into the static part of the canvas.<P>
+	have the same internal name.<P>
 
 <LI><B>Choice Group</B><BR>
 	Choice groups are multiple Choice buttons, automatically
@@ -172,7 +191,8 @@ database; some are decorative or display computed information.
 	string at a position in the card. There is no associated database
 	string. Labels are rarely needed because most of the other types
 	come with their own built-in label parts. The label is static,
-	expressions cannot be used.<P>
+	expressions cannot be used. Label fields are useful in both
+	the static and card parts of the canvas.<P>
 
 <LI><B>Print</B><BR>
 	Print fields are like Input fields, but no text can be
@@ -269,10 +289,12 @@ there is normally one field for each database column. All fields that
 do not reference a database column are merely decoration, no change
 of the database is possible through such a decorative field (although
 the decorative field may read the database, as <TT>Print</TT> fields
-do). This relation between fields and database columns also serves to give
-a symbolic name to database columns; these symbolic names can be used in
-expressions by prefixing them with an underscore. (It is also possible
-to use the column number in expressions, but that is less convenient).
+do). <!-- and anything with an expression can modify the database; in
+fact, that's one good use for buttons. -->  This relation between
+fields and database columns also serves to give a symbolic name to
+database columns; these symbolic names can be used in expressions by
+prefixing them with an underscore. (It is also possible to use the
+column number in expressions, but that is less convenient).
 
 <P>The main window has three parts, a summary, the static area, and the
 card.  The summary contains one line per card, while the card contains
@@ -321,6 +343,14 @@ a field in the card:
 	read. It is possible but not recommended to have both the Default
 	sort flag and the Not sortable flag on in the same field.<P>
 
+<LI><B>Multi-field</B><BR>
+	Flag Groups and Flag Lists may either store their values as a
+	string-as-set in a single column, or use a separate column for
+	every flag.  Checking this enables the latter.  When checked,
+	the Internal field name, Database column, Summary column and
+	Width in summary fields are moved to the Menu table, because
+	they are specified separately for each flag.<P>
+
 <LI><B>Internal field name</B><BR>
 	All fields have an unique name. Choice names are not unique,
 	choice fields are grouped by a common name. If the field
@@ -358,7 +388,8 @@ a field in the card:
 <LI><B>Shown in summary as</B><BR>
 	If this string is set, it will be displayed in the summary in
 	place of the choice/flag code. Basically, it is a mnemonic name
-	for the choice/flag code that a user can understand.<P>
+	for the choice/flag code that a user can understand.  Unlike Show
+	in summary, this is never interpreted as an expression.<P>
 
 <LI><B>Time format</B><BR>
 	Time fields have four different formats, as described above. The
@@ -489,7 +520,7 @@ a field in the card:
 	expression entered here. The expression is shared by all fields.
 	<I>plan</I> may override this expression by specifying a <TT>-p
 	</TT> query expression on the command line. This requires <I>
-	plan</I>version 1.9 or higher.<P>
+	plan</I> version 1.9 or higher.<P>
 
 <LI><B>Grayed out if</B><BR>
 	If the named expression evaluates to <I>true</I>, the field
@@ -514,8 +545,8 @@ a field in the card:
 	their bottom left corner, in Y-major order). If the named
 	expression of the next field evaluates to <I>true</I>, the
 	field is skipped and the cursor is put elsewhere. This
-	expression is evaluated every time return is pressed in the
-	previous field.  A constant expression such as <TT>true</TT>
+	expression is evaluated every time return or tab is pressed in
+	the revious field.  A constant expression such as <TT>true</TT>
 	is also useful.<P>
 
 <LI><B>Action when pressed</B><BR>
@@ -528,6 +559,8 @@ a field in the card:
 <LI><B>Chart flags</B><BR>
 	Not documented yet. This part of the menu is still under
 	development.<P>
+	<!-- FIXME:  all undocumented features are bugs...  either
+	             document it, replace it or chuck it -->
 
 </UL>
 
@@ -651,5 +684,14 @@ be displayed in a calendar view.
 <P>The standard <I>workplan</I> application that comes bundled with
 grok is set up to display the finish dates of jobs in calendar views,
 along with the job title.
+
+<HR>
+<!--
+<SMALL>
+<A NAME="footnote"></A>* In fact, other than in this chapter, the
+word Database is used to refer to the Form and its paired Database,
+rather than just the Database</A>
+</SMALL>
+-->
 
 </BODY></HTML>

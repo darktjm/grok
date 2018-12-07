@@ -20,7 +20,10 @@ Bugs
   in form editor.
 
 - Sometimes 1st widget of card appears even though no record is
-  selected in main card window display.
+  selected in main card window display.  Speaking of which, the static
+  area doesn't really work any differently from the bottom area, as far
+  as I can tell, even though the docs say otherwise, so maybe I need
+  to revisit that. 
 
 - Main window sizing issues:
 
@@ -85,20 +88,10 @@ Bugs
   selected after deleting a widget don't get highlighted.
 
 - The canvas' close event is called on edit shutdown, even though it
-  fortunately seems to have little effect.  Anything which disables
+  fortunately seems to have no effect.  Anything which disables
   the close callback like that should probably just be destroy'd.
 
-- .gf/db in "other" directories act strangely.
-
-- missing .db files are created w/o .db extension
-
-- procdemo has memory allocation error popup after form edit/reload,
-  but continues to work OK.  This is because write_form helpfully creates
-  an invalid database file, which is checked first (and fails) and then
-  reverts to the correct command file.  That whole mess needs to be
-  examined in detail; see above two items for some other reasons why.
-  For now, I could just bypass the form_write() code if the db is
-  procedural, but something better should be done.
+- The help popup for questions immediately gets pushed behind question popup
 
 Code Improvements
 -----------------
@@ -214,27 +207,18 @@ Important UI improvements
     instead.  Making a pseudo-what's this cursor would probably be
     way too much trouble.
 
-    Also, verify that all help topics are actually present in
-    grok.hlp, and that all topics present in grok.hlp are actually
-    used.
+    For now, verify all help texts are mostly legible, and maybe
+    convert some to HTML.  Also, verify that all help topics are
+    actually present in grok.hlp, and that all topics present in
+    grok.hlp are actually used.
 
-- Do something about the manual.  I actually prefer a latex manual,
-  which could be converted to HTML if desired.  The current HTML
-  manual needs to run through tidy, and be lower-case in general.
-  Then, I need to actually read it, and verify that it contains all
-  the necessary information.  Then, I need to add screenshots,
-  probably.  What would really be cool is if I could generate the
-  full manual, help text, and man page from the same source, but
-  I've been trying that for years with my literate stuff and it's
-  just not practical.
+- The manual needs cleaning up as well, but not that desperately.
+  I'll probably just leave it for now, and just make sure it's
+  relatively complete.  Running tidy on it causes more problems than
+  it fixes.
 
-    - In particular, files.html is probably all wrong, and I don't
-      want to deal with it right now.
-
-- Document the "standard" Qt command-line options, especially given
-  that they seem to only be documented in the
-  QApplication/QGuiApplication constructor documentation.  I'd rather
-  be able to provide a link to existing documentation.
+- Convert /usr in the man page, manual, and grok.hlp to $$PREFIX when
+  installing
 
 - Add list of field names to expression grammar help text, similar to
   fields text in query editor.  Or, just make that a separate
@@ -275,7 +259,10 @@ Important UI improvements
   work to make it usable.  It doesn't even support control characters
   in the text, so it's useless for editing "fancy" templates.
 
-- Support recent export names in combo box
+- Support recent export names in combo box.  Also, maybe support a set
+  of predefined export names that are permanently stored.  Maybe
+  combine this with the ability to delete history entries or make them
+  persistent (a checkbox next to each) in the pref editor.
 
 - Do something about scaling factor.  Either use it to adjust font
   sizes at the same time, or drop it entirely.  Really only relevant

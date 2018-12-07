@@ -211,8 +211,22 @@ BOOL write_form(
 	fclose(fp);
 	remake_dbase_pulldown();
 
-	path = resolve_tilde(form->dbase, "db");
-	if (access(path, F_OK) && errno == ENOENT) {
+	/* This used to only support relative .db files in GROKDIR */
+	/* The loading routines only check the same dir as the .gf, though */
+	path = strdup(path);
+	i = strlen(path);
+	if(i < 3 || strcmp(path + i - 3, ".gf"))
+		return(TRUE); /* invalid, really, but leae it alone */
+	/* The loader checks .db first, but it doesn't matter what order */
+	/* it's checked here, other than creation wanting the .db extencsion */
+	path[i] = 0;
+	/* On the other hand, having a non-readable non-db file is useless */
+	if (access(path, form->proc ? X_OK : R_OK))
+		strcpy(path + i, ".db");
+	/* auto-creation of procedurals won't work */
+	/* best to just force user to edit */
+	/* if they want to do it later, they can set it to /bintrue */
+	if (!form->proc && access(path, F_OK) && errno == ENOENT) {
 		if (!(fp = fopen(path, "w"))) {
 			create_error_popup(mainwindow, errno,
 "The form was created successfully, but the\n"
@@ -222,13 +236,15 @@ BOOL write_form(
 		}
 		fclose(fp);
 	}
-	if (access(path, R_OK)) {
+	if (access(path, form->proc ? X_OK : R_OK)) {
 		create_error_popup(mainwindow, errno,
 "The form was created successfully, but the\n"
 "database file %s exists but is not readable.\n"
 "No cards can be entered into the new Form.\n\nProblem: ", path);
+		free(path);
 		return(FALSE);
 	}
+	free(path);
 	return(TRUE);
 }
 #endif /* GROK */
@@ -238,6 +254,22 @@ BOOL write_form(
  * Read the form and all the items in it from a file.
  * Returns FALSE and leave *form untouched if the file could not be read.
  */
+
+static FILE *try_path(const char *path, char **fname)
+{
+	static char buf[1024]; /* ugh! */
+	int len;
+	FILE *fp;
+	len = sprintf(buf, "%s/%s", path, *fname);
+	if(len > 3 && strcmp(buf + len - 3, ".gf"))
+		strcpy(buf + len, ".gf");
+	if((fp = fopen(buf, "r"))) {
+		fprintf(stderr, "found %s\n", buf);
+		*fname = buf;
+		return fp;
+	}
+	return fp;
+}
 
 BOOL read_form(
 	FORM			*form,		/* form and items to write */
@@ -252,8 +284,27 @@ BOOL read_form(
 	CHART			*chart = 0;	/* next chart component */
 	MENU			*menu = 0;	/* next menu item */
 
-	path = resolve_tilde(path, "gf");
-	if (!(fp = fopen(path, "r"))) {
+	/* Use same path as the GUI for relative names */
+	if(!strchr(path, '/')) {
+		do {
+			char *env;
+			env = getcwd(line, sizeof(line));
+			env = getenv("GROK_FORM");
+			if((fp = try_path(env ? env : line, &path)))
+				break;
+			strcat(line, "/grokdir");
+			if((fp = try_path(line, &path)))
+				break;
+			if((fp = try_path(resolve_tilde((char *)GROKDIR, NULL), &path)))
+				break;
+			fp = try_path(LIB "/grokdir", &path);
+		} while(0);
+			
+	} else {
+		path = resolve_tilde(path, "gf");
+		fp = fopen(path, "r");
+	}
+	if (!fp) {
 		create_error_popup(mainwindow, errno,
 			"Failed to open form file %s", path);
 		return(FALSE);

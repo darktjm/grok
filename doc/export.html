@@ -13,8 +13,8 @@ formats. The format is controlled by a <I>template</I>. A template is
 a file containing the static text framework that should appear in the
 exported file, with embedded expressions that are evaluated as part of
 the export process. These expressions are either standard grok expressions
-(see Expression Grammar), or special export expressions that are available
-only in export templates.
+(see <A HREF="grammar.html">Expression Grammar</A>), or special export
+expressions that are available only in export templates, described below.
 
 <P>If the Export function in the file pulldown is chosen, a dialog
 containing a list of available templates is shown. The list begins with
@@ -24,33 +24,48 @@ reside in files in a directory that has the same path and the same name
 as the form file for the database, except that the extension ``.gf''
 is replaced with the extension ``.tm''.  The directory path can be
 displayed with the Database choice in the Help pulldown. For example,
-if the form file path is ``/usr/people/thomas/.grok/phone.gf'',
-all template files for the phone database are in the directory
-``/usr/people/thomas/.grok/phone.tm''.  The name of every file in that
-directory appears in the list of templates in the export dialog.
+if the form file path is ``~/.grok/phone.gf'', all template files for
+the phone database are in the directory ``~/.grok/phone.tm''.  The
+name of every file in that directory appears in the list of templates
+in the export dialog.
 
 <P>New templates can be created from scratch with the Create button under
 the template list. This will ask for the name of the new template and
 start an editor with the empty template file. To write a template that
 is a variation of an existing template, select the existing template,
 press the Dup (duplicate) button, and choose a file name.  This creates
-a copy of the template that can then be edited by selecting it in the
-template list and pressing the Edit button. This method also works for
-builtin templates.
+a copy of the template and brings up the editor on it; you can press
+cancel to just keep an exact copy.  This method also works for
+built-in templates.  The Edit button brings up the editor for
+user-created templates, and Delete deletes them (with no undo).
 
-<P>The template only contains the instructions for creating the output
-file that is the result of the export operation.  Some templates may
-also support flags; setting these can be considered part of selecting
-the template.  Flags a through z may be set in the field below the
-template list; all other flags are unset.  The flags may be given raw
-or prefixed individually with a dash.  After selecting a template, the
-full path of the output file must be entered into the text field under
-the template list, or selected using the Browse button. When both the
-template and the output file are defined, the Export button performs
-the export operation and removes the dialog.  Note that it is possible
-to write templates that ignore the output file name in the dialog and
-write to one or more files defined in the template. None of the
-builtin templates do that.
+<P>The built-in templates are:
+
+<UL>
+<LI><B>html</B><BR>
+	The HTML template displays the form name, followed by the
+	summary in a table with appearance similar to the GUI summary,
+	followed by a detailed card listing in a two-column table
+	below the summary.  If both are present, links are provided
+	between summary table entries and detail cards.  If the
+	summary is present, notes may also be displayed beneath each
+	summary line as described below.
+<LI><B>text</B><BR>
+	The text template produces almost identical output to the
+	html template, except in plain text, relying on monospace fonts
+	for alignment.  It also doesn't display the form name and
+	creation date at the top.
+<LI><B>fancytext</B><BR>
+	The fancytext template produces almost identical output to the
+	text template, except that overstrike is used to apply bolding
+	and underlining to parts of the output.
+</UL>
+
+<P>Some templates may also support flags; setting these can be
+considered part of selecting the template.  Flags a through z may be
+set in the field below the template list.  All unspecified flags are
+unset.  The flags may be given raw or prefixed individually with a
+dash.
 
 <P>The built-in templates normally export a summary listing, followed
 by a detailed card listing.  This can be modified with the following
@@ -63,6 +78,31 @@ if both -s and -d are specified, neither listing will be included.
 <LI> <B>-n</B> includes non-blank Note field contents into the
 summary listing, if present.
 </UL>
+
+<P>In the GUI, the above three flags are exposed through checkboxes.
+The Summary checkbox shows and sets the inverse of the d flag.  The
+Notes checkbox shoes and sets the n flag.  The Cards bcheckbox shows
+and sets the inverse of the s flag.  Specifying any of the three flags
+in the text box adjusts the checkboxes and removes them from the text,
+as they are meant to only be managed via the checkboxes.
+
+<P>After selecting a template, the full path of the output file
+must be entered into the text field under the template list, or
+selected using the Browse button.  Instead of a file name, a command
+may be specified by prefixing it with a vertical bar (|).  The
+template output will then be piped into the standard input of that
+command.
+
+<P>When both the template and the output file are defined, the Export
+button performs the export operation and removes the dialog.  Note
+that it is possible to write templates that ignore the output file
+name in the dialog and write to one or more files defined in the
+template. None of the builtin templates do that.
+
+<P>Alternately, if grok can parse the output, you can preview the
+output in a window by presing the Preview button (without having to
+specify a file first).  A simple algorithm is used to support HTML,
+plain text, and overstrike text.
 
 <P>Template exports can also be started from the command line. The command
 
@@ -90,6 +130,14 @@ listing with notes:
      grok -x phone html-s-n /415 > phone.html
 </PRE>
 
+<P>A template may also be piped into grok directly using the special
+template name <TT>+</TT>.  For example, to just print a few fields
+(see below for how to interpret this template):
+
+<PRE>
+     echo '\{FOREACH}\{_phone}:\{_name}
+     \{END}' | grok -x phone + /415
+</PRE>
 
 <A NAME="ec">
 <H2>Writing Custom Templates</H2>
@@ -114,12 +162,12 @@ output file. For example, the following text fragment in a template:
 
 <P>Note that the <TT>\{...}</TT> notation puts the expression parser in
 string mode, so inner parentheses had to be used to evaluate a numerical
-expression. There is no n <TT>\(...)</TT> syntax that would permit
-numerical expressions directly. If the export file should contain a
-backslash followed by an opening brace verbatim, the backslash must be
-doubled to prevent the sequence from being interpreted as the beginning
-of an expression. The <TT>switch</TT> statement may not be used with a
-new database specifier (First argument) in a template.
+expression. There is no <TT>\(...)</TT> syntax that would permit
+numerical expressions directly. Backslashes followed by any character
+other than an open brace escapes the next character.  Any backslashes
+being used as anything other than introducing expressions must be
+escaped by doubling them. The <TT>switch</TT> statement is ignored in
+a template.
 
 <P>Most templates use more complicated expressions that reference fields
 in the database. For example, suppose an export file is to be generated
@@ -158,7 +206,7 @@ distinguish them from regular grok expressions. Template expressions
 can be used in template files only; they cause syntax errors elsewhere.
 If a template expression is directly followed by a newline, the newline is
 ignored; this makes templates more legible because commands like FOREACH
-can be put into lines of their own without in troducing unwanted newlines.
+can be put into lines of their own without introducing unwanted newlines.
 
 <A NAME="ed">
 <H2>Template Expression Summary</H2>
@@ -245,6 +293,12 @@ can be put into lines of their own without in troducing unwanted newlines.
 	<TT>FOREACH</TT> statement followed by a <TT>FILE</TT> statement
 	that creates a file whose name is derived from a database field
 	or from a counter implemented with a variable.<P>
+
+	<P>As you might have guessed, output following <TT>FILE</TT>
+	will also not be sent to the command when exporting to
+	one, or shown in the preview window.  When using such
+	templates with the Print command, further output will
+	also not be printed.
 
 <LI><TT>\{QUIT}</TT><BR>
 	This command aborts template evaluation.  It is executed

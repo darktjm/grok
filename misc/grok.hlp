@@ -635,6 +635,59 @@
 
 	This window was created with the File->Export function's Preview button.
 	This window only supports text or HTML templates.
+%% tempname
+	MAKE TEMPLATE
+
+	This creates a new template, possibly pre-fiilled with an existing
+	one.  The name entered here is a file name in the template
+	directory for this database.  If you press enter (or Create), the
+	new template will be created, filled in (if this is a duplication),
+	and opened in a new editor window for further editing.  If you
+	just wanted an exact copy, press cancel immediately when the editor
+	window pops up.
+%% tempedit
+	TEMPLATE
+
+	This file is processed by Export and Print to produce its output.
+	All text outside of special template expressions is copied verbatim
+	to the output, unless it is a backslash, in which case the
+	character after the backslash is output, instead, if it is not
+	an open curly brace ({).  Template expressions begin with \{ and
+	end with }.  The first word of such an expression can be one of the
+	special template keywords, in which case a single newline immediately
+	following the expression will be ignored, if present.  Otherise, if is 
+	normal string expression, whose value is output in place of the
+	expression.
+
+	Special template keywords are:
+
+	\{FOREACH expr} ... \{END}
+	    Loop over database matching optional expr or the search in effect
+	    for the template if not present.  May nest 10 levels.
+	\{FOREACH [v expr} ... \{END}
+	    Loop over elements of array expr, setting v to the element.
+	    Nesting is shared with database loops (10).
+	\{FOREACH [+v expr} ... \{END}
+	    Loop over non-blank elements of array expr, setting v to the
+	    element.  Nesting is shared with database loops (10).
+	\{IF expr} ... \{ENDIF}
+	    Only evaluate text in between if expr is true.  Nesting is
+	    essentially unlimited.  The expr may also test if one of
+	    user-settable flags a-z is set.  -f is true if flag f is
+	    set, and +f is true if flag f is unset.
+	\{SUBST c=string c=string ... }
+	    Plain expressions' results are automatically escaped using
+	    by replacing each character c with the string that follows.
+	    A c=string pair may be replaced with HTML to perform common
+	    HTML substitutions, instead (< > & and \n->BR); subsequent
+	    replacements override earlier ones.
+	\{FILE expr}
+	    Redirect output to a different file, specified by expr.
+	    The previous file is closed.  The new file is only opened if
+	    at least one character is output to it.
+	\{QUIT}
+	    Terminate processing as if end-of-file had been reached.  This
+	    is normally used in conditional sections.
 %% msg_clear
 	CLEAR
 
@@ -953,6 +1006,12 @@
 	interpretation is used for some item properties and field
 	interpretations.  Changing this in a database with array values
 	or array item properties is not supported at this time.
+%% fe_ref
+	COMMENT
+
+	This comment should give the name of the author of the form, or
+	special caveats.  The comment is displayed only in the form editor
+	window.
 %% fe_rdonly
 	READ ONLY
 
@@ -1002,7 +1061,7 @@
 	Queries pulldown in the main menu. Queries are search expressions
 	that select a certain subset of available cards, and put the cards
 	that satisfied the expression in the summary for the user to select.
-%% fe_help
+%% fe_defhelp
 	DEF HELP
 
 	The Def Help button attaches a help text to the form. An editor is
@@ -1010,6 +1069,12 @@
 	how to use the fields and buttons. This help text will be displayed
 	when the user presses the Help button in the lower right corner of
 	the main window.
+%% fe_help
+	DEF HELP
+
+	This text describes the current form, and how to use the fields and
+	buttons. This help text will be displayed when the user presses the
+	Help button in the lower right corner of the main window.
 %% fe_debug
 	DEBUG
 
@@ -1043,6 +1108,12 @@
 	and terminate the form editor. If errors are found, an error popup lists
 	the problems, and the form editor is not terminated. The form editor
 	can be terminated without writing back with the Cancel button.
+%% fe_buts
+	FIELD OPERATIONS
+
+	The Add button adds a new field similar to the current field,
+	if any.  The Delete button deletes the current field, if any.
+	The buttons are documented separately.
 %% fe_add
 	ADD
 
@@ -1451,11 +1522,6 @@
 	should evaluate to a number of seconds, not to a string containing
 	a date. For example, to make the Time field default to today, use
 	(date), not {date}.
-%% fe_pattern
-	INPUT PATTERN
-
-	This string is a mask that user input must satisfy to be accepted as
-	input and stored into the database. It can be an expression.
 %% fe_gray
 	GRAYED OUT IF
 
@@ -1506,8 +1572,13 @@
 	the user presses the button. This will generally be an expression with
 	a side effect, such as an assignment to a variable, or a `switch' or a
 	`system' function. The latter calls a Unix system function.
-%% fe_result
-%% fe_query
+%% fe_chart
+	CHART
+
+	This feature is as yet undocumented.  This violates my usual
+	"every undocumented feature is a bug" rule.  This feature is subject
+	to sweeping changes in the future, so only use it to play.  See the
+	weather demo for an example.
 %% grammar
 	GRAMMAR
 

@@ -12,12 +12,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <signal.h>
-#ifdef DIRECT
-#include <sys/dir.h>
-#define  dirent direct
-#else
 #include <dirent.h>
-#endif
 #include <QtWidgets>
 #include "config.h"
 
@@ -103,7 +98,7 @@ static BOOL write_file(
 			"Database has no name, cannot save to disk");
 		return(FALSE);
 	}
-	path = resolve_tilde(path, 0);
+	path = resolve_tilde(path, "db");
 	if (form->proc) {
 		char cmd[1024];
 		sprintf(cmd, "%s -w %s", path, form->name);
@@ -262,7 +257,8 @@ static BOOL find_db_file(
 	sprintf(pathbuf, "%s.db", path);
 	if (!access(pathbuf, F_OK))
 		nread += read_dir_or_file(dbase, form, pathbuf);
-	if (!access(path, F_OK))
+	if (!nread && !access(path, F_OK))
+		/* FIXME: delete pathbuf, maybe */
 		nread += read_dir_or_file(dbase, form, path);
 	return(nread > 0);
 }

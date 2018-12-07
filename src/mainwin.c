@@ -16,12 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#ifdef DIRECT
-#include <sys/dir.h>
-#define  dirent direct
-#else
 #include <dirent.h>
-#endif
 #include <QtWidgets>
 #include "grok.h"
 #include "form.h"
@@ -468,9 +463,7 @@ static void make_dbase_pulldown(
 
 	for (i=0; i < nlines; i++) {
 		if (!db[i].path) {
-#			ifndef NOMSEP
 			dbpulldown->addSeparator();
-#			endif
 		} else {
 			QString n(db[i].name+1);
 			n.replace('&', "&&");

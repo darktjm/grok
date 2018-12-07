@@ -128,7 +128,7 @@ static void create_templ_print_popup(bool print)
 	add_layout_qss(form, "exportform");
     	/* I could use from->setContentsMargins() to 16 but I'll leave at default */
 	/* Same applies to setSpacing() */
-	bind_help(shell, "tempname");
+	bind_help(shell, print ? "print" : "export");
 
 	form->addWidget(new QLabel(print ? "Print" : "Export"));
 
