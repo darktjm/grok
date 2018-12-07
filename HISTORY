@@ -133,7 +133,9 @@ version 1.5.4
 
 -----  All releases below this line are by Thomas J. Moore,
 -----  https://bitbucket.org/darktjm/grok/
------  If tarballs aren't availble, look for the appropriate SVN ID.
+-----  git tag reltag can be downloaded as
+-----      https://bitbucket.org/darktjm/grok/get/reltag.tar.bz2
+-----  however, bitbucket doesn't give the archive a good directory name
 
 version 1.5.1 (git tag xmbase_grok-1.5.1, SVN 494), released 26.10.18
 
@@ -143,7 +145,7 @@ version 1.5.1 (git tag xmbase_grok-1.5.1, SVN 494), released 26.10.18
   * code now compiles with g++
   * other minor cleanups that may make this break in ancient unix
 
-version 2.0 (git tag grok-2.0, SVN 508), released 11.14.18
+version 2.0 (git tag grok-2.0, SVN 508), released 14.11.18
 
   * updated README to be more like old one (but renamed to README.md)
   * added a substantial todo list, in case I don't abandon this soon
@@ -198,10 +200,10 @@ version 2.0 (git tag grok-2.0, SVN 508), released 11.14.18
 Databases which rely on the dynamic behavior of invisible_if in 2.0
 will not work the same if loaded into 1.5.1 or earlier.
 
-Version 2.0.1 (git tag grok-2.0.1, SVN 510), released 11.14.18
+Version 2.0.1 (git tag grok-2.0.1, SVN 510), released 14.11.18
   * Minor bug fixes; use this instead of 2.0.
 
-Version 2.1 (git tag grok-2.1, SVN 518), released 11.17.18
+Version 2.1 (git tag grok-2.1, SVN 518), released 17.11.18
   * Added reordering buttons to query editor
   * The conditional expressions (Grayed out if,  ...) are now combo
     boxes, to make it easier to set groups of widgets to the same
@@ -223,7 +225,7 @@ I needn't have worried, since the bug causing it was introduced after
 2.0.1, anyway.  Maybe I need a release manager.  Then again, it's not
 likely anywone but me cares.  It's not like I advertise this anywhere.
 
-Version 2.2 (git tag grok-2.2, SVN 528), released 12.1.18
+Version 2.2 (git tag grok-2.2, SVN 528), released 1.12.18
   * Date widgets were updating after every keystroke, which
     essentially disallows all entry other than direct editing of the
     value, barely.  This bug was introduced in 2.0.
@@ -255,7 +257,7 @@ problem, but technically a new, incompatible feature:
     by shortening headers and data if necessary
 
 Also, I feel that making help text more legible is a critical enough
-feature that I'm releasing 2.2.2 (grok 2.2.1, SVN 530, 12.2.18) just
+feature that I'm releasing 2.2.2 (grok 2.2.1, SVN 530, 2.12.18) just
 for that.
 
 Databases which use the new widget types (Number, Choice Group, Choice
@@ -263,7 +265,7 @@ Menu, Flag Group, Flag Menu) will not function correctly in 2.1 or
 earlier.  Combo boxes and special date/time widgets will revert to
 plain input fields in 2.1 or earlier.
 
-Version 2.3 (in progress)
+Version 2.3 (git tag grok-2.3, SVN 536), released 7.12.18
   * sub() and gsub() were replacing too many characters in mid-string
     replacements.  This bug was introduced in 2.1.
   * Print output was exceeding line length by one for notes and card

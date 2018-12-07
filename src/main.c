@@ -6,7 +6,7 @@
  *	main(argc, argv)		Guess.
  *
  * Author: thomas@bitrot.de (Thomas Driemeyer)
- * Major changes by Thomas J. Moore; see HISTORY
+ * Major changes by Thomas J. Moore <darktjm@gmail.com>; see HISTORY
  */
 
 #include "config.h"

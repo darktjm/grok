@@ -36,9 +36,9 @@ static const char about_message[] =
 	"Graphical Resource Organizer Kit\n"
 	"Version " VERSION "\n"
 	"Compiled " __DATE__ "\n\n"
-	"Author: Thomas Driemeyer <thomas@bitrot.de>\n"
+	"Author: Thomas Driemeyer &lt;thomas@bitrot.de&gt;\n"
 /*	"Homepage: <a href=\"http://www.bitrot.de/grok.html\">http://www.bitrot.de/grok.html</a>\n" */
-	"Qt port, fixes, and enhancements by Thomas J. Moore\n"
+	"Qt port, fixes, and enhancements by\nThomas J. Moore &lt;darktjm@gmail.com&gt;\n"
 	"<a href=\"https://bitbucket.org/darktjm/grok\">https://bitbucket.org/darktjm/grok</a>\n"
 	"Check for latest version at:\n"
 	"<a href=\"https://bitbucket.org/darktjm/grok/downloads/?tab=tags\">https://bitbucket.org/darktjm/grok/downloads/?tab=tags</a>\n"
