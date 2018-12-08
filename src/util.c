@@ -36,7 +36,6 @@
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
-#include "version.h"
 #if 1
 #define static static const
 #include "../misc/Grok.xpm"

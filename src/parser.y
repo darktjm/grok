@@ -57,6 +57,19 @@ void init_variables(void) { int i; for (i=0; i < 26; i++) setsvar(i, 0); }
 %}
 
 %union { int ival; double dval; char *sval; struct arg *aval; }
+/* THese destructors should wipe out any memory leaks on error, but they
+ * only work in bison. */
+/* The only portable way would be to keep track of all allocations, and
+ * free them when parsing is complete.  For example, add another link to
+ * the "arg" structure (say, "alloc") and link all allocated args this way.
+ * Never free args, but instead zero out their string and add to a "free"
+ * list of args (linked via next).  There would no longer be a distinction
+ * between strings and args in the %union, and all former string uses would
+ * have to use the arg's string, and then move the arg to the free list.
+ * When parsing is complete, just follow the alloc link and free any
+ * non-NULL strings as well as the arg itself. */
+%destructor { zfree($$); } <sval>
+%destructor { free_args($$); } <aval>
 %type	<dval>	number numarg
 %type	<sval>	string
 %type	<aval>	args

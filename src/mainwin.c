@@ -64,7 +64,6 @@ static QLabel		*w_mtime;	/* shows last modify time of card */
 static QLineEdit	*w_search;	/* search string text widget */
 static QPushButton	*w_prev;	/* search prev arrow */
 static QPushButton	*w_next;	/* search next arrow */
-       QVBoxLayout	*mainform;	/* form for summary table */
 static QWidget		*w_card;	/* form for card */
 static QPushButton	*w_left;	/* button: previous card */
 static QPushButton	*w_right;	/* button: next card */
@@ -93,6 +92,7 @@ void create_mainwindow()
 	char		buf[10];
 	QMenuBar	*menubar;
 	QMenu		*menu, *submenu;
+	QVBoxLayout	*mainform;	/* form for summary table */
 
 	mainwindow = new QMainWindow();
 	set_icon(mainwindow, 0); // from main(); there is no separate "toplevel"

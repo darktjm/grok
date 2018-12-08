@@ -675,7 +675,7 @@ struct arg *f_addarg(
  * says "%100000s".
  */
 
-static void free_args(
+void free_args(
 	struct arg	*arg)
 {
 	struct arg	*t;

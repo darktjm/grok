@@ -13,9 +13,6 @@
 #include "proto.h"
 #include "parser_yacc.h"
 
-#if !(defined(bsdi) || defined(linux))
-int		yylineno;		/* current line # being parsed */
-#endif
 static char	*yyexpr;		/* first char read by lexer */
 static char	*yytext;		/* next char to be read by lexer */
 char		*yyret;			/* returned string (see parser.y) */

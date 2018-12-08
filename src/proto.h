@@ -146,7 +146,6 @@ void parsererror(
 int yywrap(void);
 
 
-extern int	yylineno;		/* current line # being parsed */
 extern char	*yyret;			/* returned string (see parser.y) */
 extern CARD	*yycard;		/* database for which to evaluate */
 extern char	*switch_name;		/* if switch statement was found, */
@@ -154,7 +153,7 @@ extern char	*switch_expr;		/* .. name to switch to and expr */
 extern BOOL	assigned;		/* did a field assignment */
 
 /*---------------------------------------- parser.y ------------*/
-extern int parserparse(void);
+int parserparse(void);
 void init_variables(void);
 void set_var(int v, const char *s);
 
@@ -219,6 +218,7 @@ BOOL f_instr(
 struct arg *f_addarg(
 	struct arg	*list,		/* easier to keep struct arg local */
 	char		*value);	/* argument to append to list */
+void free_args(struct arg *list);
 char *f_printf(
 	struct arg	*arg);
 int re_match(char *s, char *e);
@@ -369,7 +369,6 @@ extern CARD 		*curr_card;	/* card being displayed in main win, */
 extern char		*prev_form;	/* previous form name */
 extern QMainWindow	*mainwindow;	/* popup menus hang off main window */
 extern int		last_query;	/* last query pd index, for ReQuery */
-extern QVBoxLayout	*mainform;	/* form for summary table */
 
 /*---------------------------------------- popup.c ------------*/
 
