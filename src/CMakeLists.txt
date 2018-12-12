@@ -58,6 +58,9 @@ set(grok_SRCS
 set(grok_C ${grok_SRCS})
 list(FILTER grok_C INCLUDE REGEX "\\.c\$")
 set_source_files_properties(${grok_C} PROPERTIES LANGUAGE CXX)
+# note that clang++ will generate a warning for every file; suppress
+# this by adding -xc++ to CMAKE_CXX_FLAGS and -xnone to CMAKE_EXE_LINKER_FLAGS.
+# The -xc++ suppresses the warning and the -xnone prevents massive link errors
 
 add_executable(grok ${grok_SRCS})
 target_link_libraries(grok Qt5::Widgets Qt5::PrintSupport)

@@ -25,8 +25,8 @@
 #define SECT_OK(db,r) ((db)->currsect < 0 ||\
 		       (db)->currsect == (db)->row[r]->section)
 
-static BOOL alloc_query(CARD *, char **);
-static BOOL search_matches_card(CARD *, const char *);
+static bool alloc_query(CARD *, char **);
+static bool search_matches_card(CARD *, const char *);
 static int expr_matches_card(CARD *, const char *);
 
 
@@ -45,9 +45,9 @@ static const char *strlower(const char *string)
 
 
 /*
- * make sense out of the string, and return TRUE if the given card matches
+ * make sense out of the string, and return true if the given card matches
  * the given search or expression string.
- * returns -1 if expr had an error; otherwise 0/1 (FALSE/TRUE)
+ * returns -1 if expr had an error; otherwise 0/1 (false/true)
  */
 
 int match_card(
@@ -56,7 +56,7 @@ int match_card(
 {
 
 	if (!string || (*string == '*' && !string[1]))
-		return(TRUE);
+		return(true);
 	else if (*string == '(' || *string == '{')
 		return(expr_matches_card(card, string));
 	else {
@@ -94,8 +94,7 @@ void query_any(
 void query_none(
 	CARD		*card)		/* database and form */
 {
-	if (card->query)				/* clear old query */
-		free(card->query);
+	zfree(card->query);
 	card->query  = 0;
 	card->nquery = 0;
 	card->qcurr  = 0;
@@ -171,8 +170,7 @@ void query_search(
 		if (search_matches_card(card, search))
 			card->query[card->nquery++] = card->row;
 	}
-	if (mask)
-		free(mask);
+	zfree(mask);
 }
 
 
@@ -222,8 +220,7 @@ void query_letter(
 						data++;
 				}
 		}
-	if (mask)
-		free(mask);
+	zfree(mask);
 }
 
 
@@ -277,22 +274,21 @@ void query_eval(
 		if (match)
 			card->query[card->nquery++] = card->row;
 	}
-	if (mask)
-		free(mask);
+	zfree(mask);
 }
 
 
 /*
  * prepare for a query: destroy the previous query list, and allocate a new
  * one with enough entries even if all cards match the query. The query list
- * is a list of row numbers in the dbase. Return TRUE if everything went well.
+ * is a list of row numbers in the dbase. Return true if everything went well.
  * If <mask> is nonzero and incremental searches are enabled, create a string
  * with one byte per card, which is 1 if that card was in the previous query.
  * This makes it easy for the search routines to skip cards that have not been
  * in the old query.
  */
 
-static BOOL alloc_query(
+static bool alloc_query(
 	CARD		*card,		/* database and form */
 	char		**mask)		/* where to store pointer to string */
 {
@@ -303,7 +299,7 @@ static BOOL alloc_query(
 		if (card->query && !(*mask = (char *)malloc(card->dbase->nrows))) {
 			create_error_popup(mainwindow, errno,
 					   "No memory for query result summary");
-			return(FALSE);
+			return(false);
 		}
 		if (*mask) {
 			(void)memset(*mask, 0, card->dbase->nrows);
@@ -313,7 +309,7 @@ static BOOL alloc_query(
 	}
 	query_none(card);
 	if (!card->dbase->nrows)
-		return(FALSE);
+		return(false);
 	if (!(card->query = (int*)malloc(card->dbase->nrows * sizeof(int*)))) {
 		create_error_popup(mainwindow, errno,
 					"No memory for query result summary");
@@ -321,20 +317,20 @@ static BOOL alloc_query(
 			free(*mask);
 			*mask = 0;
 		}
-		return(FALSE);
+		return(false);
 	}
 	*card->query = 0;
-	return(TRUE);
+	return(true);
 }
 
 
 /*
- * return TRUE if the given card contains the given search string. This is
+ * return true if the given card contains the given search string. This is
  * used by eval_search above, and by the find-and-select function in the File
  * pulldown (also Ctrl-F and a search mode).
  */
 
-static BOOL search_matches_card(
+static bool search_matches_card(
 	CARD		*card,		/* database and form */
 	const char	*search)	/* lowercased string to search for */
 {
@@ -356,19 +352,19 @@ static BOOL search_matches_card(
 				if ((*p | 0x20) != *q)
 					break;
 			if (!*q)
-				return(TRUE);
+				return(true);
 			p -= q - search;
 		}
 	}
-	return(FALSE);
+	return(false);
 }
 
 
 /*
- * return TRUE if the given card matches the given expression. This is also
+ * return true if the given card matches the given expression. This is also
  * used by eval_search above, and by the find-and-select function in the File
  * pulldown (also Ctrl-F and a search mode).
- * returns -1 if expr had an error; otherwise 0/1 (FALSE/TRUE)
+ * returns -1 if expr had an error; otherwise 0/1 (false/true)
  */
 
 static int expr_matches_card(

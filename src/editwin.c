@@ -26,7 +26,7 @@ static void cancel_callback (void);
 static void delete_callback (void);
 static void clear_callback  (void);
 
-static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
+static bool		have_shell = false;	/* message popup exists if true */
 static char		**source;	/* ptr to string ptr of default */
 static char		*sourcefile;	/* if nonzero, file to write back to */
 static QDialog		*shell;		/* popup menu shell */
@@ -85,8 +85,7 @@ void destroy_edit_popup(void)
 		sourcefile = 0;
 
 	} else if (source) {
-		if (*source)
-			free(*source);
+		zfree(*source);
 		string = 0;
 		read_text_button(text, &string);
 		*source = !BLANK(string) ? string : 0;
@@ -96,7 +95,7 @@ void destroy_edit_popup(void)
 	}
 	shell->hide();
 	delete shell;
-	have_shell = FALSE;
+	have_shell = false;
 }
 
 
@@ -107,7 +106,7 @@ void destroy_edit_popup(void)
 void create_edit_popup(
 	const char		*title,		/* menu title string */
 	char			**initial,	/* initial default text */
-	BOOL			readonly,	/* not modifiable if TRUE */
+	bool			readonly,	/* not modifiable if true */
 	const char		*helptag,	/* help tag */
 	QTextDocument		*initdoc)	/* full initial document */
 {
@@ -186,7 +185,7 @@ void create_edit_popup(
 	popup_nonmodal(shell);
 
 	set_dialog_cancel_cb(shell, done_callback());
-	have_shell = TRUE;
+	have_shell = true;
 	source = readonly ? 0 : initial;
 }
 
@@ -206,7 +205,7 @@ static void cancel_callback(void)
 {
 	if(create_query_popup(shell, "msg_delete",
 		"Press OK to confirm discarding\nall changes to the text")) {
-	    if (sourcefile)
+		if (sourcefile)
 			free(sourcefile);
 		else if (!BLANK(source))
 			free(*source);
@@ -239,15 +238,15 @@ static void clear_callback(void)
 
 void edit_file(
 	const char	*name,		/* file name to read */
-	BOOL		readonly,	/* not modifiable if TRUE */
-	BOOL		create,		/* create if nonexistent if TRUE */
+	bool		readonly,	/* not modifiable if true */
+	bool		create,		/* create if nonexistent if true */
 	const char	*title,		/* if nonzero, window title */
 	const char	*helptag)	/* help tag */
 {
 	FILE		*fp;		/* file to read */
 	long		size;		/* file size */
 	char		*text = NULL;	/* text read from file */
-	BOOL		writable;	/* have write permission for file? */
+	bool		writable;	/* have write permission for file? */
 
 	name = resolve_tilde(name, 0);
 	if (!title)
@@ -259,13 +258,13 @@ void edit_file(
 						"Cannot open %s", name);
 			return;
 		}
-		writable = TRUE;
+		writable = true;
 		create_edit_popup(title, 0, readonly, helptag);
 		fn = strrchr(name, '/');
 		print_button(w_name, "File %s (new file)",
 			     fn ? fn + 1 : name);
 	} else {
-		create = FALSE;
+		create = false;
 		if (access(name, R_OK)) {
 			create_error_popup(mainwindow, errno,
 						"Cannot read %s", name);

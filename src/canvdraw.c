@@ -19,7 +19,7 @@
 #define DIV_GRIPSZ	8
 #define DIV_GRIPOFF	12
 
-static BOOL		have_shell = FALSE;	/* week window is being displayed */
+static bool		have_shell = false;	/* week window is being displayed */
 static FORM		*form;		/* current form, registered by create*/
 static GrokCanvas	*shell;		/* entire window */
 #define canvas shell	/* drawing area -- not distinct from shell any more */
@@ -33,7 +33,7 @@ static GrokCanvas	*shell;		/* entire window */
 void destroy_canvas_window(void)
 {
 	if (have_shell) {
-		have_shell = FALSE;
+		have_shell = false;
 		shell->close();
 		delete shell;
 	}
@@ -48,7 +48,7 @@ void destroy_canvas_window(void)
  * The form pointer is saved in a static variable because the callbacks
  * also need it, and I think it's easier to understand this way.
  */
-GrokCanvas::GrokCanvas() : moving(FALSE) {
+GrokCanvas::GrokCanvas() : moving(false) {
 	// setProperty("colStd", true);
 	setProperty("colCanv", true);
 	// there is no way to obtain fonts via QSS directly, so
@@ -80,7 +80,7 @@ GrokCanvas *create_canvas_window(
 	popup_nonmodal(shell);
 	// As mentioned above, window close callback is now closeEvent().
 	set_cursor(canvas, Qt::ArrowCursor);
-	have_shell = TRUE;
+	have_shell = true;
 	return shell;
 }
 
@@ -149,7 +149,7 @@ void GrokCanvas::canvas_callback(
 		down_x = event->x();
 		down_y = event->y();
 		state  = event->modifiers();
-		moving = FALSE;
+		moving = false;
 		mode   = locate_item(&nitem, event->x(), event->y());
 		set_cursor(canvas, cursorglyph[mode]);
 		event->accept();
@@ -209,12 +209,12 @@ void GrokCanvas::canvas_callback(
 	if (!press) { // move
 	    if (moving && (event->buttons() & Qt::LeftButton))
 		switch(mode) {
-		  case M_XMID: draw_rubberband(TRUE, xm+x, y, 1, ys, false); break;
-		  case M_YMID: draw_rubberband(TRUE, x, ym+y, xs, 1, false); break;
-		  default:     draw_rubberband(TRUE, x, y, xs, ys);
+		  case M_XMID: draw_rubberband(true, xm+x, y, 1, ys, false); break;
+		  case M_YMID: draw_rubberband(true, x, ym+y, xs, 1, false); break;
+		  default:     draw_rubberband(true, x, y, xs, ys);
 	    }
 	} else if (press < 0) { // button up
-		draw_rubberband(FALSE, 0, 0, 0, 0);
+		draw_rubberband(false, 0, 0, 0, 0);
 		if (mode == M_OUTSIDE) {
 			set_cursor(canvas, Qt::ArrowCursor);
 			return;
@@ -246,12 +246,12 @@ void GrokCanvas::canvas_callback(
 		} else {					/* selected */
 			readback_formedit();
 			if (state & Qt::ShiftModifier) {
-				item->selected ^= TRUE;		/*... multi */
+				item->selected ^= true;		/*... multi */
 				curr_item = nitem;
 			} else {
 				if (!item->selected || nsel > 1) {
 					item_deselect(form);	/*... sel */
-					item->selected = TRUE;
+					item->selected = true;
 					curr_item = nitem;
 				} else {
 					item_deselect(form);	/*... unsel */
@@ -365,7 +365,7 @@ static MOUSE locate_item(
  */
 
 void GrokCanvas::draw_rubberband(
-	BOOL		draw,		/* draw or undraw */
+	bool		draw,		/* draw or undraw */
 	int		x,		/* position of box */
 	int		y,
 	int		xs,		/* size of box */
@@ -472,7 +472,10 @@ void GrokCanvas:: redraw_canvas_item(
 	}
 
 	painter.setPen(textcolor);
-	sprintf(sumcol, item->sumwidth ? ",%d" : "", item->sumcol);
+	if(item->sumwidth)
+		sprintf(sumcol, ",%d", item->sumcol);
+	else
+		*sumcol = 0;
 	if (item->type == IT_CHOICE || item->type == IT_FLAG)
 		buf = qsprintf("[%ld=%s%s] ", item->column,
 			       item->flagcode ? item->flagcode : "?", sumcol);
@@ -512,6 +515,6 @@ void redraw_canvas_item(
 {
 	if (!have_shell)
 		return;
-	shell->draw_rubberband(FALSE, 0, 0, 0, 0);
+	shell->draw_rubberband(false, 0, 0, 0, 0);
 	shell->update(item->x, item->y, item->xs, item->ys);
 }

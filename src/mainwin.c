@@ -367,12 +367,12 @@ void print_info_line(void)
 			if (c)
 				sprintf(buf, "created %s %s",
 						mkdatestring(c),
-						mktimestring(c, FALSE));
+						mktimestring(c, false));
 			if (t && t != c)
 				sprintf(buf+strlen(buf), "%schanged %s %s",
 						c ? ", " : "",
 						mkdatestring(t),
-						mktimestring(t, FALSE));
+						mktimestring(t, false));
 		}
 		print_button(w_mtime, buf);
 
@@ -535,7 +535,7 @@ void remake_section_pulldown(void)
 	sectpulldown->addAction("New ...", [=](){section_pulldown(n + 1);});
 	sectpulldown->setEnabled(true);
 	// teearoff already enabled above
-	remake_section_popup(TRUE);
+	remake_section_popup(true);
 }
 
 
@@ -599,7 +599,7 @@ void remake_query_pulldown(void)
 static void	remake_popup(void);
 
 void remake_section_popup(
-	BOOL		newsects)	/* did the section list change? */
+	bool		newsects)	/* did the section list change? */
 {
 	if (newsects)
 		remake_popup();
@@ -747,7 +747,7 @@ void switch_form(
 			   !curr_card->dbase->rdonly &&
 			   !curr_card->form->rdonly &&
 			   !write_dbase(curr_card->dbase,
-					curr_card->form, FALSE)) {
+					curr_card->form, false)) {
 				if(mainwindow)
 					mainwindow->setUpdatesEnabled(true);
 				return;
@@ -782,7 +782,7 @@ void switch_form(
 		for (i=0; i < form->nitems; i++)
 			if (form->items[i]->defsort) {
 				pref.sortcol = form->items[i]->column;
-				pref.revsort = FALSE;
+				pref.revsort = false;
 				dbase_sort(curr_card, pref.sortcol, 0);
 				break;
 			}
@@ -795,18 +795,18 @@ void switch_form(
 
 		if (mainwindow) {
 			QString name(formname);
+			if ((i = name.lastIndexOf('.')) > 0)
+				name.truncate(i);
+			if ((i = name.lastIndexOf('/')) >= 0)
+				name.remove(0, i + 1);
 			/* QString doesn't have * */
 			if (name[0] >= 'a' && name[0] <= 'z')
 				/* QCharRef can't be manipulated as an int */
 				name[0] = name[0].toUpper();
-			if ((i = name.lastIndexOf('.')) > 0)
-				name.truncate(i);
-			if ((i = name.lastIndexOf('/')) >= 0)
-				name.remove(0, i);
 			mainwindow->setWindowIconText(name);
 			name.append(" - grok [*]");
 			mainwindow->setWindowTitle(name);
-			fillout_card(curr_card, FALSE);
+			fillout_card(curr_card, false);
 		}
 	} else {
 		/* unlike old code, prev_form is now lost */
@@ -831,7 +831,7 @@ void switch_form(
 		remake_section_pulldown();	/* also sets w_sect, w_del */
 		resize_mainwindow();
 		if (curr_card && curr_card->dbase)
-			curr_card->dbase->modified = FALSE;
+			curr_card->dbase->modified = false;
 		print_info_line();
 		mainwindow->setUpdatesEnabled(true);
 	}
@@ -864,7 +864,7 @@ static void find_and_select(
 		print_button(w_info, "No match.");
 	} else {
 		curr_card->qcurr = j;
-		fillout_card(curr_card, FALSE);
+		fillout_card(curr_card, false);
 		scroll_summary(curr_card);
 		print_info_line();
 	}
@@ -912,7 +912,7 @@ static void file_pulldown(
 				   "Database is marked read-only in the form");
 			else
 				(void)write_dbase(curr_card->dbase,
-						  curr_card->form, TRUE);
+						  curr_card->form, true);
 		else
 			create_error_popup(mainwindow,0,"No database to save");
 		print_info_line();
@@ -947,7 +947,7 @@ static void newform_pulldown(
 					      curr_card->form, "switchsave",
 					      "OK to discard changes and edit form?"))
 						return;
-			create_formedit_window(curr_card->form, FALSE, FALSE);
+			create_formedit_window(curr_card->form, false, false);
 		} else
 			create_error_popup(mainwindow, 0,
 		     "Please choose database to edit\nfrom Database pulldown");
@@ -955,7 +955,7 @@ static void newform_pulldown(
 
 	  case 1:						/* new */
 		switch_form(0);
-		create_formedit_window(0, FALSE, TRUE);
+		create_formedit_window(0, false, true);
 		break;
 
 	  case 2:						/* clone */
@@ -968,7 +968,7 @@ static void newform_pulldown(
 					      curr_card->form, "switchsave",
 					      "OK to discard changes and edit form?"))
 						return;
-			create_formedit_window(curr_card->form, TRUE, TRUE);
+			create_formedit_window(curr_card->form, true, true);
 		} else
 			create_error_popup(mainwindow, 0,
 			"Please choose database from Database pulldown first");
@@ -1010,7 +1010,7 @@ static void section_pulldown(
 
 		curr_card->row = curr_card->query ? curr_card->query[0]
 						  : curr_card->dbase->nrows;
-		fillout_card(curr_card, FALSE);
+		fillout_card(curr_card, false);
 	}
 }
 
@@ -1035,7 +1035,7 @@ static void query_pulldown(
 
 	curr_card->row = curr_card->query ? curr_card->query[0]
 					  : curr_card->dbase->nrows;
-	fillout_card(curr_card, FALSE);
+	fillout_card(curr_card, false);
 	remake_query_pulldown();
 }
 
@@ -1054,7 +1054,7 @@ static void sort_pulldown(
 	create_summary_menu(curr_card);
 	curr_card->row = curr_card->query ? curr_card->query[0]
 					  : curr_card->dbase->nrows;
-	fillout_card(curr_card, FALSE);
+	fillout_card(curr_card, false);
 	remake_sort_pulldown();
 }
 
@@ -1128,7 +1128,7 @@ void search_cards(
 	query_any(mode, card, string);
 	create_summary_menu(card);
 	card->row = card->nquery ? card->query[0] : card->dbase->nrows;
-	fillout_card(card, FALSE);
+	fillout_card(card, false);
 }
 
 
@@ -1198,8 +1198,7 @@ static void append_search_string(
 		if (!BLANK(history[s_curr])
 				    && strcmp(history[s_curr], text))
 			s_curr = (s_curr + 1) % NHIST;
-		if (history[s_curr])
-			free(history[s_curr]);
+		zfree(history[s_curr]);
 		history[s_curr] = text;
 	}
 	w_next->setEnabled(s_offs < 0);
@@ -1223,7 +1222,7 @@ static void letter_callback(
 	create_summary_menu(curr_card);
 	curr_card->row = curr_card->query ? curr_card->query[0]
 					  : curr_card->dbase->nrows;
-	fillout_card(curr_card, FALSE);
+	fillout_card(curr_card, false);
 }
 
 
@@ -1243,14 +1242,14 @@ static void pos_callback(
 	    card->qcurr + inc <  card->nquery) {
 		card->qcurr += inc;
 		card->row    = card->query[card->qcurr];
-		fillout_card(card, FALSE);
+		fillout_card(card, false);
 		scroll_summary(card);
 		print_info_line();
 
 	} else if (card->nquery == 0 && card->row + inc >= 0
 				     && card->row + inc <  card->dbase->nrows){
 		card->row += inc;
-		fillout_card(card, FALSE);
+		fillout_card(card, false);
 		print_info_line();
 	}
 }
@@ -1262,7 +1261,7 @@ static void pos_callback(
  */
 
 static void add_card(
-	BOOL		dup)
+	bool		dup)
 {
 	CARD		*card = curr_card;
 	ITEM		*item;
@@ -1305,7 +1304,7 @@ static void add_card(
 	}
 	dbase_sort(card, pref.sortcol, pref.revsort);
 	create_summary_menu(card);
-	fillout_card(card, FALSE);
+	fillout_card(card, false);
 	scroll_summary(card);
 	print_info_line();
 	for (i=0; i < card->form->nitems; i++, item++) {
@@ -1321,9 +1320,9 @@ static void add_card(
 
 static void new_callback(void)
 {
-	add_card(FALSE);
+	add_card(false);
 	if (pref.autoquery) {
-		pref.autoquery = FALSE;
+		pref.autoquery = false;
 		print_button(w_info, "Autoquery in Query pulldown disabled");
 		remake_query_pulldown();
 	}
@@ -1338,7 +1337,7 @@ static void new_callback(void)
 static void dup_callback(void)
 {
 	if (curr_card->row >= 0)
-		add_card(TRUE);
+		add_card(true);
 }
 
 
@@ -1374,7 +1373,7 @@ static void del_callback(void)
 	}
 	card->nquery -= p - q;
 	print_info_line();
-	fillout_card(card, FALSE);
+	fillout_card(card, false);
 	create_summary_menu(card);
 }
 
@@ -1401,11 +1400,11 @@ static void sect_callback(
 	else {
 		sect[olds].nrows--;
 		sect[news].nrows++;
-		sect[olds].modified = TRUE;
-		sect[news].modified = TRUE;
+		sect[olds].modified = true;
+		sect[news].modified = true;
 		card->dbase->row[card->row]->section = defsection = news;
-		card->dbase->modified = TRUE;
+		card->dbase->modified = true;
 		print_info_line();
 	}
-	remake_section_popup(FALSE);
+	remake_section_popup(false);
 }

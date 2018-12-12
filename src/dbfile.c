@@ -50,19 +50,19 @@ static void broken_pipe_handler(int sig)
  * in a CARD structure; both are required to access cards. If the
  * database is procedural, open a pipe to the database process and add
  * -r option.
- * Returns FALSE if the file could not be written.
+ * Returns false if the file could not be written.
  */
 
-static BOOL write_file (DBASE *, const FORM *, int);
-static BOOL write_tfile(const DBASE *, const FORM *, int);
+static bool write_file (DBASE *, const FORM *, int);
+static bool write_tfile(const DBASE *, const FORM *, int);
 
-BOOL write_dbase(
+bool write_dbase(
 	DBASE			*dbase,		/* form and items to write */
 	const FORM		*form,		/* contains column delimiter */
-	BOOL			force)		/* write even if not modified*/
+	bool			force)		/* write even if not modified*/
 {
 	int			s;		/* section index */
-	BOOL			ok = TRUE;
+	bool			ok = true;
 
 	if (dbase->nsects == 1 && (dbase->modified || force)) {
 		ok  = write_file (dbase, form, 0);
@@ -78,7 +78,7 @@ BOOL write_dbase(
 }
 
 
-static BOOL write_file(
+static bool write_file(
 	DBASE			*dbase,		/* form and items to write */
 	const FORM		*form,		/* contains column delimiter */
 	int			nsect)		/* section to write */
@@ -99,25 +99,27 @@ static BOOL write_file(
 	if (!path || !*path) {
 		create_error_popup(mainwindow, 0,
 			"Database has no name, cannot save to disk");
-		return(FALSE);
+		return(false);
 	}
 	path = resolve_tilde(path, "db");
 	if (form->proc) {
 		char *cmd = alloc(mainwindow, "procedural command", char,
 				  strlen(path) + strlen(form->name) + 5);
 		if(!cmd)
-			return(FALSE);
+			return(false);
 		sprintf(cmd, "%s -w %s", path, form->name);
 		if (!(fp = popen(cmd, "w"))) {
 			create_error_popup(mainwindow, errno,
 				"Failed to run procedural command %s", cmd);
-			return(FALSE);
+			free(cmd);
+			return(false);
 		}
+		free(cmd);
 	} else
 		if (!(fp = fopen(path, "w"))) {
 			create_error_popup(mainwindow, errno,
 				"Failed to create database file %s", path);
-			return(FALSE);
+			return(false);
 		}
 	for (r=0; r < dbase->nrows; r++) {
 		if (nsect != dbase->row[r]->section)
@@ -175,22 +177,22 @@ static BOOL write_file(
 		if (pclose(fp)) {
 			create_error_popup(mainwindow, errno,
 				"%s:\nfailed to create database", path);
-			return(FALSE);
+			return(false);
 		}
 	} else
 		fclose(fp);
 	if (sect)
-		sect->modified = FALSE;
-	dbase->modified = FALSE;
+		sect->modified = false;
+	dbase->modified = false;
 	sect->mtime = time(0);
 	print_info_line();
-	return(TRUE);
+	return(true);
 }
 
 
 /*
  * Read a database from a file. The database must be empty (just created
- * with dbase_create()). Returns FALSE if the file could not be read.
+ * with dbase_create()). Returns false if the file could not be read.
  * Print a warning if the database is supposed to be writable but isn't.
  *
  * This works by first reading in fields, allocating one string for each.
@@ -203,24 +205,24 @@ static BOOL write_file(
 #define LCHUNK	4096		/* alloc this many new list ptrs */
 #define BCHUNK	1024		/* alloc this many new chars for item */
 
-static BOOL find_db_file     (DBASE *, const FORM *, const char *);
-static BOOL read_dir_or_file (DBASE *, const FORM *, const char *);
-static BOOL read_file	     (DBASE *, const FORM *, const char *, time_t);
-static BOOL read_tfile	     (DBASE *, const FORM *, const char *);
+static bool find_db_file     (DBASE *, const FORM *, const char *);
+static bool read_dir_or_file (DBASE *, const FORM *, const char *);
+static bool read_file	     (DBASE *, const FORM *, const char *, time_t);
+static bool read_tfile	     (DBASE *, const FORM *, const char *);
 
-BOOL read_dbase(
+bool read_dbase(
 	DBASE			*dbase,		/* form and items to write */
 	const FORM		*form,		/* contains column delimiter */
 	const char		*path)		/* file to read list from */
 {
 	static char		*pathbuf = 0;	/* file name with path */
 	static size_t		pathbuflen;
-	BOOL			ret;		/* return code, FALSE=error */
+	bool			ret;		/* return code, false=error */
 
 	if (!path || !*path) {
 		create_error_popup(mainwindow, 0,
 			"Database has no name, cannot read from disk");
-		return(FALSE);
+		return(false);
 	}
 	dbase_delete(dbase);
 #ifdef GROK
@@ -245,17 +247,17 @@ BOOL read_dbase(
 	}
 
 	dbase->currsect = -1;
-	dbase->modified = FALSE;
+	dbase->modified = false;
 	print_info_line();
 	return(ret);
 }
 
 
 /*
- * read both path.db and path, in that order. Return FALSE if both failed.
+ * read both path.db and path, in that order. Return false if both failed.
  */
 
-static BOOL find_db_file(
+static bool find_db_file(
 	DBASE			*dbase,		/* form and items to write */
 	const FORM		*form,		/* contains column delimiter */
 	const char		*path)		/* file to read list from */
@@ -276,7 +278,7 @@ static BOOL find_db_file(
 
 
 /*
- * read path. If it's a directory, recurse. Return FALSE if nothing was found.
+ * read path. If it's a directory, recurse. Return false if nothing was found.
  */
 
 #define MAXSC  1000		/* no more than 200 sections */
@@ -288,7 +290,7 @@ static int compare_name(
 	return(strcmp(*(char **)u, *(char **)v));
 }
 
-static BOOL read_dir_or_file(
+static bool read_dir_or_file(
 	DBASE			*dbase,		/* form and items to write */
 	const FORM		*form,		/* contains column delimiter */
 	const char		*path)		/* file to read list from */
@@ -304,12 +306,12 @@ static BOOL read_dir_or_file(
 	int			i, n=0;
 
 	if (stat(path, &statbuf))
-		return(FALSE);
+		return(false);
 	if (!(statbuf.st_mode & S_IFDIR))
 		return(read_file (dbase, form, path, statbuf.st_mtime) &&
 		       read_tfile(dbase, form, path));
 	if (!(dir = opendir(path)))
-		return(FALSE);
+		return(false);
 	while ((dp = readdir(dir)) && n < MAXSC)
 		if (*dp->d_name != '.' &&
 		   (!(ext = strrchr(dp->d_name, '.')) || strcmp(ext, ".ts")))
@@ -328,16 +330,16 @@ static BOOL read_dir_or_file(
 		free(name[i]);
 		nfiles += read_dir_or_file(dbase, form, pathbuf);
 	}
-	dbase->havesects = TRUE;
+	dbase->havesects = true;
 	return(nfiles > 0);
 }
 
 
 /*
- * read one plain file and append to dbase section list. Return FALSE on error.
+ * read one plain file and append to dbase section list. Return false on error.
  */
 
-static BOOL read_file(
+static bool read_file(
 	DBASE			*dbase,		/* form and items to write */
 	const FORM		*form,		/* contains column delimiter */
 	const char		*path,		/* file to read list from */
@@ -352,7 +354,7 @@ static BOOL read_file(
 	int			bindex = 0;	/* next free byte in buf */
 	int			bsize;		/* size of buf in bytes */
 	unsigned char		c, c0;		/* next char from file */
-	BOOL			error;		/* in TRUE, abort */
+	bool			error;		/* in true, abort */
 	ITEM			*item;		/* for time/date conversion */
 	int			i;
 
@@ -363,17 +365,17 @@ static BOOL read_file(
 		char *cmd = alloc(mainwindow, "procedural command", char,
 				  strlen(path) + strlen(form->name) + 5);
 		if(!cmd)
-			return(FALSE);
+			return(false);
 		sprintf(cmd, "%s -r %s", path, form->name);
 		if (!(fp = popen(cmd, "r"))) {
 			create_error_popup(mainwindow, errno,
 				"Failed to read procedural database %s", path);
-			return(FALSE);
+			return(false);
 		}
 	} else {
 		path = resolve_tilde(path, "db");
 		if (!(fp = fopen(path, "r")))
-			return(FALSE);
+			return(false);
 	}
 							/* step 2: new sectn */
 	i = (dbase->nsects+1) * sizeof(SECTION);
@@ -381,7 +383,7 @@ static BOOL read_file(
 		create_error_popup(mainwindow, errno,
 			"No memory for section %s", path);
 		form->proc ? pclose(fp) : fclose(fp);
-		return(FALSE);
+		return(false);
 	}
 	dbase->sect = sect;
 	memset(sect = &dbase->sect[dbase->nsects], 0, sizeof(SECTION));
@@ -421,7 +423,7 @@ static BOOL read_file(
 					break;
 				  case T_TIME:
 					sprintf(buf, "%ld",
-						(long)parse_timestring(buf, FALSE));
+						(long)parse_timestring(buf, false));
 					break;
 				  case T_DATETIME:
 					sprintf(buf, "%ld",
@@ -429,11 +431,11 @@ static BOOL read_file(
 					break;
 				  case T_DURATION:
 					sprintf(buf, "%ld",
-						(long)parse_timestring(buf, TRUE));
+						(long)parse_timestring(buf, true));
 				}
 								/* store str */
 			if (row < 0)
-				if (error |= !dbase_addrow(&row, dbase))
+				if ((error |= !dbase_addrow(&row, dbase)))
 					break;
 			dbase_put(dbase, row, col++, buf);
 			dbase->row[row]->mtime  = 0;
@@ -450,7 +452,7 @@ static BOOL read_file(
 			if (bindex+1 >= bsize) {
 				char *newb = (char *)realloc(buf,
 						(bsize += BCHUNK));
-				if (error |= !newb)
+				if ((error |= !newb))
 					break;
 				buf = newb;
 			}
@@ -461,9 +463,9 @@ static BOOL read_file(
 								/* done. */
 	zfree(buf);
 	error |= form->proc ? !!pclose(fp) : !!fclose(fp);
-	sect->modified = FALSE;
+	sect->modified = false;
 	sect->rdonly   =
-	dbase->rdonly  = form->proc ? FALSE : !!access(path, W_OK);
+	dbase->rdonly  = form->proc ? false : !!access(path, W_OK);
 	if (error)
 		create_error_popup(mainwindow, errno,
 			"Failed to allocate memory for\ndatabase %s", path);
@@ -482,7 +484,7 @@ static BOOL read_file(
  * and the ctime (create time) and ctimex (disambiguifier) to identify cards.
  */
 
-static BOOL write_tfile(
+static bool write_tfile(
 	const DBASE		*dbase,		/* form and items to write */
 	const FORM		*form,		/* contains column delimiter */
 	int			nsect)		/* section to write */
@@ -498,7 +500,7 @@ static BOOL write_tfile(
 	sect = &dbase->sect[nsect];
 	path = sect->path ? sect->path : form->dbase;
 	if (!path || !*path)
-		return(FALSE);
+		return(false);
 	path = resolve_tilde(path, 0);
 	if (!(p = strrchr(path, '.')) || strcmp(p, ".db"))
 		p = path + strlen(path);
@@ -507,12 +509,12 @@ static BOOL write_tfile(
 	path = pathbuf;
 	if (!form->syncable) {
 		unlink(path);
-		return(TRUE);
+		return(true);
 	}
 	if (!(fp = fopen(path, "w"))) {
 		create_error_popup(mainwindow, errno,
 			"Failed to create timestamp file %s", path);
-		return(FALSE);
+		return(false);
 	}
 	for (r=0; r < dbase->nrows; r++)
 		if (nsect == dbase->row[r]->section)
@@ -520,7 +522,7 @@ static BOOL write_tfile(
 						     (long)dbase->row[r]->ctime,
 						     (long)dbase->row[r]->ctimex);
 	fclose(fp);
-	return(TRUE);
+	return(true);
 }
 
 
@@ -530,7 +532,7 @@ static BOOL write_tfile(
  * file has just been read, and can be referenced from dbase->currsect.
  */
 
-static BOOL read_tfile(
+static bool read_tfile(
 	DBASE			*dbase,		/* form and items to write */
 	const FORM		*form,		/* contains column delimiter */
 	const char		*path)		/* file to read list from */
@@ -544,7 +546,7 @@ static BOOL read_tfile(
 	char			line[128];	/* one timestamp per line */
 
 	if (!form->syncable)
-		return(TRUE);
+		return(true);
 	path = resolve_tilde(path, 0);
 	grow(0, "db file name", char, pathbuf, strlen(path) + 4, &pathbuflen);
 	strcpy(pathbuf, path);
@@ -553,7 +555,7 @@ static BOOL read_tfile(
 		p = pathbuf + strlen(pathbuf);
 	strcpy(p, ".ts");
 	if (!(fp = fopen(path, "r")))
-		return(TRUE);
+		return(true);
 	sect = &dbase->sect[dbase->currsect];
 	for (r=0; r < dbase->nrows; r++)
 		if (dbase->currsect == dbase->row[r]->section) {
@@ -573,10 +575,10 @@ static BOOL read_tfile(
 		for (r=0; r < dbase->nrows; r++)
 			if (dbase->currsect == dbase->row[r]->section)
 				dbase->row[r]->mtime = sect->mtime;
-		return(FALSE);
+		return(false);
 	}
 	fclose(fp);
-	return(TRUE);
+	return(true);
 }
 
 #endif /* GROK || PLANGROK */

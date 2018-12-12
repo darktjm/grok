@@ -47,7 +47,7 @@ double f_num(
 	char		*s)
 {
 	double d = fnum(s);
-	if (s) free(s);
+	zfree(s);
 	return(d);
 }
 
@@ -487,25 +487,15 @@ int f_section(
  * run a system command, and return stdout of the command (backquotes)
  */
 
-/* There isn't really any advantage to using qproc over system() */
-/* unless you're not using UNIX */
-#define USE_QPROC 1
 char *f_system(
 	char		*cmd)
 {
 	char		*tpath;
-#if !USE_QPROC
-	int		fd0_save = dup(0);
-	int		fd1_save = dup(1);
-	int		fd2_save = dup(2);
-#endif
 	FILE		*fp;
 	char		*data;
 	char		*p;
 	int		size, i;
-#if USE_QPROC
 	QProcess	proc;
-#endif
 
 	if (!cmd || !*cmd) {
 		zfree(cmd);
@@ -516,25 +506,6 @@ char *f_system(
 	/* it's a bad idea, even when security is not an issue */
 	tpath = qstrdup(qsprintf(P_tmpdir "/grok%05dxxx", getpid()));
 	p = tpath + strlen(tpath) - 3;
-#if !USE_QPROC
-	close(1);					/* run cmd */
-	strcpy(p, "out");
-	(void)open(tpath, O_WRONLY | O_CREAT, 0600);
-	close(2);
-	strcpy(p, "err");
-	(void)open(tpath, O_WRONLY | O_CREAT, 0600);
-	close(0);
-	char *nfile = qstrdup(QProcess::nullDevice());
-	(void)open(nfile, O_RDONLY);
-	free(nfile);
-	int UNUSED ret = system(cmd);
-	dup2(fd0_save, 0);
-	dup2(fd1_save, 1);
-	dup2(fd2_save, 2);
-	close(fd0_save); /* added Paul van Slobbe bug fix */
-	close(fd1_save);
-	close(fd2_save);
-#else
 	strcpy(p, "out");
 	proc.setStandardOutputFile(tpath);
 	strcpy(p, "err");
@@ -551,7 +522,6 @@ char *f_system(
 	proc.start(cmd);
 #endif
 	proc.waitForFinished(-1);
-#endif
 							/* error messages */
 	if ((fp = fopen(tpath, "r"))) {
 		(void)fseek(fp, 0, 2);
@@ -709,7 +679,7 @@ char *f_substr(
  * return true if <match> is contained in <string>
  */
 
-BOOL f_instr(
+bool f_instr(
 	char		*match,
 	char		*src)
 {
@@ -717,29 +687,27 @@ BOOL f_instr(
 	char		*string = src;
 
 	if (!match || !*match) {
-		if (match)
-			free(match);
-		if (string)
-			free(string);
-		return(TRUE);
+		zfree(match);
+		zfree(string);
+		return(true);
 	}
 	if (!string) {
 		free(match);
-		return(FALSE);
+		return(false);
 	}
 	for (; *string; string++)
 		for (i=0; ; i++) {
 			if (!match[i]) {
 				free(match);
 				free(src);
-				return(TRUE);
+				return(true);
 			}
 			if (match[i] != string[i])
 				break;
 		}
 	free(match);
 	free(src);
-	return(FALSE);
+	return(false);
 }
 
 
@@ -788,8 +756,7 @@ void free_args(
 
 	while(arg) {
 		t = arg->next;
-		if(arg->value)
-			free(arg->value);
+		zfree(arg->value);
 		free(arg);
 		arg = t;
 	}
@@ -847,8 +814,10 @@ char *f_printf(
 		} else {
 			char ac = 0; /* char after c */
 			int plen; /* print result length */
-			/* I guess the lack of * is made up for the ease */
-			/* of just tacking it into the format string directly */
+			/* I guess the lack of * is made up for the ease
+			 * of just tacking it into the format string directly */
+			/* I'll probably have to add %n$ support if I want
+			 * to support translation in expressions, though */
 			for (ctl=fmt+1; *ctl && strchr("0123456789.-", *ctl); ctl++);
 			if ((islong = *ctl == 'l'))
 				ctl++;
@@ -858,6 +827,7 @@ char *f_printf(
 			}
 			value = argp && argp->value ? argp->value : "";
 			switch(*ctl) {
+			  /* C/lc are not really supported right now */
 			  case 'c':
 			  case 'd':
 			  case 'x':
@@ -870,6 +840,8 @@ char *f_printf(
 				check_buf(plen);
 				sprintf(buf + bp, fmt, islong ? lval : (int)lval);
 				break;
+			  case 'a':
+			  case 'A':
 			  case 'e':
 			  case 'E':
 			  case 'f':
@@ -881,6 +853,7 @@ char *f_printf(
 				check_buf(plen);
 				sprintf(buf + bp, fmt, dval);
 				break;
+			  /* S/ls are not really supported right now */
 			  case 's':
 				plen = snprintf(0, 0, fmt, value);
 				check_buf(plen);
@@ -918,8 +891,7 @@ static bool re_check(QRegularExpression &re, char *e)
 	parsererror(msg);
 	free(msg);
     }
-    if(e)
-	free(e);
+    zfree(e);
     return ret;
 }
 
@@ -1059,8 +1031,7 @@ int f_alen(char *array)
     int ret;
     get_cur_arraysep(&sep, &esc);
     ret = stralen(array, sep, esc);
-    if(array)
-	free(array);
+    zfree(array);
     return ret;
 }
 

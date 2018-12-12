@@ -25,7 +25,7 @@
 static void create_item_widgets(CARD *, int);
 static void card_callback(int, CARD *, bool f = false, int i = 0);
 void card_readback_texts(CARD *, int);
-static BOOL store(CARD *, int, const char *, int menu = 0);
+static bool store(CARD *, int, const char *, int menu = 0);
 
 // Th Card window can be open multiple times, and should self-destruct on
 // close.  The old close callback also freed the card, as below.
@@ -340,7 +340,7 @@ static void create_item_widgets(
 	ITEM		item;		/* describes type and geometry */
 	struct carditem	*carditem;	/* widget pointers stored here */
 	QWidget		*wform;		/* static part form, or card form */
-	BOOL		editable;
+	bool		editable;
 
 	item = *card->form->items[nitem];
 	if (item.y < card->form->ydiv) {		/* static or card? */
@@ -897,8 +897,8 @@ static void card_callback(
 
 	  case IT_BUTTON:				/* pressable button */
 		if ((redraw = item->pressed)) {
-			if (switch_name) free(switch_name);
-			if (switch_expr) free(switch_expr);
+			zfree(switch_name);
+			zfree(switch_expr);
 			switch_name = switch_expr = 0;
 			n = evaluate(card, item->pressed);
 			if (switch_name) {
@@ -910,15 +910,15 @@ static void card_callback(
 			if (!BLANK(n)) {
 				int UNUSED ret = system(n);
 			}
-			if (switch_name) free(switch_name);
-			if (switch_expr) free(switch_expr);
+			zfree(switch_name);
+			zfree(switch_expr);
 			switch_name = switch_expr = 0;
 		}
 		break;
 	  default: ;
 	}
 	if (redraw)
-		fillout_card(card, TRUE);
+		fillout_card(card, true);
 }
 
 
@@ -980,20 +980,20 @@ void card_readback_texts(
 						time = parse_datestring(data);
 						break;
 					    case T_TIME:
-						time = parse_timestring(data, FALSE);
+						time = parse_timestring(data, false);
 						break;
 					    case T_DATETIME:
 						time = parse_datetimestring(data);
 						break;
 					    case T_DURATION:
-						time = parse_timestring(data, TRUE);
+						time = parse_timestring(data, true);
 					}
 					sprintf(buf, "%ld", (long)time);
 				}
 			}
 			(void)store(card, nitem, buf);
 			if (which >= 0)
-				fillout_item(card, nitem, FALSE);
+				fillout_item(card, nitem, false);
 			break;
 
 		  case IT_NUMBER:
@@ -1016,13 +1016,13 @@ void card_readback_texts(
  * This function may modify card->row because of resorting.
  */
 
-static BOOL store(
+static bool store(
 	CARD		*card,		/* card the item is added to */
 	int		nitem,		/* number of item being added */
 	const char	*string,	/* string to store in dbase */
 	int		menu)		/* menu item to store, if applicable */
 {
-	BOOL		newsum = FALSE;	/* must redraw summary? */
+	bool		newsum = false;	/* must redraw summary? */
 	const ITEM	*item;
 	int		col;
 
@@ -1030,29 +1030,29 @@ static BOOL store(
 	    card->dbase == 0			||
 	    card->dbase->rdonly			||
 	    card->form->items[nitem]->rdonly || card->form->rdonly)
-		return(FALSE);
+		return(false);
 
 	item = card->form->items[nitem];
 	col = item->multicol ? item->menu[menu].column : item->column;
 	if (!dbase_put(card->dbase, card->row, col, string))
-		return(TRUE);
+		return(true);
 
 	print_info_line();
 	if (pref.sortcol == col) {
 		dbase_sort(card, pref.sortcol, pref.revsort);
-		newsum = TRUE;
+		newsum = true;
 	} else
 		replace_summary_line(card, card->row);
 
 	if (pref.autoquery) {
 		do_query(card->form->autoquery);
-		newsum = TRUE;
+		newsum = true;
 	}
 	if (newsum) {
 		create_summary_menu(card);
 		scroll_summary(card);
 	}
-	return(TRUE);
+	return(true);
 }
 
 
@@ -1077,14 +1077,14 @@ const char *format_time_data(
 		data = mkdatestring(value);
 		break;
 	  case T_TIME:
-		data = mktimestring(value, FALSE);
+		data = mktimestring(value, false);
 		break;
 	  case T_DURATION:
-		data = mktimestring(value, TRUE);
+		data = mktimestring(value, true);
 		break;
 	  case T_DATETIME:
 		sprintf(buf, "%s  %s", mkdatestring(value),
-				       mktimestring(value, FALSE));
+				       mktimestring(value, false));
 		data = buf;
 	}
 	return(data);
@@ -1101,7 +1101,7 @@ const char *format_time_data(
 
 void fillout_card(
 	CARD		*card,		/* card to draw into menu */
-	BOOL		deps)		/* if TRUE, dependencies only */
+	bool		deps)		/* if true, dependencies only */
 {
 	int		i;		/* item counter */
 
@@ -1112,7 +1112,7 @@ void fillout_card(
 	}
 	// only rebuild if doing a full rebuild
 	if (!deps)
-		remake_section_popup(FALSE);
+		remake_section_popup(false);
 }
 
 
@@ -1129,9 +1129,9 @@ static const char *idefault(CARD *card, ITEM *item)
 void fillout_item(
 	CARD		*card,		/* card to draw into menu */
 	int		i,		/* item index */
-	BOOL		deps)		/* if TRUE, dependencies only */
+	bool		deps)		/* if true, dependencies only */
 {
-	BOOL		sens, vis;	/* (de-)sensitize item */
+	bool		sens, vis;	/* (de-)sensitize item */
 	ITEM		*item;		/* describes type and geometry */
 	QWidget		*w0, *w1;	/* input widget(s) in card */
 	const char	*data = NULL;	/* value string in database */

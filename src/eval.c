@@ -23,7 +23,7 @@ static char	errormsg[2000];		/* error message if any, or "" */
 CARD		*yycard;		/* database for which to evaluate */
 char		*switch_name;		/* if switch statement was found, */
 char		*switch_expr;		/* .. name to switch to and expr */
-BOOL		assigned;		/* did a field assignment */
+bool		assigned;		/* did a field assignment */
 
 
 /*
@@ -95,7 +95,7 @@ const char *subeval(
 {
 	char		*saved_text = yytext;
 	char		*saved_expr = yyexpr;
-	BOOL		saved_assigned = assigned;
+	bool		saved_assigned = assigned;
 	if (!exp || *errormsg) // refuse to continue on errors
 		return(0);
 	if (!*exp || (*exp != '(' && *exp != '{' && *exp != '$'))
@@ -119,22 +119,22 @@ const char *subeval(
 	return(STR(yyret));
 }
 
-BOOL evalbool(
+bool evalbool(
 	CARD		*card,
 	const char	*exp)
 {
 	if (!(exp = evaluate(card, exp)))
-		return(FALSE);
+		return(false);
 	while (*exp == ' ' || *exp == '\t' || *exp == '\n')
 		exp++;
 	return(*exp && *exp != '0' && *exp != 'f' && *exp != 'F');
 }
 
-BOOL subevalbool(
+bool subevalbool(
 	const char	*exp)
 {
 	if (!(exp = subeval(exp)))
-		return(FALSE);
+		return(false);
 	while (*exp == ' ' || *exp == '\t' || *exp == '\n')
 		exp++;
 	return(*exp && *exp != '0' && *exp != 'f' && *exp != 'F');

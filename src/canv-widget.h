@@ -46,7 +46,7 @@ class GrokCanvas : public QDialog {
     QRubberBand *rb = 0; // current rubber band
   public:
     void draw_rubberband(
-	BOOL		draw,		/* draw or undraw */
+	bool		draw,		/* draw or undraw */
 	int		x,		/* position of box */
 	int		y,
 	int		xs,		/* size of box */
@@ -58,7 +58,7 @@ class GrokCanvas : public QDialog {
     MOUSE	mode;		/* what's being moved: M_* */
     int		down_x, down_y;	/* pos where pen was pressed down */
     int		state;		/* button/modkey mask when pressed */
-    BOOL	moving;		/* this is not a selection, move box */
+    bool	moving;		/* this is not a selection, move box */
 
     // The foregound color of the widget is what's used for widget frames
     // and dividers.  Formerly colCanvFrame, but I decided to merge it

@@ -27,12 +27,12 @@ static void spool_callback(void);
 
 struct pref	pref;		/* global preferences */
 
-static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
+static bool		have_shell = false;	/* message popup exists if true */
 static QDialog		*shell;		/* popup menu shell */
 static QSpinBox		*w_linelen;	/* truncate printer lines */
 static QSpinBox		*w_lines;	/* summary lines text */
 static QDoubleSpinBox	*w_scale;	/* card scale text */
-static BOOL		modified;	/* preferences have changed */
+static bool		modified;	/* preferences have changed */
 
 
 /*
@@ -49,25 +49,25 @@ void destroy_preference_popup(void)
 		i = w_linelen->value();
 		if (i > 39 && i <= 250 && pref.linelen != i) {
 			pref.linelen = i;
-			modified = TRUE;
+			modified = true;
 		}
 		i = w_lines->value();
 		if (i > 0 && i < 80 && pref.sumlines != i) {
 			pref.sumlines = i;
-			modified = TRUE;
+			modified = true;
 		}
 		// FIXME: since it's fp, it might always seem modified
 		d = w_scale->value();
 		if (d >= 0.1 && d <= 10.0 && d != pref.scale) {
 			pref.scale = d;
-			modified = TRUE;
+			modified = true;
 		}
-		have_shell = FALSE;
+		have_shell = false;
 		shell->close();
 		delete shell;
 		if (modified)
 			write_preferences();
-		modified = FALSE;
+		modified = false;
 	}
 }
 
@@ -77,7 +77,7 @@ void destroy_preference_popup(void)
  * initialized with data from pref.
  */
 
-static const struct flag { BOOL *value; const char *text; } flags[] = {
+static const struct flag { bool *value; const char *text; } flags[] = {
 	{ &pref.ampm,		"12 hour mode (am/pm)"			},
 	{ &pref.mmddyy,		"Month/day/year mode"			},
 	{ &pref.query2search,	"Show query search expressions"		},
@@ -155,7 +155,7 @@ void create_preference_popup(void)
 	w_linelen->setValue(pref.linelen);
 	w_lines->setValue(pref.sumlines);
 	w_scale->setValue(pref.scale);
-	have_shell = TRUE;
+	have_shell = true;
 }
 
 
@@ -177,7 +177,7 @@ static void flag_callback(
 	*flag->value = set;
 	if (flag->value == &pref.uniquedb)
 		remake_dbase_pulldown();
-	modified = TRUE;
+	modified = true;
 }
 
 
@@ -188,7 +188,7 @@ static void spool_callback(void)
 	i = w_linelen->value();
 	if (i > 39 && i <= 250)
 		pref.linelen = i;
-	modified = TRUE;
+	modified = true;
 }
 
 
@@ -252,7 +252,7 @@ void read_preferences(void)
 	int		value;		/* value of second word in line */
 	QByteArray	printer;
 
-	pref.letters	= TRUE;
+	pref.letters	= true;
 	pref.scale	= 1.0;
 	pref.sumlines	= 8;
 	pref.pselect	= 'S';

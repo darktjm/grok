@@ -7,7 +7,7 @@
  *	resolve_tilde(path)		return path with ~ replaced with home
  *					directory as found in $HOME
  *	find_file(buf, name,exec)	find file <name> and store the path
- *					in <buf>. Return FALSE if not found.
+ *					in <buf>. Return false if not found.
  *	fatal(char *fmt, ...)		Prints an error message and exits.
  *	print_button(w, fmt, ...)	Prints a string into a string Label
  *					or PushButton. %s may not be NULL.
@@ -210,7 +210,7 @@ const char *resolve_tilde(
 
 const char *find_file(
 	const char		*name,		/* file name to locate */
-	BOOL			exec)		/* must be executable? */
+	bool			exec)		/* must be executable? */
 {
 	int			method;		/* search path counter */
 	const char		*path;		/* $PATH or DEFAULTPATH */
@@ -338,7 +338,7 @@ void print_text_button_s(QWidget *w, const char *str)
 
 void set_toggle(
 	QWidget			*w,
-	BOOL			set)
+	bool			set)
 {
 	// Don't generate an event of any kind if it's already set correctly
 	QAbstractButton *b = dynamic_cast<QAbstractButton *>(w);
@@ -356,8 +356,8 @@ void set_toggle(
 static char *readbutton(
 	QWidget			*w,
 	char			**ptr,
-	BOOL			skipblank,
-	BOOL			noblanks)
+	bool			skipblank,
+	bool			noblanks)
 {
 	static char		*buf = NULL;
 	static size_t		bufsize = 0;
@@ -403,13 +403,13 @@ static char *readbutton(
 }
 
 char *read_text_button_noskipblank(QWidget *w, char **ptr)
-	{ return(readbutton(w, ptr, FALSE, FALSE)); }
+	{ return(readbutton(w, ptr, false, false)); }
 
 char *read_text_button(QWidget *w, char **ptr)
-	{ return(readbutton(w, ptr, TRUE, FALSE)); }
+	{ return(readbutton(w, ptr, true, false)); }
 
 char *read_text_button_noblanks(QWidget *w, char **ptr)
-	{ return(readbutton(w, ptr, TRUE, TRUE)); }
+	{ return(readbutton(w, ptr, true, true)); }
 
 
 /*
@@ -467,20 +467,6 @@ void truncate_string(
 		str.chop(1);
 	}
 }
-
-void truncate_string(
-	QWidget		*w,		/* widget string will show in */
-	char		*string,	/* string to truncate */
-	int		len)		/* max len in pixels */
-{
-	QString str(string);
-	int slen = str.size();
-	truncate_string(w, str, len);
-	if(slen == str.size())
-		return;
-	string[str.toLocal8Bit().size()] = 0;
-}
-
 
 /*
  * return the length of <string> in pixels, when drawn in <w>.

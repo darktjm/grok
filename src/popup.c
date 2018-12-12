@@ -126,7 +126,7 @@ bool create_save_popup(
 		    case QMessageBox::Ok:
 			return true;
 		    case QMessageBox::Save:
-			return write_dbase(dbase, form, FALSE);
+			return write_dbase(dbase, form, false);
 		    case QMessageBox::Help:
 			// this will be immediately pushed to the back
 			// when question() runs again.  <sigh>

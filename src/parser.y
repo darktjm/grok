@@ -17,7 +17,7 @@
 static struct var {		/* variables 0..25 are a..z, cleared when */
 	char	*string;	/* switching databases. 26..51 are A..Z, */
 	double	value;		/* which are never cleared. */
-	BOOL	numeric;
+	bool	numeric;
 } var[52];
 
 static char *yyzstrdup(const char *s)
@@ -49,20 +49,20 @@ static double   getnvar	(int    v)  { return(var[v].numeric ? var[v].value :
 					var[v].string?atof(var[v].string):0);}
 static void	setsvari(int	v,
 			 char  *s)  { zfree(var[v].string);
-					var[v].numeric = FALSE;
+					var[v].numeric = false;
 					var[v].string = s; }
 static char    *setsvar	(int    v,
 			 char  *s)  {   setsvari(v, s);
 					return(yyzstrdup(var[v].string)); }
 static double   setnvar	(int    v,
 			 double d)  {   setsvari(v, 0);
-					var[v].numeric = TRUE;
+					var[v].numeric = true;
 					return(var[v].value = d); }
 void set_var(int v, char *s)
 {
     zfree(var[v].string);
     var[v].string = s;
-    var[v].numeric = FALSE;
+    var[v].numeric = false;
 }
 
 static char *f_concat(char *a, char *b)
@@ -275,15 +275,15 @@ string	: STRING			{ $$ = $1; }
 	| FOREACH '(' VAR ',' plus string ',' string ',' string ')'
 					{ f_foreachelt($3, $6, $8, $10, $5); $$ = 0; check_error; }
 	| TIME				{ yystrdup($$, mktimestring
-						(time(0), FALSE)); }
+						(time(0), false)); }
 	| DATE				{ yystrdup($$, mkdatestring
 						(time(0))); }
 	| TIME '(' number ')'		{ yystrdup($$, mktimestring
-						((time_t)$3, FALSE)); }
+						((time_t)$3, false)); }
 	| DATE '(' number ')'		{ yystrdup($$, mkdatestring
 						((time_t)$3)); }
 	| DURATION '(' number ')'	{ yystrdup($$, mktimestring
-						((time_t)$3, TRUE)); }
+						((time_t)$3, true)); }
 	| EXPAND '(' FIELD ')'		{ $$ = f_expand($3, yycard->row); check_error; }
 	| EXPAND '(' FIELD '[' number ']' ')'
 					{ $$ = f_expand($3, $5); check_error; }
@@ -420,8 +420,8 @@ numarg	: NUMBER			{ $$ = $1; }
 	| SECTION_ '[' number ']'	{ $$ = f_section($3); }
 	| DATE				{ $$ = time(0); }
 	| DATE  '(' string ')'		{ $$ = $3 ? parse_datetimestring($3) : 0; zfree($3);}
-	| TIME  '(' string ')'		{ $$ = $3 ? parse_timestring($3, FALSE) : 0; zfree($3);}
-	| DURATION '(' string ')'	{ $$ = $3 ? parse_timestring($3, TRUE) : 0; zfree($3);}
+	| TIME  '(' string ')'		{ $$ = $3 ? parse_timestring($3, false) : 0; zfree($3);}
+	| DURATION '(' string ')'	{ $$ = $3 ? parse_timestring($3, true) : 0; zfree($3);}
 	| YEAR  '(' number ')'		{ const time_t t = $3;
 					  $$ = localtime(&t)->tm_year; }
 	| MONTH '(' number ')'		{ const time_t t = $3;

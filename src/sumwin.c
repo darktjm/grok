@@ -115,7 +115,7 @@ void create_summary_menu(
 		scroll_summary(card);
 		if(card->qcurr >= 0 && card->qcurr < card->nquery) {
 			card->row = card->query[card->qcurr];
-			fillout_card(card, FALSE);
+			fillout_card(card, false);
 		}
 	}
 	card->wsummary = w_summary;
@@ -150,7 +150,7 @@ static void sum_callback(int item_position)
 	    item_position != card->qcurr) {
 		card->qcurr = item_position;
 		card->row   = card->query[card->qcurr];
-		fillout_card(card, FALSE);
+		fillout_card(card, false);
 		print_info_line();
 	}
 }
@@ -353,8 +353,8 @@ void make_summary_line(
 		(*buf)[x++] = ' ';
 		(*buf)[x]   = 0;
 	}
-	if (x == 0)
-		sprintf(*buf, row < 0 ? "" : "card %d", row);
+	if (x == 0 && row >= 0)
+		sprintf(*buf, "card %d", row);
 	if(w && twi) {
 		if(row < 0)
 			w->setHeaderItem(twi);

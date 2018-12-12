@@ -28,7 +28,7 @@ static void formedit_callback(int);
 static void menu_callback(QTableWidget *w, int x, int y);
 static int readback_item(int);
 
-static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
+static bool		have_shell = false;	/* message popup exists if true */
 static QDialog		*shell;		/* popup menu shell */
 static FORM		*form;		/* current form definition */
 static QWidget		*scroll_w;	/* the widget inside the scroll area */
@@ -470,7 +470,7 @@ static struct _template {
 void destroy_formedit_window(void)
 {
 	if (have_shell) {
-		have_shell = FALSE;
+		have_shell = false;
 		shell->close();
 		delete shell;
 	}
@@ -481,14 +481,14 @@ void destroy_formedit_window(void)
  * create form edit shell and all the buttons in it, but don't fill in
  * any data yet. If <def> is nonzero, edit the form <def> (the one currently
  * being displayed in the main window); if <def> is zero, start a new form.
- * If <copy> is TRUE, don't use <def> directly, create a copy by changing
+ * If <copy> is true, don't use <def> directly, create a copy by changing
  * form name to something that won't overwrite the original.
  */
 
 void create_formedit_window(
 	FORM			*def,		/* new form to edit */
-	BOOL			copy,		/* use a copy of <def> */
-	BOOL			isnew)		/* ok to change form name */
+	bool			copy,		/* use a copy of <def> */
+	bool			isnew)		/* ok to change form name */
 {
 	struct _template	*tp;
 	int			n, len, off;	/* width of first column */
@@ -505,7 +505,7 @@ void create_formedit_window(
 	else {
 		form = form_clone(def);
 		if (copy) {
-			if (form->name)  free(form->name);
+			zfree(form->name);
 			form->name = 0;
 		}
 	}
@@ -771,7 +771,7 @@ void create_formedit_window(
 	fillout_formedit();
 	popup_nonmodal(shell);
 	set_dialog_cancel_cb(shell, formedit_callback(0));
-	have_shell = TRUE;
+	have_shell = true;
 }
 
 
@@ -1209,7 +1209,7 @@ static int readback_item(
 	CHART			*chart = 0;
 	QWidget			*w = tp->widget;
 	int			code, i;
-	BOOL			all = FALSE; /* redraw oll or one? */
+	bool			all = false; /* redraw oll or one? */
 
 	if (canvas->curr_item < form->nitems) {
 		item  = form->items[canvas->curr_item];
@@ -1231,9 +1231,9 @@ static int readback_item(
 	  case 0x102: (void)read_text_button_noblanks(w, &form->dbase);	break;
 	  case 0x107: (void)read_text_button(w, &form->comment);	break;
 	  case 0x103: form->cdelim=to_ascii(read_text_button(w,0),':');	break;
-	  case 0x104: form->rdonly     ^= TRUE;				break;
-	  case 0x114: form->syncable   ^= TRUE;				break;
-	  case 0x105: form->proc       ^= TRUE; sensitize_formedit();	break;
+	  case 0x104: form->rdonly     ^= true;				break;
+	  case 0x114: form->syncable   ^= true;				break;
+	  case 0x105: form->proc       ^= true; sensitize_formedit();	break;
 	  case 0x106: form_edit_script(form, w, form->dbase);		break;
 
 	  case 0x108: form->asep=to_ascii(read_text_button(w,0),'|');	break;
@@ -1241,9 +1241,9 @@ static int readback_item(
 	  case 0x112: readback_formedit();
 		      item_deselect(form);
 		      (void)item_create(form, canvas->curr_item);
-		      form->items[canvas->curr_item]->selected = TRUE;
+		      form->items[canvas->curr_item]->selected = true;
 		      item = 0; // skip item adjustment below
-		      all = TRUE;
+		      all = true;
 		      break;
 
 	  case 0x113: item_deselect(form);
@@ -1255,11 +1255,11 @@ static int readback_item(
 				    item_deselect(form);
 		      }
 		      item = 0; // skip item adjustment below
-	 	      all = TRUE;
+	 	      all = true;
 		      break;
 
 	  case 0x10b: create_edit_popup("Card Help Editor",
-					 &form->help, FALSE, "fe_help");
+					 &form->help, false, "fe_help");
 		      break;
 
 	  case 0x10c: create_query_window(form);
@@ -1268,7 +1268,7 @@ static int readback_item(
 	  case 0x10d: if (!verify_form(form, &i, shell) && i < form->nitems) {
 				item_deselect(form);
 				canvas->curr_item = i;
-				form->items[i]->selected = TRUE;
+				form->items[i]->selected = true;
 				redraw_canvas_item(form->items[i]);
 				fillout_formedit();
 				sensitize_formedit();
@@ -1289,7 +1289,7 @@ static int readback_item(
 				if (i < form->nitems) {
 					item_deselect(form);
 					canvas->curr_item = i;
-					form->items[i]->selected = TRUE;
+					form->items[i]->selected = true;
 					redraw_canvas_item(form->items[i]);
 					fillout_formedit();
 					sensitize_formedit();
@@ -1324,10 +1324,10 @@ static int readback_item(
 
 	  case IT_LABEL:
 	 	      item->type = (ITYPE)item_types[reinterpret_cast<QComboBox *>(tp->widget)->currentIndex()].type;
-		      all = TRUE;
+		      all = true;
 		      break;
 
-	  case 0x202: item->nosort ^= TRUE;
+	  case 0x202: item->nosort ^= true;
 		      if (item->name)
 				for (i=0; i < form->nitems; i++) {
 					ip = form->items[i];
@@ -1337,13 +1337,13 @@ static int readback_item(
 				}
 		      break;
 
-	  case 0x203: item->defsort ^= TRUE;
+	  case 0x203: item->defsort ^= true;
 		      if (item->name)
 				for (i=0; i < form->nitems; i++)
 				    if (i != canvas->curr_item) {
 					ip = form->items[i];
 					ip->defsort = !strcmp(item->name,
-					     ip->name) ? item->defsort : FALSE;
+					     ip->name) ? item->defsort : false;
 				}
 		      break;
 
@@ -1356,7 +1356,7 @@ static int readback_item(
 		      for (code=0x23b; code <= 0x23d; code++)
 				fillout_formedit_widget_by_code(code);
 		       break;
-	  case 0x23e:  item->multicol ^= TRUE;	sensitize_formedit(); fill_menu_table(menu_w);	break;
+	  case 0x23e:  item->multicol ^= true;	sensitize_formedit(); fill_menu_table(menu_w);	break;
 
 	  case 0x210:
 	  case 0x211:
@@ -1365,7 +1365,7 @@ static int readback_item(
 	  case 0x214: item->labelfont = tp->code - 0x210;
 		      for (code=0x210; code <= 0x214; code++)
 				fillout_formedit_widget_by_code(code);
-		      all = TRUE;
+		      all = true;
 		      break;
 
 	  case 0x215:
@@ -1375,7 +1375,7 @@ static int readback_item(
 	  case 0x219: item->inputfont = tp->code - 0x215;
 		      for (code=0x215; code <= 0x219; code++)
 				fillout_formedit_widget_by_code(code);
-		      all = TRUE;
+		      all = true;
 		      break;
 
 	  case 0x260:
@@ -1415,13 +1415,13 @@ static int readback_item(
 		      fillout_formedit_widget_by_code(0x21b);
 		      fillout_formedit_widget_by_code(0x21c);		break;
 
-	  case 0x200: item->search ^= TRUE;				break;
-	  case 0x201: item->rdonly ^= TRUE;				break;
-	  case 0x209: item->timefmt = T_DATE;		all = TRUE;	break;
-	  case 0x20a: item->timefmt = T_TIME;		all = TRUE;	break;
-	  case 0x20b: item->timefmt = T_DATETIME;	all = TRUE;	break;
-	  case 0x20c: item->timefmt = T_DURATION;	all = TRUE;	break;
-	  case 0x23f: item->timewidget ^= TRUE;				break;
+	  case 0x200: item->search ^= true;				break;
+	  case 0x201: item->rdonly ^= true;				break;
+	  case 0x209: item->timefmt = T_DATE;		all = true;	break;
+	  case 0x20a: item->timefmt = T_TIME;		all = true;	break;
+	  case 0x20b: item->timefmt = T_DATETIME;	all = true;	break;
+	  case 0x20c: item->timefmt = T_DURATION;	all = true;	break;
+	  case 0x23f: item->timewidget ^= true;				break;
 
 	  case 0x21f: item->maxlen   = get_sb_value(w);			break;
 	  case 0x206: item->sumcol   = get_sb_value(w);			break;
@@ -1450,18 +1450,18 @@ static int readback_item(
 	  case 0x285: item->ch_ygrid  = get_dsb_value(w);			break;
 	  case 0x286: item->ch_xsnap  = get_dsb_value(w);			break;
 	  case 0x287: item->ch_ysnap  = get_dsb_value(w);			break;
-	  case 0x28c: item->ch_xauto ^= TRUE;				break;
-	  case 0x28d: item->ch_yauto ^= TRUE;				break;
+	  case 0x28c: item->ch_xauto ^= true;				break;
+	  case 0x28d: item->ch_yauto ^= true;				break;
 
-	  case 0x290: add_chart_component(item); all = TRUE;		break;
-	  case 0x291: del_chart_component(item); all = TRUE;		break;
-	  case 0x292: if (item->ch_curr) item->ch_curr--; all = TRUE;	break;
+	  case 0x290: add_chart_component(item); all = true;		break;
+	  case 0x291: del_chart_component(item); all = true;		break;
+	  case 0x292: if (item->ch_curr) item->ch_curr--; all = true;	break;
 	  case 0x293: if (item->ch_curr < item->ch_ncomp-1) item->ch_curr++;
-		      all = TRUE;					break;
+		      all = true;					break;
 
-	  case 0x301: chart->line ^= TRUE;				break;
-	  case 0x302: chart->xfat ^= TRUE;				break;
-	  case 0x303: chart->yfat ^= TRUE;				break;
+	  case 0x301: chart->line ^= true;				break;
+	  case 0x302: chart->xfat ^= true;				break;
+	  case 0x303: chart->yfat ^= true;				break;
 	  case 0x304: (void)read_text_button(w, &chart->excl_if);	break;
 	  case 0x305: (void)read_text_button(w, &chart->color);		break;
 	  case 0x306: (void)read_text_button(w, &chart->label);		break;
@@ -1527,8 +1527,7 @@ static int readback_item(
 				ip->sumwidth = item->sumwidth;
 				ip->column   = item->column;
 				if (item->idefault) {
-					if (ip->idefault)
-						free(ip->idefault);
+					zfree(ip->idefault);
 	  				ip->idefault =mystrdup(item->idefault);
 				}
 				redraw_canvas_item(ip);

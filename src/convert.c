@@ -57,7 +57,7 @@ const char *mkdatestring(
 
 char *mktimestring(
 	time_t			time,		/* date in seconds */
-	BOOL			dur)		/* duration, not time-of-day */
+	bool			dur)		/* duration, not time-of-day */
 {
 	static char		buf[40];	/* string representation */
 	struct tm		*tm, tmbuf;	/* time to m/d/y conv */
@@ -96,7 +96,7 @@ time_t parse_datestring(
 	long		i;		/* tmp counter */
 	char		*p;		/* text scan pointer */
 	char		buf[10];	/* lowercase weekday name */
-	BOOL		mmddyy = pref.mmddyy;
+	bool		mmddyy = pref.mmddyy;
 
 	today = time(0);				/* today's date */
 	tm = localtime(&today);
@@ -150,9 +150,9 @@ time_t parse_datestring(
 			num[nnum] = num[nnum]*10 + *p++ - '0';
 		while (*p && !(*p >= '0' && *p <= '9')) {
 			if (*p == '.')
-				mmddyy = FALSE;
+				mmddyy = false;
 			if (*p == '/')
-				mmddyy = TRUE;
+				mmddyy = true;
 			p++;
 		}
 	}
@@ -198,7 +198,7 @@ time_t parse_datestring(
 
 time_t parse_timestring(
 	char			*text,		/* input string */
-	BOOL			dur)		/* duration, not time-of-day */
+	bool			dur)		/* duration, not time-of-day */
 {
 	time_t			today;		/* current date in seconds */
 	struct tm		*tm;		/* m/d/y to time conv */
@@ -273,7 +273,7 @@ time_t parse_datetimestring(
 		text++;
 	while (*text == ' ' || *text == '\t')
 		text++;
-	t = parse_timestring(text, FALSE);
+	t = parse_timestring(text, false);
 	tm2 = *localtime(&t);
 	tm1.tm_hour = tm2.tm_hour;
 	tm1.tm_min  = tm2.tm_min;

@@ -28,7 +28,7 @@ static void done_callback    (void);
 static void context_callback (void);
 static char *get_text(const char *), *add_card_help(const char *, char *);
 
-static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
+static bool		have_shell = false;	/* message popup exists if true */
 static QDialog		*shell;			/* popup menu shell */
 
 
@@ -39,7 +39,7 @@ static QDialog		*shell;			/* popup menu shell */
 void destroy_help_popup(void)
 {
 	if (have_shell) {
-		have_shell = FALSE;
+		have_shell = false;
 		shell->close();
 		delete shell;
 	}
@@ -118,7 +118,7 @@ UNUSED	QWidget			*parent,
 	set_dialog_cancel_cb(shell, done_callback());
 
 	popup_nonmodal(shell);
-	have_shell = TRUE;
+	have_shell = true;
 	free(message);
 }
 
@@ -171,7 +171,7 @@ static char *get_text(
 	if (!(text = (char *)malloc(textsize = 4096)))
 		return(0);
 	*text = 0;
-	if (!(fn = find_file(HELP_FN, FALSE)) || !(fp = fopen(fn, "r"))) {
+	if (!(fn = find_file(HELP_FN, false)) || !(fp = fopen(fn, "r"))) {
 		sprintf(text, "Sorry, no help available,\n%s not found",
 								HELP_FN);
 		return(text);

@@ -24,7 +24,12 @@
  */
 
 #ifdef __GNUC__
+/* Note that clang sets __GNUC__ as well */
+#ifndef __clang__
 #define FALLTHROUGH __attribute__((fallthrough));
+#else
+#define FALLTHROUGH [[fallthrough]];
+#endif
 #define UNUSED __attribute__((unused))
 /* This warning is way too much trouble to "fix" */
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"

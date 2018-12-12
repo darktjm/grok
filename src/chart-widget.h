@@ -44,7 +44,7 @@ class GrokChart : public QWidget {
     int	row, comp;			/* row and column of dragged bar */
     int	down_x, down_y;			/* pos where pen was pressed down */
     double	x_val, y_val;		/* previous values of fields */
-    BOOL	moving = FALSE;		/* this is not a selection, move box */
+    bool	moving = false;		/* this is not a selection, move box */
     // functions needing xmin/xmax/ymin/ymax
     int pick_chart(
 	CARD		*card,		/* life, the universe, and everything*/

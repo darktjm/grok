@@ -1,4 +1,7 @@
-file(GLOB docs RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*")
+set(docs
+	index.html icon.jpg intro.html formedit.html grammar.html
+	export.html files.html
+)
 foreach(doc ${docs})
 	if(doc MATCHES "\\.html\$")
 		mangle_doc(${doc} ${GROK_DOC}/html)

@@ -36,7 +36,7 @@ void add_chart_component(
 	chart = &item->ch_comp[item->ch_curr];
 	tzero(CHART, chart, 1);
 	chart->xfat =
-	chart->yfat = TRUE;
+	chart->yfat = true;
 	chart->value[0].mul = 1;
 	chart->value[1].mul = 1;
 	chart->value[2].mul = 1;
@@ -55,8 +55,7 @@ void del_chart_component(
 	int		i;
 
 	if (--item->ch_ncomp < 1) {
-		if (item->ch_comp)
-			free(item->ch_comp);
+		zfree(item->ch_comp);
 		item->ch_comp  = 0;
 		item->ch_ncomp = 0;
 		return;

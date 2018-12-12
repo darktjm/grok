@@ -334,7 +334,7 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 	double		f;		/* new db value */
 	char		buf[40];	/* new db value as numeric string */
 	char		*p;
-	BOOL		redraw = FALSE;
+	bool		redraw = false;
 	int		i;
 
 	if(event->button() != Qt::NoButton && event->button() != Qt::LeftButton) {
@@ -354,7 +354,7 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 	item = curr_card->form->items[nitem];
 
 	if (press > 0) { // button down
-		moving = FALSE;
+		moving = false;
 		down_x = event->x();
 		down_y = event->y();
 		row    = pick_chart(curr_card, nitem, &comp, down_x, down_y);
@@ -366,7 +366,7 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 					curr_card->qcurr = i;
 					break;
 				}
-			fillout_card(curr_card, FALSE);
+			fillout_card(curr_card, false);
 			scroll_summary(curr_card);
 			chart = &item->ch_comp[comp];
 			p = dbase_get(curr_card->dbase, row,
@@ -396,7 +396,7 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 	if (press < 0) { // button up
 		if (moving) {
 			print_info_line();
-			fillout_card(curr_card, FALSE);
+			fillout_card(curr_card, false);
 		}
 		return;
 	}
@@ -412,7 +412,7 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 		f = snap(f, item->ch_xsnap);
 		sprintf(buf, "%.12lg", f);
 		dbase_put(curr_card->dbase, row, xval->field, buf);
-		redraw = TRUE;
+		redraw = true;
 	}
 	if (yval->mode == CC_DRAG && yval->mul != 0) {
 		y = event->y() - down_y;
@@ -420,7 +420,7 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 		f = snap(f, item->ch_ysnap);
 		sprintf(buf, "%.12lg", f);
 		dbase_put(curr_card->dbase, row, yval->field, buf);
-		redraw = TRUE;
+		redraw = true;
 	}
 	if (redraw)
 		draw_chart(curr_card, nitem);

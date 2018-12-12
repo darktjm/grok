@@ -80,14 +80,14 @@ void dbase_delete(
 /*
  * append a new row (card) to the database, and return the number of the
  * appended row so the caller can store it in the card struct. Don't fill
- * in any data yet, just add null pointers. Return FALSE if allocation
+ * in any data yet, just add null pointers. Return false if allocation
  * failed. The caller must redraw the current card. Always put new cards
  * into section dbase->currsect. Set the ctime (create time) and ctimex
  * (a disambiguating counter) that will be used as a lifetime identifier
  * for the new card, used by synchronization. (fixme: search is O(n^2))
  */
 
-BOOL dbase_addrow(
+bool dbase_addrow(
 	int		 *rowp,		/* ptr to returned row number */
 	DBASE		 *dbase)	/* database to add row to */
 {
@@ -101,14 +101,14 @@ BOOL dbase_addrow(
 		i = (dbase->size + CHUNK) * sizeof(ROW);
 		if (!(dbase->row = (ROW **)(dbase->row ? realloc(dbase->row, i)
 						       : malloc(i))))
-			return(FALSE);
+			return(false);
 		dbase->size += CHUNK;
 	}
 	n = dbase->maxcolumns ? dbase->maxcolumns : 1;
 	i = sizeof(ROW) + (n-1) * sizeof(char *);
 	if (i == 0) i = 1;
 	if (!(row = dbase->row[dbase->nrows] = (ROW *)malloc(i)))
-		return(FALSE);
+		return(false);
 	memset(row, 0, i);
 	row->ncolumns   = n;
 	row->section    = newsect;
@@ -119,12 +119,12 @@ BOOL dbase_addrow(
 			row->ctimex = other->ctimex + 1;
 	}
 	sect = &dbase->sect[newsect];
-	dbase->modified = TRUE;
-	sect->modified  = TRUE;
+	dbase->modified = true;
+	sect->modified  = true;
 	sect->nrows++;
 	*rowp = dbase->nrows++;
 	print_info_line();
-	return(TRUE);
+	return(true);
 }
 
 
@@ -146,9 +146,9 @@ void dbase_delrow(
 		return;
 	row = dbase->row[nrow];
 	dbase->sect[row->section].nrows--;
-	dbase->sect[row->section].modified = TRUE;
+	dbase->sect[row->section].modified = true;
 	dbase->nrows--;
-	dbase->modified = TRUE;
+	dbase->modified = true;
 
 	for (i=0; i < row->ncolumns; i++)
 		if (row->data[i])
@@ -186,7 +186,7 @@ char *dbase_get(
  * add rows at the end. It should never be necessary to add a row in
  * the middle, this must have been done with dbase_addrow earlier. Don't
  * write into read-only sections. Store empty strings as null pointers.
- * return FALSE if the string is unchanged.
+ * return false if the string is unchanged.
  *
  * Since there is no way to distinguish allocation errors from unchanged
  * database, what do I do on memory errors?
@@ -198,7 +198,7 @@ char *dbase_get(
  * fix this to actually return an error code on errors instead of dying.
  */
 
-BOOL dbase_put(
+bool dbase_put(
 	DBASE		*dbase,		/* database to put into */
 	int		nrow,		/* row to put into */
 	int		ncolumn,	/* column to put into */
@@ -212,7 +212,7 @@ BOOL dbase_put(
 		   || dbase->rdonly
 		   || !(row = dbase->row[nrow])
 		   || dbase->sect[row->section].rdonly)
-		return(FALSE);
+		return(false);
 	if (ncolumn >= dbase->maxcolumns)
 		dbase->maxcolumns = ncolumn + 1;
 	if (ncolumn >= row->ncolumns) {
@@ -227,13 +227,13 @@ BOOL dbase_put(
 		data = 0;
 	p = row->data[ncolumn];
 	if ((!data && !p) || (data && p && !strcmp(data, row->data[ncolumn])))
-	    	return(FALSE);
+	    	return(false);
 	if (row->data[ncolumn])
 		free(row->data[ncolumn]);
 	row->data[ncolumn] = mystrdup(data);
 	row->mtime = time(0);
-	dbase->modified = dbase->sect[row->section].modified = TRUE;
-	return(TRUE);
+	dbase->modified = dbase->sect[row->section].modified = true;
+	return(true);
 }
 
 

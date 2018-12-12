@@ -24,12 +24,12 @@ static void file_export_callback(const QString &file);
 
 static void mklist(void);
 static void editfile(char *);
-static void askname(BOOL);
+static void askname(bool);
 
 static QDialog		*shell = 0;	/* popup menu shell */
 static QListWidget	*list;		/* template list widget */
 static int		list_nlines;	/* # of lines displayed in scroll list */
-static BOOL		modified;	/* preferences have changed */
+static bool		modified;	/* preferences have changed */
 
 
 /*
@@ -230,7 +230,7 @@ static void create_templ_print_popup(bool print)
 	set_dialog_cancel_cb(shell, button_callback(0x42));
 
 	popup_nonmodal(shell);
-	modified = FALSE;
+	modified = false;
 }
 
 void create_templ_popup(void)
@@ -272,10 +272,10 @@ static int get_list_seq(void)
 	int i = list->currentRow();
 	if(i >= 0) {
 		pref.xlistpos = i;
-		return(TRUE);
+		return(true);
 	} else {
 		create_error_popup(shell, 0, "Please choose a template name");
-		return(FALSE);
+		return(false);
 	}
 }
 
@@ -335,7 +335,7 @@ static void unset_export_card(void)
 	}
 }
 
-static BOOL do_export(void)
+static bool do_export(void)
 {
 	struct menu	*mp;		/* for finding text widget */
 	const char	*err;
@@ -345,10 +345,10 @@ static BOOL do_export(void)
 	
 	if (!pref.xfile) {
 		create_error_popup(shell,0,"Please enter an output file name");
-		return(FALSE);
+		return(false);
 	}
 	if (!get_list_seq())
-		return(FALSE);
+		return(false);
 
 	set_export_card();
 	if(pref.xfile[0] != '|')
@@ -365,31 +365,31 @@ static BOOL do_export(void)
 	if (err) {
 		unset_export_card();
 		create_error_popup(shell, 0, "Export failed:\n%s", err);
-		return(FALSE);
+		return(false);
 	}
 	unset_export_card();
-	modified = TRUE;
-	return(TRUE);
+	modified = true;
+	return(true);
 }
 
-static BOOL export_to_doc(QTextDocument &doc)
+static bool export_to_doc(QTextDocument &doc)
 {
 	const char	*err;
 
 	if (!get_list_seq())
-		return(FALSE);
+		return(false);
 
 	FILE *f = tmpfile();
 	if(!f) {
 		create_error_popup(shell, 0, "Can't create output file");
-		return(FALSE);
+		return(false);
 	}
 	set_export_card();
 	if ((err = exec_template(0, f, 0, pref.xlistpos, pref.xflags, curr_card))) {
 		unset_export_card();
 		create_error_popup(shell, 0, "Export failed:\n%s", err);
 		fclose(f);
-		return(FALSE);
+		return(false);
 	}
 	unset_export_card();
 	fflush(f);
@@ -398,7 +398,7 @@ static BOOL export_to_doc(QTextDocument &doc)
 	char *cdoc = alloc(shell, "template results", char, len + 1);
 	if(!cdoc) {
 		fclose(f);
-		return(FALSE);
+		return(false);
 	}
 	/* Weird that glibc complains about ignoring read failure but not write */
 	/* especially given how unlikely this particular read is to fail */
@@ -439,7 +439,7 @@ static BOOL export_to_doc(QTextDocument &doc)
 			doc.setPlainText(s);
 		}
 	}
-	return(TRUE);
+	return(true);
 }
 
 
@@ -449,12 +449,12 @@ static void button_callback(
 {
 	switch(code) {
 	  case 0x20:						/* Create */
-		askname(FALSE);
+		askname(false);
 		break;
 	  case 0x21:						/* Dup */
 		if (!get_list_seq())
 			return;
-		askname(TRUE);
+		askname(true);
 		break;
 	  case 0x22:						/* Edit */
 		if (!get_list_seq())
@@ -570,13 +570,13 @@ static void button_callback(
 			break;
 		}
 		/* create_edit_popup will take ownership of d */
-		create_edit_popup("Export Preview", NULL, TRUE, "editprint", d);
+		create_edit_popup("Export Preview", NULL, true, "editprint", d);
 		break;
 	  }
 	  case 0x46:
 	  case 0x47: {	 					/* Print */
 		QTextDocument d;
-		modified = TRUE;
+		modified = true;
 		if(!export_to_doc(d))
 			break;
 		destroy_templ_popup();
@@ -601,7 +601,7 @@ static void button_callback(
 	  case 0x52:
 	  case 0x53: {	 					/* Cards */
 		pref.pselect = select_codes[code - 0x50];
-		modified = TRUE;
+		modified = true;
 	  }
 	}
 }
@@ -615,8 +615,7 @@ static void file_export_callback(
 	struct menu			*mp;
 
 	if (filename.size()) {
-		if (pref.xfile)
-			free(pref.xfile);
+		zfree(pref.xfile);
 		pref.xfile = qstrdup(filename);
 		for (mp=menu; mp->code != 0x30; mp++);
 		print_text_button(mp->widget, pref.xfile);
@@ -632,13 +631,13 @@ static void file_export_callback(
 static void text_callback	(void);
 static void textcancel_callback	(void);
 
-static BOOL		have_askshell = FALSE;	/* text popup exists if TRUE */
+static bool		have_askshell = false;	/* text popup exists if true */
 static QDialog		*askshell;	/* popup menu shell */
 static QLineEdit	*text;		/* template name string */
-static BOOL		duplicate;	/* dup file before editing */
+static bool		duplicate;	/* dup file before editing */
 
 static void askname(
-	BOOL		dup)		/* duplicate file before editing */
+	bool		dup)		/* duplicate file before editing */
 {
 	QWidget		*w;
 	QBoxLayout	*form;
@@ -687,7 +686,7 @@ static void askname(
 	set_dialog_cancel_cb(shell, textcancel_callback());
 
 	popup_nonmodal(askshell);
-	have_askshell = TRUE;
+	have_askshell = true;
 }
 
 
@@ -695,7 +694,7 @@ static void textcancel_callback(void)
 {
 	if (have_askshell)
 		delete askshell;
-	have_askshell = FALSE;
+	have_askshell = false;
 }
 
 
@@ -740,5 +739,5 @@ static void editfile(
 		fclose(fp);
 		mklist();
 	}
-	edit_file(path, FALSE, TRUE, path, "tempedit");
+	edit_file(path, false, true, path, "tempedit");
 }

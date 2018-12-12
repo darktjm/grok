@@ -27,7 +27,7 @@ static void init_pixmaps(void);
 QApplication		*app;		/* application handle */
 char			*progname;	/* argv[0] */
 QIcon			pixmap[NPICS];	/* common symbols */
-BOOL			restricted;	/* restricted mode, no form editor */
+bool			restricted;	/* restricted mode, no form editor */
 
 
 static const char * const default_qss =
@@ -47,11 +47,11 @@ int main(
 	char		*formname = 0;
 	char		*tmpl = 0;
 	char		*query	  = 0;
-	BOOL		nofork	  = FALSE;
-	BOOL		ttymode	  = FALSE;
-	BOOL		planmode  = FALSE;
-	BOOL		noheader  = FALSE;
-	BOOL		do_export = FALSE;
+	bool		nofork	  = false;
+	bool		ttymode	  = false;
+	bool		planmode  = false;
+	bool		noheader  = false;
+	bool		do_export = false;
 
 	setlocale(LC_ALL, "");
 	if ((progname = strrchr(argv[0], '/')) && progname[1])
@@ -80,23 +80,23 @@ int main(
 				fprintf(stderr, "%s: %s\n", progname, VERSION);
 				return(0);
 			  case 'f':
-				nofork   = TRUE;
+				nofork   = true;
 				break;
 			  case 'T':
-				noheader = TRUE;
+				noheader = true;
 				FALLTHROUGH
 			  case 't':
-				ttymode  = TRUE;
+				ttymode  = true;
 				break;
 			  case 'p':
-				planmode = TRUE;
-				noheader = TRUE;
+				planmode = true;
+				noheader = true;
 				break;
 			  case 'x':
-				do_export   = TRUE;
+				do_export   = true;
 				break;
 			  case 'r':
-				restricted = TRUE;
+				restricted = true;
 				break;
 			  default:
 				usage();
@@ -193,7 +193,7 @@ int main(
 	// Then, the config path is searched for a resource file
 	// This replaces the defaults, so the user can run without any styling
 	const char *rname = resolve_tilde(QSS_FN, NULL);
-	if(!access(rname, R_OK) || (rname = find_file(QSS_FN, FALSE))) {
+	if(!access(rname, R_OK) || (rname = find_file(QSS_FN, false))) {
 		QFile file(rname);
 		if (file.open(QFile::ReadOnly)) {
 			QTextStream stream(&file);
@@ -236,7 +236,7 @@ int main(
 		create_summary_menu(curr_card);
 		curr_card->row = curr_card->query ? curr_card->query[0]
 						  : curr_card->dbase->nrows;
-		fillout_card(curr_card, FALSE);
+		fillout_card(curr_card, false);
 	}
 	mainwindow->show();
 	return app->exec();

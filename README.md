@@ -2,22 +2,26 @@ grok - Graphical Resource Organizer Kit
 =======================================
 
 For people who don't read long READMEs, I'll describe compilation and
-installation first.  Before starting, install C++ development tools,
-cmake (tested with 3.13.1), Qt 5 (tested with 5.11.3) and GNU Bison
-(tested with 3.2.2):
+installation first.  Before starting, install C++ development tools
+(C++-11 minimum; tested with gcc and clang), cmake (tested with
+3.13.1), Qt 5 (tested with 5.11.3) and GNU Bison (tested with 3.2.2):
 
->     cmake && make
+>     cmake . && make
 >     # if you want to install it now:
 >     sudo make install/strip
 >     # if you want to package it:
 >     make install/strip DESTDIR=/tmp/pkg_root
+
+If you prefer, you can build from an alternate directory:
+
+>     mkdir build && cd build && cmake .. && make
 
 If you don't like the default installation locations, you can set set
 them most easily by replacing cmake with either ccmake or cmake-gui.
 In particular, CMAKE_INSTALL_PREFIX is a common variable to change,
 and you can change it on the cmake command line as well:
 
->     cmake -DCMAKE_INSTALL_PREFIX=/usr
+>     cmake -DCMAKE_INSTALL_PREFIX=/usr .
 
 Obtain the latest version at:
 

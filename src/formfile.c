@@ -34,10 +34,10 @@ static const char * const itemname[NITEMS] = {
 /*
  * Write the form and all the items in it. Also create the database named
  * in the form if it doesn't exist.
- * Returns FALSE if the file could not be written.
+ * Returns false if the file could not be written.
  */
 
-BOOL write_form(
+bool write_form(
 	const FORM	*form)		/* form and items to write */
 {
 	const char	*path;		/* file name to write to */
@@ -54,14 +54,14 @@ BOOL write_form(
 	if (!path || !*path) {
 		create_error_popup(mainwindow, 0,
 			"Form has no name, cannot save to disk");
-		return(FALSE);
+		return(false);
 	}
 	if (!form->path)
 		path = resolve_tilde(path, "gf");
 	if (!(fp = fopen(path, "w"))) {
 		create_error_popup(mainwindow, errno,
 			"Failed to create form file %s", path);
-		return(FALSE);
+		return(false);
 	}
 	/* don't write values that are at the default (see set_form_defaults()) */
 	/* if default is not 0, add arg to macro to check default */
@@ -88,7 +88,7 @@ BOOL write_form(
 	}
 	write_int("rdonly     ", form->rdonly);
 	write_int("proc       ", form->proc);
-	write_int("syncable   ", form->syncable, != TRUE);
+	write_int("syncable   ", form->syncable, != true);
 	write_2intc("grid       ", form->xg, != 4, form->yg, != 4);
 	write_2intc("size       ", form->xs, != 400, form->ys, != 200);
 	write_int("divider    ", form->ydiv);
@@ -215,7 +215,7 @@ BOOL write_form(
 	i = strlen(dbpath);
 	if(i < 3 || strcmp(dbpath + i - 3, ".gf")) {
 		free(dbpath);
-		return(TRUE); /* invalid, really, but leave it alone */
+		return(true); /* invalid, really, but leave it alone */
 	}
 	/* The loader checks .db first, but it doesn't matter what order */
 	/* it's checked here, other than creation wanting the .db extencsion */
@@ -233,7 +233,7 @@ BOOL write_form(
 "database file %s cannot be created.\n"
 "No cards can be entered into the new Form.\n\nProblem: ", path);
 			free(dbpath);
-			return(FALSE);
+			return(false);
 		}
 		fclose(fp);
 	}
@@ -243,17 +243,17 @@ BOOL write_form(
 "database file %s exists but is not readable.\n"
 "No cards can be entered into the new Form.\n\nProblem: ", path);
 		free(dbpath);
-		return(FALSE);
+		return(false);
 	}
 	free(dbpath);
-	return(TRUE);
+	return(true);
 }
 #endif /* GROK */
 
 
 /*
  * Read the form and all the items in it from a file.
- * Returns FALSE and leave *form untouched if the file could not be read.
+ * Returns false and leave *form untouched if the file could not be read.
  */
 
 static FILE *try_path(const char *path, const char **fname)
@@ -312,7 +312,7 @@ static char *get_string(FILE *fp, char *val, char *buf, size_t buflen,
 	}
 }
 
-BOOL read_form(
+bool read_form(
 	FORM			*form,		/* form and items to write */
 	const char		*path)		/* file to read list from */
 {
@@ -348,7 +348,7 @@ BOOL read_form(
 	if (!fp) {
 		create_error_popup(mainwindow, errno,
 			"Failed to open form file %s", path);
-		return(FALSE);
+		return(false);
 	}
 	form_delete(form);
 	form->path = mystrdup(path);
@@ -368,12 +368,12 @@ BOOL read_form(
 		if (!strcmp(key, "item")) {
 			if (!item_create(form, form->nitems)) {
 				form_delete(form);
-				return(FALSE);
+				return(false);
 			}
 			chart = NULL;
 			menu = NULL;
 			item  = form->items[form->nitems-1];
-			item->selected = FALSE;
+			item->selected = false;
 			item->ch_curr  = 0;
 								/* header */
 		} else if (!item) {
@@ -461,13 +461,13 @@ BOOL read_form(
 			else if (!strcmp(key, "column"))
 					item->column = atoi(p);
 			else if (!strcmp(key, "search"))
-					item->search = atoi(p) ? TRUE : FALSE;
+					item->search = atoi(p) ? true : false;
 			else if (!strcmp(key, "rdonly"))
-					item->rdonly = atoi(p) ? TRUE : FALSE;
+					item->rdonly = atoi(p) ? true : false;
 			else if (!strcmp(key, "nosort"))
-					item->nosort = atoi(p) ? TRUE : FALSE;
+					item->nosort = atoi(p) ? true : false;
 			else if (!strcmp(key, "defsort"))
-					item->defsort = atoi(p) ? TRUE : FALSE;
+					item->defsort = atoi(p) ? true : false;
 			else if (!strcmp(key, "timefmt"))
 					item->timefmt = (TIMEFMT)atoi(p);
 			else if (!strcmp(key, "timewidget"))
@@ -539,9 +539,12 @@ BOOL read_form(
 			else if (!strcmp(key, "ch_yrange"))
 					sscanf(p, "%lg %lg", &item->ch_ymin,
 							   &item->ch_ymax);
-			else if (!strcmp(key, "ch_auto"))
-					sscanf(p, "%d %d", &item->ch_xauto,
-							   &item->ch_yauto);
+			else if (!strcmp(key, "ch_auto")) {
+					int xauto, yauto;
+					sscanf(p, "%d %d", &xauto, &yauto);
+					item->ch_xauto = xauto;
+					item->ch_yauto = yauto;
+			}
 			else if (!strcmp(key, "ch_grid"))
 					sscanf(p, "%lg %lg", &item->ch_xgrid,
 							   &item->ch_ygrid);
@@ -556,9 +559,13 @@ BOOL read_form(
 						item->ch_comp : chart+1;
 			else if (chart && !strcmp(key, "_ch_type"))
 					chart->line = atoi(p);
-			else if (chart && !strcmp(key, "_ch_fat"))
-					sscanf(p, "%d %d", &chart->xfat,
-							   &chart->yfat);
+			else if (chart && !strcmp(key, "_ch_fat")) {
+					int xfat, yfat;
+					sscanf(p, "%d %d", &xfat,
+							   &yfat);
+					chart->xfat = xfat;
+					chart->yfat = yfat;
+			}
 			else if (chart && !strcmp(key, "_ch_excl"))
 					STORE(chart->excl_if, p);
 			else if (chart && !strcmp(key, "_ch_color"))
@@ -585,9 +592,9 @@ BOOL read_form(
 	/* verify_form() will also create the symtab */
 	if(!verify_form(form, NULL, mainwindow)) {
 		form_delete(form);
-		return(FALSE);
+		return(false);
 	}
-	return(TRUE);
+	return(true);
 }
 
 #endif /* GROK || PLANGROK */

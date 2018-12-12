@@ -108,10 +108,15 @@ Code Improvements
   Normally I'd stop writing as soon as an error occurs, but that's too
   much trouble and probably not worth it.
 
-- check errors on all file reads, and report/abort if so.  I suppose
+- Check errors on all file reads, and report/abort if so.  I suppose
   that delaying until just before fclose would be sufficient.
 
 - Consistently make blank strings NULL, and stop checking for blanks.
+
+- Be more consistent on use of 0 vs NULL for pointers.  Yeah, my own
+  additions are probably even more inconsistent than the old code was.
+  The advantage of NULL is that it only works in pointer contexts.
+  The advantage of 0 is that it's shorter to write.
 
 - Use specific pointer types instead of base classes to avoid the
   dynamic_cast overhead.  I'm not sure the compiler is smart enough

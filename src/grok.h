@@ -5,24 +5,19 @@
  * stored in are in form.h, everything else is here.
  */
 
-#define FALSE	0
-#define TRUE	1
-#define BOOL	int
-
-
 /*
  * global preferences
  */
 
 class QPrinter;
 struct pref {
-	BOOL	ampm;		/* US time format if TRUE, sane if FALSE */
-	BOOL	mmddyy;		/* US date format if TRUE, European if FALSE */
-	BOOL	query2search;	/* copy query pulldn string to search string */
-	BOOL	letters;	/* show letter search row below summary */
-	BOOL	allwords;	/* letter search looks at all word beginnings*/
-	BOOL	incremental;	/* searches and queries are incremental */
-	BOOL	uniquedb;	/* only unique names in dbase pulldown */
+	bool	ampm;		/* US time format if true, sane if false */
+	bool	mmddyy;		/* US date format if true, European if false */
+	bool	query2search;	/* copy query pulldn string to search string */
+	bool	letters;	/* show letter search row below summary */
+	bool	allwords;	/* letter search looks at all word beginnings*/
+	bool	incremental;	/* searches and queries are incremental */
+	bool	uniquedb;	/* only unique names in dbase pulldown */
 	char	pselect;	/* print: C=curr, S=search, A=all */
 	char	*xfile;		/* export file */
 	int	xlistpos;	/* last chosen line in export list, 0=top */
@@ -31,8 +26,8 @@ struct pref {
 	double	scale;		/* scale factor for cards */
 	int	sumlines;	/* number of summary lines */
 	int	sortcol;	/* initially form->defsort, then sort pulldn */
-	BOOL	revsort;	/* initially FALSE, then line1 of sort pulldn*/
-	BOOL	autoquery;	/* run form.autoquery after every change? */
+	bool	revsort;	/* initially false, then line1 of sort pulldn*/
+	bool	autoquery;	/* run form.autoquery after every change? */
 	QPrinter *printer;	/* printer settings */
 };
 

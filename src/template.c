@@ -258,7 +258,7 @@ char *copy_template(
  * delete a template by sequential number
  */
 
-BOOL delete_template(
+bool delete_template(
 	QWidget		*shell,		/* export window widget */
 	int		seq,		/* template to delete, >= NBUILTINS */
 	CARD		*card)		/* need this for form name */
@@ -267,16 +267,16 @@ BOOL delete_template(
 
 	if (seq < NBUILTINS) {
 		create_error_popup(shell,0,"Cannot delete a builtin template");
-		return(FALSE);
+		return(false);
 	}
 	path = get_template_path(0, seq, card);
 	if (unlink(path)) {
 		create_error_popup(shell, errno, "Failed to delete %s", path);
 		free(path);
-		return(FALSE);
+		return(false);
 	}
 	free(path);
-	return(TRUE);
+	return(true);
 }
 
 
@@ -289,7 +289,7 @@ BOOL delete_template(
 #define NEST		10
 
 static char html_subst[] = "<=&lt; >=&gt; &=&amp; \n=<BR>";
-static const char *eval_command(char *, BOOL *, int);
+static const char *eval_command(char *, bool *, int);
 static const char *putstring(const char *);
 
 struct forstack { long offset; int num; int nquery; int *query; char *array; };
@@ -342,8 +342,8 @@ const char *eval_template(
 	int		line = 1;	/* line number in template */
 	int		c, prevc;	/* curr end prev char from template */
 	int		bracelevel = 0;	/* if inside \{ }, brace level > 0 */
-	BOOL		quote = FALSE;	/* inside \{ }: inside quoted text? */
-	BOOL		eat_nl = FALSE;	/* ignore \n after \{COMMAND} */
+	bool		quote = false;	/* inside \{ }: inside quoted text? */
+	bool		eat_nl = false;	/* ignore \n after \{COMMAND} */
 	int		i;
 
 	ifp = iifp;
@@ -417,7 +417,7 @@ const char *eval_template(
 					break;
 				}
 			}
-			eat_nl = FALSE;
+			eat_nl = false;
 		}
 	}
 	if (feof(ifp)) {
@@ -436,8 +436,7 @@ const char *eval_template(
 	while (forlevel >= 0)
 		free(forstack[forlevel--].query);
 
-	if (curr_card->query)
-		free(curr_card->query);
+	zfree(curr_card->query);
 	curr_card->query  = default_query;
 	curr_card->nquery = default_nquery;
 	curr_card->row    = default_row;
@@ -464,7 +463,7 @@ const char *eval_template(
 
 static const char *eval_command(
 	char		*word,		/* command to evaluate */
-	BOOL		*eat_nl,	/* if command, set to true (skip \n) */
+	bool		*eat_nl,	/* if command, set to true (skip \n) */
 	int		flags)		/* template flags a..z */
 {
 	char		*cmd;		/* extracted command word */
@@ -472,7 +471,7 @@ static const char *eval_command(
 	struct forstack	*sp;		/* current foreach stack level */
 	int		i, nq, *qu;
 
-	*eat_nl = TRUE;
+	*eat_nl = true;
 	while (ISSPACE(*word)) word++;
 	for (i=strlen(word); i && ISSPACE(word[i-1]); i--);
 	for (cmd=word; *word>='A' && *word<='Z'; word++);
@@ -602,8 +601,7 @@ static const char *eval_command(
 			} while(after >= 0 && begin == after &&
 				sp->nquery < 0);
 			if(after < 0) {
-				if(sp->array)
-					free(sp->array);
+				zfree(sp->array);
 				forlevel--;
 			} else {
 				int var = (sp->nquery < 0 ? -sp->nquery : sp->nquery) - 1;
@@ -631,8 +629,7 @@ static const char *eval_command(
 			break;
 		if (ofp && close_ofp)
 			fclose(ofp);
-		if (outname)
-			free(outname);
+		zfree(outname);
 		outname = zstrdup(evaluate(curr_card, word));
 		ofp = 0;
 		close_ofp = true;
@@ -650,7 +647,7 @@ static const char *eval_command(
 		break;
 
 	  case O_EXPR:
-		*eat_nl = FALSE;
+		*eat_nl = false;
 		if (forskip || n_false_if)
 			break;
 		if(!*word) // Allow newline suppression with blank expr

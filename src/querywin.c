@@ -36,7 +36,7 @@ static void done_callback  (void);
 static void list_callback  (int x, int y, bool checked = false);
 
 static FORM		*form;		/* form whose queries are edited */
-static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
+static bool		have_shell = false;	/* message popup exists if true */
 static QDialog		*shell;		/* popup menu shell */
 static QPushButton	*del, *dupl, *up, *down;	/* buttons, for desensitizing */
 static QTextEdit	*info;		/* info line for error messages */
@@ -63,7 +63,7 @@ DQUERY *add_dquery(
 void destroy_query_window(void)
 {
 	if (have_shell) {
-		have_shell = FALSE;
+		have_shell = false;
 		shell->close();
 		delete shell;
 	}
@@ -163,7 +163,7 @@ void create_query_window(
 	wform->addWidget(bb);
 	// bind_help(w, "queries");  // same as main window
 
-	create_query_rows();	/* have_shell must be FALSE here */
+	create_query_rows();	/* have_shell must be false here */
 	print_query_info();
 
 	// This is only called after a cell has been edited
@@ -180,7 +180,7 @@ void create_query_window(
 
 	popup_nonmodal(shell);
 	set_dialog_cancel_cb(shell, done_callback());
-	have_shell = TRUE;
+	have_shell = true;
 }
 
 
@@ -259,10 +259,8 @@ static void del_query(int y)
 	int n;
 
 	form->nqueries--;
-	if(form->query[y].name)
-		free(form->query[y].name);
-	if(form->query[y].query)
-		free(form->query[y].query);
+	zfree(form->query[y].name);
+	zfree(form->query[y].query);
 	for (n=y; n < form->nqueries; n++)
 		form->query[n] = form->query[n+1];
 	if (y == form->autoquery)
@@ -487,7 +485,7 @@ static void list_callback(
 		qlist->cellWidget(y, 1)->setEnabled(true);
 		(void)add_dquery(form);
 		dq = &form->query[y];
-		dq->suspended = FALSE;
+		dq->suspended = false;
 		onblank = false;
 	} else 	if(x >= 0 && x < 2)
 		b = reinterpret_cast<QAbstractButton *>(qlist->cellWidget(y, x));
@@ -523,15 +521,13 @@ static void list_callback(
 		break;
 	    case 2:					/* name */
 		if (!onblank) {
-			if (dq->name)
-				free(dq->name);
+			zfree(dq->name);
 			dq->name = string;
 		}
 		break;
 	    case 3:					/* query expr */
 		if (!onblank) {
-			if (dq->query)
-				free(dq->query);
+			zfree(dq->query);
 			dq->query = string;
 		}
 		break;

@@ -1592,46 +1592,46 @@
 
 	  (n)		number
 	  {s}		in number context, convert string to a number
-	  n ? n : n		select n2 if n1 is nonzero, n3 if zero
-	  n , n		evaluate both numbers, return second
+	  n1 ? n2 : n3	select n2 if n1 is nonzero, n3 if zero
+	  n1 , n2		evaluate both numbers, return second
 	  -n		sign change
 	  !n		boolean NOT
 	  ~n		bit-wise NOT
-	  n + n		add
-	  n - n		subtract
-	  n * n		multiply
-	  n / n		divide, n/0 is 1
-	  n % n		modulus, n%0 is 1
-	  n & n		bit-wise AND
-	  n && n		boolean AND
-	  n | n		bit-wise OR
-	  n || n		boolean OR
-	  n ^ n		bit-wise XOR
-	  n << n		bit-wise left shift
-	  n >> n		bit-wise right shift
-	  n == n		equal
-	  n != n		not equal
-	  n < n		less than
-	  n > n		greater than
-	  n <= n		less than or equal
-	  n >= n		greater than or equal
+	  n1 + n2		add
+	  n1 - n2		subtract
+	  n1 * n2		multiply
+	  n1 / n2		divide, n1/0 is 1
+	  n1 % n2		modulus, n1%0 is 1
+	  n1 & n2		bit-wise AND
+	  n1 && n2		boolean AND
+	  n1 | n2		bit-wise OR
+	  n1 || n2		boolean OR
+	  n1 ^ n2		bit-wise XOR
+	  n1 << n2		bit-wise left shift
+	  n1 >> n2		bit-wise right shift
+	  n1 == n2		equal
+	  n1 != n2		not equal
+	  n1 < n2		less than
+	  n1 > n2		greater than
+	  n1 <= n2		less than or equal
+	  n1 >= n2		greater than or equal
 	  abs (n)		absolute value
 	  int (n)		number truncated to integer
 	  sqrt (n)		square root
 	  exp (n)		exponential
 	  log (n)		logarithm to base 10
 	  ln (n)		logarithm to base e
-	  pow(n, n)		n1 raised to n2
+	  pow(n1, n2)	n1 raised to n2
 	  sin (n)		sine
 	  cos (n)		cosine
 	  tan (n)		tangent
 	  asin (n)		arc sine
 	  acos (n)		arc cosine
 	  atan (n)		arc tangent
-	  atan2(n,n)		quadrant-aligned arc tangent
+	  atan2(n1,n2)	quadrant-aligned arc tangent
 	  len (s)		string length
 	  # s		string length
-	  bound(n,n,n)	n1 bounded by n2 and n3
+	  bound(n1,n2,n3)	n1 bounded by n2 and n3
 	  random		a random number in the range [0.0, 1.0]
 
 
@@ -1643,46 +1643,39 @@
 	  "string"		literal string
 	  {s}		string
 	  (n)		in string context, convert number to string
-	  s ; s		evaluate both strings, return second
-	  s . s		concatenate strings
-	  s ? s : s		select s2 if s1 evaluates nz, s3 if zero
-	  s == s		strings are equal
-	  s != s		strings are not equal
-	  s < s		lexicographically less than
-	  s > s		lexicographically greater than
-	  s <= s		lexicographically less than or equal
-	  s >= s		lexicographically greater than or equal
-	  s in s		first string is contained in second string
-	  s =~ s		first string matches regex in second string
-	  s !~ s		first string mismatches regex in second string
+	  s1 ; s2		evaluate both strings, return second
+	  s1 . s2		concatenate strings
+	  s1 ? s2 : s3		select s2 if s1 evaluates nz, s3 if zero
+	  s1 == s2		strings are equal
+	  s1 != s2		strings are not equal
+	  s1 < s2		lexicographically less than
+	  s1 > s2		lexicographically greater than
+	  s1 <= s2		lexicographically less than or equal
+	  s1 >= s2		lexicographically greater than or equal
+	  s1 in s2		s1 is contained in s2
+	  s1 =~ s2		s1 matches regex s2
+	  s1 !~ s2		s1 mismatches regex s2
 	  chop(s)		s without trailing newline
-	  substr(s,n,n)	substring of the s1; n1 is start index and n2 is length
+	  substr(s,n1,n2)	substring of s; n1 is start offset and n2 is length
 	  printf (args)		formatted string, args is comma-separated expr list
-	  tr (s, s)		translate first string according to rules in second.
+	  tr (s1, s2)		translate s1 according to rules in s2
 			rules are a space-separated list of c=s, where c
-			is replaced by s.  Backslash-substitutions are
-			performed on the rules string.
+			is replaced by s.  bsub is performed on s2.
 	  bsub(s)		Perform simple backslash-escape substitution on s.
 			Recognized escapes are \<octal>, \n, \t, \r.  All
 			others just escape the next character.
-	  match(s, s)		Returns the offset, plus one, of the regular expression
-			of the second string in the first string.
-	  sub(s, s, s)		Returns the first string, with the first
-			occurrence of the regular expression in the second
-			string replaced by the third string.  The third
-			string supports \0 .. \9 and \{n} to refer to
-			subexpressions in the regular expression.
-	  gsub(s, s, s)	Like sub(s, s, s), except all occurrences are replaced.
-	  esc(s, s)		Returns the first string with all characters in the
-			second string prefixed by the first character
-			in the second string.
-	  align(s, n, s, n)	Align 1st s in field of width 1st n, padding with
-			2nd s aligned according to 2nd n.  2nd s is optional, space
-			if missing or blank.  2nd n is optional, negative if missing.
-			Alignment location is left if <0, right if >0, centered if 0
-	  detab(s, n, n)	Expand tabs in s to spaces.  first n is initial offset from
-	  		left, second is tabstop.  Second and third arguments
-			are optional, 0 and 8 by default.
+	  match(s1, s2)	The offset, plus one, of regular expression s2 in s1 (0=fail)
+	  sub(s1, s2, s3)	A copy of s1 with the first occurrence of regular
+	  		expression s2 replaced by s3.  \0 .. \9 and \{n} in s3 refer to
+			subexpressions in s2.
+	  gsub(s1, s2, s3)	Like sub(s1, s2, s3), except all occurrences are replaced
+	  esc(s1, s2)		A copy of s1 with any chars in s2 prefixed by 1st char in s2
+	  align(s1, n1, s2, n2)	Align s1 in field of width n1, padding with s2 and aligned
+	  		according to n1.  s2 is optional, space if missing or blank.
+			n2 is optional, negative if missing.  Alignment location is left if
+			n2<0, right if n2>0, centered if n2=0
+	  detab(s, n1, n2)	Expand tabs in s to spaces.  n1 is initial offset from
+	  		left, n2 is tabstop.  n1 and n2 are optional, 0 and 8 by default.
 
 	Strings as arrays: a string may be interpreted as an array of
 	strings, stored as the elements, separated by a separator.
@@ -1692,24 +1685,22 @@
 
 	  esc(s)		Escape s like an array element
 	  ## s		Number of array elements in s
-	  s [ n ]		Array element #n of s (0-based), (unescaped)
-	  s [ n .. n ]		All array elements from first to second n, inclusive.
-	  		If either n is missing, use that end of the array
-	  s [ .. ]		s, with trailing blank elements removed
-	  s [ n ] -> v		Return array where element #n is set to v (escaped).
-			If n is larger than ## s, blanks are inserted
+	  s [ n ]		Array element #n (0-based) of s, (unescaped)
+	  s [ n1 .. n2 ]	Array of elements of s from n1 to n2, inclusive.  n1 or n2
+	  		is optional (but not both); if either is missing, use beginning/end
+	  s [ .. ]		Array s, with trailing blank elements removed
+	  s1 [ n ] -> s2	Array s1, but with element #n is set to s2 (s2 is unescaped)
+			If n is larger than ## s1, blanks are inserted
 			If n is negative, append.  Note that appending to
 			an empty string will set element 1, not element 0.
-			Trailing blank elements are also trimmed after adding v
-	  foreach ( var, s, s )	Evaluate third argument for each element in array
-			given by second argument, setting var to the current
-			element before evaluation.
-	  foreach ( var, + s, s )	The same as above, but only for non-blank elements
-	  foreach ( var, s, s, s )	Evaluate fourth argument for each element in array
-			given by second argument when evaluating the third
-			argument returns true, setting var to the current
-			element before evaluation.
-	  foreach ( var, + s, s, s )	The same as above, but only for non-blank elements
+	  foreach ( var, s1, s2 )	Evaluate s2 for each element in array s1, seeting
+			var to the current element before evaluation.
+	  foreach ( var, + s1, s2 )	The same as above, but only for non-blank elements
+	  foreach ( var, s1, s2, s3 )
+	  		Evaluate s3 for each element in array s1 when evaluating s2 returns
+			true, setting var to the current element before either evaluation
+	  foreach ( var, + s1, s2, s3 )
+	  		The same as above, but only for non-blank elements
 
 
 	Arrays as sets: sets are arrays with no blank or duplicate
@@ -1718,9 +1709,9 @@
 	s |* esc(e) != ""
 
 	  toset (s)		Returns array s converted to a valid set
-	  s |+ s		Returns the union of two sets.
-	  s |* s		Returns the intersection of two sets.
-	  s |- s		Returns the first set, with all elements in second removed
+	  s1 |+ s2		Returns the union of two sets.
+	  s1 |* s2		Returns the intersection of two sets.
+	  s1 |- s2		Returns s1, with all elements of s2 removed
 
 
 	Variables: variables are letters a through z and A through Z that can
@@ -1780,11 +1771,10 @@
 	  the return value of the expression.  The expression is evaluated
 	  only for side effects.
 
-	  foreach (s)		evaluate the string as an expression for all cards
-	  foreach (s, s)	evaluate the second string as an expression for all
-			cards where evaluating the first string as an
-			expression returns true (after stripping spaces,
-			not blank and first character is not 0, f, or F.
+	  foreach (s)		evaluate s as an expression for all cards
+	  foreach (s1, s2)	evaluate s2 as an expression for all cards where
+			expression s1 returns true (after stripping spaces, not
+			blank and first character is not 0, f, or F.
 
 	The switch function only works as an action for buttons:
 

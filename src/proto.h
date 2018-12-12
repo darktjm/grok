@@ -31,11 +31,11 @@ const char *format_time_data(
 	TIMEFMT		timefmt);	/* new format, one of T_* */
 void fillout_card(
 	CARD		*card,		/* card to draw into menu */
-	BOOL		deps);		/* if TRUE, dependencies only */
+	bool		deps);		/* if true, dependencies only */
 void fillout_item(
 	CARD		*card,		/* card to draw into menu */
 	int		i,		/* item index */
-	BOOL		deps);		/* if TRUE, dependencies only */
+	bool		deps);		/* if true, dependencies only */
 
 /* property names for widget fonts */
 extern const char * const font_prop[F_NFONTS];
@@ -62,12 +62,12 @@ const char *mkdatestring(
 	time_t		time);		/* date in seconds */
 char *mktimestring(
 	time_t		time,		/* date in seconds */
-	BOOL		dur);		/* duration, not time-of-day */
+	bool		dur);		/* duration, not time-of-day */
 time_t parse_datestring(
 	char		*text);		/* input string */
 time_t parse_timestring(
 	char		*text,		/* input string */
-	BOOL		dur);		/* duration, not time-of-day */
+	bool		dur);		/* duration, not time-of-day */
 time_t parse_datetimestring(
 	char		*text);		/* input string */
 
@@ -76,7 +76,7 @@ time_t parse_datetimestring(
 DBASE *dbase_create(void);
 void dbase_delete(
 	DBASE		*dbase);	/* dbase to delete */
-BOOL dbase_addrow(
+bool dbase_addrow(
 	int		*rowp,		/* ptr to returned row number */
 	DBASE		*dbase);	/* database to add row to */
 void dbase_delrow(
@@ -86,7 +86,7 @@ char *dbase_get(
 	const DBASE	*dbase,		/* database to get string from */
 	int		nrow,		/* row to get */
 	int		ncolumn);	/* column to get */
-BOOL dbase_put(
+bool dbase_put(
 	DBASE		*dbase,		/* database to put into */
 	int		nrow,		/* row to put into */
 	int		ncolumn,	/* column to put into */
@@ -98,11 +98,11 @@ void dbase_sort(
 
 /*---------------------------------------- dbfile.c ------------*/
 
-BOOL write_dbase(
+bool write_dbase(
 	DBASE		*dbase,		/* form and items to write */
 	const FORM	*form,		/* contains column delimiter */
-	BOOL		force);		/* write even if not modified*/
-BOOL read_dbase(
+	bool		force);		/* write even if not modified*/
+bool read_dbase(
 	DBASE		*dbase,		/* form and items to write */
 	const FORM	*form,		/* contains column delimiter */
 	const char	*path);		/* file to read list from */
@@ -113,13 +113,13 @@ void destroy_edit_popup(void);
 void create_edit_popup(
 	const char	*title,		/* menu title string */
 	char		**initial,	/* initial default text */
-	BOOL		readonly,	/* not modifiable if TRUE */
+	bool		readonly,	/* not modifiable if true */
 	const char	*helptag,	/* help tag */
 	QTextDocument	*initdoc = 0);	/* full initial document */
 void edit_file(
 	const char	*name,		/* file name to read */
-	BOOL		readonly,	/* not modifiable if TRUE */
-	BOOL		create,		/* create if nonexistent if TRUE */
+	bool		readonly,	/* not modifiable if true */
+	bool		create,		/* create if nonexistent if true */
 	const char	*title,		/* if nonzero, window title */
 	const char	*helptag);	/* help tag */
 
@@ -129,12 +129,12 @@ const char *evaluate(
 	CARD		*card,
 	const char	*exp);
 bool eval_error(void); /* true if last evaluate() encountered an error */
-BOOL evalbool(
+bool evalbool(
 	CARD		*card,
 	const char	*exp);
 const char *subeval(
 	const char	*exp);
-BOOL subevalbool(
+bool subevalbool(
 	const char	*exp);
 void f_foreach(
 	char		*cond,
@@ -149,7 +149,7 @@ extern char		*yyret;		/* returned string (see parser.y) */
 extern CARD		*yycard;	/* database for which to evaluate */
 extern char		*switch_name;	/* if switch statement was found, */
 extern char		*switch_expr;	/* .. name to switch to and expr */
-extern BOOL		assigned;	/* did a field assignment */
+extern bool		assigned;	/* did a field assignment */
 
 /*---------------------------------------- parser.y ------------*/
 int parserparse(void);
@@ -213,7 +213,7 @@ char *f_substr(
 	char		*string,
 	int		pos,
 	int		num);
-BOOL f_instr(
+bool f_instr(
 	char		*match,
 	char		*string);
 struct arg *f_addarg(
@@ -361,9 +361,9 @@ bool find_unesc_elt(
 
 /*---------------------------------------- formfile.c ------------*/
 
-BOOL write_form(
+bool write_form(
 	const FORM	*form);		/* form and items to write */
-BOOL read_form(
+bool read_form(
 	FORM		*form,		/* form and items to write */
 	const char	*path);		/* file to read list from */
 
@@ -374,7 +374,7 @@ FORM *form_clone(
 	FORM		*parent);	/* old form */
 void form_delete(
 	FORM		*form);		/* form to delete */
-BOOL verify_form(
+bool verify_form(
 	FORM		*form,		/* form to verify */
 	int		*bug,		/* retuirned buggy item # */
 	QWidget		*shell);	/* error popup parent */
@@ -386,7 +386,7 @@ void form_sort(
 	FORM		*form);		/* form to sort */
 void item_deselect(
 	FORM		*form);		/* describes form and all items in it*/
-BOOL item_create(
+bool item_create(
 	FORM		*form,		/* describes form and all items in it*/
 	int		nitem);		/* the current item, insert point */
 void item_delete(
@@ -404,8 +404,8 @@ void menu_clone(
 void destroy_formedit_window(void);
 void create_formedit_window(
 	FORM		*def,		/* new form to edit */
-	BOOL		copy,		/* use a copy of <def> */
-	BOOL		isnew);		/* ok to change form name */
+	bool		copy,		/* use a copy of <def> */
+	bool		isnew);		/* ok to change form name */
 void sensitize_formedit(void);
 void fillout_formedit(void);
 void fillout_formedit_widget_by_code(
@@ -434,7 +434,7 @@ void help_callback(
 extern QApplication	*app;		/* application handle */
 extern char		*progname;	/* argv[0] */
 extern QIcon		pixmap[NPICS];	/* common symbols */
-extern BOOL		restricted;	/* restricted mode, no form editor */
+extern bool		restricted;	/* restricted mode, no form editor */
 
 /*---------------------------------------- mainwin.c ------------*/
 
@@ -444,7 +444,7 @@ void print_info_line(void);
 void remake_dbase_pulldown(void);
 void remake_section_pulldown(void);
 void remake_section_popup(
-	BOOL);
+	bool);
 void remake_query_pulldown(void);
 void remake_sort_pulldown(void);
 void switch_form(
@@ -507,7 +507,7 @@ char *copy_template(
 	char		*tar,		/* target template name */
 	int		seq,		/* source template number */
 	CARD		*card);		/* need this for form name */
-BOOL delete_template(
+bool delete_template(
 	QWidget		*shell,		/* export window widget */
 	int		seq,		/* template to delete, >= NBUILTINS */
 	CARD		*card);		/* need this for form name */
@@ -614,7 +614,7 @@ const char *resolve_tilde(
 	const char	*ext);		/* append extension unless 0 */
 const char *find_file(
 	const char	*name,		/* file name to locate */
-	BOOL		exec);		/* must be executable? */
+	bool		exec);		/* must be executable? */
 void fatal(
 	const char	*fmt, ...);
 char *mystrdup(
@@ -714,17 +714,13 @@ char *read_text_button_noblanks(
 	char		**);
 void set_toggle(
 	QWidget		*w,
-	BOOL		set);
+	bool		set);
 void set_icon(
 	QWidget		*shell,
 	int		sub);		/* 0=main, 1=submenu */
 void set_cursor(
 	QWidget		*w,		/* in which widget */
 	Qt::CursorShape	n);		/* which cursor, one of XC_* */
-void truncate_string(
-	QWidget		*w,		/* widget string will show in */
-	char		*string,	/* string to truncate */
-	int		len);		/* max len in pixels */
 void truncate_string(
 	QWidget		*w,		/* widget string will show in */
 	QString		&string,	/* string to truncate */

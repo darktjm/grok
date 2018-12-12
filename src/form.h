@@ -57,8 +57,8 @@ typedef struct card {
 
 typedef struct section {
 	char	*path;		/* path name of file section was loaded from */
-	BOOL	rdonly;		/* no write permission for db file */
-	BOOL	modified;	/* TRUE if modified */
+	bool	rdonly;		/* no write permission for db file */
+	bool	modified;	/* true if modified */
 	int	nrows;		/* # of cards in this section */
 	time_t	mtime;		/* modification time of file when read */
 } SECTION;
@@ -66,7 +66,7 @@ typedef struct section {
 typedef struct row {
 	short	ncolumns;	/* # of columns allocated */
 	short	section;	/* section this row belongs to */
-	BOOL	selected;	/* for dbase_sort: restore query after sort */
+	int	selected;	/* for dbase_sort: restore query after sort */
 	int	seq;		/* used during sort, preserves order */
 	time_t	mtime;		/* last modification time */
 	time_t	ctime;		/* creation time, identifies card uniquely */
@@ -75,8 +75,8 @@ typedef struct row {
 } ROW;
 
 typedef struct dbase {
-	BOOL	rdonly;		/* no write permission for any section */
-	BOOL	modified;	/* TRUE if any section was modified */
+	bool	rdonly;		/* no write permission for any section */
+	bool	modified;	/* true if any section was modified */
 	int	col_sorted_by;	/* dbase is sorted by this column */
 	int	maxcolumns;	/* # of columns in widest row */
 	int	nrows;		/* # of valid rows in database */
@@ -84,7 +84,7 @@ typedef struct dbase {
 	short	nsects;		/* # of files loaded */
 	short	currsect;	/* current section, -1=all, 0..nsects-1=one */
 	SECTION	*sect;		/* describes all section files 0..nsects-1 */
-	BOOL	havesects;	/* db is a directory, >1 sections possible */
+	bool	havesects;	/* db is a directory, >1 sections possible */
 	ROW	**row;		/* array of <nrows> rows */
 } DBASE;
 
@@ -169,8 +169,8 @@ struct value {
 	double	add;	/* CC_DRAG: field * mul + add */
 };
 typedef struct {		/*----- IT_CHART component */
-	BOOL	line;		/* replace bars with lines */
-	BOOL	xfat, yfat;	/* make bigger to touch neighbor */
+	bool	line;		/* replace bars with lines */
+	bool	xfat, yfat;	/* make bigger to touch neighbor */
 	char	*excl_if;	/* don't draw if this expr is true */
 	char	*color;		/* color 0..7 */
 	char	*label;		/* numeric label */
@@ -205,11 +205,11 @@ typedef struct item {
 	int	sumcol;		/* column # in summary listing if IN_DBASE */
 	char	*sumprint;	/* if nz, show this in summary if IN_DBASE */
 	long	column;		/* database column #, 0 is first */
-	BOOL	search;		/* queries search this item */
-	BOOL	rdonly;		/* user cannot change this field */
-	BOOL	nosort;		/* user can sort by this field */
-	BOOL	defsort;	/* sort by this field when loading file */
-	BOOL	selected;	/* box is selected in form editor */
+	bool	search;		/* queries search this item */
+	bool	rdonly;		/* user cannot change this field */
+	bool	nosort;		/* user can sort by this field */
+	bool	defsort;	/* sort by this field when loading file */
+	bool	selected;	/* box is selected in form editor */
 	char	plan_if;	/* plan interface field type (t=time, ...) */
 				/*----- common */
 	char	*label;		/* label string */
@@ -217,7 +217,7 @@ typedef struct item {
 	int	labelfont;	/* label font, F_* */
 				/*----- TIME */
 	TIMEFMT	timefmt;	/* one of T_DATE..T_DURATION */
-	BOOL	timewidget;	/* use special widget? */
+	bool	timewidget;	/* use special widget? */
 				/*----- CHOICE, FLAG */
 	char	*flagcode;	/* dbase column value if on */
 	char	*flagtext;	/* text shown in summary if on */
@@ -233,7 +233,7 @@ typedef struct item {
 	int	digits;		/* NUMBER digits past decimal */
 	int	nmenu;		/* number of items in menu array */
 	MENU	*menu;		/* combo box static entries & multi-item config */
-	BOOL	multicol;	/* TRUE if menu[] has multiple column defs */
+	bool	multicol;	/* true if menu[] has multiple column defs */
 	DCOMBO	dcombo;		/* INPUT combo box dynamic entry type */
 	JUST	inputjust;	/* input field justification */
 	int	inputfont;	/* input font, F_* */
@@ -244,8 +244,8 @@ typedef struct item {
 	double	ch_xmax;	/* coord of right edge */
 	double	ch_ymin;	/* coord of bottom edge */
 	double	ch_ymax;	/* coord of top edge */
-	BOOL	ch_xauto;	/* automatic xmin/xmax */
-	BOOL	ch_yauto;	/* automatic ymin/ymax */
+	bool	ch_xauto;	/* automatic xmin/xmax */
+	bool	ch_yauto;	/* automatic ymin/ymax */
 	double	ch_xgrid;	/* vert grid lines every xgrid units */
 	double	ch_ygrid;	/* horz grid lines every ygrid units */
 	double	ch_xsnap;	/* snap X to nearest xsnap */
@@ -258,15 +258,15 @@ typedef struct item {
 } ITEM;
 
 
-/* TRUE if the item type uses multicol */
+/* true if the item type uses multicol */
 
 #define IS_MULTI(t) (t == IT_MULTI || t == IT_FLAGS)
 
-/* TRUE if the item type uses the menu */
+/* true if the item type uses the menu */
 
 #define IS_MENU(t) (t == IT_INPUT || t == IT_MENU || t == IT_RADIO || IS_MULTI(t))
 
-/* TRUE if the item type accesses some database field */
+/* true if the item type accesses some database field */
 
 #define IN_DBASE(t) (t==IT_TIME  || t==IT_NUMBER || IS_MENU(t) ||\
 		     t==IT_NOTE  || t==IT_CHOICE || t==IT_FLAG)
@@ -298,7 +298,7 @@ typedef std::unordered_map<char *, int, std::hash<std::string>,
 					std::equal_to<std::string>> FIELDS;
 
 typedef struct dquery {
-	BOOL	suspended;	/* if TRUE, remove from pulldown */
+	bool	suspended;	/* if true, remove from pulldown */
 	char	*name;		/* name of query, for query pulldown */
 	char	*query;		/* query expression for evaluate() */
 } DQUERY;
@@ -311,9 +311,9 @@ typedef struct form {
 	char	*help;		/* help text */
 	unsigned char cdelim;	/* column delimiter in database file */
 	unsigned char asep, aesc;  /* string array delimiter and how to escape it */
-	BOOL	rdonly;		/* don't allow writing to database */
-	BOOL	proc;		/* procedural */
-	BOOL	syncable;	/* keep timestamp files */
+	bool	rdonly;		/* don't allow writing to database */
+	bool	proc;		/* procedural */
+	bool	syncable;	/* keep timestamp files */
 	int	xg, yg;		/* grid size in pixels */
 	int	xs, ys;		/* total size of form in pixels */
 	int	ydiv;		/* Y of divider between static part and card */

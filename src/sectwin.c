@@ -16,7 +16,7 @@
 #include "form.h"
 #include "proto.h"
 
-static BOOL	have_shell = FALSE;	/* message popup exists if TRUE */
+static bool	have_shell = false;	/* message popup exists if true */
 static QDialog	*shell;		/* popup menu shell */
 static QWidget	*w_name;	/* name entry widget */
 
@@ -29,7 +29,7 @@ static QWidget	*w_name;	/* name entry widget */
 void destroy_newsect_popup(void)
 {
 	if (have_shell) {
-		have_shell = FALSE;
+		have_shell = false;
 		shell->close();
 		delete shell;
 	}
@@ -93,7 +93,7 @@ void create_newsect_popup(void)
 
 	popup_nonmodal(shell);
 	set_dialog_cancel_cb(shell, can_callback());
-	have_shell = TRUE;
+	have_shell = true;
 }
 
 
@@ -110,7 +110,7 @@ static void add_callback(void)
 	int		i, s, fd;
 	const char	*path;
 	char		*oldp = NULL, *newp = NULL, *dir = NULL;
-	BOOL		nofile = FALSE;
+	bool		nofile = false;
 
 	if (!curr_card || !(dbase = curr_card->dbase)) {
 		destroy_newsect_popup();
@@ -209,9 +209,9 @@ static void add_callback(void)
 	}
 	sect->mtime	= time(0);
 	sect->path	= newp;
-	sect->modified	= TRUE;
-	dbase->modified	= TRUE;
-	dbase->havesects= TRUE;
+	sect->modified	= true;
+	dbase->modified	= true;
+	dbase->havesects= true;
 
 	remake_section_pulldown();
 	print_info_line();

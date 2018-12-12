@@ -28,7 +28,6 @@
 #include "form.h"
 #include "proto.h"
 
-#define CHUNK		10		/* alloc 10 new item ptrs at a time */
 #define XSNAP(x)	((x)-(x)%form->xg)
 #define YSNAP(y)	((y)-(y)%form->yg)
 
@@ -67,7 +66,7 @@ static void set_form_defaults(
 	form->xs	 = XSNAP(400);
 	form->ys	 = YSNAP(200);
 	form->autoquery  = -1;
-	form->syncable	 = TRUE;
+	form->syncable	 = true;
 }
 
 
@@ -135,18 +134,18 @@ void form_delete(
 	for (i=form->nitems - 1; i >= 0; --i)
 		item_delete(form, i);
 
-	if (form->items)	free(form->items);
-	if (form->path)		free(form->path);
-	if (form->name)		free(form->name);
-	if (form->dbase)	free(form->dbase);
-	if (form->comment)	free(form->comment);
-	if (form->help)		free(form->help);
-	if (form->planquery)	free(form->planquery);
+	zfree(form->items);
+	zfree(form->path);
+	zfree(form->name);
+	zfree(form->dbase);
+	zfree(form->comment);
+	zfree(form->help);
+	zfree(form->planquery);
 	if (form->query) {
 		for (i=0; i < form->nqueries; i++) {
 			dq = &form->query[i];
-			if (dq->name)	free(dq->name);
-			if (dq->query)	free(dq->query);
+			zfree(dq->name);
+			zfree(dq->query);
 		}
 		free(form->query);
 	}
@@ -156,7 +155,7 @@ void form_delete(
 }
 
 /*
- * print an error report and return FALSE if there are problems with the
+ * print an error report and return false if there are problems with the
  * form. If there is an error, set *bug to the item# of the first buggy
  * item; otherwise set to form->nitems. This is used to highlight the
  * first incorrect item.
@@ -220,7 +219,7 @@ static void verify_col(const FORM *form, const char *type, int **acol,
 	return;
 }
 
-BOOL verify_form(
+bool verify_form(
 	FORM		*form,		/* form to verify */
 	int		*bug,		/* retuirned buggy item # */
 	QWidget		*shell)		/* error popup parent */
@@ -351,13 +350,13 @@ BOOL verify_form(
 			//  either that, or add these flags to the table (ugh)
 			if(!item->nosort || item->defsort) {
 				msg += "Field ";
-				item->multicol = FALSE; // don't give menu item name
+				item->multicol = false; // don't give menu item name
 				add_field_name(msg, form, nitem);
-				item->multicol = TRUE;
+				item->multicol = true;
 				msg += " does not support sorting; disabled\n";
 			}
-			item->nosort = TRUE;
-			item->defsort = FALSE;
+			item->nosort = true;
+			item->defsort = false;
 		}
 		if (item->nmenu && IS_MENU(item->type)) {
 			for(int m = 0; m < item->nmenu; m++) {
@@ -548,7 +547,7 @@ BOOL verify_form(
 		char *s = qstrdup(msg);
 		create_error_popup(shell, 0, s);
 		free(s);
-		return FALSE;
+		return false;
 	} else {
 		for (nitem=0; nitem < form->nitems; nitem++) {
 			item = form->items[nitem];
@@ -563,7 +562,7 @@ BOOL verify_form(
 			create_error_popup(shell, 0, s);
 			free(s);
 		}
-		return TRUE;
+		return true;
 	}
 }
 
@@ -587,13 +586,13 @@ void form_edit_script(
 "The database name will be used as script name.");
 		return;
 	}
-	form->proc = TRUE;
+	form->proc = true;
 	fillout_formedit_widget_by_code(0x105);
 
 	for (q=path; *q && *q != ' ' && *q != '\t'; q++);
 	*q = 0;
 	fname = resolve_tilde(path, "db");
-	edit_file(fname, FALSE, TRUE, "Procedural Database", "procdbedit");
+	edit_file(fname, false, true, "Procedural Database", "procdbedit");
 	free(path);
 }
 
@@ -643,7 +642,7 @@ void item_deselect(
 	for (i=0; i < form->nitems; i++) {
 		item = form->items[i];
 		if (item->selected) {
-			item->selected = FALSE;
+			item->selected = false;
 			redraw_canvas_item(item);
 		}
 	}
@@ -660,7 +659,7 @@ void item_deselect(
  * Provide reasonable defaults for the new field.
  */
 
-BOOL item_create(
+bool item_create(
 	FORM		*form,		/* describes form and all items in it*/
 	int		nitem)		/* the current item, insert point */
 {
@@ -698,7 +697,7 @@ BOOL item_create(
 	} else {
 		memset(item, 0, sizeof(ITEM));
 		item->type	   = IT_INPUT;
-		item->selected	   = TRUE;
+		item->selected	   = true;
 		item->labeljust	   = J_LEFT;
 		item->inputjust	   = J_LEFT;
 		item->column       = 1;
@@ -760,7 +759,7 @@ BOOL item_create(
 		sprintf(buf, "item%ld", item->column);
 		item->name = mystrdup(buf);
 	}
-	return(TRUE);
+	return(true);
 }
 
 
@@ -775,29 +774,28 @@ void item_delete(
 	ITEM		*item = form->items[nitem];
 	int		i;
 
-	if (item->name)		free(item->name);
-	if (item->label)	free(item->label);
-	if (item->sumprint)	free(item->sumprint);
-	if (item->flagcode)	free(item->flagcode);
-	if (item->flagtext)	free(item->flagtext);
-	if (item->gray_if)	free(item->gray_if);
-	if (item->freeze_if)	free(item->freeze_if);
-	if (item->invisible_if)	free(item->invisible_if);
-	if (item->skip_if)	free(item->skip_if);
-	if (item->idefault)	free(item->idefault);
-	if (item->pressed)	free(item->pressed);
-	if (item->ch_bar)	free(item->ch_bar);
+	zfree(item->name);
+	zfree(item->label);
+	zfree(item->sumprint);
+	zfree(item->flagcode);
+	zfree(item->flagtext);
+	zfree(item->gray_if);
+	zfree(item->freeze_if);
+	zfree(item->invisible_if);
+	zfree(item->skip_if);
+	zfree(item->idefault);
+	zfree(item->pressed);
+	zfree(item->ch_bar);
 
 	for (i=0; i < item->nmenu; i++)
 		menu_delete(&item->menu[i]);
-	if(item->menu)		free(item->menu);
+	zfree(item->menu);
 
 	for (i=0; i < item->ch_ncomp; i++) {
 		item->ch_curr = i;
 		del_chart_component(item);
 	}
-	if (item->ch_comp)
-		free(item->ch_comp);
+	zfree(item->ch_comp);
 	free(item);
 
 	for (i=nitem; i < form->nitems-1; i++)
@@ -807,10 +805,10 @@ void item_delete(
 
 void menu_delete(MENU *m)
 {
-	if(m->label)	free(m->label);
-	if(m->name)	free(m->name);
-	if(m->flagcode)	free(m->flagcode);
-	if(m->flagtext)	free(m->flagtext);
+	zfree(m->label);
+	zfree(m->name);
+	zfree(m->flagcode);
+	zfree(m->flagtext);
 }
 
 
