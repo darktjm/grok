@@ -57,7 +57,7 @@ void draw_chart(
 	CARD		*card,		/* life, the universe, and everything*/
 	int		nitem)		/* # of item in form */
 {
-	register ITEM	*item;		/* chart item to draw */
+	ITEM		*item;		/* chart item to draw */
 	GrokChart	*gc;
 
 	if (!card || !card->form || !card->dbase || !card->dbase->nrows)
@@ -74,9 +74,9 @@ void draw_chart(
 void GrokChart::paintEvent(QPaintEvent *)
 {
 	int		save_row;	/* save card->row (current card) */
-	register CHART	*chart;		/* describes current component */
+	CHART		*chart;		/* describes current component */
 	const char	*res;		/* result of expr evaluation */
-	register BAR	*bar;		/* current bar */
+	BAR		*bar;		/* current bar */
 	int		r, c;		/* row (card) and comp (bar) counters*/
 	int		i;		/* index values */
 	double		f;		/* coordinate in value space */
@@ -89,10 +89,8 @@ void GrokChart::paintEvent(QPaintEvent *)
 	 * step 1: calculate positions and colors of all bars
 	 */
 	item->ch_nbars = item->ch_ncomp * card->dbase->nrows;
-	if (item->ch_bar)
-		free((void *)item->ch_bar);
-	if (!(item->ch_bar = (BAR *)malloc(item->ch_nbars * sizeof(BAR))))
-		fatal("no memory");
+	zfree(item->ch_bar);
+	item->ch_bar = alloc(0, "bar chart", BAR, item->ch_nbars);
 
 	xmin = ymin =  1e30;
 	xmax = ymax = -1e30;
@@ -102,7 +100,7 @@ void GrokChart::paintEvent(QPaintEvent *)
 		for (c=0; c < item->ch_ncomp; c++, bar++) {
 			chart = &item->ch_comp[c];
 			if ((res=evaluate(card,chart->excl_if)) && atoi(res)) {
-				memset((void *)bar, 0, sizeof(BAR));
+				memset(bar, 0, sizeof(BAR));
 				continue;
 			}
 			if ((res = evaluate(card, chart->color)))
@@ -282,9 +280,9 @@ int GrokChart::pick_chart(
 	int		xpick,		/* mouxe x/y pixel coordinate */
 	int		ypick)
 {
-	register ITEM	*item;		/* chart item to draw */
-	register CHART	*chart;		/* describes current component */
-	register BAR	*bar;		/* current bar */
+	ITEM		*item;		/* chart item to draw */
+	CHART		*chart;		/* describes current component */
+	BAR		*bar;		/* current bar */
 	int		r, c;		/* row (card) and comp (bar) counters*/
 
 	if (!card || !card->form || !card->dbase || !card->dbase->nrows)

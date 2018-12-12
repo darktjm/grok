@@ -319,3 +319,14 @@ This hasn't been explicitly stated before, but the specific format of
 automatically generated exports may change without notice.  If you
 rely on a format, make a copy and use that instead.  A number of
 changes were introduced in this release alone.
+
+Version 2.4 (in progress)
+ * Removed a debugging printf that I left in 2.3.
+ * Switched from Qt's qmake to the more generic cmake.  This corrects
+   a few problems with the documentation.
+ * Fixed some bugs in Setting array elements.  See the SVN log for
+   details.  These bugs were all introduced in 2.1.
+ * Accessing negative elements in an array used to always return blank
+   (as documented).  Now it counts from the end of the array.  Note
+   that underlying array traversal is still from the start, so accessing
+   elements from the end is less efficient.

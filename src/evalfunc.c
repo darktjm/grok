@@ -29,7 +29,7 @@
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
-#include "parser_yacc.h"
+#include "parser.h"
 
 
 /*
@@ -58,11 +58,11 @@ double f_num(
  */
 
 double f_sum(				/* sum */
-	register int	column)		/* number of column to average */
+	int		column)		/* number of column to average */
 {
-	register DBASE	*dbase = yycard->dbase;
-	register double	sum;
-	register int	row;
+	DBASE		*dbase = yycard->dbase;
+	double		sum;
+	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
@@ -73,19 +73,19 @@ double f_sum(				/* sum */
 
 
 double f_avg(				/* average */
-	register int	column)		/* number of column to average */
+	int		column)		/* number of column to average */
 {
-	register double	sum = f_sum(column);
+	double		sum = f_sum(column);
 	return(yycard->dbase->nrows ? sum / yycard->dbase->nrows : 0);
 }
 
 
 double f_dev(				/* standard deviation */
-	register int	column)		/* number of column to average */
+	int		column)		/* number of column to average */
 {
-	register DBASE	*dbase = yycard->dbase;
-	register double	sum, avg, val;
-	register int	row;
+	DBASE		*dbase = yycard->dbase;
+	double		sum, avg, val;
+	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
@@ -99,11 +99,11 @@ double f_dev(				/* standard deviation */
 
 
 double f_min(				/* minimum */
-	register int	column)		/* number of column to average */
+	int		column)		/* number of column to average */
 {
-	register DBASE	*dbase = yycard->dbase;
-	register double	min = 1e100, val;
-	register int	row;
+	DBASE		*dbase = yycard->dbase;
+	double		min = 1e100, val;
+	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
@@ -117,11 +117,11 @@ double f_min(				/* minimum */
 
 
 double f_max(				/* maximum */
-	register int	column)		/* number of column to average */
+	int		column)		/* number of column to average */
 {
-	register DBASE	*dbase = yycard->dbase;
-	register double	max = -1e100, val;
-	register int	row;
+	DBASE		*dbase = yycard->dbase;
+	double		max = -1e100, val;
+	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
@@ -140,11 +140,11 @@ double f_max(				/* maximum */
  */
 
 double f_qsum(				/* sum */
-	register int	column)		/* number of column to average */
+	int		column)		/* number of column to average */
 {
-	register DBASE	*dbase = yycard->dbase;
-	register double	sum = 0;
-	register int	row;
+	DBASE		*dbase = yycard->dbase;
+	double		sum = 0;
+	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
@@ -157,10 +157,10 @@ double f_qsum(				/* sum */
 
 
 double f_qavg(				/* average */
-	register int	column)		/* number of column to average */
+	int		column)		/* number of column to average */
 {
-	register double	sum = f_qsum(column);
-	register int	count;
+	double		sum = f_qsum(column);
+	int		count;
 
 	count = yycard->query ? yycard->nquery : yycard->dbase->nrows;
 	return(count ? sum / count : 0);
@@ -168,11 +168,11 @@ double f_qavg(				/* average */
 
 
 double f_qdev(				/* standard deviation */
-	register int	column)		/* number of column to average */
+	int		column)		/* number of column to average */
 {
-	register DBASE	*dbase = yycard->dbase;
-	register double	sum = 0, avg, val;
-	register int	row;
+	DBASE		*dbase = yycard->dbase;
+	double		sum = 0, avg, val;
+	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
@@ -190,11 +190,11 @@ double f_qdev(				/* standard deviation */
 
 
 double f_qmin(				/* minimum */
-	register int	column)		/* number of column to average */
+	int		column)		/* number of column to average */
 {
-	register DBASE	*dbase = yycard->dbase;
-	register double	min = 1e100, val;
-	register int	row;
+	DBASE		*dbase = yycard->dbase;
+	double		min = 1e100, val;
+	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
@@ -210,11 +210,11 @@ double f_qmin(				/* minimum */
 
 
 double f_qmax(				/* maximum */
-	register int	column)		/* number of column to average */
+	int		column)		/* number of column to average */
 {
-	register DBASE	*dbase = yycard->dbase;
-	register double	max = -1e100, val;
-	register int	row;
+	DBASE		*dbase = yycard->dbase;
+	double		max = -1e100, val;
+	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
@@ -235,12 +235,12 @@ double f_qmax(				/* maximum */
  */
 
 double f_ssum(				/* sum */
-	register int	column)		/* number of column to average */
+	int		column)		/* number of column to average */
 {
-	register DBASE	*dbase = yycard->dbase;
-	register int	sect;
-	register double	sum;
-	register int	row;
+	DBASE		*dbase = yycard->dbase;
+	int		sect;
+	double		sum;
+	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
@@ -254,12 +254,12 @@ double f_ssum(				/* sum */
 
 
 double f_savg(				/* average */
-	register int	column)		/* number of column to average */
+	int		column)		/* number of column to average */
 {
-	register DBASE	*dbase = yycard->dbase;
-	register int	sect;
-	register double	sum;
-	register int	row, num=0;
+	DBASE		*dbase = yycard->dbase;
+	int		sect;
+	double		sum;
+	int		row, num=0;
 
 	if (!dbase || column < 0)
 		return(0);
@@ -275,12 +275,12 @@ double f_savg(				/* average */
 
 
 double f_sdev(				/* standard deviation */
-	register int	column)		/* number of column to average */
+	int		column)		/* number of column to average */
 {
-	register DBASE	*dbase = yycard->dbase;
-	register int	sect;
-	register double	sum, avg, val;
-	register int	row, num=0;
+	DBASE		*dbase = yycard->dbase;
+	int		sect;
+	double		sum, avg, val;
+	int		row, num=0;
 
 	if (!dbase || column < 0)
 		return(0);
@@ -298,12 +298,12 @@ double f_sdev(				/* standard deviation */
 
 
 double f_smin(				/* minimum */
-	register int	column)		/* number of column to average */
+	int		column)		/* number of column to average */
 {
-	register DBASE	*dbase = yycard->dbase;
-	register int	sect;
-	register double	min = 1e100, val;
-	register int	row;
+	DBASE		*dbase = yycard->dbase;
+	int		sect;
+	double		min = 1e100, val;
+	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
@@ -320,12 +320,12 @@ double f_smin(				/* minimum */
 
 
 double f_smax(				/* maximum */
-	register int	column)		/* number of column to average */
+	int		column)		/* number of column to average */
 {
-	register DBASE	*dbase = yycard->dbase;
-	register int	sect;
-	register double	max = -1e100, val;
-	register int	row;
+	DBASE		*dbase = yycard->dbase;
+	int		sect;
+	double		max = -1e100, val;
+	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
@@ -349,7 +349,14 @@ char *f_field(
 	int		column,
 	int		row)
 {
-	return(mystrdup(dbase_get(yycard->dbase, row, column)));
+	const char *v = dbase_get(yycard->dbase, row, column);
+	char *res;
+	if(BLANK(v))
+		return NULL;
+	res = strdup(v);
+	if(!res)
+		parsererror("No memory");
+	return res;
 }
 
 
@@ -361,7 +368,7 @@ char *f_expand(
 	int		column,
 	int		row)
 {
-	char		*value = dbase_get(yycard->dbase, row, column);
+	char		*value = dbase_get(yycard->dbase, row, column), *ret;
 	int		i;
 
 	if (!value)
@@ -373,8 +380,12 @@ char *f_expand(
 			for(m = 0; m < item->nmenu; m++)
 				if(item->menu[m].column == column) {
 					if(item->menu[m].flagtext &&
-					   !strcmp(value, item->menu[m].flagcode))
-						return mystrdup(item->menu[m].flagtext);
+					   !strcmp(value, item->menu[m].flagcode)) {
+						ret = strdup(item->menu[m].flagtext);
+						if(!ret)
+							parsererror("No memory for expand");
+						return ret;
+					}
 					break;
 				}
 			if(m < item->nmenu)
@@ -385,8 +396,12 @@ char *f_expand(
 		if ((item->type == IT_CHOICE || item->type == IT_FLAG) &&
 		    item->flagcode &&
 		    item->flagtext &&
-		    !strcmp(value, item->flagcode))
-			return(mystrdup(item->flagtext));
+		    !strcmp(value, item->flagcode)) {
+			ret = strdup(item->flagtext);
+			if(!ret)
+				parsererror("No memory for expand");
+			return ret;
+		}
 		if (item->type == IT_FLAGS || item->type == IT_MULTI) {
 			char sep, esc;
 			int m;
@@ -400,9 +415,17 @@ char *f_expand(
 					char *e = BLANK(item->menu[m].flagtext) ?
 						item->menu[m].flagcode :
 						item->menu[m].flagtext;
-					v = set_elt(v, nv++, e);
-					if(v == e)
+					if(!set_elt(&v, nv++, e, yycard->form)) {
+						parsererror("No memory for expand");
+						return NULL;
+					}
+					if(v == e) {
 						v = strdup(v);
+						if(!v) {
+							parsererror("No memory for expand");
+							return NULL;
+						}
+					}
 				}
 			}
 			return v;
@@ -412,12 +435,19 @@ char *f_expand(
 			for(m = 0; m < item->nmenu; m++)
 				if(!strcmp(value, item->menu[m].flagcode))
 					break;
-			if(m < item->nmenu && item->menu[m].flagtext)
-				return mystrdup(item->menu[m].flagtext);
+			if(m < item->nmenu && item->menu[m].flagtext) {
+				ret = strdup(item->menu[m].flagtext);
+				if(!ret)
+					parsererror("No memory for expand");
+				return ret;
+			}
 			break;
 		}
 	}
-	return(mystrdup(value));
+	ret = strdup(value);
+	if(!ret)
+		parsererror("No memory for expand");
+	return ret;
 }
 
 
@@ -442,7 +472,7 @@ char *f_assign(
 int f_section(
 	int		nrow)
 {
-	register ROW	*row;		/* row to get from */
+	ROW		*row;		/* row to get from */
 
 	if (yycard && yycard->dbase
 		   && nrow >= 0
@@ -457,28 +487,46 @@ int f_section(
  * run a system command, and return stdout of the command (backquotes)
  */
 
+/* There isn't really any advantage to using qproc over system() */
+/* unless you're not using UNIX */
+#define USE_QPROC 1
 char *f_system(
 	char		*cmd)
 {
-	char		outpath[80];
-	char		errpath[80];
+	char		*tpath;
+#if !USE_QPROC
 	int		fd0_save = dup(0);
 	int		fd1_save = dup(1);
 	int		fd2_save = dup(2);
+#endif
 	FILE		*fp;
-	char		data[32768];
+	char		*data;
+	char		*p;
 	int		size, i;
+#if USE_QPROC
+	QProcess	proc;
+#endif
 
-	if (!cmd || !*cmd)
+	if (!cmd || !*cmd) {
+		zfree(cmd);
 		return(0);
+	}
+	/* FIXME: use something other than getpid() */
+	/* can't use tempnam() because headless security chickens think that */
+	/* it's a bad idea, even when security is not an issue */
+	tpath = qstrdup(qsprintf(P_tmpdir "/grok%05dxxx", getpid()));
+	p = tpath + strlen(tpath) - 3;
+#if !USE_QPROC
 	close(1);					/* run cmd */
-	sprintf(outpath, "/tmp/grok%05dout", getpid());
-	(void)open(outpath, O_WRONLY | O_CREAT, 0600);
+	strcpy(p, "out");
+	(void)open(tpath, O_WRONLY | O_CREAT, 0600);
 	close(2);
-	sprintf(errpath, "/tmp/grok%05derr", getpid());
-	(void)open(errpath, O_WRONLY | O_CREAT, 0600);
+	strcpy(p, "err");
+	(void)open(tpath, O_WRONLY | O_CREAT, 0600);
 	close(0);
-	(void)open("/dev/null", O_RDONLY);
+	char *nfile = qstrdup(QProcess::nullDevice());
+	(void)open(nfile, O_RDONLY);
+	free(nfile);
 	int UNUSED ret = system(cmd);
 	dup2(fd0_save, 0);
 	dup2(fd1_save, 1);
@@ -486,89 +534,139 @@ char *f_system(
 	close(fd0_save); /* added Paul van Slobbe bug fix */
 	close(fd1_save);
 	close(fd2_save);
+#else
+	strcpy(p, "out");
+	proc.setStandardOutputFile(tpath);
+	strcpy(p, "err");
+	proc.setStandardErrorFile(tpath);
+	proc.setStandardInputFile(QProcess::nullDevice());
+#ifdef Q_OS_UNIX
+	/* QProcess doesn't understand UNIX shell syntax */
+	/* Not even a basic parser like what glib has */
+	const char *shell = getenv("SHELL");
+	if(!shell || !*shell)
+		shell = "/bin/sh";
+	proc.start(shell, { "-c", cmd });
+#else
+	proc.start(cmd);
+#endif
+	proc.waitForFinished(-1);
+#endif
 							/* error messages */
-	if ((fp = fopen(errpath, "r"))) {
+	if ((fp = fopen(tpath, "r"))) {
 		(void)fseek(fp, 0, 2);
 		if ((size = ftell(fp))) {
+			const char msg[] = "Command failed: %s\n";
 			rewind(fp);
-			sprintf(data, "Command failed: %s\n", cmd);
-			i = strlen(data);
-			if (i + size > (int)sizeof(data)-1)
-				size = (int)sizeof(data)-1 - i;
+			/* no need for error message to be unlimited */
+			if(size > 4096)
+				size = 4096;
+			data = (char *)malloc(sizeof(msg) - 2 + strlen(cmd) + size);
+			if(!data) {
+				parsererror("No memory for command error message");
+				free(cmd);
+				unlink(tpath);
+				strcpy(p, "out");
+				unlink(tpath);
+				free(tpath);
+				return 0;
+			}
+			i = sprintf(data, msg, cmd);
 			size = fread(data+i, 1, size, fp);
 			data[i + size] = 0;
 			create_error_popup(mainwindow, 0, data);
+			free(data);
 		}
 		fclose(fp);
 	}
+	unlink(tpath);
+	free(cmd);
 							/* result */
-	*data = 0;
-	if ((fp = fopen(outpath, "r"))) {
+	data = NULL;
+	strcpy(p, "out");
+	if ((fp = fopen(tpath, "r"))) {
 		(void)fseek(fp, 0, 2);
 		if ((size = ftell(fp))) {
 			rewind(fp);
-			if (size > (int)sizeof(data)-1)
-				size = sizeof(data)-1;
+			data = (char *)malloc(size + 1);
+			if(!data) {
+				parsererror("No memory for command output");
+				unlink(tpath);
+				free(tpath);
+				return 0;
+			}
 			size = fread(data, 1, size, fp);
-			data[size] = 0;
+			if(size)
+				data[size] = 0;
+			else {
+				free(data);
+				data = NULL;
+			}
 		}
 		fclose(fp);
 	}
-	unlink(outpath);
-	unlink(errpath);
-	free((void *)cmd);
-	return(*data ? mystrdup(data) : 0);
+	unlink(tpath);
+	free(tpath);
+	return(data);
 }
 /*
  * transliterate characters in a string according to the rules in the
  * translation string, which contains x=y pairs like SUBST strings.
  */
 
-#define FREE(p) if(p) free(p)
-
 char *f_tr(
 	char		*string,
 	char		*rules)
 {
+	if(!string) {
+		zfree(rules);
+		return string;
+	}
 	int		i, len = 0, max = 1024;
 	char		*ret = (char *)malloc(max);
 	char		**array = (char **)malloc(256 * sizeof(char *));
-	const char	*err;
+	const char	*err, *str = string;
 
 	if (!ret || !array) {
-		FREE(ret);
-		FREE(array);
-		FREE(rules);
-		create_error_popup(mainwindow, errno, "tr");
+		zfree(ret);
+		zfree(array);
+		zfree(rules);
+		parsererror("No memory for tr table");
 		return(string);
 	}
 	memset(array, 0, 256 * sizeof(char *));
 	*ret = 0;
+	backslash_subst(rules);
 	if (!(err = substitute_setup(array, rules))) {
-		FREE(ret);
-		FREE(array);
-		FREE(rules);
-		create_error_popup(mainwindow, 0, err);
+		for (i=0; i < 256; i++)
+			zfree(array[i]);
+		free(ret);
+		free(array);
+		zfree(rules);
+		parsererror(err);
 		return(string);
 	}
-	while (*string) {
-		i = array[(unsigned char)*string] ? strlen(array[(unsigned char)*string]) : 1;
+	while (*str) {
+		char *pret = ret;
+		i = array[(unsigned char)*str] ? strlen(array[(unsigned char)*str]) : 1;
 		if (len+i >= max && !(ret = (char *)realloc(ret, max += max/2))) {
-			create_error_popup(mainwindow, errno, "tr");
+			free(pret);
+			parsererror("No memory for tr result");
 			break;
 		}
-		if (array[(unsigned char)*string]) {
-			strcpy(ret, array[(unsigned char)*string++]);
+		if (array[(unsigned char)*str]) {
+			strcpy(ret, array[(unsigned char)*str++]);
 			ret += i;
 		} else
-			*ret++ = *string++;
+			*ret++ = *str++;
 	}
-	*ret = 0;
+	if(ret)
+		*ret = 0;
 	for (i=0; i < 256; i++)
-		FREE(array[i]);
-	FREE(array);
-	FREE(string);
-	FREE(rules);
+		zfree(array[i]);
+	free(array);
+	free(string);
+	zfree(rules);
 	return(ret);
 }
 
@@ -583,25 +681,27 @@ char *f_substr(
 	int		num)
 {
 	int		len;
-	char		*news = 0;
 
 	if (!string)
 		return(0);
+	if (num <= 0) {
+		free(string);
+		return NULL;
+	}
 	len = strlen(string);
 	if (pos < 0)
 		pos = len + pos;
 	if (pos < 0)
 		pos = 0;
 	if (pos < len) {
-		if (num > len - pos)
+		if(num > len - pos)
 			num = len - pos;
-		if (num > 0 && (news = (char *)malloc(num + 1))) {
-			strncpy(news, string+pos, num);
-			news[num] = 0;
-		}
+		memmove(string, string + pos, num);
+		string[num] = 0;
+		return string;
 	}
-	free((void *)string);
-	return(news);
+	free(string);
+	return NULL;
 }
 
 
@@ -610,35 +710,35 @@ char *f_substr(
  */
 
 BOOL f_instr(
-	register char	*match,
+	char		*match,
 	char		*src)
 {
-	register int	i;
-	register char	*string = src;
+	int		i;
+	char		*string = src;
 
 	if (!match || !*match) {
 		if (match)
-			free((void *)match);
+			free(match);
 		if (string)
-			free((void *)string);
+			free(string);
 		return(TRUE);
 	}
 	if (!string) {
-		free((void *)match);
+		free(match);
 		return(FALSE);
 	}
 	for (; *string; string++)
 		for (i=0; ; i++) {
 			if (!match[i]) {
-				free((void *)match);
-				free((void *)src);
+				free(match);
+				free(src);
 				return(TRUE);
 			}
 			if (match[i] != string[i])
 				break;
 		}
-	free((void *)match);
-	free((void *)src);
+	free(match);
+	free(src);
 	return(FALSE);
 }
 
@@ -655,6 +755,12 @@ struct arg *f_addarg(
 	struct arg	*newa = (struct arg *)malloc(sizeof(struct arg));
 	struct arg	*tail;
 
+	if(!newa) {
+		parsererror("No memory for arg");
+		free_args(list);
+		zfree(value);
+		return NULL;
+	}
 	for (tail=list; tail && tail->next; tail=tail->next);
 	if (tail)
 		tail->next = newa;
@@ -694,12 +800,14 @@ char *f_printf(
 {
 	struct arg	*argp;		/* next argument */
 	const char	*value;		/* value string from next argument */
-	char		buf[10240];	/* result buffer */
-	char		*bp = buf;	/* next free char in result buffer */
+	char		*buf;		/* result buffer */
+	size_t		buflen;
+	int		bp = 0;		/* next free char in result buffer */
 	char		*fmt;		/* next char from format string */
 	char		*ctl;		/* for scanning % controls */
-	char		cbuf[100];	/* control substring, [0] is '%' */
-	int		i;
+	long		lval;
+	double		dval;
+	bool		islong;
 
 	if (!arg)
 		return(0);
@@ -709,22 +817,45 @@ char *f_printf(
 		free_args(arg);
 		return(0);
 	}
+	buf = (char *)malloc((buflen = 32));
+	if(!buf) {
+		free_args(arg);
+		parsererror("No memory for printf result");
+		return(0);
+	}
+#define check_buf(n) do { \
+	int l = n; \
+	if(bp + l + 1 >= (int)buflen) { \
+		char *obuf = buf; \
+		while((int)(buflen *= 2) <= bp + l + 1); \
+		if(!(buf = (char *)realloc(buf, buflen))) { \
+			parsererror("No memory for printf result"); \
+			free_args(arg); \
+			free(obuf); \
+			return(0); \
+		} \
+	} \
+} while(0)
 	while (*fmt) {
 		if (*fmt == '\\' && fmt[1]) {
 			fmt++;
-			*bp++ = *fmt++;
+			check_buf(1);
+			buf[bp++] = *fmt++;
 		} else if (*fmt != '%') {
-			*bp++ = *fmt++;
+			check_buf(1);
+			buf[bp++] = *fmt++;
 		} else {
-			/* FIXME: no ., no * */
-			for (ctl=fmt+1; strrchr("0123456789.-", *ctl); ctl++);
-			if (*ctl == 'l')
+			char ac = 0; /* char after c */
+			int plen; /* print result length */
+			/* I guess the lack of * is made up for the ease */
+			/* of just tacking it into the format string directly */
+			for (ctl=fmt+1; *ctl && strchr("0123456789.-", *ctl); ctl++);
+			if ((islong = *ctl == 'l'))
 				ctl++;
-			i = ctl - fmt + 1;
-			if (i > (int)sizeof(cbuf)-1)
-				i = sizeof(cbuf)-1;
-			strncpy(cbuf, fmt, i);
-			cbuf[i] = 0;
+			if(*ctl) {
+				ac = ctl[1];
+				ctl[1] = 0;
+			}
 			value = argp && argp->value ? argp->value : "";
 			switch(*ctl) {
 			  case 'c':
@@ -734,7 +865,10 @@ char *f_printf(
 			  case 'o':
 			  case 'i':
 			  case 'u':
-				sprintf(bp, cbuf, atoi(value));
+				lval = atol(value);
+				plen = snprintf(0, 0, fmt, islong ? lval : (int)lval);
+				check_buf(plen);
+				sprintf(buf + bp, fmt, islong ? lval : (int)lval);
 				break;
 			  case 'e':
 			  case 'E':
@@ -742,28 +876,39 @@ char *f_printf(
 			  case 'F':
 			  case 'g':
 			  case 'G':
-				sprintf(bp, cbuf, atof(value));
+				dval = atof(value);
+				plen = snprintf(0, 0, fmt, dval);
+				check_buf(plen);
+				sprintf(buf + bp, fmt, dval);
 				break;
 			  case 's':
-				sprintf(bp, cbuf, value);
+				plen = snprintf(0, 0, fmt, value);
+				check_buf(plen);
+				sprintf(buf + bp, fmt, value);
 				break;
 			  default:
-				strcat(bp, cbuf);
+				plen = strlen(fmt);
+				check_buf(plen);
+				strcat(buf + bp, fmt);
 			}
 			if (argp)
 				argp = argp->next;
-			bp += strlen(bp);
-			fmt = ctl+1;
+			bp += plen;
+			if(*ctl) {
+				fmt = ctl+1;
+				*fmt = ac;
+			} else
+				fmt = ctl;
 		}
 	}
-	*bp = 0;
-	return(mystrdup(buf));
+	buf[bp] = 0;
+	return buf;
 }
 
 // The following use QRegularExpression rather than POSIX EXTENDED as I
 // usually prefer for portability.  QRegularExpression is "perl-compatible".
 
-bool re_check(QRegularExpression &re, char *e)
+static bool re_check(QRegularExpression &re, char *e)
 {
     bool ret = re.isValid();
     if(!ret) {
@@ -780,41 +925,35 @@ bool re_check(QRegularExpression &re, char *e)
 
 // Find e in s, returning offset in s + 1 (0 == no match).
 // Both e and s are freed.
-int re_match(char *s, char *e)
+int f_re_match(char *s, char *e)
 {
     if(!e || !*e) {
-	if(e)
-	    free(e);
-	if(s)
-	    free(s);
+	zfree(e);
+	zfree(s);
 	return 1;
     }
     QRegularExpression re(STR(e));
     if(!re_check(re, e)) {
-	if(s)
-	    free(s);
+	zfree(s);
 	return 0;
     }
     QRegularExpressionMatch m = re.match(STR(s));
-    if(s)
-	free(s);
+    zfree(s);
     return m.capturedStart() + 1;
 }
 
 // Replace e in s with r.  If all is true, advance and repeat while possible
 // r can contain \0 .. \9 and \{n} for subexpression replacmeents
-char *re_sub(char *s, char *e, char *r, bool all)
+char *f_re_sub(char *s, char *e, char *r, bool all)
 {
     QRegularExpression re(STR(e));
     if(!re_check(re, e)) {
-	if(r)
-	    free(r);
+	zfree(r);
 	return s;
     }
     QString res;
     QString str(STR(s));
-    if(s)
-	free(s);
+    zfree(s);
     int off = 0;
     QRegularExpressionMatchIterator iter = re.globalMatch(str);
     while(iter.hasNext()) {
@@ -862,8 +1001,7 @@ char *re_sub(char *s, char *e, char *r, bool all)
 	    break;
     }
     res.append(str.midRef(off));
-    if(r)
-	free(r);
+    zfree(r);
     return qstrdup(res);
 }
 
@@ -871,7 +1009,7 @@ char *re_sub(char *s, char *e, char *r, bool all)
 #define get_cur_arraysep(sep, esc) \
 	get_form_arraysep(yycard ? yycard->form : NULL, sep, esc);
 
-void get_form_arraysep(FORM *form, char *sep, char *esc)
+void get_form_arraysep(const FORM *form, char *sep, char *esc)
 {
     *sep = '|';
     *esc = '\\';
@@ -884,7 +1022,7 @@ void get_form_arraysep(FORM *form, char *sep, char *esc)
 }
 
 /* Starts search at after + 1;  Returns -1 for begin & after @ end */
-void next_aelt(char *array, int *begin, int *after, char sep, char esc)
+void next_aelt(const char *array, int *begin, int *after, char sep, char esc)
 {
     if(!array || !*array) {
 	if(*after == -1)
@@ -905,7 +1043,7 @@ void next_aelt(char *array, int *begin, int *after, char sep, char esc)
     }
 }
 
-int stralen(char *array, char sep, char esc)
+int stralen(const char *array, char sep, char esc)
 {
     int ret = 0, b, a = -1;
     do {
@@ -926,7 +1064,7 @@ int f_alen(char *array)
     return ret;
 }
 
-void elt_at(char *array, int n, int *begin, int *after, char sep, char esc)
+void elt_at(const char *array, unsigned int n, int *begin, int *after, char sep, char esc)
 {
     *after = -1;
     do {
@@ -955,13 +1093,81 @@ char *f_elt(char *array, int n)
     char sep, esc;
     int b, a;
     get_cur_arraysep(&sep, &esc);
+    if(n < 0) {
+	n += stralen(array, sep, esc);
+	if(n < 0) {
+	    zfree(array);
+	    return NULL;
+	}
+    }
     elt_at(array, n, &b, &a, sep, esc);
     if(b == a) {
-	if(array)
-	    free(array);
+	zfree(array);
 	return NULL;
     }
     *unescape(array, array + b, a - b, esc) = 0;
+    return array;
+}
+
+char *f_slice(
+	char		*array,
+	int		start,
+	int		end)
+{
+    char sep, esc;
+    int bs, t, ae;
+    if(!array)
+	return array;
+    get_cur_arraysep(&sep, &esc);
+    int alen = stralen(array, sep, esc);
+    if(start < 0)
+	start += alen;
+    if(start < 0)
+	start = 0;
+    if(end < 0)
+	end += alen;
+    if(end >= alen)
+	end = alen - 1;
+    if(start > end) {
+	zfree(array);
+	return NULL;
+    }
+    elt_at(array, start, &bs, &t, sep, esc);
+    if(start == end)
+	ae = t;
+    else
+	elt_at(array + t + 1, end - start - 1, &t, &ae, sep, esc);
+    memmove(array, array + bs, ae - bs);
+    array[ae - bs] = 0;
+    return array;
+}
+
+char *f_astrip(
+	char		*array)
+{
+    if(!array)
+	return array;
+    int alen = strlen(array);
+    char sep, esc;
+    get_cur_arraysep(&sep, &esc);
+    // strip off trailing empties except last if esc seen
+    while(alen && array[alen - 1] == sep &&
+	  (alen < 2 || array[alen - 2] != esc))
+	array[--alen] = 0;
+    /* if the last one was maybe escaped, see if it was */
+    if(alen > 2 && array[alen - 1] == sep) {
+	int nesc;
+	for(nesc = 1; nesc < alen - 1; nesc++)
+	    if(array[alen - nesc - 2] != esc)
+		break;
+	/* odd is escaped, even is not */
+	if(!(nesc % 2))
+	    array[--alen] = 0;
+    }
+    if(!alen) {
+	free(array);
+	return NULL;
+    }
     return array;
 }
 
@@ -989,55 +1195,69 @@ char *escape(char *d, const char *s, int len, char esc, const char *toesc)
 }
 
 // modifies array in-place; assumes array has been malloc'd
-char *set_elt(char *array, int n, char *val)
+bool set_elt(char **array, int n, char *val, const FORM *form)
 {
-    int b, a, vlen = val ? strlen(val) : 0, alen = array ? strlen(array) : 0;
+    int b, a, vlen = val ? strlen(val) : 0, alen = *array ? strlen(*array) : 0;
     char toesc[3];
     char &sep = toesc[1], &esc = toesc[0];
     int vesc;
-    get_cur_arraysep(&sep, &esc);
+    get_form_arraysep(form, &sep, &esc);
     toesc[2] = 0;
     if(n < 0)
-	n = stralen(array, sep, esc);
+	n = stralen(*array, sep, esc);
     vesc = countchars(val, toesc);
-    elt_at(array, n, &b, &a, sep, esc);
+    elt_at(*array, n, &b, &a, sep, esc);
     if(a >= 0) { // replace
-	if(vlen + vesc == a - b)
-	    escape(array + b, val, vlen, esc, toesc + 1);
-	else if(vlen + vesc < a - b) {
-	    memmove(array + b + vlen + vesc, array + a, alen - a + 1);
-	    escape(array + b, val, vlen, esc, toesc + 1);
-	} else if(!alen) {
-	    if(array)
-		free(array);
-	    array = val;
-	    val = NULL;
-	} else {
-	    array = (char *)realloc(array, alen + vlen + vesc - (a - b) + 1);
-	    memmove(array + b + vlen + vesc, array + a, alen - a + 1);
-	    escape(array + b, val, vlen, esc, toesc + 1);
+	if(vlen + vesc == a - b) // exact fit
+	    escape(*array + b, val, vlen, esc, toesc + 1);
+	else if(vlen + vesc < a - b) { // smaller
+	    memmove(*array + b + vlen + vesc, *array + a, alen - a + 1);
+	    escape(*array + b, val, vlen, esc, toesc + 1);
+	} else if(!alen && !vesc) { // bigger, but completely replace array
+	    zfree(*array);
+	    *array = val;
+	    return true;
+	} else { // bigger
+	    char *oarray = *array;
+	    int nlen = alen + vlen + vesc - (a - b) + 1;
+	    /* C supports NULL realloc, but some memory debuggers don't */
+	    if(*array)
+		*array = (char *)realloc(*array, nlen);
+	    else
+		*array = (char *)malloc(nlen);
+	    if(!*array) {
+		zfree(oarray);
+		return false;
+	    }
+	    memmove(*array + b + vlen + vesc, *array + a, alen - a);
+	    (*array)[nlen - 1] = 0;
+	    escape(*array + b, val, vlen, esc, toesc + 1);
 	}
 	alen += vlen + vesc - (a - b);
-	// strip off trailing empties
-	while(alen && array[alen - 1] == sep)
-	    array[--alen] = 0;
-    } else if(vlen) { // add non-blank
-	int l = stralen(array, sep, esc);
-	array = (char *)realloc(array, alen + (n - l + 1) + vlen + vesc + 1);
-	memset(array + alen, sep, n - l + 1);
-	escape(array + alen + n - l + 1, val, vlen, esc, toesc + 1);
-	array[alen + n - l + 1 + vlen + vesc] = 0;
-    } else { // add blank
-	// just in case this was built manually, strip off trailing empties
-	while(alen && array[alen - 1] == sep)
-	    array[--alen] = 0;
+    } else { // append
+	int l = stralen(*array, sep, esc);
+	char *oarray = *array;
+	int nlen = alen + (n - l + 1) + vlen + vesc + 1;
+	/* C supports NULL realloc, but some memory debuggers don't */
+	if(*array)
+	    *array = (char *)realloc(*array, nlen);
+	else
+	    *array = (char *)malloc(nlen);
+	if(!*array) {
+	    zfree(oarray);
+	    return false;
+	}
+	memset(*array + alen, sep, n - l + 1);
+	escape(*array + alen + n - l + 1, val, vlen, esc, toesc + 1);
+	(*array)[nlen - 1] = 0;
     }
     return array;
 }
 
 char *f_setelt(char *array, int n, char *val)
 {
-    array = set_elt(array, n, val);
+    if(!set_elt(&array, n, val, yycard->form))
+	parsererror("No memory");
     if(val && val != array)
 	free(val);
     return array;
@@ -1067,31 +1287,32 @@ void f_foreachelt(
 	    if(begin == after)
 		set_var(var, NULL);
 	    else {
-		char c = array[after];
+		char c = array[after], *s;
 		*unescape(array + begin, array + begin, after - begin, esc) = 0;
-		set_var(var, strdup(array + begin));
+		s = strdup(array + begin);
+		if(!s) {
+			parsererror("No memory for loop variable");
+			break;
+		}
+		set_var(var, s);
 		// no need to re-escape and re-store value
 		array[after] = c;
 	    }
 	    if (!cond || subevalbool(cond))
-		subeval(expr);
+		subeval(expr); /* no-op if evalbool failed */
 	    if (eval_error())
 		break;
 	}
     }
-    if(array)
-	free(array);
-    if(cond)
-	free(cond);
-    if(expr)
-	free(expr);
+    zfree(array);
+    zfree(cond);
+    zfree(expr);
 }
 
 char *f_esc(char *s, char *e)
 {
     if(!s || !*s) {
-	if(e)
-	    free(e);
+	zfree(e);
 	return s;
     }
     // NULL e is signal to use the defaults
@@ -1102,15 +1323,18 @@ char *f_esc(char *s, char *e)
     }
     int exp = countchars(s, e ? e : defesc);
     if(!exp) {
-	if(e)
-	    free(e);
+	zfree(e);
 	return s;
     }
     char *ret = (char *)malloc(strlen(s) + exp + 1);
+    if(!ret) {
+	parsererror("No memory");
+	zfree(e);
+	return s;
+    }
     *escape(ret, s, -1, e ? e[0] : defesc[0], e ? e + 1 : defesc + 1) = 0;
     free(s);
-    if(e)
-	free(e);
+    zfree(e);
     return ret;
 }
 
@@ -1138,15 +1362,20 @@ static int cmp_aelt(const void *_a, const void *_b)
 	return -1;
 }
 
-void toset(char *a, char sep, char esc)
+/* This scans the string twice, and allocates a sort array every run */
+/* A possibly better way would be to keep a static growable array and
+ * build it during the first scan, avoiding the need for a second scan */
+bool toset(char *a, char sep, char esc)
 {
     if(!a || !*a)
-	return;
+	return true;
     int alen = stralen(a, sep, esc);
     if(alen == 1)
-	return;
+	return true;
     struct aelt_loc *elts = (struct aelt_loc *)malloc(alen * sizeof(*elts)), *e;
     int begin, after = -1, i;
+    if(!elts)
+	return false;
     for(e = elts, i = 0; i < alen; e++, i++) {
 	next_aelt(a, &begin, &after, sep, esc);
 	e->b = begin;
@@ -1155,7 +1384,12 @@ void toset(char *a, char sep, char esc)
     sort_array = a;
     qsort(elts, alen, sizeof(*elts), cmp_aelt);
     // ah, screw it.  Just make it anew, always
+    // doing it in-place would just be too much processing for little benefit
     char *set = (char *)malloc(strlen(a) + 1), *p = set;
+    if(!set) {
+	free(elts);
+	return false;
+    }
     for(e = elts, i = 0; i < alen; e++, i++) {
 	// remove blanks
 	if(e->a == e->b)
@@ -1173,14 +1407,17 @@ void toset(char *a, char sep, char esc)
     else
 	p[-1] = 0;
     memcpy(a, set, p - set);
+    free(elts);
     free(set);
+    return true;
 }
 
 char *f_toset(char *a)
 {
     char sep, esc;
     get_cur_arraysep(&sep, &esc);
-    toset(a, sep, esc);
+    if(!toset(a, sep, esc))
+	parsererror("No memory for set conversion");
     return a;
 }
 
@@ -1195,14 +1432,24 @@ char *f_union(char *a, char *b)
     char sep, esc;
     get_cur_arraysep(&sep, &esc);
     int alen = strlen(a), blen = strlen(b);
+    char *oa = a;
     a = (char *)realloc(a, alen + blen + 2);
+    if(!a) {
+	parsererror("No memory");
+	free(oa);
+	free(b);
+	return a;
+    }
     memcpy(a + alen + 1, b, blen + 1);
+    free(b);
     a[alen] = sep;
     toset(a, sep, esc);
     return a;
 }
 
-static void elt_at(const char *array, int o, int *begin, int *after, char sep, char esc)
+/* find element containing array[n] */
+/* if n is on a separator, find element before separator */
+static void elt_at_off(const char *array, int o, int *begin, int *after, char sep, char esc)
 {
     int b = o, a = o;
     while(1) { // find start
@@ -1244,13 +1491,12 @@ bool find_unesc_elt(const char *a, const char *s, int *begin, int *after,
     toesc[2] = 0;
     nesc = countchars(s, toesc);
     if(nesc) {
-	s = tmp = (char *)malloc(len + nesc + 1);
+	s = tmp = alloc(0, "escaping", char, len + nesc + 1);
 	*escape(tmp, s, len, sep, toesc) = 0;
 	len += nesc;
     }
     ret = find_elt(a, s, len, begin, after, sep, esc);
-    if(tmp)
-	free(tmp);
+    zfree(tmp);
     return ret;
 }
 
@@ -1262,7 +1508,7 @@ bool find_elt(const char *a, const char *s, int len, int *begin, int *after,
 
     while(l <= h) {
 	m = (l + h) / 2;
-	elt_at(a, m, &mb, &ma, sep, esc);
+	elt_at_off(a, m, &mb, &ma, sep, esc);
 	int c = memcmp(s, a + mb, len > ma - mb ? ma - mb : len);
 	if(c > 0)
 	    l = ma + 1;
@@ -1296,10 +1542,8 @@ int del_elt(char *a, int len, int begin, int after)
 char *f_intersect(char *a, char *b)
 {
     if(!a || !*a || !b || !*b) {
-	if(a)
-	    free(a);
-	if(b)
-	    free(b);
+	zfree(a);
+	zfree(b);
 	return NULL;
     }
     char sep, esc;
@@ -1326,8 +1570,7 @@ char *f_setdiff(char *a, char *b)
     if(!b || !*b)
 	return a;
     if(!a || !*a) {
-	if(b)
-	    free(b);
+	zfree(b);
 	return a;
     }
     char sep, esc;
@@ -1363,6 +1606,11 @@ char *f_detab(char *s, int start, int tabstop)
 	if(start < 0)
 		start = tabstop + start % tabstop;
 	d = (char *)malloc(strlen(s) + ntab * tabstop + 1);
+	if(!d) {
+		free(s);
+		parsererror("No memory");
+		return d;
+	}
 	for(p = s, q = d; *p; p++, start++) {
 		if(*p != '\t')
 			*q++ = *p;
@@ -1401,6 +1649,11 @@ char *f_align(char *s, char *pad, int len, int where)
 		return s;
 	}
 	ns = (char *)malloc(len + 1);
+	if(!ns) {
+		zfree(s);
+		parsererror("No memory");
+		return NULL;
+	}
 	if(where > 0) {
 		memset(ns, padc, len - slen);
 		memcpy(ns + len - slen, s, slen);

@@ -27,8 +27,6 @@
 
 #define CHUNK	32			/* alloc 32 new rows at a time */
 
-int		col_sorted_by;		/* dbase is sorted by this column */
-
 
 
 /*
@@ -41,14 +39,10 @@ DBASE *dbase_create(void)
 {
 	DBASE		*dbase;		/* new dbase */
 
-	dbase = (DBASE *)malloc(sizeof(DBASE));
-	memset((void *)dbase, 0, sizeof(DBASE));
-	if (!(dbase->sect = (SECTION *)malloc(sizeof(SECTION)))) {
-		fprintf(stderr,
-			"grok: no memory for section, cannot continue.");
-		exit(1);
-	}
-	memset(dbase->sect, 0, sizeof(SECTION));
+	/* since even this code assumes success, errors are fatal */
+	dbase = zalloc(0, "database", DBASE, 1);
+	/* this one was fatal in old code as well */
+	dbase->sect = zalloc(0, "section", SECTION, 1);
 	dbase->nsects	= 1;
 	dbase->currsect	= -1;
 	return(dbase);
@@ -62,27 +56,24 @@ DBASE *dbase_create(void)
 void dbase_delete(
 	DBASE		*dbase)		/* dbase to delete */
 {
-	register int	r, c;		/* data counter */
-	register ROW	*row;		/* row to delete */
+	int		r, c;		/* data counter */
+	ROW		*row;		/* row to delete */
 
 	if (!dbase)
 		return;
 	for (r=0; r < dbase->nsects; r++)
 		if (dbase->sect[r].path)
 			free(dbase->sect[r].path);
-	if (dbase->sect)
-		free(dbase->sect);
+	zfree(dbase->sect);
 
 	for (r=0; r < dbase->nrows; r++) {
 		row = dbase->row[r];
 		for (c=row->ncolumns-1; c >= 0; c--)
-			if (row->data[c])
-				free(row->data[c]);
+			zfree(row->data[c]);
 		free(row);
 	}
-	if (dbase->row)
-		free(dbase->row);
-	memset((void *)dbase, 0, sizeof(DBASE));
+	zfree(dbase->row);
+	tzero(DBASE, dbase, 1);
 }
 
 
@@ -98,15 +89,15 @@ void dbase_delete(
 
 BOOL dbase_addrow(
 	int		 *rowp,		/* ptr to returned row number */
-	register DBASE	 *dbase)	/* database to add row to */
+	DBASE		 *dbase)	/* database to add row to */
 {
-	register int	 i, n, r;	/* size of data ptr array in bytes */
-	register ROW	 *row;		/* new database row */
-	register SECTION *sect;		/* current insert section */
-	register int	 newsect = 0;
+	int		 i, n, r;	/* size of data ptr array in bytes */
+	ROW		 *row;		/* new database row */
+	SECTION		 *sect;			/* current insert section */
+	int		 newsect = 0;
 
 	newsect = dbase->nsects<2 || dbase->currsect<0 ? 0 : dbase->currsect;
-	if (dbase->nrows+1 >= dbase->size) {
+	if (dbase->nrows+1 >= (int)dbase->size) {
 		i = (dbase->size + CHUNK) * sizeof(ROW);
 		if (!(dbase->row = (ROW **)(dbase->row ? realloc(dbase->row, i)
 						       : malloc(i))))
@@ -146,10 +137,10 @@ BOOL dbase_addrow(
 
 void dbase_delrow(
 	int		 nrow,		/* row to delete */
-	register DBASE	 *dbase)	/* database to delete row in */
+	DBASE		 *dbase)	/* database to delete row in */
 {
-	register int	 i;		/* copy counter */
-	register ROW	 *row;		/* new database row */
+	int		 i;		/* copy counter */
+	ROW		 *row;		/* new database row */
 
 	if (!dbase || nrow >= dbase->nrows)
 		return;
@@ -175,11 +166,11 @@ void dbase_delrow(
  */
 
 char *dbase_get(
-	register DBASE	*dbase,		/* database to get string from */
-	register int	nrow,		/* row to get */
-	register int	ncolumn)	/* column to get */
+	const DBASE	*dbase,		/* database to get string from */
+	int		nrow,		/* row to get */
+	int		ncolumn)	/* column to get */
 {
-	register ROW	*row;		/* row to get from */
+	ROW		*row;		/* row to get from */
 
 	if (dbase && nrow >= 0
 		  && nrow < dbase->nrows
@@ -196,16 +187,25 @@ char *dbase_get(
  * the middle, this must have been done with dbase_addrow earlier. Don't
  * write into read-only sections. Store empty strings as null pointers.
  * return FALSE if the string is unchanged.
+ *
+ * Since there is no way to distinguish allocation errors from unchanged
+ * database, what do I do on memory errors?
+ *
+ * Since there's no periodic autosave, dying seems harsh, but I don't
+ * think trying to pop up an error message will work anyway, and the
+ * user has no idea what data write failed, if it was done in an
+ * expression or read_file().  Best to just be harsh.  FIXME: one day
+ * fix this to actually return an error code on errors instead of dying.
  */
 
 BOOL dbase_put(
-	register DBASE	*dbase,		/* database to put into */
-	register int	nrow,		/* row to put into */
-	register int	ncolumn,	/* column to put into */
+	DBASE		*dbase,		/* database to put into */
+	int		nrow,		/* row to put into */
+	int		ncolumn,	/* column to put into */
 	const char	*data)		/* string to store */
 {
-	register ROW	*row;		/* row to put into */
-	register char	*p;
+	ROW		*row;		/* row to put into */
+	char		*p;
 
 	if (!dbase || nrow < 0
 		   || nrow >= dbase->nrows
@@ -216,11 +216,10 @@ BOOL dbase_put(
 	if (ncolumn >= dbase->maxcolumns)
 		dbase->maxcolumns = ncolumn + 1;
 	if (ncolumn >= row->ncolumns) {
-		if (!(row = (ROW *)realloc(row, sizeof(ROW) +
-				(dbase->maxcolumns-1) * sizeof(char *))))
-			return(FALSE);
-		memset(&row->data[row->ncolumns], 0, sizeof(char *) *
-					(dbase->maxcolumns - row->ncolumns));
+		/* old code used maxolumns-1.  Why did that not die? */
+		/* I'm guessing this code never gets called */
+		zgrow(0, "update database", ROW, row, row->ncolumns,
+		      dbase->maxcolumns, 0);
 		dbase->row[nrow] = row;
 		row->ncolumns = dbase->maxcolumns;
 	}
@@ -254,13 +253,13 @@ BOOL dbase_put(
 static int compare_one(
 	const void	*u,
 	const void	*v,
-	register int	col)
+	int		col)
 {
-	register ROW	*ru = *(ROW **)u;
-	register ROW	*rv = *(ROW **)v;
-	register char	*cu;
-	register char	*cv;
-	register double	du, dv;
+	ROW		*ru = *(ROW **)u;
+	ROW		*rv = *(ROW **)v;
+	char		*cu;
+	char		*cv;
+	double		du, dv;
 
 	cu = col < ru->ncolumns ? ru->data[col] : 0;
 	cv = col < rv->ncolumns ? rv->data[col] : 0;
@@ -279,12 +278,13 @@ static int compare_one(
 }
 
 
+static int col_sorted_by;
 static int reverse;
 static int compare(
-	register const void	*u,
-	register const void	*v)
+	const void		*u,
+	const void		*v)
 {
-	register int diff = compare_one(u, v, col_sorted_by);
+	int diff = compare_one(u, v, col_sorted_by);
 	if (!diff)
 		diff = (*(ROW **)v)->seq - (*(ROW **)u)->seq;
 	return(reverse ? -diff : diff);
@@ -296,10 +296,10 @@ void dbase_sort(
 	int		col,		/* column to sort by */
 	int		rev)		/* reverse if nonzero */
 {
-	register FORM	*form;		/* card form */
-	register DBASE	*dbase;		/* card data */
-	register ROW	**row;		/* list of row struct pointers */
-	register int	i, j;
+	FORM		*form;		/* card form */
+	DBASE		*dbase;		/* card data */
+	ROW		**row;		/* list of row struct pointers */
+	int		i, j;
 
 	if (!card)
 		return;
@@ -309,7 +309,7 @@ void dbase_sort(
 	if (!dbase || !form || dbase->nrows < 2)
 		return;
 
-	col_sorted_by = col;
+	card->dbase->col_sorted_by = col_sorted_by = col;
 	for (row=dbase->row, i=dbase->nrows; i; i--, row++) {
 		(*row)->selected = 0;
 		(*row)->seq      = i;

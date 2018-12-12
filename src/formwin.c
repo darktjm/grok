@@ -14,6 +14,7 @@
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
+#include "canv-widget.h"
 
 // This window can't be closed.  Probably ought to pop up a dialog
 // like the canvas does.
@@ -30,10 +31,10 @@ static int readback_item(int);
 static BOOL		have_shell = FALSE;	/* message popup exists if TRUE */
 static QDialog		*shell;		/* popup menu shell */
 static FORM		*form;		/* current form definition */
-int			curr_item;	/* current item, 0..form.nitems-1 */
 static QWidget		*scroll_w;	/* the widget inside the scroll area */
 static QFrame		*chart;		/* the widget for chart options */
 static QTableWidget	*menu_w;	/* the menu editor widget */
+static GrokCanvas	*canvas;
 
 const char		plan_code[] = "tlwWrecnmsSTA";	/* code 0x260..0x26c */
 
@@ -119,7 +120,7 @@ static void fill_menu_row(QTableWidget *tw, const ITEM *item, int row)
 		if(row == item->nmenu)
 			twi->setText("");
 		else if(menu_cols[j].isint)
-			twi->setText(QString::asprintf("%d", *(int *)p));
+			twi->setText(qsprintf("%d", *(int *)p));
 		else
 			twi->setText(STR(*(char **)p));
 	}
@@ -129,11 +130,11 @@ static void resize_menu_table(QTableWidget *tw);
 static void fill_menu_table(QTableWidget *tw)
 {
 	QSignalBlocker sb(tw);
-	if(curr_item >= form->nitems) {
+	if(!canvas || canvas->curr_item >= form->nitems) {
 		tw->setRowCount(0);
 		return;
 	}
-	const ITEM *item = form->items[curr_item];
+	const ITEM *item = form->items[canvas->curr_item];
 	if(!((1U<<item->type) & (MNU))) {
 		tw->setRowCount(8);
 		return;
@@ -160,9 +161,9 @@ static void resize_menu_table(QTableWidget *tw)
 {
 	// FIXME:  How do I determine the grid line width?  It's there
 	// whether the grid is drawn or not.
-	if(curr_item >= form->nitems)
+	if(!canvas || canvas->curr_item >= form->nitems)
 		return;
-	const ITEM *item = form->items[curr_item];
+	const ITEM *item = form->items[canvas->curr_item];
 	int mask = menu_col_mask(item);
 	tw->ensurePolished();
 	int w = 0;
@@ -512,7 +513,7 @@ void create_formedit_window(
 		free(form->path);
 		form->path = 0;
 	}
-	create_canvas_window(form);			/* canvas window */
+	canvas = create_canvas_window(form);		/* canvas window */
 	if (have_shell) {
 		sensitize_formedit();			/* re-use window */
 		return;
@@ -791,7 +792,7 @@ void sensitize_formedit(void)
 	int			mask;
 	ITEM			*item;
 
-	item = curr_item >= form->nitems ? 0 : form->items[curr_item];
+	item = canvas->curr_item >= form->nitems ? 0 : form->items[canvas->curr_item];
 	mask = 1 << (item ? item->type : IT_NULL);
 	for (tp=tmpl; tp->type; tp++) {
 		if (tp->sensitive) {
@@ -892,24 +893,24 @@ static void set_digits(int dig)
 static void fillout_formedit_widget(
 	struct _template	*tp)
 {
-	register ITEM		*item = NULL;
-	register CHART		*chart = NULL;
+	ITEM			*item = NULL;
+	CHART			*chart = NULL;
 	CHART			nullchart;
 	QWidget			*w = tp->widget;
 
 	if (tp->code < 0x100 || tp->code > 0x107) {
-		if (!form->items || curr_item >= form->nitems ||
-		    !(tp->sensitive & (1 << form->items[curr_item]->type))) {
+		if (!form->items || canvas->curr_item >= form->nitems ||
+		    !(tp->sensitive & (1 << form->items[canvas->curr_item]->type))) {
 			if (tp->type == 'T' || tp->type == 't' ||
 			    tp->type == 'i' || tp->type == 'd' ||
 			    tp->type == 'C')
 				print_text_button_s(w, "");
 			return;
 		}
-		item  = form->items[curr_item];
+		item  = form->items[canvas->curr_item];
 		chart = &item->ch_comp[item->ch_curr];
 		if (!chart)
-			memset((void *)(chart = &nullchart), 0, sizeof(CHART));
+			memset((chart = &nullchart), 0, sizeof(CHART));
 	}
 	filling_item = item;
 	switch(tp->code) {
@@ -1059,10 +1060,10 @@ static void menu_callback(QTableWidget *w, int x, int y)
 	int row = y < 0 ? w->currentRow() : y;
 	bool do_resize = false;
 
-	if (curr_item >= form->nitems)
+	if (canvas->curr_item >= form->nitems)
 		return;
 	QSignalBlocker sb(w);
-	ITEM *item = form->items[curr_item];
+	ITEM *item = form->items[canvas->curr_item];
 	if(y < 0 && row == item->nmenu)
 		return;
 	if(y == -2) {
@@ -1075,7 +1076,7 @@ static void menu_callback(QTableWidget *w, int x, int y)
 			w->removeRow(row);
 			do_resize = true;
 		} else { // dup
-			item->menu = (MENU *)realloc(item->menu, ++item->nmenu * sizeof(MENU));
+			grow(0, "new menu item", MENU, item->menu, ++item->nmenu, NULL);
 			memmove(item->menu + row + 1, item->menu + row, (item->nmenu - row - 1) * sizeof(MENU));
 			menu_clone(&item->menu[row]);
 			w->insertRow(row + 1);
@@ -1100,13 +1101,9 @@ static void menu_callback(QTableWidget *w, int x, int y)
 			string = qstrdup(qs);
 		if(string && row == item->nmenu) { // unblank a blank
 			// yeah, maybe one day I'll alloc in chunks
-			// yeah, C supports realloc of NULL, but some memory
-			//       debuggers still don't.
-			item->menu = !item->menu ?
-				(MENU *)malloc(++item->nmenu * sizeof(MENU)) :
-				(MENU *)realloc(item->menu,
-						++item->nmenu * sizeof(MENU));
-			memset(item->menu + item->nmenu - 1, 0, sizeof(MENU));
+			zgrow(0, "new menu item", MENU, item->menu, item->nmenu,
+			      item->nmenu + 1, NULL);
+			item->nmenu++;
 			w->insertRow(item->nmenu);
 			fill_menu_row(w, item, item->nmenu);
 			do_resize = true;
@@ -1125,7 +1122,7 @@ static void menu_callback(QTableWidget *w, int x, int y)
 			for(x = 0; x < ALEN(menu_cols); x++) {
 				if(!(mask & (1 << x)))
 					continue;
-				char *p = (char *)&item->menu[row] + menu_cols[x].fieldoff;
+				void *p = (char *)&item->menu[row] + menu_cols[x].fieldoff;
 				if(menu_cols[x].isint) {
 					if(*(int *)p)
 						break;
@@ -1163,8 +1160,8 @@ static void formedit_callback(
 	switch(readback_item(indx)) {
 	  case 1:
 		fillout_formedit_widget(&tmpl[indx]);
-		if (form->items && curr_item < form->nitems)
-			redraw_canvas_item(form->items[curr_item]);
+		if (form->items && canvas->curr_item < form->nitems)
+			redraw_canvas_item(form->items[canvas->curr_item]);
 		break;
 	  case 2:
 		sensitize_formedit();
@@ -1185,7 +1182,7 @@ void readback_formedit(void)
 	struct _template	*tp;
 	int			t;
 
-	if (curr_item < form->nitems)
+	if (canvas->curr_item < form->nitems)
 		for (t=0, tp=tmpl; tp->type; tp++, t++)
 			if (tp->type == 'T' || tp->type == 't' ||
 			    tp->type == 'i' || tp->type == 'd' ||
@@ -1208,14 +1205,14 @@ static int readback_item(
 	int			indx)
 {
 	struct _template	*tp = &tmpl[indx];
-	register ITEM		*item = 0, *ip;
-	register CHART		*chart = 0;
+	ITEM			*item = 0, *ip;
+	CHART			*chart = 0;
 	QWidget			*w = tp->widget;
 	int			code, i;
 	BOOL			all = FALSE; /* redraw oll or one? */
 
-	if (curr_item < form->nitems) {
-		item  = form->items[curr_item];
+	if (canvas->curr_item < form->nitems) {
+		item  = form->items[canvas->curr_item];
 		chart = &item->ch_comp[item->ch_curr];
 	}
 	if (!chart && (tp->code & 0x300) == 0x300)
@@ -1243,17 +1240,17 @@ static int readback_item(
 	  case 0x109: form->aesc=to_ascii(read_text_button(w,0),'\\');	break;
 	  case 0x112: readback_formedit();
 		      item_deselect(form);
-		      (void)item_create(form, curr_item);
-		      form->items[curr_item]->selected = TRUE;
+		      (void)item_create(form, canvas->curr_item);
+		      form->items[canvas->curr_item]->selected = TRUE;
 		      item = 0; // skip item adjustment below
 		      all = TRUE;
 		      break;
 
 	  case 0x113: item_deselect(form);
-		      item_delete(form, curr_item);
-		      if (curr_item >= form->nitems) {
-				if (curr_item)
-				    curr_item--;
+		      item_delete(form, canvas->curr_item);
+		      if (canvas->curr_item >= form->nitems) {
+				if (canvas->curr_item)
+				    canvas->curr_item--;
 				else
 				    item_deselect(form);
 		      }
@@ -1270,7 +1267,7 @@ static int readback_item(
 
 	  case 0x10d: if (!verify_form(form, &i, shell) && i < form->nitems) {
 				item_deselect(form);
-				curr_item = i;
+				canvas->curr_item = i;
 				form->items[i]->selected = TRUE;
 				redraw_canvas_item(form->items[i]);
 				fillout_formedit();
@@ -1291,7 +1288,7 @@ static int readback_item(
 		      if (!verify_form(form, &i, shell)) {
 				if (i < form->nitems) {
 					item_deselect(form);
-					curr_item = i;
+					canvas->curr_item = i;
 					form->items[i]->selected = TRUE;
 					redraw_canvas_item(form->items[i]);
 					fillout_formedit();
@@ -1310,7 +1307,7 @@ static int readback_item(
 				return(0);
 		      switch_form(form->name);
 		      form_delete(form);
-		      free((void *)form);
+		      free(form);
 		      form = 0;
 	 	      return(0);
 
@@ -1320,7 +1317,7 @@ static int readback_item(
 			destroy_canvas_window();
 			destroy_query_window();
 			form_delete(form);
-			free((void *)form);
+			free(form);
 			form = 0;
 		      }
 	 	      return(0);
@@ -1343,7 +1340,7 @@ static int readback_item(
 	  case 0x203: item->defsort ^= TRUE;
 		      if (item->name)
 				for (i=0; i < form->nitems; i++)
-				    if (i != curr_item) {
+				    if (i != canvas->curr_item) {
 					ip = form->items[i];
 					ip->defsort = !strcmp(item->name,
 					     ip->name) ? item->defsort : FALSE;
@@ -1518,7 +1515,7 @@ static int readback_item(
 	if (item && item->name && item->type == IT_CHOICE)
 		for (i=0; i < form->nitems; i++) {
 			ip = form->items[i];
-			if (i != curr_item && ip->type == IT_CHOICE
+			if (i != canvas->curr_item && ip->type == IT_CHOICE
 					   && ip->name
 					   && !strcmp(ip->name, item->name)) {
 				ip->column   = item->column;

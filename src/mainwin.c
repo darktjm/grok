@@ -48,9 +48,7 @@ static void dup_callback  (void);
 static void del_callback  (void);
 
 CARD 			*curr_card;	/* card being displayed in main win, */
-char			*prev_form;	/* previous form name */
 QMainWindow		*mainwindow;	/* popup menus hang off main window */
-int			last_query=-1;	/* last query pd index, for ReQuery */
 #if 0
 static int		win_xs, win_ys;	/* size of main window w/o sum+card */
 #endif
@@ -349,9 +347,9 @@ void resize_mainwindow(void)
 
 void print_info_line(void)
 {
-	char		buf[256];
-	register CARD	*card = curr_card;
-	register DBASE	*dbase;
+	char		buf[128];
+	CARD		*card = curr_card;
+	DBASE		*dbase;
 	int		s, n;
 
 	if (!mainwindow)
@@ -415,15 +413,17 @@ static struct db {
 
 static int append_to_dbase_list(
 	long		nlines,		/* # of databases already in pulldown*/
-	char		*path,		/* directory name */
+	const char	*path,		/* directory name */
 	int		order)		/* "chapter" number for sorting */
 {
-	char		name[256];	/* tmp buffer for name */
+	static char	*name = 0;	/* tmp buffer for displayed name */
+	static size_t	namelen;
 	char		*p;		/* for removing extension */
 	DIR		*dir;		/* open directory file */
 	struct dirent	*dp;		/* one directory entry */
 	int		num=0, i;
 
+	grow(0, "database pulldown", char, name, 80, &namelen);
 	name[0] = order + '0';
 	path = resolve_tilde(path, 0);
 	if (!(dir = opendir(path)))
@@ -446,7 +446,8 @@ static int append_to_dbase_list(
 			db[nlines].path = 0;
 			db[nlines++].name = mystrdup(name);
 		}
-		strncpy(name+1, dp->d_name, sizeof(name)-2);
+		grow(0, "database pulldown", char, name, strlen(dp->d_name) + 2, &namelen);
+		strcpy(name + 1, dp->d_name);
 		db[nlines].name = mystrdup(name);
 		db[nlines].path = mystrdup(path);
 		nlines++;
@@ -474,8 +475,8 @@ static void make_dbase_pulldown(
 
 
 static int compare_db(
-	register const void	*u,
-	register const void	*v)
+	const void		*u,
+	const void		*v)
 {
 	return(strcmp(((struct db *)u)->name, ((struct db *)v)->name));
 }
@@ -484,26 +485,20 @@ static int compare_db(
 void remake_dbase_pulldown(void)
 {
 	int		n;
-	char		path[1024], *env;
+	const char	*env;
 
 	dbpulldown->clear();
 	for (n=0; n < MAXD; n++) {
-		if (db[n].path)
-			free((void *)db[n].path);
-		if (db[n].name)
-			free((void *)db[n].name);
+		zfree(db[n].path);
+		zfree(db[n].name);
 		db[n].name = 0;
 		db[n].path = 0;
 	}
 	env = getenv("GROK_FORM");
-	strcpy(path, env ? env : "./");
-	n = append_to_dbase_list(0, path, 0);
-	strcpy(path, "./grokdir");
-	n = append_to_dbase_list(n, path, 1);
-	strcpy(path, GROKDIR);
-	n = append_to_dbase_list(n, path, 2);
-	strcpy(path, LIB "/grokdir");
-	n = append_to_dbase_list(n, path, 3);
+	n = append_to_dbase_list(0, env ? env : "./", 0);
+	n = append_to_dbase_list(n, "./grokdir", 1);
+	n = append_to_dbase_list(n, GROKDIR, 2);
+	n = append_to_dbase_list(n, LIB "/grokdir", 3);
 	qsort(db, n, sizeof(struct db), compare_db);
 	make_dbase_pulldown(n);
 	// tearoff already enabled above
@@ -593,7 +588,7 @@ void remake_query_pulldown(void)
 		}
 	}
 	// tearoff already set above
-	last_query = curr_card->form->autoquery;
+	curr_card->last_query = curr_card->form->autoquery;
 }
 
 
@@ -667,8 +662,8 @@ static QActionGroup	*sag = 0;	/* for radio-like sort menu */
 void remake_sort_pulldown(void)
 {
 	int	sort_col[2*MAXS+1];	/* column for each pulldown item */
-	char		buf[256];	/* pulldown line text */
-	register ITEM	*item;		/* scan items for sortable columns */
+	char		buf[128];	/* pulldown line text */
+	ITEM		*item;		/* scan items for sortable columns */
 	int		i;		/* item counter */
 	int		j;		/* skip redundant choice items */
 	int		n;		/* # of lines in pulldown */
@@ -697,7 +692,7 @@ void remake_sort_pulldown(void)
 				break;
 		if (j < n)
 			continue;
-		sprintf(buf, "by %.200s", item->type==IT_CHOICE ? item->name
+		sprintf(buf, "by %.100s", item->type==IT_CHOICE ? item->name
 								: item->label);
 		if (buf[j = strlen(buf)-1] == ':')
 			buf[j] = 0;
@@ -726,8 +721,8 @@ void remake_sort_pulldown(void)
 void switch_form(
 	char		*formname)	/* new form name */
 {
-	char		name[1024], *p;	/* capitalized formname */
 	int		i;
+	char		*prev_form = 0;
 
 	if (curr_card && curr_card->dbase &&
 	    curr_card->dbase->modified &&
@@ -743,9 +738,7 @@ void switch_form(
 	if(mainwindow)
 		mainwindow->setUpdatesEnabled(false);
 	if (curr_card) {
-		if (prev_form)
-			free(prev_form);
-		prev_form = 0;
+		zfree(curr_card->prev_form);
 		if (curr_card->form)
 			prev_form = mystrdup(curr_card->form->name);
 		destroy_card_menu(curr_card);
@@ -760,14 +753,14 @@ void switch_form(
 				return;
 			}
 			dbase_delete(curr_card->dbase);
-			free((void *)curr_card->dbase);
+			free(curr_card->dbase);
 		}
 		if (curr_card->form) {
 			form_delete(curr_card->form);
-			free((void *)curr_card->form);
+			free(curr_card->form);
 		}
 		query_none(curr_card);
-		free((void *)curr_card);
+		free(curr_card);
 		curr_card = 0;
 	}
 	if (!BLANK(formname)) {
@@ -778,10 +771,14 @@ void switch_form(
 					form->dbase ? form->dbase : formname);
 
 		curr_card = create_card_menu(form, dbase, w_card);
+		if(!curr_card)
+			fatal("No memory for initial form");
 		curr_card->form  = form;
+		curr_card->prev_form = prev_form;
 		curr_card->dbase = dbase;
 		curr_card->row   = 0;
-		col_sorted_by    = 0;
+		curr_card->last_query = -1;
+		dbase->col_sorted_by = 0;
 		for (i=0; i < form->nitems; i++)
 			if (form->items[i]->defsort) {
 				pref.sortcol = form->items[i]->column;
@@ -796,26 +793,31 @@ void switch_form(
 			query_all(curr_card);
 		create_summary_menu(curr_card);
 
-		strcpy(name, formname);
-		if (*name >= 'a' && *name <= 'z')
-			*name += 'A' - 'a';
-		if ((p = strrchr(name, '.')))
-			*p = 0;
-		if ((p = strrchr(name, '/')))
-			p++;
-		else
-			p = name;
 		if (mainwindow) {
-			QString t(p);
-			mainwindow->setWindowIconText(p);
-			t.prepend("grok ");
-			t.append(" [*]");
-			mainwindow->setWindowTitle(t);
+			QString name(formname);
+			/* QString doesn't have * */
+			if (name[0] >= 'a' && name[0] <= 'z')
+				/* QCharRef can't be manipulated as an int */
+				name[0] = name[0].toUpper();
+			if ((i = name.lastIndexOf('.')) > 0)
+				name.truncate(i);
+			if ((i = name.lastIndexOf('/')) >= 0)
+				name.remove(0, i);
+			mainwindow->setWindowIconText(name);
+			name.append(" - grok [*]");
+			mainwindow->setWindowTitle(name);
 			fillout_card(curr_card, FALSE);
 		}
-	} else
+	} else {
+		/* unlike old code, prev_form is now lost */
+		/* in a way, this makes sense, since prev_form is only */
+		/* used in expressions, which are really only valid when */
+		/* a form is loaded, and when that eventually happens, */
+		/* prev_form will have been NULL< anyway */
+		zfree(prev_form);
 		if (mainwindow)
 			mainwindow->setWindowIconText("None");
+	}
 
 	if (mainwindow) {
 		w_left->setEnabled(formname != 0);
@@ -976,11 +978,14 @@ static void newform_pulldown(
 
 
 static void dbase_pulldown(
-	int				item)
+	int			item)
 {
-	char				path[1024];
+	static char		*path = 0;
+	static size_t		pathlen;
 
 	card_readback_texts(curr_card, -1);
+	grow(0, "dbase switch", char, path,
+	     strlen(db[item].path) + strlen(db[item].name+1) + 5, &pathlen);
 	sprintf(path, "%s/%s.gf", db[item].path, db[item].name+1);
 	switch_form(path);
 	remake_dbase_pulldown();
@@ -1063,8 +1068,8 @@ static void sort_pulldown(
 void do_query(
 	int		qmode)		/* -1=all, or query number */
 {
-	register ROW	**row;		/* list of row struct pointers */
-	register int	i;
+	ROW		**row;		/* list of row struct pointers */
+	int		i;
 
 	for (row=curr_card->dbase->row,i=curr_card->dbase->nrows; i; i--,row++)
 		(*row)->selected = 0;
@@ -1078,13 +1083,13 @@ void do_query(
 
 	else if (*curr_card->form->query[qmode].query == '/') {
 		char *query = curr_card->form->query[qmode].query;
-		char *string = strdup(query + 1);
+		char *string = mystrdup(query + 1);
 		append_search_string(string);
 		query_search(SM_SEARCH, curr_card, query+1);
 	} else {
 		char *query = curr_card->form->query[qmode].query;
 		if (pref.query2search) {
-			char *string = strdup(query);
+			char *string = mystrdup(query);
 			append_search_string(string);
 		}
 		query_eval(SM_SEARCH, curr_card, query);
@@ -1097,7 +1102,7 @@ void do_query(
 			curr_card->qcurr = i;
 			break;
 		}
-	last_query = qmode;
+	curr_card->last_query = qmode;
 }
 
 
@@ -1179,8 +1184,8 @@ static void search_callback(
 
 static void requery_callback(void)
 {
-	if (last_query >= 0)
-		query_pulldown(last_query);
+	if (curr_card->last_query >= 0)
+		query_pulldown(curr_card->last_query);
 }
 
 
@@ -1231,7 +1236,7 @@ static void letter_callback(
 static void pos_callback(
 	int				inc)
 {
-	register CARD			*card = curr_card;
+	CARD				*card = curr_card;
 
 	card_readback_texts(curr_card, -1);
 	if (card->qcurr + inc >= 0 &&
@@ -1259,10 +1264,9 @@ static void pos_callback(
 static void add_card(
 	BOOL		dup)
 {
-	register CARD	*card = curr_card;
-	register ITEM	*item;
-	register DBASE	*dbase = card->dbase;
-	int		*newq;
+	CARD		*card = curr_card;
+	ITEM		*item;
+	DBASE		*dbase = card->dbase;
 	int		i, s, save_sect = dbase->currsect;
 	int		oldrow = card->row;
 
@@ -1277,6 +1281,8 @@ static void add_card(
 	dbase->currsect = s;
 	if (!dbase_addrow(&card->row, dbase)) {
 		dbase->currsect = save_sect;
+		/* this is stupid:  if there's no room for a row,
+		 * there's probably also no room for a new popup window */
 		create_error_popup(mainwindow, errno,
 					"No memory for new database row");
 		return;
@@ -1294,14 +1300,8 @@ static void add_card(
 				     mystrdup(evaluate(card, item->idefault)));
 		}
 	if ((card->qcurr = card->nquery)) {
-		if (!(newq = (int *)realloc(card->query, card->dbase->nrows *
-								sizeof(int*))))
-			create_error_popup(mainwindow, errno,
-							"No memory for query");
-		else {
-			card->query = newq;
-			card->query[card->nquery++] = card->row;
-		}
+		grow(0, "No memory for query", int, card->query, card->dbase->nrows, NULL);
+		card->query[card->nquery++] = card->row;
 	}
 	dbase_sort(card, pref.sortcol, pref.revsort);
 	create_summary_menu(card);
@@ -1351,8 +1351,8 @@ static void dup_callback(void)
 
 static void del_callback(void)
 {
-	register CARD			*card = curr_card;
-	register int			*p, *q;
+	CARD				*card = curr_card;
+	int				*p, *q;
 	int				i, s;
 
 	if (card->dbase->nrows == 0 || card->row >= card->dbase->nrows)
@@ -1386,8 +1386,8 @@ static void del_callback(void)
 static void sect_callback(
 	int				item)
 {
-	register CARD			*card = curr_card;
-	register SECTION		*sect = card->dbase->sect;
+	CARD				*card = curr_card;
+	SECTION				*sect = card->dbase->sect;
 	int				olds, news;
 
 	olds = card->dbase->row[card->row]->section;

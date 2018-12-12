@@ -51,12 +51,8 @@ static QTableWidget	*qlist;		/* query list table widget */
 DQUERY *add_dquery(
 	FORM		*fp)		/* form to add blank entry to */
 {
-	int n = ++fp->nqueries * sizeof(DQUERY);
-	if (!(fp->query = (DQUERY *)(fp->query ? realloc((char *)fp->query, n)
-					       : malloc(n))))
-		fatal("no memory for query");
-	memset((void *)&fp->query[fp->nqueries-1], 0, sizeof(DQUERY));
-	return(&fp->query[fp->nqueries-1]);
+	zgrow(0, "query", DQUERY, fp->query, fp->nqueries, fp->nqueries + 1, 0);
+	return(&fp->query[fp->nqueries++]);
 }
 
 
@@ -201,7 +197,7 @@ static QStringList cell_name = { "on", "def", "Name", "Query Expression"};
 
 static void set_row_widgets(int y)
 {
-	register DQUERY	*dq = &form->query[y];
+	DQUERY	*dq = &form->query[y];
 	bool blank = y >= form->nqueries;
 	QTableWidgetItem *twi;
 
@@ -240,7 +236,7 @@ static void set_row_widgets(int y)
 
 static void fill_row_widgets(int y)
 {
-	register DQUERY	*dq = &form->query[y];
+	DQUERY	*dq = &form->query[y];
 	bool blank = y >= form->nqueries;
 	QAbstractButton *b;
 
@@ -314,17 +310,18 @@ static void create_query_rows(void)
 
 void print_query_info(void)
 {
-	char		msg[4096];	/* message buffer */
-	int		i, j, n;	/* index to next free char in msg */
+	QString		msg("FIelds:");	/* message buffer */
+	int		n;		/* index to next free char in msg */
 	char		comma = ' ';	/* delimiter between message items */
 	int		item;		/* item (field) counter */
 	int		mi;		/* menu counter */
 	ITEM		*ip;		/* current item (field) */
 	char		sep, esc;
 
+#define append_comma append(comma); msg.append(' ')
+
 	get_form_arraysep(form, &sep, &esc);
-	strcpy(msg, "Fields:");
-	i = j = strlen(msg);
+	n = 0;
 	for (item=0, mi = -1; item < form->nitems; item++) {
 		ip = form->items[item];
 		switch(ip->type) {
@@ -332,24 +329,29 @@ void print_query_info(void)
 		  case IT_TIME:
 		  case IT_NOTE:
 		  case IT_NUMBER:
-			sprintf(msg+i, "%c %s", comma, ip->name);
+			msg.append_comma;
+			msg.append(ip->name);
 			break;
 
 		  case IT_FLAG:
 		  case IT_CHOICE:
-			sprintf(msg+i, "%c %s=%s", comma, ip->name,
-							  ip->flagcode);
+			msg.append_comma;
+			msg.append(ip->name);
+			msg.append('=');
+			msg.append(ip->flagcode);
 			break;
 
-		  case IT_FLAGS: // FIXME: implement
-		  case IT_MULTI: // FIXME: implement
+		  case IT_FLAGS:
+		  case IT_MULTI:
 			if(!ip->multicol) {
 				if(++mi == ip->nmenu) {
 					mi = -1;
 					continue;
 				}
-				sprintf(msg+i, "%c %s=%s", comma, ip->name,
-				       			ip->menu[mi].flagcode);
+				msg.append_comma;
+				msg.append(ip->name);
+				msg.append('=');
+				msg.append(ip->menu[mi].flagcode);
 				--item;
 				break;
 			}
@@ -360,8 +362,10 @@ void print_query_info(void)
 				mi = -1;
 				continue;
 			}
-			sprintf(msg+i, "%c %s=%s", comma, ip->multicol ? ip->menu[mi].name : ip->name,
-							  ip->menu[mi].flagcode);
+			msg.append_comma;
+			msg.append(ip->multicol ? ip->menu[mi].name : ip->name);
+			msg.append('=');
+			msg.append(ip->menu[mi].flagcode);
 			--item;
 			break;
 
@@ -369,19 +373,14 @@ void print_query_info(void)
 			continue;
 		}
 		comma = ',';
-		n = strlen(msg+i);
-		i += n;
-		j += n;
-		if (j > 60) {
+		if(msg.size() - n > 60) {
 			comma = '\n';
-			j = 0;
+			n = msg.size();
 		}
-		if (i > (int)sizeof(msg)-100)
-			break;
 	}
 	if (comma == ' ')
-		strcpy(msg+i, "none");
-	print_text_button(info, msg);
+		msg.append("none");
+	info->setPlainText(msg);
 }
 
 
@@ -469,7 +468,7 @@ static void list_callback(
 	int				y,
 	bool				checked)
 {
-	register DQUERY	*dq = &form->query[y];
+	DQUERY	*dq = &form->query[y];
 	char *string = 0;
 	bool onblank = y >= form->nqueries, wasblank = onblank, oy;
 	QAbstractButton *b;

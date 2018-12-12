@@ -45,13 +45,13 @@ public:
  */
 
 void destroy_card_menu(
-	register CARD	*card)		/* card to destroy */
+	CARD		*card)		/* card to destroy */
 {
 	int		i;		/* item counter */
 
 	if (!card)
 		return;
-	card_readback_texts((CARD *)card, -1);
+	card_readback_texts(card, -1);
 	// Unlike original Motif, I don't ceate a subwidget inside the container
 	// So wform is either the mainwindow's widget or shell
 	if (card->shell) {
@@ -96,14 +96,14 @@ CARD *create_card_menu(
 							/*-- alloc card --*/
 	n = sizeof(CARD) + sizeof(struct carditem) * form->nitems;
 	if (!(card = (CARD *)malloc(n)))
-		return((CARD *)0);
-	memset((void *)card, 0, n);
+		return(NULL);
+	memset(card, 0, n);
 	card->form   = form;
 	card->dbase  = dbase;
 	card->row    = -1;
 	card->nitems = form->nitems;
 	if (!mainwindow)
-		return((CARD *)card);
+		return(card);
 	xs   = pref.scale * form->xs;
 	ys   = pref.scale * form->ys;
 	ydiv = pref.scale * form->ydiv;
@@ -552,7 +552,8 @@ static void create_item_widgets(
 				int nesc = countchars(val, desc);
 				if(nesc) {
 					int vlen = strlen(val);
-					val = (char *)malloc(vlen + nesc + 1);
+					/* no outlet for error, so fatal */
+					val = alloc(0, "escaping", char, vlen + nesc + 1);
 					*escape(val, item.menu[n].flagcode, vlen, esc, desc) = 0;
 				}
 				list->item(n)->setData(Qt::UserRole, val);
@@ -576,7 +577,8 @@ static void create_item_widgets(
 		// to force a fit, as well.
 		// I suppose I could modify the FlexLayout example instead
 		// of doing this, but I don't feel like it.
-		unsigned int *colwidth = (unsigned int *)calloc(item.nmenu, sizeof(*colwidth));
+		/* no outlet for error, so fatal */
+		unsigned int *colwidth = alloc(0, "layout", unsigned int, item.nmenu);
 		QGridLayout *l = new QGridLayout(carditem->w0);
 		l->setSpacing(0); // default; qss may override
 		l->setMargin(0);
@@ -804,7 +806,8 @@ static void card_callback(
 		desc[2] = 0;
 		int nesc = countchars(val, desc);
 		if(nesc) {
-			val = (char *)malloc(nesc + vlen + 1);
+			/* no outlet for error, so fatal */
+			val = alloc(0, "escaping", char, nesc + vlen + 1);
 			*escape(val, item->flagcode, vlen, esc, desc) = 0;
 			vlen += nesc;
 		}
@@ -828,7 +831,8 @@ static void card_callback(
 		char *tmp;
 		if(flag) { // add to old at insert loc returned by find_elt
 			int len = strlen(old);
-			tmp = (char *)malloc(len + vlen + 2);
+			/* no outlet for error, so fatal */
+			tmp = alloc(0, "flag extract", char, len + vlen + 2);
 			memcpy(tmp, old, obegin);
 			if(obegin)
 				tmp[obegin++] = sep;
@@ -837,7 +841,7 @@ static void card_callback(
 				tmp[vlen + obegin++] = sep;
 			memcpy(tmp + vlen + obegin, old + obegin - 1, len - obegin + 2);
 		} else { // remove from old
-			tmp = strdup(old);
+			tmp = mystrdup(old);
 			if(old[oafter])
 				memcpy(tmp + obegin, old + oafter + 1,
 				       strlen(old + oafter));
@@ -880,7 +884,8 @@ static void card_callback(
 			char *s = qstrdup(val);
 			// FIXME: use insertion sort above, instead.
 			//        or at least don't use 16-bit QStrings.
-			toset(s, sep, esc);
+			if(!toset(s, sep, esc))
+				fatal("No memory for set conversion");
 			if (!store(card, nitem, *s ? s : NULL)) {
 				free(s);
 				return;
@@ -1012,7 +1017,7 @@ void card_readback_texts(
  */
 
 static BOOL store(
-	register CARD	*card,		/* card the item is added to */
+	CARD		*card,		/* card the item is added to */
 	int		nitem,		/* number of item being added */
 	const char	*string,	/* string to store in dbase */
 	int		menu)		/* menu item to store, if applicable */
@@ -1127,7 +1132,7 @@ void fillout_item(
 	BOOL		deps)		/* if TRUE, dependencies only */
 {
 	BOOL		sens, vis;	/* (de-)sensitize item */
-	register ITEM	*item;		/* describes type and geometry */
+	ITEM		*item;		/* describes type and geometry */
 	QWidget		*w0, *w1;	/* input widget(s) in card */
 	const char	*data = NULL;	/* value string in database */
 

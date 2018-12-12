@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
 #include <pwd.h>
 #include <signal.h>
 #include <QtWidgets>
@@ -38,7 +39,7 @@
 #include "proto.h"
 #if 1
 #define static static const
-#include "../misc/Grok.xpm"
+#include "Grok.xpm"
 #undef static
 #else
 #include "bm_icon.h"
@@ -52,14 +53,14 @@
  */
 
 const char *section_name(
-	register DBASE	 *dbase,		/* contains section array */
+	const DBASE	 *dbase,		/* contains section array */
 	int		 n)			/* 0 .. dbase->nsects-1 */
 {
 	static char	 name[40];		/* returned name */
-	register SECTION *sect;			/* section list */
-	register char	 *path;			/* path to reduce */
-	register char	 *trunc;		/* trailing unique part */
-	register int	 i;			/* section counter */
+	SECTION 	*sect;			/* section list */
+	char	 	*path;			/* path to reduce */
+	char	 	*trunc;			/* trailing unique part */
+	int	 	i;			/* section counter */
 
 	if (!dbase || n < 0 || n >= dbase->nsects)
 		return("");
@@ -68,6 +69,8 @@ const char *section_name(
 	if (!path || !*path)
 		return("");
 	trunc = strrchr(sect[n].path, '/');
+	if (!trunc)
+		trunc = path;
 	while (trunc > path) {
 		for (i=dbase->nsects-1; i >= 0; i--)
 			if (i != n && strncmp(path, sect[i].path, trunc-path))
@@ -76,9 +79,7 @@ const char *section_name(
 			break;
 		while (--trunc > path && *trunc != '/');
 	}
-	if (!trunc)
-		trunc = path;
-	else if (*trunc == '/')
+	if (*trunc == '/')
 		trunc++;
 	i = strlen(trunc);
 	if (i > (int)sizeof(name)-1)
@@ -100,56 +101,98 @@ const char *section_name(
  * forms from appearing multiple times in the database pulldown.
  */
 
-char *resolve_tilde(
-	char		*path,			/* path with ~ */
+const char *resolve_tilde(
+	const char	*path,			/* path with ~ */
 	const char	*ext)			/* append extension unless 0 */
 {
 	struct passwd	*pw;			/* for searching home dirs */
-	static char	pathbuf[1024];		/* path with ~ expanded */
-	char		buf[1024];		/* buf for prepending GROKDIR*/
-	char		*p, *q;			/* username copy pointers */
+	static char	*pathbuf = 0;		/* path with ~ expanded */
+	static size_t	pathbuflen = 0;		/* allocated length */
+	const char	*prefix = 0;		/* GROKDIR if need be */
+	const char	*hpath;			/* path to scan for ~ */
+	const char	*p;			/* username copy pointers */
 	const char	*home = 0;		/* home dir (if ~ in path) */
 	int		i;			/* strip trailing / and /. */
+	int		tlen;			/* target length */
+	int		plen;			/* path length */
 
 	if (*path != '~' && *path != '/' && (*path != '.' || path[1] != '/')) {
-		sprintf(buf, "%s/%s", GROKDIR, path);
-		path = buf;
-		if (ext) {
-			if ((p = strrchr(path, '.')) && !strcmp(p+1, ext))
-				*p = 0;
-			strcat(path, ".");
-			strcat(path, ext);
-		}
-	}
-	if (*path == '~') {
-		if (!path[1] || path[1] == '/') {
-			*pathbuf = 0;
+		prefix = GROKDIR;
+		if (ext && (p = strrchr(path, '.')) && !strcmp(p+1, ext))
+			ext = 0;
+	} else
+		ext = 0;
+	plen = strlen(path);
+	tlen = plen + 1 + (prefix ? strlen(prefix) + 1 : 0) + (ext ? strlen(ext) + 1 : 0);
+	hpath = prefix ? prefix : path;
+	if (*hpath == '~') {
+		const char *who;
+		if (!hpath[1] || hpath[1] == '/') {
+			hpath++;
+			who = "";
 			if (!(home = getenv("HOME")))
 				home = getenv("home");
-			path += 2;
+			if(home)
+				tlen += strlen(home) - 1;
+			/* else ~ -> . below */
 		} else {
-			for (path++,q=pathbuf; *path && *path!='/'; path++,q++)
-				*q = *path;
-			path++;
-			*q = 0;
+			for(p = hpath + 1; *p && *p != '/'; p++);
+			fgrow(0, "tilde_expand", char, pathbuf,
+			      (int)(p - hpath), &pathbuflen);
+			tmemcpy(char, pathbuf, hpath + 1, p - hpath - 1);
+			pathbuf[p - hpath - 1] = 0;
+			who = pathbuf;
 			if ((pw = getpwnam(pathbuf)))
 				home = pw->pw_dir;
+			tlen -= (int)(p - hpath);
+			hpath = p;
+			if(home)
+				tlen += strlen(home);
+			else
+				tlen++; /* "." below */
 		}
 		if (!home) {
 			fprintf(stderr,
 				"%s: can't evaluate ~%s in %s, using .\n",
-						progname, pathbuf, path);
+						progname, who, hpath);
 			home = ".";
 		}
-		sprintf(pathbuf, "%s/%s", home, path);
-		path = pathbuf;
 	}
-	for (i=strlen(path)-1; i > 0; )
-		if (path[i] == '/' || (path[i] == '.' && path[i-1] == '/'))
-			path[i--] = 0;
-		else
+	if(prefix)
+		prefix = hpath;
+	else {
+		plen -= hpath - path;
+		path = hpath;
+	}
+	/* old code might've caught homedirs with trailing /, but I don't care */
+	for (i=plen-1; i > 0; )
+		if (path[i] == '/' || (path[i] == '.' && path[i-1] == '/')) {
+			i--;
+			tlen--;
+		} else
 			break;
-	return(path);
+	if(i == plen - 1 && !prefix && !ext && !home)
+		return(path);
+	plen = i + 1;
+	fgrow(0, "tilde_expand", char, pathbuf, tlen, &pathbuflen);
+	i = 0;
+	if(home) {
+		i = strlen(home);
+		tmemcpy(char, pathbuf, home, i);
+	}
+	if(prefix) {
+		strcpy(pathbuf + i, prefix);
+		i += strlen(prefix) + 1;
+		pathbuf[i - 1] = '/';
+	}
+	tmemcpy(char, pathbuf + i, path, plen);
+	i += plen;
+	if(ext) {
+		pathbuf[i++] = '.';
+		strcpy(pathbuf + i, ext);
+	} else
+		pathbuf[i] = 0;
+	return pathbuf;
 }
 
 
@@ -165,25 +208,21 @@ char *resolve_tilde(
 #endif
 #define DEFAULTPATH "/usr/local/bin:/usr/local/lib:/bin:/usr/bin:/usr/sbin:/usr/ucb:/usr/bsd:/usr/bin/X11:."
 
-BOOL find_file(
-	char			*buf,		/* buffer for returned path */
+const char *find_file(
 	const char		*name,		/* file name to locate */
 	BOOL			exec)		/* must be executable? */
 {
 	int			method;		/* search path counter */
 	const char		*path;		/* $PATH or DEFAULTPATH */
 	int			namelen;	/* len of tail of name */
-	register const char	*p;		/* string copy pointers */
-	register char		*q;		/* string copy pointers */
+	const char		*p;		/* string copy pointer */
+	static char		*ret = 0;	/* if found in path */
+	static size_t		retlen;
 
-	if (*name == '/') {				/* begins with / */
-		strcpy(buf, name);
-		return(TRUE);
-	}
-	if (*name == '~') { 				/* begins with ~ */
-		strcpy(buf, resolve_tilde((char *)name, 0)); /* file; better not have trailing / */
-		return(TRUE);
-	}
+	if (*name == '/')				/* begins with / */
+		return name;
+	if (*name == '~') 				/* begins with ~ */
+		return resolve_tilde(name, 0);
 	namelen = strlen(name);
 	for (method=0; ; method++) {	
 		switch(method) {
@@ -191,24 +230,21 @@ BOOL find_file(
 		  case 1:   path = getenv("GROK_PATH");	break;
 		  case 2:   path = getenv("PATH");	break;
 		  case 3:   path = DEFAULTPATH;		break;
-		  default:  return(FALSE);
+		  default:  return NULL;
 		}
 		if (!path)
 			continue;
 		do {
-			q = buf;
-			p = path;
-			while (*p && *p != ':' && q < buf + 1021 - namelen)
-				*q++ = *p++;
-			*q++ = '/';
-			strcpy(q, name);
-			if (!access(buf, exec ? X_OK : R_OK))
-				return(TRUE);
-			*buf = 0;
+			for(p = path; *p && *p != ':'; p++);
+			grow(0, "find file", char, ret, namelen + (int)(p - path) + 2, &retlen);
+			memcpy(ret, path, p - path);
+			ret[p - path] = '/';
+			strcpy(ret + (int)(p - path) + 1, name);
+			if (!access(ret, exec ? X_OK : R_OK))
+				return ret;
 			path = p+1;
 		} while (*p);
 	}
-	return(FALSE); /* for lint */
 }
 
 
@@ -232,13 +268,22 @@ void fatal(const char *fmt, ...)
 
 
 /* This used to be here for systems w/o strdup */
-/* But now it's here to allow NULL */
+/* But now it's here to allow NULL and check for errors */
 char *mystrdup(
 	const char *s)
 {
-	return s ? strdup(s) : NULL;
+	char *d = s ? strdup(s) : NULL;
+	if(s && !d)
+		fatal("No memory for string");
+	return d;
 }
 
+/* This also converts "" to NULL */
+char *zstrdup(
+	const char *s)
+{
+	return BLANK(s) ? NULL : mystrdup(s);
+}
 
 /*---------------------------------------------------------------------------*/
 /*
@@ -315,7 +360,7 @@ static char *readbutton(
 	BOOL			noblanks)
 {
 	static char		*buf = NULL;
-	static int		bufsize = 0;
+	static size_t		bufsize = 0;
 	int			size;
 	QString			string;
 
@@ -345,18 +390,14 @@ static char *readbutton(
 		QByteArray bytes(string.toLocal8Bit());
 		size = bytes.size() + 1;
 
-		if (size > bufsize) {
-			if (buf) free(buf);
-			if (!(buf = (char *)malloc(bufsize = size)))
-				return(0);
-		}
-		memcpy(buf, bytes.data(), size - 1);
+		fgrow(0, "reading button", char, buf, size, &bufsize);
+		tmemcpy(char, buf, bytes.data(), size - 1);
 		buf[size - 1] = 0;
 	} else if (buf)
 		*buf = 0;
 	if (ptr) {
-		if (*ptr) free(*ptr);
-		*ptr = !BLANK(buf) ? mystrdup(buf) : 0;
+		zfree(*ptr);
+		*ptr = zstrdup(buf);
 	}
 	return(buf);
 }
@@ -414,19 +455,27 @@ void set_cursor(
  */
 
 void truncate_string(
-	QWidget *w,			/* widget string will show in */
-	register char	*string,	/* string to truncate */
-	register int	len)		/* max len in pixels */
+	QWidget		*w,		/* widget string will show in */
+	QString		&str,		/* string to truncate */
+	int		len)		/* max len in pixels */
 {
 	w->ensurePolished();
 	const QFontMetrics &fs(w->fontMetrics());
-	QString str(string);
-	int slen = str.size();
 	while(str.size() > 0) {
 		if(fs.boundingRect(str).width() <= len)
 			break;
 		str.chop(1);
 	}
+}
+
+void truncate_string(
+	QWidget		*w,		/* widget string will show in */
+	char		*string,	/* string to truncate */
+	int		len)		/* max len in pixels */
+{
+	QString str(string);
+	int slen = str.size();
+	truncate_string(w, str, len);
 	if(slen == str.size())
 		return;
 	string[str.toLocal8Bit().size()] = 0;
@@ -543,8 +592,85 @@ void popup_nonmodal(QDialog *d)
 char *qstrdup(const QString &str)
 {
 	const QByteArray bytes(str.toLocal8Bit());
-	char *ret = (char *)malloc(bytes.size() + 1);
-	memcpy(ret, bytes.data(), bytes.size());
-	ret[bytes.size()] = 0;
+	size_t len = bytes.size();
+	if(!len)
+		return NULL;
+	char *ret = alloc(0, "string", char, len + 1);
+	tmemcpy(char, ret, bytes.data(), len);
+	ret[len] = 0;
+	return ret;
+}
+
+void *abort_malloc(
+	QWidget		*parent,	/* for message popups; 0 = fatal */
+	const char	*purpose,	/* for messages; may be 0 */
+	void		*old,		/* for realloc; may be 0 */
+	size_t		len,		/* how much, minimum */
+	size_t		*mlen,		/* if non-NULL, track size of buffer */
+	int		flags)		/* additional flags; see proto.h */
+{
+	if(!len) {
+		if(old && (flags & AM_SHRINK)) {
+			free(old);
+			old = NULL;
+			if(mlen)
+				*mlen = 0;
+		}
+		return old;
+	}
+	void *ret;
+	size_t newsize = len, osize = old && mlen ? *mlen : 0;
+
+	if(mlen) {
+		newsize = osize ? osize : MIN_AM_SIZE;
+		if((flags & AM_SHRINK) && newsize > len) {
+			if(newsize > MAX_AM_DOUBLE)
+				newsize -= MAX_AM_DOUBLE * ((newsize - len) / MAX_AM_DOUBLE - 1);
+			while(newsize > MIN_AM_SIZE && len < newsize / 2)
+				newsize /= 2;
+		}
+		while(newsize < len && newsize < MAX_AM_DOUBLE)
+			newsize *= 2;
+		if(newsize < len) {
+			size_t nb = (len - newsize + MAX_AM_DOUBLE - 1) / MAX_AM_DOUBLE;
+			newsize += nb * MAX_AM_DOUBLE;
+		}
+		*mlen = newsize;
+	}
+	if(newsize == osize)
+		return old;
+	if(old && !(flags & AM_REALLOC)) {
+		free(old);
+		old = NULL;
+		osize = 0;
+	}
+	if(!old)
+		ret = malloc(newsize);
+	else
+		ret = realloc(old, newsize);
+	if(!ret) {
+		if(!parent) {
+			if(purpose)
+				fatal("Memory allocation failed for %s", purpose);
+			else
+				fatal("Memory allocation error");
+		}
+		/* recoverable errors that allocate memory (e.g. for the error
+		 * popup) seem like a bad idea. */
+		/* freeing old before dying prevents leak-on-exit, but who cares? */
+		/* Maybe I shouldn't free it at all, since non-fatal reallocs */
+		/* generally want to keep what's been alloced so far */
+		zfree(old);
+		if(mlen)
+			*mlen = 0;
+		/* Maybe I need a flag to suppress notification */
+		if(purpose)
+			create_error_popup(parent, errno, "Memory allocation failed for %s", purpose);
+		else
+			create_error_popup(parent, errno, "Memory allocation failed");
+		return NULL;
+	}
+	if((flags & AM_ZERO) && newsize > osize)
+		memset((char *)ret + osize, 0, newsize - osize);
 	return ret;
 }

@@ -157,23 +157,27 @@ static char *get_text(
 	const char		*topic)
 {
 	FILE			*fp;		/* help file */
-	char			line[1024];	/* line buffer (and filename)*/
+	const char		*fn;
+	/* Using a fixed-length buffer here is OK, because help text */
+	/* should never exceed 132 characters per line.  If it does, */
+	/* the text will just get mangled a bit; easy enough to fix */
+	static char		line[1024];	/* line buffer */
 	char			*text;		/* text buffer */
 	int			textsize;	/* size of text buffer */
 	int			textlen = 0;	/* # of chars in text buffer */
 	int			n;		/* for stripping trailing \n */
-	register char		*p;
+	char			*p;
 
 	if (!(text = (char *)malloc(textsize = 4096)))
 		return(0);
 	*text = 0;
-	if (!find_file(line, HELP_FN, FALSE) || !(fp = fopen(line, "r"))) {
+	if (!(fn = find_file(HELP_FN, FALSE)) || !(fp = fopen(fn, "r"))) {
 		sprintf(text, "Sorry, no help available,\n%s not found",
 								HELP_FN);
 		return(text);
 	}
 	for (;;) {					/* find topic */
-		if (!fgets(line, 1024, fp)) {
+		if (!fgets(line, sizeof(line), fp)) {
 			strcpy(text, "Sorry, no help available on this topic");
 			return(text);
 		}
@@ -186,21 +190,27 @@ static char *get_text(
 			break;
 	}
 	for (;;) {					/* read text */
-		if (!fgets(line, 1024, fp))
+		if (!fgets(line, sizeof(line), fp))
 			break;
 		if (line[0] == '#')
 			continue;
 		if (line[0] == '%' && line[1] == '%')
-			return(text);
+			break;
 		p = line[0] == '\t' ? line+1 : line;
-		if (textlen + (int)strlen(p) + 1 > textsize)
-			if (!(text = (char *)realloc(text, textsize += 4096)))
+		n = strlen(p);
+		if (textlen + n + 1 > textsize) {
+			char *otext = text;
+			if (!(text = (char *)realloc(text, textsize += 4096))) {
+				text = otext;
 				break;
-		strcat(text, p);
-		textlen += strlen(p);
+			}
+		}
+		memcpy(text + textlen, p, n);
+		textlen += n;
 	}
-	for (n=strlen(text); n && text[n-1] == '\n'; n--)
-		text[n-1] = 0;
+	while(textlen > 0 && text[textlen - 1] == '\n')
+		textlen--;
+	text[textlen] = 0;
 	return(text);
 }
 

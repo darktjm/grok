@@ -113,15 +113,13 @@ static void pr_escaped(FILE *fp, const char *s, int len, int esc)
  * the data entries in the data list.
  */
 
-static void *allocate(int n)
-	{ void *p=malloc(n); if (!p) fatal("no memory"); return(p); }
-
 const char *mktemplate_html(
 	FILE		*fp)		/* output file */
 {
-	register CARD	*card = curr_card;
+	CARD		*card = curr_card;
 	struct menu_item *itemorder;	/* order of items in summary */
-	int		nitems, nalloc;	/* number of items in summary */
+	int		nitems;		/* number of items in summary */
+	size_t		nalloc;		/* number of allocated items */
 	int		i, j, m;	/* item counter */
 	const ITEM	*item;		/* current item */
 	const MENU	*menu;		/* current menu selection */
@@ -143,7 +141,7 @@ const char *mktemplate_html(
 	fprintf(fp, "<H2>Summary:</H2>\n<TABLE BORDER=0 CELLSPACING=3 "
 		"CELLPADDING=4 BGCOLOR=#e0e0e0>\n<TR>");
 	nalloc = card->form->nitems;
-	itemorder = (struct menu_item *)allocate(nalloc * sizeof(*itemorder));
+	itemorder = alloc(0, "summary", struct menu_item, nalloc);
 	nitems = get_summary_cols(&itemorder, &nalloc, card->form);
 	for (i=0; i < nitems; i++) {
 		item = itemorder[i].item;
@@ -293,14 +291,17 @@ static const char *mktemplate_text(
 	FILE		*fp,		/* output file */
 	bool		overstrike)	/* fancy mode? */
 {
-	register CARD	*card = curr_card;
+	CARD		*card = curr_card;
 	struct menu_item *itemorder;	/* order of items in summary */
-	int		nitems, nalloc;	/* number of items in summary */
+	int		nitems;		/* number of items in summary */
+	size_t		nalloc;		/* number of allocated items */
 	int		i, j, m;	/* item counter */
 	const ITEM	*item;		/* current item */
 	const MENU	*menu;		/* current menu selection */
 	char		*name;		/* current field name */
-	char		buf[1024], *s;	/* ugh - fixed summary line buffer */
+	char		*buf = NULL;	/* summary line buffer */
+	size_t		buf_len;
+	char		*s;
 	int		len, label_len = 0;
 	int		sumwidth;
 
@@ -309,7 +310,7 @@ static const char *mktemplate_text(
 							/*--- header ---*/
 	fputs("\\{IF +d}\n", fp);
 	/* just let sumwin.c build the header line */
-	make_summary_line(buf, card, -1);
+	make_summary_line(&buf, &buf_len, card, -1);
 	if(overstrike) {
 		for(s = buf, i = len = 0; *s; s++, i++, len++) {
 #if CLIP_SUMMARY
@@ -351,11 +352,12 @@ static const char *mktemplate_text(
 		while(len--)
 			putc('-', fp);
 	}
+	free(buf);
 
 	len = 0;
 	/* but recompute everything sumwin did to display the data */
 	nalloc = card->form->nitems;
-	itemorder = (struct menu_item *)allocate(nalloc * sizeof(*itemorder));
+	itemorder = alloc(0, "summary", struct menu_item, nalloc);
 	nitems = get_summary_cols(&itemorder, &nalloc, card->form);
 	fputs("\n\\{FOREACH}\n", fp);
 	for (i=0; i < nitems; i++) {

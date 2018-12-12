@@ -104,12 +104,13 @@ void create_newsect_popup(void)
 
 static void add_callback(void)
 {
-	register DBASE			*dbase;
-	register SECTION		*sect;
-	register char			*name, *p;
-	register int			i, s, fd;
-	char				*path, oldp[1024], newp[1024], dir[1024];
-	BOOL				nofile = FALSE;
+	DBASE		*dbase;
+	SECTION		*sect;
+	char		*name, *p;
+	int		i, s, fd;
+	const char	*path;
+	char		*oldp = NULL, *newp = NULL, *dir = NULL;
+	BOOL		nofile = FALSE;
 
 	if (!curr_card || !(dbase = curr_card->dbase)) {
 		destroy_newsect_popup();
@@ -130,29 +131,44 @@ static void add_callback(void)
 			return;
 		}
 	path = resolve_tilde(curr_card->form->dbase, 0);
+	oldp = alloc(0, "sect file name", char, strlen(path) + 5);
 	sprintf(oldp, "%s.old", path);
+	dir = alloc(0, "sect file name", char, strlen(path) + 4);
 	sprintf(dir, "%s.db", path);
+	newp = alloc(0, "sect file anme", char, strlen(path) + strlen(name) + 8);
 	sprintf(newp, "%s.db/%s.db", path, name);
 	if (!dbase->havesects) {
 		(void)unlink(oldp);
 		if (link(dir, oldp))
 			if (!(nofile = errno == ENOENT)) {
+				free(oldp);
+				free(newp);
+				free(dir);
 				create_error_popup(shell, errno,
 					"Could not link %s\nto %s", dir, oldp);
 				return;
 			}
 		if (unlink(dir) && !nofile) {
+			free(oldp);
+			free(newp);
+			free(dir);
 			create_error_popup(shell, errno,
 				"Could not unlink\n%s", dir);
 			int UNUSED ret = link(oldp, dir);
 			return;
 		}
 		if (mkdir(dir, 0700)) {
+			free(oldp);
+			free(newp);
+			free(dir);
 			create_error_popup(shell, errno,
 				"Could not create directory\n%s", dir);
 			return;
 		}
 		if (!nofile && link(oldp, newp)) {
+			free(oldp);
+			free(newp);
+			free(dir);
 			create_error_popup(shell, errno,
 			       "Could not link %s\nto %s,\nleaving file in %s",
 							oldp, newp, oldp);
@@ -160,8 +176,11 @@ static void add_callback(void)
 		}
 		(void)unlink(oldp);
 	}
+	free(dir);
+	free(oldp);
 	if (dbase->havesects || nofile) {
 		if ((fd = creat(newp, 0600)) < 0) {
+			free(newp);
 			create_error_popup(shell, errno,
 				"Could not create empty file\n%s", newp);
 			return;
@@ -169,14 +188,19 @@ static void add_callback(void)
 		close(fd);
 	}
 	if (dbase->havesects) {
+		/* there is no point in converting this to use abort_malloc() */
+		/* Especially since this "recovers" */
 		i = (dbase->nsects+1) * sizeof(SECTION);
 		if (!(sect = (SECTION *)(dbase->sect ? realloc(dbase->sect,i):malloc(i)))) {
+			free(newp);
+			/* I don't see how this could succeed if the alloc failed */
 			create_error_popup(mainwindow, errno,
 						"No memory for new section");
 			return;
 		}
 		dbase->sect = sect;
-		memset(sect = &dbase->sect[dbase->nsects], 0, sizeof(SECTION));
+		azero(SECTION, dbase->sect, dbase->nsects, 1);
+		sect = &dbase->sect[dbase->nsects];
 		dbase->currsect = dbase->nsects++;
 	} else {
 		sect = dbase->sect;
@@ -184,7 +208,7 @@ static void add_callback(void)
 			free(sect->path);
 	}
 	sect->mtime	= time(0);
-	sect->path	= mystrdup(newp);
+	sect->path	= newp;
 	sect->modified	= TRUE;
 	dbase->modified	= TRUE;
 	dbase->havesects= TRUE;

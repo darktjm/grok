@@ -38,9 +38,6 @@ static struct builtins {
 	{ "fancytext",	"(auto fancy text)",	mktemplate_fancy },
 };
 
-static void *allocate(int n)
-	{void *p=malloc(n); if (!p) fatal("no memory"); return(p);}
-
 int get_template_nbuiltins(void) { return(NBUILTINS); }
 
 static const char *eval_template(
@@ -67,7 +64,7 @@ char *get_template_path(
 	if (!name)
 		name = seq < NBUILTINS ? builtins[seq].name
 				       : templates[seq - NBUILTINS];
-	path = (char *)allocate(strlen(card->form->path) + 1 + strlen(name) + 1);
+	path = alloc(0, "template path", char, strlen(card->form->path) + 1 + strlen(name) + 1);
 	strcpy(path, card->form->path);
 	if ((p = strrchr(path, '.')))
 		strcpy(p, ".tm");
@@ -91,7 +88,8 @@ void list_templates(
 	struct dirent	*dp;		/* one directory entry */
 	int		seq;		/* template counter */
 	char		*path;		/* directory with templates */
-	char		buf[64];	/* temp name */
+	static char	*buf = 0;	/* temp name */
+	static size_t	buflen = 0;
 
 	for (seq=0; seq < MAXFILES; seq++)
 		if (templates[seq]) {
@@ -99,10 +97,15 @@ void list_templates(
 			templates[seq] = 0;
 		}
 	for (seq=0; seq < NBUILTINS; seq++) {
-		sprintf(buf, "%s  %s", builtins[seq].name,
-				       builtins[seq].desc);
-		if (func)
+		if(func) {
+			int nlen = strlen(builtins[seq].name);
+			int dlen = strlen(builtins[seq].desc);
+			grow(0, "template name", char, buf, nlen + dlen + 3, &buflen);
+			memcpy(buf, builtins[seq].name, nlen);
+			memset(buf + nlen, ' ', 2);
+			memcpy(buf, builtins[seq].desc, dlen + 1);
 			(*func)(seq, buf);
+		}
 	}
 	path = get_template_path("", 0, card);
 	dir = opendir(path);
@@ -308,7 +311,7 @@ static FILE		*ofp;		/* output file */
 static bool		close_ofp;	/* close output file? */
 static char		*outname;	/* current output filename, 0=stdout */
 static FILE		*ifp;		/* template file */
-static char		*subst[256];	/* current character substitutions */
+static char		*subst[256] = {};	/* current character substitutions */
 static int		*default_query;	/* default query from -x option or 0 */
 static int		default_nquery;	/* number of rows in default_query */
 static int		default_row;	/* row to use outside foreach loops */
@@ -332,8 +335,8 @@ const char *eval_template(
 	FILE		*iofp,		/* output file, if already open */
 	char		*oname)		/* default output filename, 0=stdout */
 {
-	char		*word;		/* command string in \{ } */
-	int		wordlen;
+	char		*word = NULL;	/* command string in \{ } */
+	size_t		wordlen = 0;
 	const char	*p;
 	int		indx = 0;	/* next free char in word[] */
 	int		line = 1;	/* line number in template */
@@ -347,9 +350,8 @@ const char *eval_template(
 	default_row   = curr_card->row;
 	default_query = 0;
 	if ((default_nquery = curr_card->nquery)) {
-		default_query = (int *)allocate(default_nquery * sizeof(int));
-		memcpy(default_query, curr_card->query,
-					 default_nquery * sizeof(int));
+		default_query = alloc(0, "query", int, default_nquery);
+		tmemcpy(int, default_query, curr_card->query, default_nquery);
 	}
 	n_true_if = n_false_if = forskip = 0;
 	forlevel = -1;
@@ -357,7 +359,7 @@ const char *eval_template(
 	ofp = iofp;
 	close_ofp = !iofp;
 
-	word = (char *)malloc((wordlen = 32));
+	fgrow(0, "template parse", char, word, 1, &wordlen);
 	for (prevc=0;; prevc=c) {
 		c = fgetc(ifp);
 		if (feof(ifp)) {
@@ -383,8 +385,8 @@ const char *eval_template(
 						*word = 0;
 					else {
 						int len = strlen(iname) + strlen(p) + 20;
-						if(len > wordlen)
-							word = (char *)realloc(word, (wordlen = len));
+						fgrow(0, "error message",
+						      char, word, len, &wordlen);
 						sprintf(word, "%s line %d: %s",
 							iname, line, p);
 					}
@@ -392,8 +394,7 @@ const char *eval_template(
 				}
 			} else {
 				/* + 1 for terminating 0, + 1 for EXPR's terminating brace */
-				if (indx == wordlen - 2)
-					word = (char *)realloc(word, (wordlen *= 2));
+				grow(0, "template parse", char, word, indx + 2, &wordlen);
 				word[indx++] = c;
 			}
 		} else {
@@ -539,7 +540,7 @@ static const char *eval_command(
 			sp->query  = NULL;
 			word++;
 		        while (ISSPACE(*word)) word++;
-			sp->array = mystrdup(evaluate(curr_card, word));
+			sp->array = zstrdup(evaluate(curr_card, word));
 			{
 				char sep, esc;
 				get_form_arraysep(curr_card->form, &sep, &esc);
@@ -554,7 +555,7 @@ static const char *eval_command(
 					int var = (sp->nquery < 0 ? -sp->nquery : sp->nquery) - 1;
 					char c = sp->array[after];
 					*unescape(sp->array + begin, sp->array + begin, after - begin, esc) = 0;
-					set_var(var, strdup(sp->array + begin));
+					set_var(var, zstrdup(sp->array + begin));
 					// no need to re-escape and re-store value
 					sp->array[after] = c;
 				}
@@ -575,8 +576,8 @@ static const char *eval_command(
 			sp->offset = ftell(ifp);
 			sp->num    = 0;
 			sp->nquery = nq;
-			sp->query  = (int *)allocate(nq * sizeof(int));
-			memcpy(sp->query, qu, nq * sizeof(int));
+			sp->query  = alloc(0, "query", int, nq);
+			tmemcpy(int, sp->query, qu, nq);
 			curr_card->row = sp->query[sp->num];
 		} else
 			forskip++;
@@ -608,7 +609,7 @@ static const char *eval_command(
 				int var = (sp->nquery < 0 ? -sp->nquery : sp->nquery) - 1;
 				char c = sp->array[after];
 				*unescape(sp->array + begin, sp->array + begin, after - begin, esc) = 0;
-				set_var(var, strdup(sp->array + begin));
+				set_var(var, zstrdup(sp->array + begin));
 				// no need to re-escape and re-store value
 				sp->array[after] = c;
 				fseek(ifp, sp->offset, SEEK_SET);
@@ -632,7 +633,7 @@ static const char *eval_command(
 			fclose(ofp);
 		if (outname)
 			free(outname);
-		outname = mystrdup(evaluate(curr_card, word));
+		outname = zstrdup(evaluate(curr_card, word));
 		ofp = 0;
 		close_ofp = true;
 		break;
@@ -640,8 +641,12 @@ static const char *eval_command(
 	  case O_SUBST:
 		if (forskip || n_false_if)
 			break;
-		/* (char *) cast is safe because no \-sust is needed */
-		substitute_setup(subst, !strcmp(word, "HTML") ? (char *)html_subst : word);
+		if(!strcmp(word, "HTML"))
+			substitute_setup(subst, html_subst);
+		else {
+			backslash_subst(word);
+			substitute_setup(subst, word);
+		}
 		break;
 
 	  case O_EXPR:
@@ -681,14 +686,12 @@ static const char *eval_command(
 
 const char *substitute_setup(
 	char		**array,	/* where to store substitutions */
-	char		*cmd)		/* x=y x=y ... command string */
+	const char	*cmd)		/* x=y x=y ... command string */
 {
 	int		i;
-	char		*q;
+	const char	*q;
 	
-	backslash_subst(cmd);
 	while (*cmd) {
-	        char endc;
 		// tjm - FIXME:  if 1st char is =, it will go too far
 		// In fact, this should only work if at least 1 ws has been
 		// skipped
@@ -698,17 +701,19 @@ const char *substitute_setup(
 		if (*cmd++ != '=')
 			return("malformed substition, expected"
 				      " <char>=<string> list");
-		for (q=cmd; q < cmd+255 && *q && !ISSPACE(*q); q++);
-		endc = *q;
-		*q = 0;
-		if (array[i])
-			free(subst[i]);
-		array[i] = *cmd ? mystrdup(cmd) : 0;
-		if(endc) {
-			cmd = q+1;
-			while (ISSPACE(*cmd)) cmd++;
-		} else
-		    cmd = q;
+		/* there is no good reason for the 255-char limit */
+		for (q=cmd; /* q < cmd+255 && */ *q && !ISSPACE(*q); q++);
+		zfree(array[i]);
+		if(q != cmd) {
+			/* even non-fatal alloc isn't mild enough */
+			/* instead, just return an error message */
+			if(!(array[i] = (char *)malloc(q - cmd + 1)))
+				return("no memory for substitution list");
+			memcpy(array[i], cmd, q - cmd);
+			array[i][q - cmd] = 0;
+		}
+		cmd = q;
+		while (ISSPACE(*cmd)) cmd++;
 	}
 	return(0);
 }

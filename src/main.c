@@ -35,8 +35,6 @@ static const char * const default_qss =
 ;
 
 
-static char rname[1024]; // ugh -- fixed size
-
 /*
  * initialize everything and create the main calendar window
  */
@@ -107,7 +105,8 @@ int main(
 	(void)umask(0077);
 	tzset();
 	if (ttymode) {
-		char buf[1024];
+		char *buf = NULL;
+		size_t buf_len;
 		if (!formname)
 			usage();
 		read_preferences();
@@ -123,16 +122,17 @@ int main(
 		}
 		if (!noheader) {
 			char *p;
-			make_summary_line(buf, curr_card, -1);
+			make_summary_line(&buf, &buf_len, curr_card, -1);
 			puts(buf);
 			for (p=buf; *p; p++)
 				*p = '-';
 			puts(buf);
 		}
 		for (n=0; n < curr_card->nquery; n++) {
-			make_summary_line(buf, curr_card, curr_card->query[n]);
+			make_summary_line(&buf, &buf_len, curr_card, curr_card->query[n]);
 			puts(buf);
 		}
+		zfree(buf);
 		fflush(stdout);
 		_exit(0);
 	}
@@ -192,8 +192,8 @@ int main(
 	QString qss(default_qss);
 	// Then, the config path is searched for a resource file
 	// This replaces the defaults, so the user can run without any styling
-	strcpy(rname, resolve_tilde((char *)QSS_FN, NULL));
-	if(!access(rname, R_OK) || find_file(rname, QSS_FN, FALSE)) {
+	const char *rname = resolve_tilde(QSS_FN, NULL);
+	if(!access(rname, R_OK) || (rname = find_file(QSS_FN, FALSE))) {
 		QFile file(rname);
 		if (file.open(QFile::ReadOnly)) {
 			QTextStream stream(&file);
@@ -273,7 +273,7 @@ static void usage(void)
 
 static void make_grokdir(void)
 {
-	char *path = resolve_tilde((char *)GROKDIR, 0); /* GROKDIR has no trailing / */
+	const char *path = resolve_tilde(GROKDIR, 0);
 	if (access(path, X_OK) &&
 	    create_query_popup(mainwindow, 0,
 "Cannot access directory %s\n\n"

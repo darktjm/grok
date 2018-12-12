@@ -30,6 +30,20 @@ static BOOL search_matches_card(CARD *, const char *);
 static int expr_matches_card(CARD *, const char *);
 
 
+static const char *strlower(const char *string)
+{
+	static char	*search = 0;	/* lower-case search string */
+	size_t		search_len;
+	const char	*p;
+	char		*q;		/* copy and comparison pointers */
+	grow(0, "search string", char, search, strlen(string) + 1, &search_len);
+	for (p=string, q=search; *p; p++)
+		*q++ = *p | 0x20;
+	*q = 0;
+	return search;
+}
+
+
 /*
  * make sense out of the string, and return TRUE if the given card matches
  * the given search or expression string.
@@ -40,9 +54,6 @@ int match_card(
 	CARD		*card,		/* database and form */
 	char		*string)	/* query string */
 {
-	char		search[1024];	/* lower-case search string */
-	register char	*p, *q;		/* copy and comparison pointers */
-	int		i;		/* search string index */
 
 	if (!string || (*string == '*' && !string[1]))
 		return(TRUE);
@@ -51,10 +62,7 @@ int match_card(
 	else {
 		if (*string == '/')
 			string++;
-		for (p=string, q=search, i=0; *p && i < (int)sizeof(search)-1; i++)
-			*q++ = *p++ | 0x20;
-		*q = 0;
-		return(search_matches_card(card, search));
+		return(search_matches_card(card, strlower(string)));
 	}
 }
 
@@ -87,7 +95,7 @@ void query_none(
 	CARD		*card)		/* database and form */
 {
 	if (card->query)				/* clear old query */
-		free((void *)card->query);
+		free(card->query);
 	card->query  = 0;
 	card->nquery = 0;
 	card->qcurr  = 0;
@@ -123,17 +131,12 @@ void query_search(
 	CARD		*card,		/* database and form */
 	const char	*string)	/* string to search for */
 {
-	int		i;		/* item counter */
 	char		*mask;		/* for skipping unselected cards */
-	char		search[1024];	/* lower-case search string */
-	const char	*p;		/* copy and comparison pointers */
-	register char	*q;		/* copy and comparison pointers */
+	const char	*search;	/* lower-case search string */
 
 	if (!alloc_query(card, &mask))
 		return;
-	for (p=string, q=search, i=0; *p && i < (int)sizeof(search)-1; i++)
-		*q++ = *p++ | 0x20;
-	*q = 0;
+	search = strlower(string);
 	if (mode == SM_SEARCH && pref.incremental)
 		mode = SM_NARROW;
 	for (card->row=0; card->row < card->dbase->nrows; card->row++) {
@@ -142,9 +145,9 @@ void query_search(
 		switch(mode) {
 		  case SM_INQUERY:
 		  case SM_WIDEN_INQUERY:
-			if (last_query >= 0) {
+			if (card->last_query >= 0) {
 				int res = expr_matches_card(card,
-					card->form->query[last_query].query);
+					card->form->query[card->last_query].query);
 				if(res < 0)
 					break;
 				else if(!res)
@@ -195,11 +198,11 @@ void query_letter(
 	if (!alloc_query(card, &mask))
 		return;
 	letter = letter == 26 ? 0 : letter+'A';
-	if (col_sorted_by >= card->dbase->maxcolumns-1)
-		col_sorted_by = 0;
+	if (card->dbase->col_sorted_by >= card->dbase->maxcolumns-1)
+		card->dbase->col_sorted_by = 0;
 	for (r=0; r < card->dbase->nrows; r++)
 		if (SECT_OK(card->dbase, r) && (!mask || mask[r])) {
-			data = dbase_get(card->dbase, r, col_sorted_by);
+			data = dbase_get(card->dbase, r, card->dbase->col_sorted_by);
 			while (data && SKIP(*data))
 				data++;
 			if ((!data || !*data || strchr("0123456789_", *data))
@@ -248,9 +251,9 @@ void query_eval(
 			continue;
 		switch(mode) {
 		  case SM_INQUERY:
-			if (last_query >= 0) {
+			if (card->last_query >= 0) {
 				match = expr_matches_card(card,
-					card->form->query[last_query].query);
+					card->form->query[card->last_query].query);
 				if(match < 0)
 					break;
 				else if(!match)
@@ -294,9 +297,15 @@ static BOOL alloc_query(
 	char		**mask)		/* where to store pointer to string */
 {
 	if (mask) {
-		register int r;
+		int r;
 		*mask = 0;
-		if (card->query && (*mask = (char *)malloc(card->dbase->nrows))) {
+		/* what's the point of using abort_malloc here? */
+		if (card->query && !(*mask = (char *)malloc(card->dbase->nrows))) {
+			create_error_popup(mainwindow, errno,
+					   "No memory for query result summary");
+			return(FALSE);
+		}
+		if (*mask) {
 			(void)memset(*mask, 0, card->dbase->nrows);
 			for (r=0; r < card->nquery; r++)
 				(*mask)[card->query[r]] = 1;
@@ -308,6 +317,10 @@ static BOOL alloc_query(
 	if (!(card->query = (int*)malloc(card->dbase->nrows * sizeof(int*)))) {
 		create_error_popup(mainwindow, errno,
 					"No memory for query result summary");
+		if(mask && *mask) {
+			free(*mask);
+			*mask = 0;
+		}
 		return(FALSE);
 	}
 	*card->query = 0;

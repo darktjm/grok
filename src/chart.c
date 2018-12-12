@@ -23,22 +23,18 @@
 void add_chart_component(
 	ITEM		*item)
 {
-	CHART		*array;
 	CHART		*chart;
-	int		i;
 
-	array = (CHART *)(item->ch_ncomp++
-		? realloc(item->ch_comp, item->ch_ncomp * sizeof(CHART))
-		: calloc(item->ch_ncomp, sizeof(CHART)));
-	if (!array)
-		fatal("no memory");
-	for (i=item->ch_ncomp-1; i > item->ch_curr; i--)
-		array[i] = array[i-1];
-	if (item->ch_curr < item->ch_ncomp-1)
+	grow(0, "chart", CHART, item->ch_comp, item->ch_ncomp + 1, NULL);
+	if (item->ch_curr < item->ch_ncomp)
 		item->ch_curr++;
-	item->ch_comp = array;
-	chart = &array[item->ch_curr];
-	memset((void *)chart, 0, sizeof(CHART));
+	else
+		tmemmove(CHART, item->ch_comp + item->ch_curr + 1,
+			 item->ch_comp + item->ch_curr,
+			 item->ch_ncomp - item->ch_curr);
+	item->ch_ncomp++;
+	chart = &item->ch_comp[item->ch_curr];
+	tzero(CHART, chart, 1);
 	chart->xfat =
 	chart->yfat = TRUE;
 	chart->value[0].mul = 1;
@@ -60,18 +56,18 @@ void del_chart_component(
 
 	if (--item->ch_ncomp < 1) {
 		if (item->ch_comp)
-			free((void *)item->ch_comp);
+			free(item->ch_comp);
 		item->ch_comp  = 0;
 		item->ch_ncomp = 0;
 		return;
 	}
-	if (chart->excl_if)		free((void *)chart->excl_if);
-	if (chart->color)		free((void *)chart->color);
-	if (chart->label)		free((void *)chart->label);
-	if (chart->value[0].expr)	free((void *)chart->value[0].expr);
-	if (chart->value[1].expr)	free((void *)chart->value[1].expr);
-	if (chart->value[2].expr)	free((void *)chart->value[2].expr);
-	if (chart->value[3].expr)	free((void *)chart->value[3].expr);
+	zfree(chart->excl_if);
+	zfree(chart->color);
+	zfree(chart->label);
+	zfree(chart->value[0].expr);
+	zfree(chart->value[1].expr);
+	zfree(chart->value[2].expr);
+	zfree(chart->value[3].expr);
 
 	for (i=item->ch_curr; i < item->ch_ncomp; i++)
 		item->ch_comp[i] = item->ch_comp[i+1];

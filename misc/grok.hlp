@@ -1,3 +1,9 @@
+# Note that grok.hlp skips any lines starting with a #.
+# Note that a single initial tab character is skipped (but not 8 spaces!)
+# Some of this text is displayed in a help dialog, and most of the
+# text is instead displayed by Qt's Whats This? mechanism.  For now,
+# all text is assumed to be plain text, although there isn't much
+# reason not to support HTML, since both display methods support it.
 %% intro
 	INTRODUCTION
 
@@ -90,9 +96,8 @@
 
 	Grok searches for forms and databases in four places and presents them
 	in the Database pulldown in the order they are found: the current
-	directory, ./grokdir, ~/.grok, and GLIB/grokdir (GLIB stands for the
-	GLIB path set in the Imakefile or Makefile.alt when grok was compiled;
-	the default is /usr/local/lib). The path the current database was read
+	directory (which can be overridden by $GROK_FORM), ./grokdir, ~/.grok,
+	and ${GROK_LIB}/grokdir. The path the current database was read
 	from can be displayed with Help->Database.
 
 	Grok stores all forms in the ~/.grok directory, unless a full path is
@@ -111,14 +116,9 @@
 	editor, make sure to properly escape field and line delimiters with
 	backslashes, or great chaos will result.
 
-	The grok executable itself is stored in the GBIN directory; the grok.hlp
-	file and the public grokdir directory (see above) are stored in the GLIB
-	directory. Both GBIN and GLIB are defined in the Imakefile or Makefile.alt.
-	The defaults are /usr/local/bin and /usr/local/lib, respectively.
-
-	The distribution contains a color icon image file Grok.icon in SGI RGB
-	format. It should be copied to ~/.icons. This only works on SGI systems.
-	There is also a Grok.fti file that is an SGI-conforming desktop icon.
+	The grok executable itself is stored in ${GROK_BIN}; the grok.hlp
+	file and the public grokdir directory (see above) are stored
+	in ${GROK_LIB}.
 %% help
 	GETTING HELP
 
@@ -332,10 +332,10 @@
 
 	Grok searches for databases in four places and presents them in the
 	Database pulldown in the order they are found: the current directory,
-	./grokdir, ~/.grok, and GLIB/grokdir (GLIB stands for the GLIB path set
-	in the Imakefile or Makefile.alt when grok was compiled; the default
-	is /usr/local/lib). Help->Database can be used to show the actual path
-	the database was read from, and will be saved to if it is modified.
+	which can be overridden using $GROK_FORM, ./grokdir, ~/.grok,
+	and ${GROK_LIB}/grokdir. Help->Database can be used to show
+	the actual path the database was read from, and will be saved to if
+	it is modified.
 
 	All files ending in .gf will be put into the database pulldown, with
 	the .gf removed. Choosing an item will load the new form and the
@@ -1693,6 +1693,9 @@
 	  esc(s)		Escape s like an array element
 	  ## s		Number of array elements in s
 	  s [ n ]		Array element #n of s (0-based), (unescaped)
+	  s [ n .. n ]		All array elements from first to second n, inclusive.
+	  		If either n is missing, use that end of the array
+	  s [ .. ]		s, with trailing blank elements removed
 	  s [ n ] -> v		Return array where element #n is set to v (escaped).
 			If n is larger than ## s, blanks are inserted
 			If n is negative, append.  Note that appending to

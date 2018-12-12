@@ -168,7 +168,7 @@ void create_dbase_info_popup(
 		return;
 	form  = card->form;
 	dbase = card->dbase;
-	msg = QString::asprintf(info_message,
+	msg = qsprintf(info_message,
 		form && form->name	? form->name	      : "(none)",
 		form && form->path	? form->path	      : "(none)",
 		form && form->comment	? form->comment	      : "(none)",
@@ -185,7 +185,7 @@ void create_dbase_info_popup(
 	if (!dbase || !dbase->nsects)
 		msg.append(" (none)");
 	else {
-		register SECTION *sect = dbase->sect;
+		SECTION *sect = dbase->sect;
 		int		 n;
 		for (n=0; n < dbase->nsects; n++, sect++) {
 			tm = localtime(&sect->mtime);
@@ -198,7 +198,7 @@ void create_dbase_info_popup(
 			sprintf(date+6, "%2d %2d:%02d",    tm->tm_year % 100,
 							   tm->tm_hour,
 							   tm->tm_min);
-			msg.append(QString::asprintf(
+			msg.append(qsprintf(
 				"\n      %s:  %d cards, %s, \"%s\" %s%s",
 				section_name(dbase, n),
 				sect->nrows == -1 ? 0 : sect->nrows,

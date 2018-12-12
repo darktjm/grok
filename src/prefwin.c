@@ -56,7 +56,7 @@ void destroy_preference_popup(void)
 			pref.sumlines = i;
 			modified = TRUE;
 		}
-		// FIXME: since it's fp, it might alwasy seem modified
+		// FIXME: since it's fp, it might always seem modified
 		d = w_scale->value();
 		if (d >= 0.1 && d <= 10.0 && d != pref.scale) {
 			pref.scale = d;
@@ -200,10 +200,10 @@ static void spool_callback(void)
 
 void write_preferences(void)
 {
-	char		*path;		/* path of preferences file */
+	const char	*path;		/* path of preferences file */
 	FILE		*fp;		/* preferences file */
 
-	path = resolve_tilde((char *)PREFFILE, 0); /* PREFFILE has no final / */
+	path = resolve_tilde(PREFFILE, 0);
 	if (!(fp = fopen(path, "w"))) {
 		create_error_popup(mainwindow, errno,
 			"Failed to write to preferences file\n%s", path);
@@ -243,9 +243,10 @@ void write_preferences(void)
 
 void read_preferences(void)
 {
-	char		*path;		/* path of preferences file */
+	const char	*path;		/* path of preferences file */
 	FILE		*fp;		/* preferences file */
-	char		line[1024];	/* line from file */
+	/* probably big enough.  Make sure long lines are broken in write_ */
+	static char	line[1024];	/* line from file */
 	char		*p;		/* for scanning line */
 	char		*key;		/* first char of first word in line */
 	int		value;		/* value of second word in line */
@@ -261,14 +262,16 @@ void read_preferences(void)
 	if(app)
 		pref.printer = new QPrinter;
 
-	path = resolve_tilde((char *)PREFFILE, 0); /* PREFFILE has no final / */
+	path = resolve_tilde(PREFFILE, 0);
 	if (!(fp = fopen(path, "r")))
 		return;
 	for (;;) {
-		if (!fgets(line, 1023, fp))
+		int len;
+		if (!fgets(line, sizeof(line), fp))
 			break;
-		for (p = line; *p; ++p);
-		if (*--p == '\n') *p = '\0';
+		len = strlen(line);
+		if(len > 0 && line[len - 1] == '\n')
+			line[--len] = 0;
 		for (p=line; *p == ' ' || *p == '\t'; p++);
 		if (*p == '#' || !*p)
 			continue;

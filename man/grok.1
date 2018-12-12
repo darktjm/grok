@@ -119,9 +119,6 @@ Start up grok with the \fIphone\fR form. Ignore the default query and
 select only cards that describe friends that have an email address.
 .SH FILES
 .LP
-Below, GBIN and GLIB refer to the installation directories specified at
-the beginning of the Imakefile when the programs were compiled. They are
-/usr/local/bin and /usr/local/lib, respectively, by default.
 .IP *.gf 18
 Files ending with the extension .gf are assumed to contain
 .B grok
@@ -141,13 +138,13 @@ to be started from the source distribution directory for evaluation.
 By default, all forms and databases are stored here. By convention, all
 private forms and databases are stored here. This directory is searched
 after . and ./grokdir.
-.IP GLIB/grokdir 18
+.IP ${GROK_LIB}/grokdir 18
 This directory is searched last. It is supposed to contain forms visible
 to all users of a system. Only one user should have write permission.
 .IP ~/.grok/.grokrc 18
 Preferences and the current configuration of
 .B grok.
-.IP GBIN/grok
+.IP ${GROK_BIN}/grok
 The
 .B grok
 executable. This should be in the user's search path. Form files are set
@@ -156,7 +153,7 @@ up so they can be "executed" by feeding themselves to
 as long as
 .B grok
 is in the search path $PATH.
-.IP GLIB/grok.hlp
+.IP ${GROK_LIB}/grok.hlp
 All help texts used by the
 .B grok
 help system.

@@ -357,11 +357,16 @@ from each other, or else it would be impossible to represent empty
 array elements.
 
 <P>Reading array elements outside of its boundaries returns an empty
-value.  Writing to array elements past the end fills missing values
-with blanks.  Writing to a negative index appends to the end
-(regardless of the actual negative value).  Note that appending to an
-empty string sets element 1, not element 0, since an empty string is
-interpreted as an array of one blank value.
+value.  Reading from negative array indicies counts from past the end
+of the array (i.e., -1 is the last element).  Writing to array
+elements past the end fills missing values with blanks.  Writing to
+any negative index appends to the end (regardless of the actual
+negative value).  Note that appending to an empty string sets element
+1, not element 0, since an empty string is interpreted as an array of
+one blank value.
+
+<P>Arrays always grow or stay the same size when writing to them.
+Shrinking can be done using slices (double dot operators).
 
 <P>An array may also be further restricted by calling it a set.  An
 empty set is an empty string, i.e. a one-element array whose only
@@ -392,7 +397,10 @@ Test for presence of a element <B>e</B> in set <B>s</B>:<BR>
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>esc(</TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B>, <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Returns <B>s</B> with all array delimiters and escape characters prefixed by the array escape character.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>##</TT><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B>, <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of elements in array <B>s</B>
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B><TT>[</TT><B>n</B><TT>]</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Array element <B>n</B> of array <B>s</B>, properly unescaped.
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B><TT>[</TT><B>n</B><TT>] -> </TT><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Returns an array which replaces element <B>n</B> in the array specified by the first string with the second string, properly escaped.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B><TT>[</TT><B>n</B> <TT>..</TT> <B>n</B><TT>]</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>An array of elements from s, starting at the first n and ending at the last, inclusive.  Either the first or second n may be ommitted to indicate the start or end, respectively.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B><TT>[</TT> <TT>..</TT> <TT>]</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Array s with trailing blank elements removed.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B><TT>[</TT><B>n</B><TT>]</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Array element <B>n</B> of array <B>s</B>, properly unescaped.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B><TT>[</TT><B>n</B><TT>] -&gt; </TT><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Returns an array which replaces element <B>n</B> in the array specified by the first string with the second string, properly escaped.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0>foreach(<I>var</I><TT>, </TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Evaluate the third string for every array element in the second string, assigning the element to <I>var</I> first.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0>foreach(<I>var</I><TT>, +</TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Evaluate the third string for every non-blank array element in the second string, assigning the element to <I>var</I> first.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0>foreach(<I>var</I><TT>, </TT><B>s</B><TT>, </TT><B>s</B><TT>, </TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Evaluate the third string for every array element in the third string for which the second string evaluates to true, assigning the element to <I>var</I> first.

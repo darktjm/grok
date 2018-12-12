@@ -8,20 +8,21 @@ typedef enum {	SM_SEARCH, SM_INQUERY, SM_NARROW, SM_WIDEN,
 /*---------------------------------------- canvdraw.c ------------*/
 
 void destroy_canvas_window(void);
-void create_canvas_window(
+class GrokCanvas;
+GrokCanvas *create_canvas_window(
 	FORM		*f);
 void redraw_canvas(void);
 void redraw_canvas_item(
-	register ITEM	*item);		/* item to redraw */
+	ITEM		*item);		/* item to redraw */
 
 /*---------------------------------------- cardwin.c ------------*/
 
 void destroy_card_menu(
-	register CARD	*card);		/* card to destroy */
+	CARD		*card);		/* card to destroy */
 CARD *create_card_menu(
 	FORM		*form,		/* form that controls layout */
 	DBASE		*dbase,		/* database for callbacks, or 0 */
-	QWidget		*wform);		/* form widget to install into, or 0 */
+	QWidget		*wform);	/* form widget to install into, or 0 */
 void card_readback_texts(
 	CARD		*card,		/* card that is displayed in window */
 	int		which);		/* all -f < 0, one item only if >= 0 */
@@ -77,36 +78,34 @@ void dbase_delete(
 	DBASE		*dbase);	/* dbase to delete */
 BOOL dbase_addrow(
 	int		*rowp,		/* ptr to returned row number */
-	register DBASE	*dbase);	/* database to add row to */
+	DBASE		*dbase);	/* database to add row to */
 void dbase_delrow(
 	int		nrow,		/* row to delete */
-	register DBASE	*dbase);	/* database to delete row in */
+	DBASE		*dbase);	/* database to delete row in */
 char *dbase_get(
-	register DBASE	*dbase,		/* database to get string from */
-	register int	nrow,		/* row to get */
-	register int	ncolumn);	/* column to get */
+	const DBASE	*dbase,		/* database to get string from */
+	int		nrow,		/* row to get */
+	int		ncolumn);	/* column to get */
 BOOL dbase_put(
-	register DBASE	*dbase,		/* database to put into */
-	register int	nrow,		/* row to put into */
-	register int	ncolumn,	/* column to put into */
+	DBASE		*dbase,		/* database to put into */
+	int		nrow,		/* row to put into */
+	int		ncolumn,	/* column to put into */
 	const char	*data);		/* string to store */
 void dbase_sort(
 	CARD		*card,		/* database and form to sort */
 	int		col,		/* column to sort by */
 	int		rev);		/* reverse if nonzero */
 
-extern int	col_sorted_by;		/* dbase is sorted by this column */
-
 /*---------------------------------------- dbfile.c ------------*/
 
 BOOL write_dbase(
 	DBASE		*dbase,		/* form and items to write */
-	FORM		*form,		/* contains column delimiter */
+	const FORM	*form,		/* contains column delimiter */
 	BOOL		force);		/* write even if not modified*/
 BOOL read_dbase(
 	DBASE		*dbase,		/* form and items to write */
-	FORM		*form,		/* contains column delimiter */
-	char		*path);		/* file to read list from */
+	const FORM	*form,		/* contains column delimiter */
+	const char	*path);		/* file to read list from */
 
 /*---------------------------------------- editwin.c ------------*/
 
@@ -129,7 +128,7 @@ void edit_file(
 const char *evaluate(
 	CARD		*card,
 	const char	*exp);
-bool eval_error(void); // true if last evaluate() encountered an error
+bool eval_error(void); /* true if last evaluate() encountered an error */
 BOOL evalbool(
 	CARD		*card,
 	const char	*exp);
@@ -142,55 +141,57 @@ void f_foreach(
 	char		*expr);
 int parserlex(void);
 void parsererror(
-	const char *msg);
+	const char	*msg);
 int yywrap(void);
 
 
-extern char	*yyret;			/* returned string (see parser.y) */
-extern CARD	*yycard;		/* database for which to evaluate */
-extern char	*switch_name;		/* if switch statement was found, */
-extern char	*switch_expr;		/* .. name to switch to and expr */
-extern BOOL	assigned;		/* did a field assignment */
+extern char		*yyret;		/* returned string (see parser.y) */
+extern CARD		*yycard;	/* database for which to evaluate */
+extern char		*switch_name;	/* if switch statement was found, */
+extern char		*switch_expr;	/* .. name to switch to and expr */
+extern BOOL		assigned;	/* did a field assignment */
 
 /*---------------------------------------- parser.y ------------*/
 int parserparse(void);
 void init_variables(void);
-void set_var(int v, const char *s);
+void set_var(
+	int		v,
+	char		*s); /* takes ownership */
 
 /*---------------------------------------- evalfunc.c ------------*/
 
 double f_num(
 	char		*s);
 double f_sum(				/* sum */
-	register int	column);	/* number of column to average */
+	int		column);	/* number of column to average */
 double f_avg(				/* average */
-	register int	column);	/* number of column to average */
+	int		column);	/* number of column to average */
 double f_dev(				/* standard deviation */
-	register int	column);	/* number of column to average */
+	int		column);	/* number of column to average */
 double f_min(				/* minimum */
-	register int	column);	/* number of column to average */
+	int		column);	/* number of column to average */
 double f_max(				/* maximum */
-	register int	column);	/* number of column to average */
+	int		column);	/* number of column to average */
 double f_qsum(				/* sum */
-	register int	column);	/* number of column to average */
+	int		column);	/* number of column to average */
 double f_qavg(				/* average */
-	register int	column);	/* number of column to average */
+	int		column);	/* number of column to average */
 double f_qdev(				/* standard deviation */
-	register int	column);	/* number of column to average */
+	int		column);	/* number of column to average */
 double f_qmin(				/* minimum */
-	register int	column);	/* number of column to average */
+	int		column);	/* number of column to average */
 double f_qmax(				/* maximum */
-	register int	column);	/* number of column to average */
+	int		column);	/* number of column to average */
 double f_ssum(				/* sum */
-	register int	column);	/* number of column to average */
+	int		column);	/* number of column to average */
 double f_savg(				/* average */
-	register int	column);	/* number of column to average */
+	int		column);	/* number of column to average */
 double f_sdev(				/* standard deviation */
-	register int	column);	/* number of column to average */
+	int		column);	/* number of column to average */
 double f_smin(				/* minimum */
-	register int	column);	/* number of column to average */
+	int		column);	/* number of column to average */
 double f_smax(				/* maximum */
-	register int	column);	/* number of column to average */
+	int		column);	/* number of column to average */
 char *f_field(
 	int		column,
 	int		row);
@@ -218,65 +219,153 @@ BOOL f_instr(
 struct arg *f_addarg(
 	struct arg	*list,		/* easier to keep struct arg local */
 	char		*value);	/* argument to append to list */
-void free_args(struct arg *list);
+void free_args(
+	struct arg	*list);		/* argument list to free */
 char *f_printf(
 	struct arg	*arg);
-int re_match(char *s, char *e);
-char *re_sub(char *s, char *e, char *r, bool all);
-// count aoccurrences of c-chars in s
-int countchars(const char *s, const char *c);
-// remove esc from s, keeping following char.  Returns end of d.
-// negative len -> strlen(s)
-char *unescape(char *d, const char *s, int len, char esc);
-// Add esc in front of esc and toesc-chars in s.  Returns end of d.
-// negative len -> strlen(s)
-// Don't forget that s will grow (use countchars() to see how much)
-char *escape(char *d, const char *s, int len, char esc, const char *toesc);
-char *f_esc(char *s, char *e);
-char *esc(const char *s, const char *e);
-int f_alen(char *array);
-char *f_elt(char *array, int n);
-char *f_setelt(char *array, int n, char *val);
+int f_re_match(
+	char		*s,		/* string to search */
+	char		*e);		/* regular expression pattern */
+char *f_re_sub(
+	 char		*s,		/* string to search/replace on */
+	 char		*e,		/* regular expression pattern */
+	 char		*r,		/* replacement string */
+	 bool		all);		/* if false, only replace once */
+/* count aoccurrences of c-chars in s */
+int countchars(
+	const char	*s,		/* string to search */
+	const char	*c);		/* characters to count */
+/* remove esc from s, keeping following char.  Returns end of d. */
+/* negative len -> strlen(s) */
+char *unescape(
+	char		*d,		/* destination buffer */
+	const char	*s,		/* source; may be same as d */
+	int		len,		/* # of chars in s to unescape */
+	char esc);			/* escape character */
+/* Add esc in front of esc and toesc-chars in s.  Returns end of d. */
+/* negative len -> strlen(s) */
+/* Don't forget that s will grow (use countchars() to see how much) */
+char *escape(
+	char		*d,		/* destination buffer */
+	const char	*s,		/* source; may not be same as d */
+	int		len,		/* # of chars in s to escape */
+	char		esc,		/* escape character */
+	const char	*toesc);	/* characters to escape; at least include esc! */
+char *f_esc(
+	char		*s,
+	char		*e);
+int f_alen(
+	char		*array);
+char *f_elt(
+	char		*array,
+	int		n);
+char *f_slice(
+	char		*array,
+	int		start,
+	int		end);
+char *f_astrip(
+	char		*array);
+char *f_setelt(
+	char		*array,
+	int		n,
+	char		*val);
 void f_foreachelt(
 	int		var,
 	char		*array,
 	char		*cond,
 	char		*expr,
 	bool		nonblank);
-char *f_toset(char *a);
-char *f_union(char *a, char *b);
-char *f_intersect(char *a, char *b);
-char *f_setdiff(char *a, char *b);
-char *f_detab(char *s, int start, int tabstop);
-char *f_align(char *s, char *pad, int len, int where);
+char *f_toset(
+	char		*a);
+char *f_union(
+	char		*a,
+	char		*b);
+char *f_intersect(
+	char		*a,
+	char		*b);
+char *f_setdiff(
+	char		*a,
+	char		*b);
+char *f_detab(
+	char		*s,
+	int		start,
+	int		tabstop);
+char *f_align(
+	char		*s,
+	char		*pad,
+	int		len,
+	int		where);
 
 /* get a form's separator information */
-void get_form_arraysep(FORM *form, char *sep, char *esc);
-/* assumes end is no a separator; start search at -1.
+void get_form_arraysep(
+	const FORM	*form,
+	char		*sep,
+	char		*esc);
+/* Main function for iterating over arrays. */
+/* assumes end is on a separator; start search at -1.
    Returns -1 for begin @ end */
-void next_aelt(char *array, int *begin, int *after, char sep, char esc);
-int stralen(char *array, char sep, char esc);
-void elt_at(char *array, int n, int *begin, int *after, char sep, char esc);
-char *set_elt(char *array, int n, char *val);
-// convert a to a set in-place
-void toset(char *a, char sep, char esc);
-// find escaped elt s of length len in non-empty set a
-// sets begin & end if true; sets begin to insertion point if false
-// sep/esc of a & s are the same
-bool find_elt(const char *a, const char *s, int len, int *begin, int *after,
-	      char sep, char esc);
-// find unescaped 0-terminated elt s in non-empty set a, as above.
-bool find_unesc_elt(const char *a, const char *s, int *begin, int *after,
-		    char sep, char esc);
+void next_aelt(
+	const char	*array,		/* array to iterate over */
+	int		*begin,		/* return: 1st char of next element */
+	int		*after,		/* in/out: 1st char after element */
+	char		sep,		/* array separator */
+	char		esc);		/* array escape char */
+int stralen(
+	const char	*array,		/* array whose length is to be counted */
+	char		sep,		/* array separator */
+	char		esc);		/* array escape char */
+/* Find array element n */
+/* If n > stralen(array), -1 is returned in begin and after */
+void elt_at(
+	const char	*array,		/* array to traverse */
+	unsigned int	n,		/* element # to extract */
+	int		*begin,		/* return: begin of extracted element */
+	int		*after,		/* return: char after extracted element */
+	char		sep,
+	char		esc);
+/* set element n to val.  */
+/* array and val can be NULL */
+/* non-NULL array and val assumed to be malloced, and will be freed or reused */
+/* return value is NULL or malloc'ed result */
+/* all trailing empty values will be removed */
+/* array will auto-expand by adding empties if n > array len */
+/* array will auto-shrink by stripping all blanks off end */
+/* returns true if successful, false on memory allocation errors */
+bool set_elt(
+	char		**array,	/* array to modify */
+	int		n,		/* element to set */
+	char		*val,		/* value to set */
+	const FORM	*form);		/* where to get sep/esc */
+// convert a to a set in-place (false == memory alloc failure)
+bool toset(char *a, char sep, char esc);
+/* find escaped elt s of length len in non-empty set a */
+/* sets begin & end if true; sets begin to insertion point if false */
+/* sep/esc of a & s are the same */
+bool find_elt(
+	const char	*a,		/* set to search */
+	const char	*s,		/* element to search for */
+	int		len,		/* length of element */
+	int		*begin,		/* out: start of found or insert pt */
+	int		*after,		/* out: end of found or invalid */
+	char		sep,		/* array/element separator */
+	char		esc);		/* array/element esc char */
+/* find unescaped 0-terminated elt s in non-empty set a, as above. */
+bool find_unesc_elt(
+	const char	*a,		/* set to search */
+	const char	*s,		/* element to search for */
+	int		*begin,		/* out: start of found or insert pt */
+	int		*after,		/* out: end of found or invalid */
+	char		sep,		/* array/element separator */
+	char		esc);		/* array/element esc char */
 
 
 /*---------------------------------------- formfile.c ------------*/
 
 BOOL write_form(
-	FORM		*form);		/* form and items to write */
+	const FORM	*form);		/* form and items to write */
 BOOL read_form(
 	FORM		*form,		/* form and items to write */
-	char		*path);		/* file to read list from */
+	const char	*path);		/* file to read list from */
 
 /*---------------------------------------- formop.c ------------*/
 
@@ -288,25 +377,27 @@ void form_delete(
 BOOL verify_form(
 	FORM		*form,		/* form to verify */
 	int		*bug,		/* retuirned buggy item # */
-	QWidget		*shell);		/* error popup parent */
+	QWidget		*shell);	/* error popup parent */
 void form_edit_script(
 	FORM		*form,		/* form to edit */
 	QWidget		*shell,		/* error popup parent */
-	char		*fname);	/* file name of script (dbase name) */
+	const char	*fname);	/* file name of script (dbase name) */
 void form_sort(
-	register FORM	*form);		/* form to sort */
+	FORM		*form);		/* form to sort */
 void item_deselect(
-	register FORM	*form);		/* describes form and all items in it*/
+	FORM		*form);		/* describes form and all items in it*/
 BOOL item_create(
-	register FORM	*form,		/* describes form and all items in it*/
+	FORM		*form,		/* describes form and all items in it*/
 	int		nitem);		/* the current item, insert point */
 void item_delete(
 	FORM		*form,		/* describes form and all items in it*/
 	int		nitem);		/* the current item, insert point */
 ITEM *item_clone(
-	register ITEM	*parent);	/* item to clone */
-void menu_delete(MENU *m);
-void menu_clone(MENU *m);
+	ITEM		*parent);	/* item to clone */
+void menu_delete(
+	MENU		*m);
+void menu_clone(
+	MENU		*m);
 
 /*---------------------------------------- formwin.c ------------*/
 
@@ -321,7 +412,6 @@ void fillout_formedit_widget_by_code(
 	int		code);
 void readback_formedit(void);
 
-extern int		curr_item;	/* current item, 0..form.nitems-1 */
 extern const char	plan_code[];	/* code 0x260..0x26c */
 
 /*---------------------------------------- help.c ------------*/
@@ -353,7 +443,8 @@ void resize_mainwindow(void);
 void print_info_line(void);
 void remake_dbase_pulldown(void);
 void remake_section_pulldown(void);
-void remake_section_popup(BOOL);
+void remake_section_popup(
+	BOOL);
 void remake_query_pulldown(void);
 void remake_sort_pulldown(void);
 void switch_form(
@@ -366,14 +457,15 @@ void do_query(
 	int		qmode);		/* -1=all, or query number */
 
 extern CARD 		*curr_card;	/* card being displayed in main win, */
-extern char		*prev_form;	/* previous form name */
 extern QMainWindow	*mainwindow;	/* popup menus hang off main window */
-extern int		last_query;	/* last query pd index, for ReQuery */
 
 /*---------------------------------------- popup.c ------------*/
 
 void create_about_popup(void);
-void create_error_popup(QWidget *widget, int error, const char *fmt, ...);
+void create_error_popup(
+	QWidget		*widget,
+	int		error,
+	const char	*fmt, ...);
 bool create_save_popup(
 	QWidget		*widget,	/* window that caused this */
 	DBASE		*dbase,		/* form and items to write */
@@ -421,7 +513,7 @@ BOOL delete_template(
 	CARD		*card);		/* need this for form name */
 const char *substitute_setup(
 	char		**array,	/* where to store substitutions */
-	char		*instr);	/* x=y x=y ... command string */
+	const char	*instr);	/* x=y x=y ... command string */
 void backslash_subst(char *);
 
 /*---------------------------------------- templwin.c ------------*/
@@ -432,9 +524,12 @@ void create_print_popup(void);
 /*---------------------------------------- templmk.c ------------*/
 
 /* These write a template to fp and return 0 on success, message on error */
-const char *mktemplate_html(FILE *fp);
-const char *mktemplate_plain(FILE *fp);
-const char *mktemplate_fancy(FILE *fp);
+const char *mktemplate_html(
+	FILE		*fp);
+const char *mktemplate_plain(
+	FILE		*fp);
+const char *mktemplate_fancy(
+	FILE		*fp);
 
 /*---------------------------------------- query.c ------------*/
 
@@ -478,7 +573,7 @@ void create_newsect_popup(void);
 /*---------------------------------------- sumwin.c ------------*/
 
 void destroy_summary_menu(
-	register CARD	*card);		/* card to destroy */
+	CARD		*card);		/* card to destroy */
 QWidget *create_summary_widget(void);	/* just create the list widget */
 void create_summary_menu(
 	CARD		*card);		/* card with query results */
@@ -486,12 +581,16 @@ void create_summary_menu(
 /* nres is alloced size of res, and return value is # of filled entries */
 /* menu is non-NULL for multi-column fields */
 struct menu_item {
-	const ITEM *item;
-	const MENU *menu;
+	const ITEM	*item;
+	const MENU	*menu;
 };
-int get_summary_cols(struct menu_item **res, int *nres, const FORM *form);
+int get_summary_cols(
+	struct menu_item**res,
+	size_t		*nres,
+	const FORM	*form);
 void make_summary_line(
-	char		*buf,		/* text buffer for result line */
+	char		**buf,		/* text buffer for result line */
+	size_t		*buf_len,	/* allocated length of *buf */
 	CARD		*card,		/* card with query results */
 	int		row,		/* database row */
 	QTreeWidget	*w = 0,		/* non-0: add line to table widget */
@@ -508,17 +607,19 @@ void replace_summary_line(
 /*---------------------------------------- util.c ------------*/
 
 const char *section_name(
-	register DBASE	*dbase,		/* contains section array */
+	const DBASE	*dbase,		/* contains section array */
 	int		n);		/* 0 .. dbase->nsects-1 */
-char *resolve_tilde(
-	char		*path,		/* path with ~ */
+const char *resolve_tilde(
+	const char	*path,		/* path with ~ */
 	const char	*ext);		/* append extension unless 0 */
-BOOL find_file(
-	char		*buf,		/* buffer for returned path */
+const char *find_file(
 	const char	*name,		/* file name to locate */
 	BOOL		exec);		/* must be executable? */
-void fatal(const char *fmt, ...);
+void fatal(
+	const char	*fmt, ...);
 char *mystrdup(
+	const char	*s);
+char *zstrdup(
 	const char	*s);
 /* I'm tired of double-checking every string */
 /* making allocations always return non-0 would only partly fix, as initial */
@@ -531,12 +632,86 @@ char *mystrdup(
 		free(p); \
 	/* p = NULL; */ \
 } while(0)
-void print_button(QWidget *w, const char *fmt, ...);
+/* safely malloc/realloc, reporting errors and fatally aborting if no parent */
+/* note that a 0-length allocation will return NULL unlesss shrinking to 0 */
+/* note that AM_ZERO only applies to mallocs or the mlen growth area. */
+/* That's why I added azero and zgrow below. */
+void *abort_malloc(
+	QWidget		*parent,	/* for message popups; 0 = fatal */
+	const char	*purpose,	/* for messages; may be 0 */
+	void		*old,		/* for realloc; may be 0 */
+	size_t		len,		/* how much, minimum */
+	size_t		*mlen,		/* if non-NULL, track size of buffer */
+	int		flags);		/* additional flags; see below */
+#define AM_REALLOC	(1<<0)		/* if unset, grow by free/malloc */
+#define AM_ZERO		(1<<1)		/* like calloc: zero out new result */
+#define AM_SHRINK	(1<<2)		/* shrink if tracking and len<mlen/2 */
+
+/* initial allocation size when *mlen or old is 0 and mlen is non-NULL */
+#define MIN_AM_SIZE 16
+
+/* The maximum size beyond which doubling is no longer done. */
+/* doubling is fast, but at large sizes, it can be wasteful */
+#define MAX_AM_DOUBLE 65536
+
+/* abort_malloc, but cast to t* (C++ disallows void * auto-convert, anyway) */
+/* len is actually # of t-elements */
+#define talloc(w, p, t, o, len, mlen, flags) \
+    (t *)abort_malloc(w, p, o, (len)*sizeof(t), mlen, flags)
+/* shorter versions of talloc for common tasks: */
+/* malloc */
+#define alloc(w, p, t, len) talloc(w, p, t, NULL, len, NULL, 0)
+/* calloc */
+#define zalloc(w, p, t, len) talloc(w, p, t, NULL, len, NULL, AM_ZERO)
+/* realloc */
+#define grow(w, p, t, a, len, track) \
+	a = talloc(w, p, t, a, len, track, AM_REALLOC)
+/* grow and discard old */
+#define fgrow(w, p, t, a, len, track) \
+	a = talloc(w, p, t, a, len, track, 0)
+/* since mlen only tracks malloc len, AM_ZERO can't work with it */
+/* instead, zero out with: */
+#define azero(t, a, l, cnt) memset((a)+(l), 0, (cnt)*sizeof(t))
+/* note that t may equal *a for same effect */
+/* realloc while clearing new data */
+#define zgrow(w, p, t, a, olen, len, track) do { \
+	size_t zg_len_ = len, zg_olen_ = olen; \
+	a = talloc(w, p, t, a, zg_len_, track, AM_REALLOC); \
+	azero(t, a, zg_olen_, zg_len_ - zg_olen_); \
+} while(0)
+
+/* type-safe memcpy/memmove/memset */
+#define tmemcpy(t, d, s, n) do { \
+	t *tmc_pd_ = d; \
+	const t *tmc_ps_ = s; \
+	memcpy(tmc_pd_, tmc_ps_, (n)*sizeof(t)); \
+} while(0)
+#define tmemmove(t, d, s, n) do { \
+	t *tmm_pd_ = d; /* type check */ \
+	const t *tmm_ps_ = s; /* type check */ \
+	memmove(tmm_pd_, tmm_ps_, (n)*sizeof(t)); \
+} while(0)
+#define tzero(t, p, n) do { \
+	t *tz_pp_ = p; /* type check */ \
+	memset(tz_pp_, 0, (n)*sizeof(t)); \
+} while(0)
+
+void print_button(
+	QWidget		*w,
+	const char	*fmt, ...);
 #define print_text_button print_button
-void print_text_button_s(QWidget *w, const char *str);
-char *read_text_button_noskipblank(QWidget*, char **);
-char *read_text_button(QWidget*, char **);
-char *read_text_button_noblanks(QWidget*, char **);
+void print_text_button_s(
+	QWidget		*w,
+	const char	*str);
+char *read_text_button_noskipblank(
+	QWidget		*,
+	char		**);
+char *read_text_button(
+	QWidget		*,
+	char		**);
+char *read_text_button_noblanks(
+	QWidget		*,
+	char		**);
 void set_toggle(
 	QWidget		*w,
 	BOOL		set);
@@ -548,8 +723,12 @@ void set_cursor(
 	Qt::CursorShape	n);		/* which cursor, one of XC_* */
 void truncate_string(
 	QWidget		*w,		/* widget string will show in */
-	register char	*string,	/* string to truncate */
-	register int	len);		/* max len in pixels */
+	char		*string,	/* string to truncate */
+	int		len);		/* max len in pixels */
+void truncate_string(
+	QWidget		*w,		/* widget string will show in */
+	QString		&string,	/* string to truncate */
+	int		len);		/* max len in pixels */
 int strlen_in_pixels(
 	QWidget		*w,		/* widget string will show in */
 	const char	*string);	/* string to truncate */
@@ -565,7 +744,7 @@ QWidget *mk_separator(void);
 #define dbbb(x) QDialogButtonBox::x
 #define dbbr(x) dbbb(x##Role)
 QPushButton *mk_button(
-	QDialogButtonBox *bb,		/* target button box; may be 0 */
+	QDialogButtonBox*bb,		/* target button box; may be 0 */
 	const char	*label,		/* label, or NULL if standard */
 	int		role = dbbr(Action));	/* role, or ID if label is NULL */
 void add_layout_qss(
@@ -591,9 +770,13 @@ void add_layout_qss(
     set_qt_cb_ov1(QComboBox, currentIndexChanged, _t, _w, _f, UNUSED _t _v)
 #define set_combo_cb(_w, _f) set_qt_cb(QComboBox, currentTextChanged, _w, _f)
 // Make the calls needed to pop up a non-modal dialog (use exec for modal)
-void popup_nonmodal(QDialog *d);
+void popup_nonmodal(
+	QDialog		*d);
 // Convert QString to char * by allocating enough memory
-char *qstrdup(const QString &str);
+char *qstrdup(
+	const QString	&str);
+/* too much typing */
+#define qsprintf QString::asprintf
 
 #define ALEN(a) (int)(sizeof(a)/sizeof((a)[0]))
 #define APTR_OK(a, s) ((a)-(s) < ALEN(s))

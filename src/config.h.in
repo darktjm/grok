@@ -32,3 +32,15 @@
 #define FALLTHRUGH /*FALLTHROUGH*/
 #define UNUSED
 #endif
+
+/* I should probably test for glibc version 2.1 or greater here */
+/* I should also just assume that non-glibc will return EINVAL */
+/* even if ENAMETOOLONG is defined */
+/* Maybe it would be best to not check errno at all */
+/* I'll fix it if someone ever complains */
+#if !defined(__GLIBC__) && !defined(ENAMETOOLONG)
+#define ENAMETOOLONG EINVAL
+#endif
+
+#cmakedefine01 Iconv_FOUND
+#cmakedefine01 LANGINFO_WORKS

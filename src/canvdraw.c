@@ -61,7 +61,7 @@ GrokCanvas::GrokCanvas() : moving(FALSE) {
 	}
 }
 
-void create_canvas_window(
+GrokCanvas *create_canvas_window(
 	FORM		*f)
 {
 	destroy_canvas_window();
@@ -81,6 +81,7 @@ void create_canvas_window(
 	// As mentioned above, window close callback is now closeEvent().
 	set_cursor(canvas, Qt::ArrowCursor);
 	have_shell = TRUE;
+	return shell;
 }
 
 
@@ -293,7 +294,7 @@ static MOUSE locate_item(
 	int		y)
 {
 	int		nitem;		/* current item number */
-	register ITEM	*item;		/* current item, form->items[nitem] */
+	ITEM		*item;		/* current item, form->items[nitem] */
 	int		xc, yc;		/* current item's center pos */
 	int		dx, dy;		/* current is this far away from x/y */
 	int		cdx=8, cdy=8;	/* closest is this far away from x/y */
@@ -432,9 +433,9 @@ static const char * const datatext[NITEMS] = {
 void GrokCanvas:: redraw_canvas_item(
 	QPainter	&painter,	/* widget into which to draw */
 	const QRect	&clip,		/* redraw clipping region */
-	register ITEM	*item)		/* item to redraw */
+	ITEM		*item)		/* item to redraw */
 {
-	char		buf[1024];	/* truncated texts */
+	QString		buf;		/* truncated texts */
 	int		xm=-1, ym=-1;	/* middle division pos */
 	int		nfont;		/* font number as F_FONT_* */
 	char		sumcol[20];	/* summary column indicator msg */
@@ -471,12 +472,11 @@ void GrokCanvas:: redraw_canvas_item(
 	}
 
 	painter.setPen(textcolor);
-	*buf = 0;
 	sprintf(sumcol, item->sumwidth ? ",%d" : "", item->sumcol);
 	if (item->type == IT_CHOICE || item->type == IT_FLAG)
-		sprintf(buf, "[%ld=%s%s] ", item->column,
-				item->flagcode ? item->flagcode : "?", sumcol);
-	strcat(buf, item->label ? item->label : "label");
+		buf = qsprintf("[%ld=%s%s] ", item->column,
+			       item->flagcode ? item->flagcode : "?", sumcol);
+	buf += item->label ? item->label : "label";
 	nfont = item->labelfont;
 	truncate_string(font[nfont], buf, xm<0 ? item->xs-4 : xm-4);
 	painter.setFont(font[nfont]->font());
@@ -484,10 +484,10 @@ void GrokCanvas:: redraw_canvas_item(
 			 item->y + ((ym>=0?ym:item->ys)+font[nfont]->fontMetrics().ascent())/2,
 			 buf);
 
-	*buf = 0;
+	buf.clear();
 	if (IN_DBASE(item->type))
-		sprintf(buf, "[%ld%s] ", item->column, sumcol);
-	strcat(buf, datatext[item->type]);
+		buf = qsprintf("[%ld%s] ", item->column, sumcol);
+	buf += datatext[item->type];
 	if (xm > 0 && xm < item->xs) {
 		nfont = item->inputfont;
 		truncate_string(font[nfont], buf, item->xs-xm-4);
@@ -508,7 +508,7 @@ void GrokCanvas:: redraw_canvas_item(
 }
 
 void redraw_canvas_item(
-	register ITEM	*item)		/* item to redraw */
+	ITEM		*item)		/* item to redraw */
 {
 	if (!have_shell)
 		return;

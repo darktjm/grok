@@ -11,11 +11,14 @@
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
-#include "parser_yacc.h"
+#include "parser.h"
 
 static char	*yyexpr;		/* first char read by lexer */
 static char	*yytext;		/* next char to be read by lexer */
 char		*yyret;			/* returned string (see parser.y) */
+/* it's safer to keep errormsg static sized so alloc errors don't interfere */
+/* but it would be nice to save long messages, anyway */
+/* FIXME: add a second var that is malloced and freed w/ longer messages */
 static char	errormsg[2000];		/* error message if any, or "" */
 CARD		*yycard;		/* database for which to evaluate */
 char		*switch_name;		/* if switch statement was found, */
@@ -33,10 +36,13 @@ void parsererror(
 	const char *msg)
 {
 	if (!*errormsg) {
-		sprintf(errormsg,
-"Problem with search expression\n%s:\n%.80s in column %d near '%.4s'\n",
-				yyexpr, msg, (int)(yytext - yyexpr), yytext);
-		fprintf(stderr, "%s: %s\n", progname, errormsg);
+		int l = sprintf(errormsg,
+				"Problem with search expression\n"
+				"%.80s in column %d near '%.4s':\n",
+				yyexpr, (int)(yytext - yyexpr), yytext);
+		strncpy(errormsg + l, msg, sizeof(errormsg) - l);
+		fprintf(stderr, "%s: %.*s\n", progname,
+			(int)sizeof(errormsg), errormsg);
 	}
 }
 
@@ -60,18 +66,21 @@ const char *evaluate(
 		return(0);
 	if (!*exp || (*exp != '(' && *exp != '{' && *exp != '$'))
 		return(exp);
-	if (yyret)
-		free((void *)yyret);
+	zfree(yyret);
+	yyret  = 0;
 	*errormsg = 0;
 	assigned  = 0;
-	yytext =
-	yyexpr = mystrdup(exp);
+	yytext = yyexpr = strdup(exp);
+	if(!yytext) {
+		parsererror("No memory for expression");
+		create_error_popup(mainwindow, 0, errormsg);
+		return 0;
+	}
 	yycard = card;
-	yyret  = 0;
 
 	(void)parserparse();
 
-	free((void *)yyexpr);
+	free(yyexpr);
 	if (*errormsg) {
 		create_error_popup(mainwindow, 0, errormsg);
 		return(0);
@@ -91,16 +100,19 @@ const char *subeval(
 		return(0);
 	if (!*exp || (*exp != '(' && *exp != '{' && *exp != '$'))
 		return(exp);
-	if (yyret)
-		free((void *)yyret);
+	zfree(yyret);
+	yyret  = 0;
 
 	yytext = yyexpr = strdup(exp);
+	if(!yytext) {
+		parsererror("No memory for expression");
+		return 0;
+	}
 	assigned  = 0;
-	yyret  = 0;
 
 	(void)parserparse();
 
-	free((void *)yyexpr);
+	free(yyexpr);
 	assigned   |= saved_assigned;
 	yytext	    = saved_text;
 	yyexpr	    = saved_expr;
@@ -139,20 +151,18 @@ void f_foreach(
 	char	*cond,
 	char	*expr)
 {
-	register DBASE	*dbase	    = yycard->dbase;
+	DBASE		*dbase	    = yycard->dbase;
 	int		saved_row   = yycard->row;
 
 	if (expr && !eval_error())
 		for (yycard->row=0; yycard->row < dbase->nrows; yycard->row++){
 			if (!cond || subevalbool(cond))
-				subeval(expr);
+				subeval(expr); /* no-op if evalbool failed */
 			if (eval_error())
 				break;
 	}
-	if (cond)
-		free(cond);
-	if (expr)
-		free(expr);
+	zfree(cond);
+	zfree(expr);
 	yycard->row = saved_row;
 }
 
@@ -161,11 +171,12 @@ void f_foreach(
 #define ISSYM_B(c) (((c)>='a' && (c)<='z') || ((c)>='A' && (c)<='Z'))
 #define ISSYM(c)   (ISDIGIT(c) || (c)=='_' || ISSYM_B(c))
 
-static const char *pair_l  = "=!<><>&|+/-*%|&.+--#|||=!";
-static const char *pair_r  = "====<>&|========+->#+*-~~";
+static const char *pair_l  = "=!<><>&|+/-*%|&.+--#|||=!.";
+static const char *pair_r  = "====<>&|========+->#+*-~~.";
 static const short value[] = { EQ, NEQ, LE, GE, SHL, SHR, AND, OR,
 			 PLA, DVA, MIA, MUA, MOA, ORA, ANA, APP, INC, DEC_,
-			 AAS, ALEN_, UNION, INTERSECT, DIFF, REQ, RNEQ};
+			 AAS, ALEN_, UNION, INTERSECT, DIFF, REQ, RNEQ,
+			 DOTDOT};
 
 static const struct symtab { const char *name; int token; } symtab[] = {
 			{ "this",	THIS	},
@@ -274,10 +285,13 @@ int parserlex(void)
 int Xparserlex(void)
 #endif
 {
-	int		i;
-	register const struct symtab *sym;
-	register ITEM	**item;
-	char		msg[100], token[100], *tp=token;
+	int			i;
+	const struct symtab	*sym;
+	ITEM			**item;
+	char			msg[100];
+	static char *		token = 0;
+	static size_t		tokenlen;
+	int			tp = 0;
 
 	while (*yytext == ' ' || *yytext == '\t' || *yytext == '\n')		/* blanks */
 		yytext++;
@@ -314,9 +328,12 @@ int Xparserlex(void)
 	}
 	if (*yytext == '_') {					/* field */
 		yytext++;
-		while (ISSYM(*yytext))
-			*tp++ = *yytext++;
-		*tp = 0;
+		while (ISSYM(*yytext)) {
+			/* this is fatal because it affects all expressions */
+			grow(0, "field name", char, token, tp + 2, &tokenlen);
+			token[tp++] = *yytext++;
+		}
+		token[tp] = 0;
 		if (yycard && yycard->form) {
 			item = yycard->form->items;
 			if (ISDIGIT(*token)) {			/* ...numeric*/
@@ -340,9 +357,12 @@ int Xparserlex(void)
 		return(EOF);
 	}
 	if (ISSYM_B(*yytext)) {					/* symbol */
-		while (ISSYM(*yytext))
-			*tp++ = *yytext++;
-		*tp = 0;
+		while (ISSYM(*yytext)) {
+			/* this is fatal because it affects all expressions */
+			grow(0, "field name", char, token, tp + 2, &tokenlen);
+			token[tp++] = *yytext++;
+		}
+		token[tp] = 0;
 		for (sym=symtab; sym->name; sym++)		/* ...token? */
 			if (!strcmp(sym->name, token))
 				return(sym->token);

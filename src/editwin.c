@@ -249,7 +249,7 @@ void edit_file(
 	char		*text = NULL;	/* text read from file */
 	BOOL		writable;	/* have write permission for file? */
 
-	name = resolve_tilde((char *)name, 0); /* it's a file; better not have trailing / */
+	name = resolve_tilde(name, 0);
 	if (!title)
 		title = name;
 	if (access(name, F_OK)) {
@@ -298,6 +298,8 @@ void edit_file(
 			text[size] = 0;
 		}
 		fclose(fp);
+		/* after all that recovery-enabled error checking, this will
+		 * abort the app on errors */
 		create_edit_popup(title, text ? &text : 0,
 				readonly || !writable, helptag);
 		free(text);
@@ -308,6 +310,7 @@ void edit_file(
 				writable ? "" : "(read only)");
 		}
 	}
+	/* this will abort as well on errors */
 	if (!readonly && writable)
 		sourcefile = mystrdup(name);
 }

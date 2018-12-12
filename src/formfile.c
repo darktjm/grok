@@ -25,8 +25,6 @@ static DQUERY *add_dquery(FORM *fp) {return(0);}
 static void remake_dbase_pulldown(void) {}
 #endif
 
-#define STORE(t,s) do{zfree(t);t=mystrdup(s);}while(0)
-
 static const char * const itemname[NITEMS] = {
 	"None", "Label", "Print", "Input", "Time", "Note", "Choice", "Flag",
 	"Button", "Chart", "Number", "Menu", "Radio", "Multi", "Flags" };
@@ -40,9 +38,9 @@ static const char * const itemname[NITEMS] = {
  */
 
 BOOL write_form(
-	FORM		*form)		/* form and items to write */
+	const FORM	*form)		/* form and items to write */
 {
-	char		*path;		/* file name to write to */
+	const char	*path;		/* file name to write to */
 	FILE		*fp;		/* open file */
 	DQUERY		*dq;		/* default query pointer */
 	ITEM		*item;		/* item pointer */
@@ -213,38 +211,41 @@ BOOL write_form(
 
 	/* This used to only support relative .db files in GROKDIR */
 	/* The loading routines only check the same dir as the .gf, though */
-	path = strdup(path);
-	i = strlen(path);
-	if(i < 3 || strcmp(path + i - 3, ".gf"))
-		return(TRUE); /* invalid, really, but leae it alone */
+	char *dbpath = mystrdup(path);
+	i = strlen(dbpath);
+	if(i < 3 || strcmp(dbpath + i - 3, ".gf")) {
+		free(dbpath);
+		return(TRUE); /* invalid, really, but leave it alone */
+	}
 	/* The loader checks .db first, but it doesn't matter what order */
 	/* it's checked here, other than creation wanting the .db extencsion */
-	path[i] = 0;
+	dbpath[i] = 0;
 	/* On the other hand, having a non-readable non-db file is useless */
-	if (access(path, form->proc ? X_OK : R_OK))
-		strcpy(path + i, ".db");
+	if (access(dbpath, form->proc ? X_OK : R_OK))
+		strcpy(dbpath + i, ".db");
 	/* auto-creation of procedurals won't work */
 	/* best to just force user to edit */
 	/* if they want to do it later, they can set it to /bintrue */
-	if (!form->proc && access(path, F_OK) && errno == ENOENT) {
-		if (!(fp = fopen(path, "w"))) {
+	if (!form->proc && access(dbpath, F_OK) && errno == ENOENT) {
+		if (!(fp = fopen(dbpath, "w"))) {
 			create_error_popup(mainwindow, errno,
 "The form was created successfully, but the\n"
 "database file %s cannot be created.\n"
 "No cards can be entered into the new Form.\n\nProblem: ", path);
+			free(dbpath);
 			return(FALSE);
 		}
 		fclose(fp);
 	}
-	if (access(path, form->proc ? X_OK : R_OK)) {
+	if (access(dbpath, form->proc ? X_OK : R_OK)) {
 		create_error_popup(mainwindow, errno,
 "The form was created successfully, but the\n"
 "database file %s exists but is not readable.\n"
 "No cards can be entered into the new Form.\n\nProblem: ", path);
-		free(path);
+		free(dbpath);
 		return(FALSE);
 	}
-	free(path);
+	free(dbpath);
 	return(TRUE);
 }
 #endif /* GROK */
@@ -255,28 +256,68 @@ BOOL write_form(
  * Returns FALSE and leave *form untouched if the file could not be read.
  */
 
-static FILE *try_path(const char *path, char **fname)
+static FILE *try_path(const char *path, const char **fname)
 {
-	static char buf[1024]; /* ugh! */
+	static char *buf = 0;
+	static size_t buflen;
 	int len;
 	FILE *fp;
-	len = sprintf(buf, "%s/%s", path, *fname);
+	len = strlen(path) + strlen(*fname) + 1;
+	grow(0, "form path", char, buf, len + 4, &buflen);
+	sprintf(buf, "%s/%s", path, *fname);
 	if(len > 3 && strcmp(buf + len - 3, ".gf"))
 		strcpy(buf + len, ".gf");
 	if((fp = fopen(buf, "r"))) {
-		fprintf(stderr, "found %s\n", buf);
 		*fname = buf;
 		return fp;
 	}
 	return fp;
 }
 
+#define STORE(t,s) do{zfree(t);t=get_string(fp, s, line, sizeof(line));}while(0)
+
+/* This re-runs fgets until EOF or newline */
+/* read_form() only reads buflen-1 chars at most */
+/* non-EOL is only detected if buflen-1 chars were read, but no \n was stripped */
+/* FIXME: this only works if the initial read didn't get EINTR/EAGAIN */
+/*        to fix, use a loop to ignore these errors in read_form() */
+/* I'm going to ignore EINTR/EAGAIN here as well, for consistency */
+/* and because I"m lazy, and because the old code didn't account for */
+/* it either, even though it could affect even shorter lines */
+static char *get_string(FILE *fp, char *val, char *buf, size_t buflen,
+			bool keep_nl = false)
+{
+	int len = 0, plen = strlen(val);
+	if(!plen && !keep_nl)
+		return NULL;
+	char *out = alloc(0, "form file", char, plen + 2);
+	while(1) {
+		memcpy(out + len, val, plen);
+		if(plen + (int)(val - buf) < (int)buflen - 1 ||
+		   !fgets(buf, buflen, fp)) {
+			if(keep_nl)
+				out[len + plen++] = '\n';
+			out[len + plen] = 0;
+			return out;
+		}
+		len += plen;
+		plen = strlen(buf);
+		if(plen && buf[plen - 1] == '\n')
+			buf[--plen] = 0;
+		if(!plen) {
+			out[len] = 0;
+			return out;
+		}
+		grow(0, "form file", char, out, len + plen + 2, 0);
+	}
+}
+
 BOOL read_form(
 	FORM			*form,		/* form and items to write */
-	char			*path)		/* file to read list from */
+	const char		*path)		/* file to read list from */
 {
 	FILE			*fp;		/* open file */
-	char			line[1024];	/* line buffer */
+	static char		line[1024];	/* line buffer */
 	char			*p, *key;	/* next char in line buf */
 	DQUERY			*dq = 0;	/* default query pointer */
 	ITEM			*item = 0;	/* item pointer, 0=form hdr */
@@ -295,7 +336,7 @@ BOOL read_form(
 			strcat(line, "/grokdir");
 			if((fp = try_path(line, &path)))
 				break;
-			if((fp = try_path(resolve_tilde((char *)GROKDIR, NULL), &path)))
+			if((fp = try_path(resolve_tilde(GROKDIR, NULL), &path)))
 				break;
 			fp = try_path(LIB "/grokdir", &path);
 		} while(0);
@@ -312,7 +353,7 @@ BOOL read_form(
 	form_delete(form);
 	form->path = mystrdup(path);
 	for (;;) {
-		if (!fgets(line, 1023, fp))
+		if (!fgets(line, sizeof(line), fp))
 			break;
 		if ((i = strlen(line)) && line[i-1] == '\n')
 			line[i-1] = 0;
@@ -322,8 +363,6 @@ BOOL read_form(
 		for (key=p; *p && *p != ' ' && *p != '\t'; p++);
 		if (*p)
 			*p++ = 0;
-		else
-			*++p = 0;
 		for (; *p == ' ' || *p == '\t'; p++);
 
 		if (!strcmp(key, "item")) {
@@ -380,17 +419,15 @@ BOOL read_form(
 					STORE(dq->query, p);
 			} else if (!strcmp(key, "help") && (*p++ == '\'' ||
 							    p[-1] == '`')) {
-				if (form->help) {
-					if ((form->help = (char *)realloc(form->help,
-							   strlen(form->help) +
-							   strlen(p) + 2)))
-						strcat(form->help, p);
-				} else {
-					if ((form->help = (char *)malloc(strlen(p) + 2)))
-						strcpy(form->help, p);
+				char *s = get_string(fp, p, line, sizeof(line), true);
+				if(!form->help)
+					form->help = s;
+				else {
+					grow(0, "form file", char, form->help,
+					     strlen(form->help) + strlen(s) + 1, 0);
+					strcat(form->help, s);
+					free(s);
 				}
-				if (form->help)
-					strcat(form->help, "\n");
 			} else
 				fprintf(stderr,
 					"%s: %s: ignored headers keyword %s\n",
@@ -455,12 +492,9 @@ BOOL read_form(
 					STORE(item->skip_if, p);
 			else if (!strcmp(key, "mcol"))
 				 	item->multicol = atoi(p);
-			else if (!strcmp(key, "nmenu")) {
-					if ((item->nmenu = atoi(p)))
-						item->menu =
-							(MENU *)calloc(item->nmenu,
-								sizeof(MENU));
-			}
+			else if (!strcmp(key, "nmenu"))
+					item->menu = zalloc(0, "form file",
+							    MENU, (item->nmenu = atoi(p)));
 			else if (!strcmp(key, "menu")) {
 					menu = !menu ?
 						item->menu : menu+1;
@@ -514,12 +548,9 @@ BOOL read_form(
 			else if (!strcmp(key, "ch_snap"))
 					sscanf(p, "%lg %lg", &item->ch_xsnap,
 							   &item->ch_ysnap);
-			else if (!strcmp(key, "ch_ncomp")) {
-					if ((item->ch_ncomp = atoi(p)))
-						item->ch_comp =
-							(CHART *)calloc(item->ch_ncomp,
-								sizeof(CHART));
-			}
+			else if (!strcmp(key, "ch_ncomp"))
+					item->ch_comp = zalloc(0, "form file",
+							      CHART, (item->ch_ncomp = atoi(p)));
 			else if (!strcmp(key, "chart"))
 					chart = !chart ?
 						item->ch_comp : chart+1;
@@ -544,12 +575,10 @@ BOOL read_form(
 					chart->value[key[7]-'0'].add = atof(p);
 			else if (chart && !strncmp(key, "_ch_expr", 8))
 					STORE(chart->value[key[8]-'0'].expr,p);
-#if 0
 			else
 				fprintf(stderr,
 					"%s: %s: ignored item keyword %s\n",
 							progname, path, key);
-#endif
 		}
 	}
 	fclose(fp);

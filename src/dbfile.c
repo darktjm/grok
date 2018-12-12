@@ -22,6 +22,9 @@
 #include "form.h"
 #include "proto.h"
 
+/* prior versions did not disallow these as the field delimiter
+ * but it's pretty clear they won't work.  ESC always escapes the
+ * next character as data, and R_SEP always delimits rows */
 #define R_SEP	'\n'			/* row (card) separator */
 #define ESC	'\\'			/* treat next char literally */
 
@@ -50,12 +53,12 @@ static void broken_pipe_handler(int sig)
  * Returns FALSE if the file could not be written.
  */
 
-static BOOL write_file (DBASE *, FORM *, int);
-static BOOL write_tfile(DBASE *, FORM *, int);
+static BOOL write_file (DBASE *, const FORM *, int);
+static BOOL write_tfile(const DBASE *, const FORM *, int);
 
 BOOL write_dbase(
 	DBASE			*dbase,		/* form and items to write */
-	FORM			*form,		/* contains column delimiter */
+	const FORM		*form,		/* contains column delimiter */
 	BOOL			force)		/* write even if not modified*/
 {
 	int			s;		/* section index */
@@ -77,19 +80,19 @@ BOOL write_dbase(
 
 static BOOL write_file(
 	DBASE			*dbase,		/* form and items to write */
-	FORM			*form,		/* contains column delimiter */
+	const FORM		*form,		/* contains column delimiter */
 	int			nsect)		/* section to write */
 {
 	SECTION			*sect;		/* section to write */
-	char			*path;		/* file to write list to */
+	const char		*path;		/* file to write list to */
 	FILE			*fp;		/* open file */
 	int			r, c;		/* row and column counters */
 	int			hicol;		/* # of columns of card -1 */
 	char			*value;		/* converted data to write */
 	char			buf[40];	/* for date/time conversion */
-	register ITEM		*item;		/* item describing value */
-	register int		i;		/* index of item */
-	register char		*p;		/* string copy pointer */
+	ITEM			*item;		/* item describing value */
+	int			i;		/* index of item */
+	char			*p;		/* string copy pointer */
 
 	sect = &dbase->sect[nsect];
 	path = sect->path ? sect->path : form->dbase;
@@ -100,11 +103,14 @@ static BOOL write_file(
 	}
 	path = resolve_tilde(path, "db");
 	if (form->proc) {
-		char cmd[1024];
+		char *cmd = alloc(mainwindow, "procedural command", char,
+				  strlen(path) + strlen(form->name) + 5);
+		if(!cmd)
+			return(FALSE);
 		sprintf(cmd, "%s -w %s", path, form->name);
 		if (!(fp = popen(cmd, "w"))) {
 			create_error_popup(mainwindow, errno,
-				"Failed to run shell script %s", cmd);
+				"Failed to run procedural command %s", cmd);
 			return(FALSE);
 		}
 	} else
@@ -197,17 +203,18 @@ static BOOL write_file(
 #define LCHUNK	4096		/* alloc this many new list ptrs */
 #define BCHUNK	1024		/* alloc this many new chars for item */
 
-static BOOL find_db_file     (DBASE *, FORM *, char *);
-static BOOL read_dir_or_file (DBASE *, FORM *, char *);
-static BOOL read_file	     (DBASE *, FORM *, char *, time_t);
-static BOOL read_tfile	     (DBASE *, FORM *, char *);
+static BOOL find_db_file     (DBASE *, const FORM *, const char *);
+static BOOL read_dir_or_file (DBASE *, const FORM *, const char *);
+static BOOL read_file	     (DBASE *, const FORM *, const char *, time_t);
+static BOOL read_tfile	     (DBASE *, const FORM *, const char *);
 
 BOOL read_dbase(
 	DBASE			*dbase,		/* form and items to write */
-	FORM			*form,		/* contains column delimiter */
-	char			*path)		/* file to read list from */
+	const FORM		*form,		/* contains column delimiter */
+	const char		*path)		/* file to read list from */
 {
-	char			pathbuf[1024];	/* file name with path */
+	static char		*pathbuf = 0;	/* file name with path */
+	static size_t		pathbuflen;
 	BOOL			ret;		/* return code, FALSE=error */
 
 	if (!path || !*path) {
@@ -221,10 +228,12 @@ BOOL read_dbase(
 #endif
 	ctimex_next = 0;
 	if (*path != '/' && *path != '~' && form->path) {
-		char *p;
-		strcpy(pathbuf, form->path);
-		if ((p = strrchr(pathbuf, '/'))) {
-			strcpy(p+1, path);
+		const char *p;
+		int plen = strlen(path);
+		if((p = strrchr(form->path, '/'))) {
+			grow(0, "db path", char, pathbuf, (int)(p - form->path) + plen + 2, &pathbuflen);
+			memcpy(pathbuf, form->path, p-form->path+1);
+			memcpy(pathbuf + (p-form->path)+1, path, plen + 1);
 			path = pathbuf;
 		}
 	}
@@ -248,12 +257,14 @@ BOOL read_dbase(
 
 static BOOL find_db_file(
 	DBASE			*dbase,		/* form and items to write */
-	FORM			*form,		/* contains column delimiter */
-	char			*path)		/* file to read list from */
+	const FORM		*form,		/* contains column delimiter */
+	const char		*path)		/* file to read list from */
 {
-	char			pathbuf[1024];	/* file name with path */
+	static char		*pathbuf = 0;	/* file name with path */
+	static size_t		pathbuflen;
 	int			nread = 0;	/* # of successful reads */
 
+	grow(0, "db path", char, pathbuf, strlen(path) + 4, &pathbuflen);
 	sprintf(pathbuf, "%s.db", path);
 	if (!access(pathbuf, F_OK))
 		nread += read_dir_or_file(dbase, form, pathbuf);
@@ -279,11 +290,12 @@ static int compare_name(
 
 static BOOL read_dir_or_file(
 	DBASE			*dbase,		/* form and items to write */
-	FORM			*form,		/* contains column delimiter */
-	char			*path)		/* file to read list from */
+	const FORM		*form,		/* contains column delimiter */
+	const char		*path)		/* file to read list from */
 {
 	char			*name[MAXSC];	/* directory listing */
-	char			pathbuf[1024];	/* file name with path */
+	static char		*pathbuf = 0;	/* file name with path */
+	static size_t		pathbuflen;
 	char			*ext;		/* ignore .ts timestamp files*/
 	struct stat		statbuf;	/* is path a directory? */
 	DIR			*dir;		/* open directory file */
@@ -306,8 +318,13 @@ static BOOL read_dir_or_file(
 	if (n)
 		qsort(name, n, sizeof(char *), compare_name);
 
+	int plen = strlen(path);
 	for (i=0; i < n; i++) {
-		sprintf(pathbuf, "%s/%s", path, name[i]);
+		int nlen = strlen(name[i]);
+		grow(0, "db path", char, pathbuf, plen + nlen + 2, &pathbuflen);
+		memcpy(pathbuf, path, plen);
+		pathbuf[plen] = '/';
+		memcpy(pathbuf + plen + 1, name[i], nlen + 1);
 		free(name[i]);
 		nfiles += read_dir_or_file(dbase, form, pathbuf);
 	}
@@ -322,8 +339,8 @@ static BOOL read_dir_or_file(
 
 static BOOL read_file(
 	DBASE			*dbase,		/* form and items to write */
-	FORM			*form,		/* contains column delimiter */
-	char			*path,		/* file to read list from */
+	const FORM		*form,		/* contains column delimiter */
+	const char		*path,		/* file to read list from */
 	time_t			mtime)		/* file modification time */
 {
 	SECTION			*sect;		/* new section */
@@ -331,8 +348,8 @@ static BOOL read_file(
 	int			nc = 0;		/* size of curr line */
 	int			col = 0;	/* current column being added*/
 	int			row = -1;	/* current row being added */
-	register char		*buf, *p;	/* buffer for one item */
-	register int		bindex = 0;	/* next free byte in buf */
+	char			*buf, *p;	/* buffer for one item */
+	int			bindex = 0;	/* next free byte in buf */
 	int			bsize;		/* size of buf in bytes */
 	unsigned char		c, c0;		/* next char from file */
 	BOOL			error;		/* in TRUE, abort */
@@ -342,11 +359,17 @@ static BOOL read_file(
 							/* step 1: open file */
 	signal(SIGPIPE, broken_pipe_handler);
 	if (form->proc) {
-		char cmd[1024];
 		path = resolve_tilde(path, "db");
-		sprintf(cmd, "%s -r %s", path, form->name);
-		if (!(fp = popen(cmd, "r")))
+		char *cmd = alloc(mainwindow, "procedural command", char,
+				  strlen(path) + strlen(form->name) + 5);
+		if(!cmd)
 			return(FALSE);
+		sprintf(cmd, "%s -r %s", path, form->name);
+		if (!(fp = popen(cmd, "r"))) {
+			create_error_popup(mainwindow, errno,
+				"Failed to read procedural database %s", path);
+			return(FALSE);
+		}
 	} else {
 		path = resolve_tilde(path, "db");
 		if (!(fp = fopen(path, "r")))
@@ -436,7 +459,7 @@ static BOOL read_file(
 		}
 	}
 								/* done. */
-	free(buf);
+	zfree(buf);
 	error |= form->proc ? !!pclose(fp) : !!fclose(fp);
 	sect->modified = FALSE;
 	sect->rdonly   =
@@ -460,27 +483,28 @@ static BOOL read_file(
  */
 
 static BOOL write_tfile(
-	DBASE			*dbase,		/* form and items to write */
-	FORM			*form,		/* contains column delimiter */
+	const DBASE		*dbase,		/* form and items to write */
+	const FORM		*form,		/* contains column delimiter */
 	int			nsect)		/* section to write */
 {
 	SECTION			*sect;		/* section to write */
-	char			*path;		/* file to write list to */
-	char			pathbuf[1024];	/* file name with path */
+	const char		*path;		/* file to write list to */
+	static char		*pathbuf = 0;	/* file name with path */
+	static size_t		pathlen;
 	FILE			*fp;		/* open file */
 	int			r;		/* row counter */
-	register char		*p;		/* string copy pointer */
+	const char		*p;		/* string copy pointer */
 
 	sect = &dbase->sect[nsect];
 	path = sect->path ? sect->path : form->dbase;
 	if (!path || !*path)
 		return(FALSE);
-	strncpy(pathbuf, resolve_tilde(path, 0), sizeof(pathbuf));
-	pathbuf[sizeof(pathbuf)-4] = 0;
-	path = pathbuf;
+	path = resolve_tilde(path, 0);
 	if (!(p = strrchr(path, '.')) || strcmp(p, ".db"))
 		p = path + strlen(path);
-	strcpy(p, ".ts");
+	grow(0, "db file name", char, pathbuf, (int)(p - path) + 4, &pathlen);
+	strcpy(pathbuf + (p - path), ".ts");
+	path = pathbuf;
 	if (!form->syncable) {
 		unlink(path);
 		return(TRUE);
@@ -508,10 +532,11 @@ static BOOL write_tfile(
 
 static BOOL read_tfile(
 	DBASE			*dbase,		/* form and items to write */
-	FORM			*form,		/* contains column delimiter */
-	char			*path)		/* file to read list from */
+	const FORM		*form,		/* contains column delimiter */
+	const char		*path)		/* file to read list from */
 {
-	char			pathbuf[1024];	/* file name with path */
+	static char		*pathbuf = 0;	/* file name with path */
+	size_t			pathbuflen;
 	SECTION			*sect;		/* new section */
 	FILE			*fp;		/* open file */
 	int			r = 0;		/* current row to change */
@@ -520,11 +545,12 @@ static BOOL read_tfile(
 
 	if (!form->syncable)
 		return(TRUE);
-	strncpy(pathbuf, resolve_tilde(path, 0), sizeof(pathbuf));
-	pathbuf[sizeof(pathbuf)-4] = 0;
+	path = resolve_tilde(path, 0);
+	grow(0, "db file name", char, pathbuf, strlen(path) + 4, &pathbuflen);
+	strcpy(pathbuf, path);
 	path = pathbuf;
-	if (!(p = strrchr(path, '.')) || strcmp(p, ".db"))
-		p = path + strlen(path);
+	if (!(p = strrchr(pathbuf, '.')) || strcmp(p, ".db"))
+		p = pathbuf + strlen(pathbuf);
 	strcpy(p, ".ts");
 	if (!(fp = fopen(path, "r")))
 		return(TRUE);

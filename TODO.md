@@ -73,11 +73,6 @@ Bugs
 
 - Note fields are currently not able to limit maximum length.
 
-- Actually fix some of those buffer overflow bugs, instead of just
-  cranking the buffer size.  Some of them already disappeared due to
-  the use of QString as the target for sprintf, but some still
-  remain.
-
 - The Canvas doesn't always highlight the widget loaded into the form
   editor window.  In particular, the first one and the one that gets
   selected after deleting a widget don't get highlighted.
@@ -91,13 +86,30 @@ Bugs
 Code Improvements
 -----------------
 
-- Die with message on all memory allocation failures.  I could add
-  checks after every new one I added, but instead, I'll make a wrapper
-  that does it for me.
+- Have form_clone() fail gracefully and free its results on failure,
+  aborting the form edit instead of killing grok.  In general,
+  failures during form editing should just kill the form editor.
+
+- constify *everything*
+
+- protect all file I/O with EAGAIN/EINTR loops
 
 - Since I'm using C++ anyway, convert BOOL, TRUE and FALSE to their
   C++ lower-case equivalents.  C supports them too, but with too many
   underscores.
+
+- Identify abortable processes and catch all C++ exceptions to abort
+  the process instead of the entire program.  In particular,
+  expression evaluation and template processing should abort rather than
+  kill grok.  Similarly, the new abort-on-alloc-failure code isn't
+  as forgiving as it should be.
+
+- On all file writes, fflush before fclose, and report on ferror().
+  Normally I'd stop writing as soon as an error occurs, but that's too
+  much trouble and probably not worth it.
+
+- check errors on all file reads, and report/abort if so.  I suppose
+  that delaying until just before fclose would be sufficient.
 
 - Consistently make blank strings NULL, and stop checking for blanks.
 
@@ -212,9 +224,6 @@ Important UI improvements
   relatively complete.  Running tidy on it causes more problems than
   it fixes.
 
-- Convert /usr in the man page, manual, and grok.hlp to $$PREFIX when
-  installing
-
 - Add list of field names to expression grammar help text, similar to
   fields text in query editor.  Or, just make that a separate
   universal popup.  Or, add it to Database Info.
@@ -322,12 +331,6 @@ Infrastructure Improvements
   button actions, and standalone expressions in templates.  It's a
   saftey feature, not a security feature.
 
-- Either disallow backslash as a field separator or allow separate
-  specification of the escape character, like I did for arrays.
-  Perhaps also support some of the other CSV conventions, like
-  optional quotes around values and an optional header line.  Then
-  again, maybe that sort of thing belongs in an "import" feature.
-
 - Make Print widget's name refer to the label text, rather than a
   database column.  Support Print widgets in listing, expressions,
   and anywhere else a column is usually required.
@@ -411,6 +414,9 @@ Infrastructure Improvements
   have to figure out what exactly tidy wants anchors to look like,
   since it barfs on grok's HTML documentation's anchors.
 
+- Make text/facnytext templates take a "w" flag to enable wrapping
+  instead of clipping at max line length.
+
 - Make a generic RST exporter, and support that for printing.  Maybe
   also md/discount, but I have come to hate md.  Supporting RST for
   printing probably means some sort of configuration to set the
@@ -467,7 +473,8 @@ Infrastructure Improvements
   Summary functions could be provided as a library to compensate for
   the lack of them (including "group by", which returns a table
   indexed by the grouping columns).  This does not mean that I will
-  reconsider IUP for the GUI toolkit.
+  reconsider IUP for the GUI toolkit.  It does, however, mean that I
+  will re-evaluate the dbus idea, since lua can just do that for me.
 
 - Support freedesktop.org standard paths by default, at least as part
   of the search paths.  This may need to come from QStandardPaths or
@@ -548,7 +555,7 @@ Card Improvements
   main widget into a textual representation of selected items (either
   formula or automatic comma-separated).
 
-- On "Done", clear all invisible fields to their default value.
+- On "Done", clear all invisible field options to their default value.
   Currently, I only do that for chart options and, to a lesser extent,
   menus.
 

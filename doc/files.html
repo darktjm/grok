@@ -8,13 +8,13 @@
 
 <TABLE CELLPADDING=4 BORDER=0 CELLSPACING=4>
 <TR BGCOLOR=#a0a0e0><TH>file<TH>location<TH>contents
-<TR> <TD><TT>grok</TT>      <TD> /usr/bin          <TD> main executable
-<TR> <TD><TT>grok.hlp</TT>  <TD> /usr/share/grok   <TD> ascii help texts
-<TR> <TD><TT>index.html</TT><TD> /usr/share/doc/grok<TD> this HTML manual
-<TR> <TD><TT>grokdir</TT>   <TD> /usr/share/grok   <TD> demo application directory
+<TR> <TD><TT>grok</TT>      <TD> ${GROK_BIN}   <TD> main executable
+<TR> <TD><TT>grok.hlp</TT>  <TD> ${GROK_LIB}   <TD> ascii help texts
+<TR> <TD><TT>index.html</TT><TD> ${GROK_DOC}/html   <TD> this HTML manual
+<TR> <TD><TT>grokdir</TT>   <TD> ${GROK_LIB}   <TD> demo application directory
 <TR> <TD><TT>.grok</TT>     <TD> <TT>~</TT>        <TD> default form and database directory
 <TR> <TD><TT>.grokrc</TT>   <TD> <TT>~/.grok</TT>  <TD> configuration data for grok
-<TR> <TD><TT>Grok.xpm</TT>  <TD> /usr/share/icons  <TD> full-color icon
+<TR> <TD><TT>Grok.xpm</TT>  <TD> ${GROK_ICON}  <TD> full-color icon
 </TABLE>
 
 <P>Every grok application consists of one ``form'' file and one or more
@@ -38,7 +38,7 @@ subdirectories, they are searched for more <TT>.db</TT> files recursively.
 <LI> $GROK_FORM, if defined; otherwise the current directory
 <LI> ./grokdir,
 <LI> ~/.grok,
-<LI> /usr/share/grok/grokdir
+<LI> ${GROK_LIB}/grokdir
 </OL>
 
 <P>All the form files ending with <TT>.gf</TT> found in these directories

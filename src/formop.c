@@ -50,10 +50,8 @@ FORM *form_create(void)
 {
 	FORM		*form;		/* new form */
 
-	if (!(form = (FORM *)malloc(sizeof(FORM)))) {
-		create_error_popup(mainwindow, errno, "Can't create form");
-		return(0);
-	}
+	/* both users assume success, so this should be fatal */
+	form = alloc(0, "create form", FORM, 1);
 	set_form_defaults(form);
 	return(form);
 }
@@ -62,7 +60,7 @@ FORM *form_create(void)
 static void set_form_defaults(
 	FORM		*form)		/* for to initialize */
 {
-	memset((void *)form, 0, sizeof(FORM));
+	memset(form, 0, sizeof(FORM));
 	form->cdelim	 = ':';
 	form->xg	 = 4;
 	form->yg	 = 4;
@@ -86,10 +84,8 @@ FORM *form_clone(
 	FORM		*form;		/* new form */
 	int		i;
 
-	if (!(form = (FORM *)malloc(sizeof(FORM)))) {
-		create_error_popup(mainwindow, errno, "Can't clone form");
-		return(0);
-	}
+	/* user assumes success, so this should be fatal */
+	form = alloc(0, "clone form", FORM, 1);
 	*form = *parent;
 	form->path    = mystrdup(parent->path);
 	form->name    = mystrdup(parent->name);
@@ -97,19 +93,19 @@ FORM *form_clone(
 	form->comment = mystrdup(parent->comment);
 	form->help    = mystrdup(parent->help);
 
+	/* I guess allowing failure on either of these two is OK */
 	if (form->nitems &&
-	    !(form->items = (ITEM **)malloc(form->size * sizeof(ITEM *)))) {
-		create_error_popup(mainwindow, errno, "Can't clone field list");
+	    !(form->items = alloc(mainwindow, "clone form fields", ITEM *, form->size)))
 		form->nitems = 0;
-	}
+	/* But of course this will fail fatally */
 	for (i=0; i < form->nitems; i++)
 		form->items[i] = item_clone(parent->items[i]);
 
-	if (form->query) {
-		if (!(form->query = (DQUERY *)malloc(form->nqueries * sizeof(DQUERY)))) {
-			create_error_popup(mainwindow, errno, "Queries lost");
+	if (form->nqueries) {
+		/* Again, probably OK if it fails */
+		if (!(form->query = alloc(mainwindow, "clone queries", DQUERY, form->nqueries)))
 			form->nqueries = 0;
-		}
+		/* but this loop will fail fatally */
 		for (i=0; i < form->nqueries; i++) {
 			form->query[i].suspended = parent->query[i].suspended;
 			form->query[i].name = mystrdup(parent->query[i].name);
@@ -139,20 +135,20 @@ void form_delete(
 	for (i=form->nitems - 1; i >= 0; --i)
 		item_delete(form, i);
 
-	if (form->items)	free((void *)form->items);
-	if (form->path)		free((void *)form->path);
-	if (form->name)		free((void *)form->name);
-	if (form->dbase)	free((void *)form->dbase);
-	if (form->comment)	free((void *)form->comment);
-	if (form->help)		free((void *)form->help);
-	if (form->planquery)	free((void *)form->planquery);
+	if (form->items)	free(form->items);
+	if (form->path)		free(form->path);
+	if (form->name)		free(form->name);
+	if (form->dbase)	free(form->dbase);
+	if (form->comment)	free(form->comment);
+	if (form->help)		free(form->help);
+	if (form->planquery)	free(form->planquery);
 	if (form->query) {
 		for (i=0; i < form->nqueries; i++) {
 			dq = &form->query[i];
-			if (dq->name)	free((void *)dq->name);
-			if (dq->query)	free((void *)dq->query);
+			if (dq->name)	free(dq->name);
+			if (dq->query)	free(dq->query);
 		}
-		free((void *)form->query);
+		free(form->query);
 	}
 	if (form->fields)
 		delete form->fields;
@@ -171,69 +167,57 @@ void form_delete(
 		    i->type == IT_FLAGS || i->type == IT_MULTI)
 #define ISFLAG(i) (i->type == IT_FLAG  || i->type == IT_CHOICE)
 
-#define add_msg_const(m, i, s) do { \
-	memcpy(m + i, s, sizeof(s) - 1); \
-	i += sizeof(s) - 1; \
-} while(0)
-
-static int add_field_name(char *msg, const FORM *form, int id)
+static void add_field_name(QString &msg, const FORM *form, int id)
 {
 	const ITEM *item = form->items[id % form->nitems];
 	if(!IN_DBASE(item->type))
-		return sprintf(msg, "\"%s\" (#%d)", STR(item->label), id);
+		msg += qsprintf("\"%s\" (#%d)", STR(item->label), id);
 	else if(!item->multicol)
-		return sprintf(msg, "\"%s\" (#%d)",
-			       !BLANK(item->label) ? item->label : STR(item->name),
-			       id);
+		msg += qsprintf("\"%s\" (#%d)",
+			!BLANK(item->label) ? item->label : STR(item->name), id);
 	else
-		return sprintf(msg, "\"%s\" (#%d)-\"%s\" (#%d)",
-			       STR(item->label), id % form->nitems,
-			       STR(item->menu[id / form->nitems].label),
-			       id / form->nitems);
+		msg += qsprintf("\"%s\" (#%d)-\"%s\" (#%d)",
+				STR(item->label), id % form->nitems,
+				STR(item->menu[id / form->nitems].label),
+				id / form->nitems);
 }
 
-static int verify_col(const FORM *form, const char *type, int **acol,
-		      int *nacol, char *msg, int col, int id)
+static void verify_col(const FORM *form, const char *type, int **acol,
+		       size_t *nacol, QString &msg, int col, int id)
 {
-	int i = 0;
 	// GUI doesn't allow >999 anyway (but that was a guess as well)
 	// and it's "personal" databases, so how could there be so many?
 	if(col > 9999) {
-		add_msg_const(msg, i, "Field ");
-		i += add_field_name(msg+i, form, id);
-		return i + sprintf(msg+i, " uses a very large %s column (%d)\n",
-				   type, col);
+		msg += "Field ";
+		add_field_name(msg, form, id);
+		msg += qsprintf(" uses a very large %s column (%d)\n",
+				type, col);
+		return;
 	}
-	if(col >= *nacol) {
-		int oacol = *nacol;
-		while((*nacol *= 2) < col);
-		*acol = (int *)realloc(*acol, *nacol * sizeof(*acol));
-		memset(*acol + oacol, 0, (*nacol - oacol) * sizeof(**acol));
-	}
+	*acol = talloc(0, "column verify", int, *acol, col + 1, nacol, AM_ZERO|AM_REALLOC);
 	if((*acol)[col]) {
 		int oid = (*acol)[col] - 1;
 		const ITEM *it = form->items[id % form->nitems];
 		const ITEM *oit = form->items[oid % form->nitems];
 		if(it->type == IT_CHOICE && oit->type == IT_CHOICE &&
 		   strcmp(it->name, oit->name)) {
-			add_msg_const(msg, i, "Field ");
-			i += add_field_name(msg+i, form, id);
-			add_msg_const(msg, i, " (choice) has different internal name as ");
-			i += add_field_name(msg+i, form, oid);
-			return i+sprintf(msg+i, ", but has same %s column\n",
-					 type);
+			msg += "Field ";
+			add_field_name(msg, form, id);
+			msg += " (choice) has different internal name as ";
+			add_field_name(msg, form, oid);
+			msg += qsprintf(", but has same %s column\n", type);
+			return;
 		} else if(it->type != IT_CHOICE || oit->type != IT_CHOICE) {
-			add_msg_const(msg, i, "Field ");
-			i += add_field_name(msg+i, form, id);
-			i += sprintf(msg+i, " uses same %s column as field ",
-				     type);
-			i += add_field_name(msg+i, form, oid);
-			msg[i++] = '\n';
-			return i;
+			msg += "Field ";
+			add_field_name(msg, form, id);
+			msg += qsprintf(" uses same %s column as field ", type);
+			add_field_name(msg, form, oid);
+			msg += '\n';
+			return;
 		}
 	} else
 		(*acol)[col] = id + 1;
-	return 0;
+	return;
 }
 
 BOOL verify_form(
@@ -245,31 +229,36 @@ BOOL verify_form(
 	ITEM		*item, *it;	/* item pointer */
 	int		nq;		/* query pointer */
 	DQUERY		*dq;		/* query pointer */
-	char		msg[16384];	/* error messages */
-	int		i0, i = 0;	/* next free byte in msg[] */
+	QString		msg;		/* error messages */
+	int		i0;		/* next free char in msg */
 	int		sumwidth = 0;	/* total length of summary */
 
 	if (bug)
 		*bug = form->nitems;
 	if (!form->name || !*form->name)
-		i += sprintf(msg+i, "Form has no name\n");
+		msg += "Form has no name\n";
 	if (!form->dbase || !*form->dbase) {
-		i += sprintf(msg+i, "Form has no database%s\n",
-					form->name ? "using form name" : "");
+		msg += "Form has no database";
+		if(form->name)
+			msg += "; using form name";
+		msg += '\n';
 		form->dbase = mystrdup(form->name);
 	}
-	if (form->cdelim < 1) {
-		i += sprintf(msg+i, "Illegal field delimiter, using TAB\n");
+	/* FIXME: disallow these in GUI as well */
+	if (form->cdelim < 1 || form->cdelim == '\\' || form->cdelim == '\n') {
+		msg += "Illegal field delimiter, using TAB\n";
 		form->cdelim = '\t';
 	}
 	if ((form->asep == form->aesc && form->asep) ||
 	    (!form->asep && form->aesc == '|') ||
 	    (!form->aesc && form->asep == '\\')) {
 		if (form->asep == '\\') {
-			i += sprintf(msg+i, "Array delimiter same as array escape; using vertical bar\n");
+			msg += "Array delimiter same as array escape;"
+				   " using vertical bar\n";
 			form->asep = '|';
 		} else {
-			i += sprintf(msg+i, "Array escape same as array delimiter; using backslash\n");
+			msg += "Array escape same as array delimiter; "
+				   "using backslash\n";
 			form->aesc = '\\';
 		}
 	}
@@ -277,9 +266,9 @@ BOOL verify_form(
 	    dq = &form->query[nq];
 	    if (!dq->suspended) {
 		if (!dq->name)
-			i += sprintf(msg+i, "Query %d has no name\n", nq+1);
+			msg += qsprintf("Query %d has no name\n", nq+1);
 		if (!dq->query)
-			i += sprintf(msg+i, "Query %d has no query\n",nq+1);
+			msg += qsprintf("Query %d has no query\n", nq+1);
 	    }
 	}
 	if(form->fields)
@@ -287,11 +276,10 @@ BOOL verify_form(
 	/* Rather than looping through items to find dups */
 	/* fields go into symtab, and dcol/scol stores location of cols/scols */
 	FIELDS *sym = form->fields = new FIELDS;
-	int *dcol, ndcol = 10, *scol, nscol = 10;
-	dcol = (int *)calloc(ndcol, sizeof(*dcol));
-	scol = (int *)calloc(nscol, sizeof(*scol));
+	int *dcol = 0, *scol = 0;
+	size_t ndcol, nscol;
 	for (nitem=0; nitem < form->nitems; nitem++) {
-		i0 = i;
+		i0 = msg.size();
 		item = form->items[nitem];
 		if (!IS_MULTI(item->type))
 			item->multicol = false; // silent fix
@@ -299,7 +287,7 @@ BOOL verify_form(
 			sumwidth += item->sumwidth;
 		if (IN_DBASE(item->type) && !item->multicol && BLANK(item->name)) {
 			if(!BLANK(item->label)) {
-				item->name = strdup(item->label);
+				item->name = mystrdup(item->label);
 				for(char *s = item->name; *s; s++) {
 					if(isupper(*s))
 						*s = tolower(*s);
@@ -313,58 +301,60 @@ BOOL verify_form(
 				sprintf(newname, "item%d", nitem);
 				item->name = mystrdup(newname);
 			}
-			add_msg_const(msg, i, "Field ");
-			i += add_field_name(msg+i, form, nitem);
-			i += sprintf(msg+i, " has no internal name, using %s\n",
+			msg += "Field ";
+			add_field_name(msg, form, nitem);
+			msg += qsprintf(" has no internal name; using %s\n",
 								item->name);
 		}
 		// FIXME: also check for other invalid characters
 		if (IN_DBASE(item->type) && !item->multicol &&
 		    isdigit(*item->name)) {
 			*item->name += 'A' - '0';
-			add_msg_const(msg, i, "Field ");
-			i += add_field_name(msg+i, form, nitem);
-			i += sprintf(msg+i, " has a leading digit on its internal name, using %s\n",
+			msg += "Field ";
+			add_field_name(msg, form, nitem);
+			msg += qsprintf(" has a leading digit on its internal name; using %s\n",
 				     				item->name);
 		}
 		if (item->xs <= 0 || item->ys <= 0) {
 			if (!item->xs) item->xs = 10;
 			if (!item->ys) item->ys = 10;
-			add_msg_const(msg, i, "Field ");
-			i += add_field_name(msg+i, form, nitem);
-			i += sprintf(msg+i, " has zero size, setting to %d %d\n",
+			msg += "Field ";
+			add_field_name(msg, form, nitem);
+			msg += qsprintf(" has zero size; setting to %d %d\n",
 						item->xs, item->ys);
 		}
 		if (!item->label && (item->type == IT_BUTTON ||
 				     item->type == IT_LABEL)) {
-			add_msg_const(msg, i, "Field ");
-			char *name = msg+i;
-			i += add_field_name(msg+i, form, nitem);
-			item->label = mystrdup(name);
-			i += sprintf(msg+i, " has no label, using \"%s\"\n",
+			msg += "Field ";
+			add_field_name(msg, form, nitem);
+			QString name;
+			add_field_name(name, form, nitem);
+			item->label = qstrdup(name);
+			msg += qsprintf(" has no label; using \"%s\"\n",
 								item->label);
 		}
 		if (!item->flagcode && ISFLAG(item)) {
 			item->flagcode = mystrdup(item->type == IT_CHOICE ? item->name : "1");
-			add_msg_const(msg, i, "Field ");
-			i += add_field_name(msg+i, form, nitem);
-			i += sprintf(msg+i, " has no flag code, setting to %s\n", STR(item->flagcode));
+			msg += "Field ";
+			add_field_name(msg, form, nitem);
+			msg += qsprintf(" has no flag code; setting to %s\n",
+					STR(item->flagcode));
 		}
 		if (!item->pressed && item->type == IT_BUTTON) {
-			add_msg_const(msg, i, "Field ");
-			i += add_field_name(msg+i, form, nitem);
-			add_msg_const(msg, i, " has no button action\n");
+			msg += "Field ";
+			add_field_name(msg, form, nitem);
+			msg += " has no button action\n";
 		}
 		if (item->multicol) {
 			// FIXME: enforce this in GUI as well
 			//  that way this will never be an error
 			//  either that, or add these flags to the table (ugh)
 			if(!item->nosort || item->defsort) {
-				add_msg_const(msg, i, "Field ");
+				msg += "Field ";
 				item->multicol = FALSE; // don't give menu item name
-				i += add_field_name(msg+i, form, nitem);
+				add_field_name(msg, form, nitem);
 				item->multicol = TRUE;
-				add_msg_const(msg, i, " does not support sorting; disabled\n");
+				msg += " does not support sorting; disabled\n";
 			}
 			item->nosort = TRUE;
 			item->defsort = FALSE;
@@ -375,9 +365,9 @@ BOOL verify_form(
 				if(item->multicol)
 					sumwidth += menu->sumwidth;
 				if(!menu->label) {
-					add_msg_const(msg, i, "Field ");
-					i += add_field_name(msg+i, form, nitem + m * form->nitems);
-					add_msg_const(msg, i, " has a blank label");
+					msg += "Field ";
+					add_field_name(msg, form, nitem + m * form->nitems);
+					msg += " has a blank label";
 					if(item->type == IT_INPUT ||
 					   (!menu->flagcode && !menu->flagtext &&
 					    (!item->multicol ||
@@ -385,21 +375,22 @@ BOOL verify_form(
 						memmove(item->menu + m,
 							item->menu + m + 1,
 							(item->nmenu - m - 1) * sizeof(MENU));
-						add_msg_const(msg, i, ", deleting\n");
+						msg += "; deleting\n";
 						item->nmenu--;
 						--m;
 						continue;
 					} else if(item->multicol) {
 						if(menu->name)
-							menu->label = strdup(menu->name);
+							menu->label = mystrdup(menu->name);
 						else {
 							char newname[40];
 							sprintf(newname, "item%d.%d", nitem, m);
-							menu->label = strdup(newname);
+							menu->label = mystrdup(newname);
 						}
-						i += sprintf(msg+i, ", labeling it %s\n", menu->label);
+						msg += qsprintf("; labeling it %s\n",
+								menu->label);
 					} else
-						msg[i++] = '\n';
+						msg += '\n';
 				}
 				if(item->multicol && !menu->name) {
 					char newname[40], *pref = item->label;
@@ -407,7 +398,8 @@ BOOL verify_form(
 						sprintf(newname, "item%d", nitem);
 						pref = newname;
 					}
-					menu->name = (char *)malloc(strlen(pref) + 1 + strlen(menu->label) + 1);
+					menu->name = alloc(0, "menu name", char,
+							   strlen(pref) + 1 + strlen(menu->label) + 1);
 					sprintf(menu->name, "%s_%s", pref, menu->label);
 					for(pref = menu->name; *pref; pref++) {
 						if(isupper(*pref))
@@ -417,15 +409,19 @@ BOOL verify_form(
 					}
 					if(isdigit(*menu->name))
 						*menu->name += 'A' - '0';
-					add_msg_const(msg, i, "Field ");
-					i += add_field_name(msg+i, form, nitem + m * form->nitems);
-					i += sprintf(msg+i, " has no internal name, setting to %s\n", menu->name);
+					msg += "Field ";
+					add_field_name(msg, form, nitem + m * form->nitems);
+					msg += qsprintf(" has no internal name;"
+							" setting to %s\n",
+							menu->name);
 				}
 				if(item->type != IT_INPUT && BLANK(menu->flagcode)) {
-					menu->flagcode = strdup(item->multicol ? "1" : menu->label);
-					add_msg_const(msg, i, "Field ");
-					i += add_field_name(msg+i, form, nitem + m * form->nitems);
-					i += sprintf(msg+i, " has blank code; setting to %s\n", menu->flagcode);
+					menu->flagcode = mystrdup(item->multicol ? "1" : menu->label);
+					msg += "Field ";
+					add_field_name(msg, form, nitem + m * form->nitems);
+					msg += qsprintf(" has blank code;"
+							" setting to %s\n",
+							menu->flagcode);
 				}
 			}
 			// second loop for menu items now that label/code fixed
@@ -435,28 +431,30 @@ BOOL verify_form(
 					MENU *omenu = &item->menu[n];
 					if(!strcmp(STR(menu->label),
 						   STR(omenu->label))) {
-					    add_msg_const(msg, i, "Field ");
-					    i += add_field_name(msg+i, form, nitem + n * form->nitems);
-					    i += sprintf(msg+i, " has duplicate label %s", STR(menu->label));
+					    msg += "Field ";
+					    add_field_name(msg, form, nitem + n * form->nitems);
+					    msg += qsprintf(" has duplicate label %s",
+							    STR(menu->label));
 					    if(item->type == IT_INPUT) {
 						memmove(item->menu + n,
 							item->menu + n + 1,
 							(item->nmenu - n - 1) * sizeof(MENU));
-						add_msg_const(msg, i, ", deleting\n");
+						msg += "; deleting\n";
 						item->nmenu--;
 						--n;
 						continue;
 					    } else
-						msg[i++] = '\n';
+						msg += '\n';
 					}
 					// multicol name/col dups are found below
 					if(item->type != IT_INPUT && 
 					   !item->multicol &&
 					   !strcmp(STR(menu->flagcode),
 						   STR(omenu->flagcode))) {
-					    add_msg_const(msg, i, "Field ");
-					    i += add_field_name(msg+i, form, nitem + n * form->nitems);
-					    i += sprintf(msg+i, " has duplicate code %s\n", STR(menu->flagcode));
+					    msg += "Field ";
+					    add_field_name(msg, form, nitem + n * form->nitems);
+					    msg += qsprintf(" has duplicate code %s\n",
+							    STR(menu->flagcode));
 					}
 				}
 			}
@@ -469,11 +467,11 @@ BOOL verify_form(
 					oitem = form->items[it->second % form->nitems];
 				if(oitem && (item->type != IT_CHOICE ||
 					     oitem->type != IT_CHOICE)) {
-					add_msg_const(msg, i, "Field ");
-					i += add_field_name(msg+i, form, nitem);
-					add_msg_const(msg, i, " has the same name as ");
-					i += add_field_name(msg+i, form, it->second);
-					msg[i++] = '\n';
+					msg += "Field ";
+					add_field_name(msg, form, nitem);
+					msg += " has the same name as ";
+					add_field_name(msg, form, it->second);
+					msg += '\n';
 				} else if (oitem) {
 					// both are IT_CHOICE w/ same name
 					const char *m  = 0;
@@ -485,39 +483,42 @@ BOOL verify_form(
 						m = "summary width";
 					// flag code dups checked below
 					if (m) {
-						add_msg_const(msg, i, "Field ");
-						i += add_field_name(msg+i, form, nitem);
-						i += sprintf(msg+i,
+						msg += "Field ";
+						add_field_name(msg, form, nitem);
+						msg += qsprintf(
 							" (choice) has same internal name as #%d, but has different %s\n",
 							     it->second % form->nitems,
 							     m);
 					}
 				} else
 					(*sym)[item->name] = nitem;
-				i += verify_col(form, "dbase", &dcol, &ndcol, msg+i, item->column, nitem);
+				verify_col(form, "dbase", &dcol, &ndcol, msg,
+					   item->column, nitem);
 				if(item->sumwidth)
-					i += verify_col(form, "summary", &scol, &nscol, msg+i, item->sumcol, nitem);
+					verify_col(form, "summary", &scol, &nscol,
+						   msg, item->sumcol, nitem);
 			} else
 				for(int m = 0; m < item->nmenu; m++) {
 					auto it = sym->find(item->menu[m].name);
 					if(it != sym->end()) {
-						add_msg_const(msg, i, "Field ");
-						i += add_field_name(msg+i, form, nitem + m * form->nitems);
-						i += sprintf(msg+i, " has the same internal name (%s) as ",
-							     item->menu[m].name);
-						i += add_field_name(msg+i, form, it->second);
+						msg += "Field ";
+						add_field_name(msg, form, nitem + m * form->nitems);
+						msg += qsprintf(" has the same internal name (%s) as ",
+								item->menu[m].name);
+						add_field_name(msg, form, it->second);
 					} else
 						(*sym)[item->menu[m].name] = nitem + form->nitems * m;
-					i += verify_col(form, "dbase", &dcol, &ndcol, msg+i, item->menu[m].column, nitem + m * form->nitems);
+					verify_col(form, "dbase", &dcol, &ndcol,
+						   msg, item->menu[m].column,
+						   nitem + m * form->nitems);
 					if(item->menu[m].sumwidth)
-						i += verify_col(form, "summary", &scol, &nscol, msg+i, item->menu[m].sumcol, nitem + m * form->nitems);
+						verify_col(form, "summary", &scol,
+							   &nscol, msg,
+							   item->menu[m].sumcol,
+							   nitem + m * form->nitems);
 				}
 		}
-		if (i > (int)sizeof(msg)-1024) {
-			sprintf(msg+i, "Too many errors, aborted.");
-			break;
-		}
-		if (i > i0 && bug && *bug == form->nitems)
+		if (msg.size() > i0 && bug && *bug == form->nitems)
 			*bug = nitem;
 	}
 	// uniqueness of choice codes needs to be checked in subloop still
@@ -530,40 +531,40 @@ BOOL verify_form(
 				if (it->type == IT_CHOICE &&
 				    !strcmp(item->name, it->name) &&
 				    !strcmp(item->flagcode, it->flagcode)) {
-					add_msg_const(msg, i, "Field ");
-					i += add_field_name(msg+i, form, ni);
-					i += sprintf(msg+i,
+					msg += "Field ";
+					add_field_name(msg, form, ni);
+					msg += qsprintf(
 		       " has same internal name as #%d, but has same flag code\n",
 							ni);
 				}
 			}
-			if (i > (int)sizeof(msg)-1024) {
-				i += sprintf(msg+i, "Too many errors, aborted.");
-				break;
-			}
 		}
 	}
-	free(dcol);
-	free(scol);
+	zfree(dcol);
+	zfree(scol);
 	if (form->nitems && sumwidth == 0)
-		i += sprintf(msg+i, "Summary is empty, all summary widths are 0\n");
-	if (i) {
-		msg[i] = 0;
-		create_error_popup(shell, 0, msg);
+		msg += "Summary is empty:  all summary widths are 0\n";
+	if (msg.size()) {
+		char *s = qstrdup(msg);
+		create_error_popup(shell, 0, s);
+		free(s);
+		return FALSE;
 	} else {
-		for (i=nitem=0; nitem < form->nitems; nitem++) {
+		for (nitem=0; nitem < form->nitems; nitem++) {
 			item = form->items[nitem];
 			if (item->type == IT_NOTE && item->maxlen <= 100)
-				i += sprintf(msg+i,
+				msg += qsprintf(
 		"Warning: note field \"%s\" (#%d) has short max length %d",
 					STR(item->name), nitem,
 					item->maxlen);
 		}
-		if (i)
-			create_error_popup(shell, 0, msg);
-		i = 0;
+		if (msg.size()) {
+			char *s = qstrdup(msg);
+			create_error_popup(shell, 0, s);
+			free(s);
+		}
+		return TRUE;
 	}
-	return(!i);
 }
 
 
@@ -576,9 +577,9 @@ BOOL verify_form(
 void form_edit_script(
 	FORM		*form,		/* form to edit */
 	QWidget		*shell,		/* error popup parent */
-	char		*fname)		/* file name of script (dbase name) */
+	const char	*fname)		/* file name of script (dbase name) */
 {
-	char		path[1024], *p, *q;
+	char		*path = zstrdup(fname), *q;
 
 	if (!fname || !*fname) {
 		create_error_popup(shell, 0,
@@ -589,11 +590,11 @@ void form_edit_script(
 	form->proc = TRUE;
 	fillout_formedit_widget_by_code(0x105);
 
-	for (p=fname, q=path; *p && *p != ' ' && *p != '\t'; p++, q++)
-		*q = *p;
+	for (q=path; *q && *q != ' ' && *q != '\t'; q++);
 	*q = 0;
 	fname = resolve_tilde(path, "db");
 	edit_file(fname, FALSE, TRUE, "Procedural Database", "procdbedit");
+	free(path);
 }
 
 
@@ -606,8 +607,8 @@ static int icompare(
 	const void	*u,
 	const void	*v)
 {
-	register ITEM	*iu = *(ITEM **)u;
-	register ITEM	*iv = *(ITEM **)v;
+	ITEM		*iu = *(ITEM **)u;
+	ITEM		*iv = *(ITEM **)v;
 
 	return(iu->y+iu->ys == iv->y+iv->ys ? iu->x+iu->xs - iv->x-iv->xs
 					    : iu->y+iu->ys - iv->y-iv->ys);
@@ -615,11 +616,11 @@ static int icompare(
 
 
 void form_sort(
-	register FORM	*form)		/* form to sort */
+	FORM		*form)		/* form to sort */
 {
 	if (!form || !form->items || !form->nitems)
 		return;
-	qsort((void *)form->items, form->nitems, sizeof(ITEM *), icompare);
+	qsort(form->items, form->nitems, sizeof(ITEM *), icompare);
 }
 #endif /* GROK */
 
@@ -634,9 +635,9 @@ void form_sort(
 
 #ifdef GROK
 void item_deselect(
-	register FORM	*form)		/* describes form and all items in it*/
+	FORM		*form)		/* describes form and all items in it*/
 {
-	register ITEM	*item;		/* new item struct */
+	ITEM		*item;		/* new item struct */
 	int		i;		/* index of item */
 
 	for (i=0; i < form->nitems; i++) {
@@ -660,31 +661,23 @@ void item_deselect(
  */
 
 BOOL item_create(
-	register FORM	*form,		/* describes form and all items in it*/
+	FORM		*form,		/* describes form and all items in it*/
 	int		nitem)		/* the current item, insert point */
 {
-	register ITEM	*item;		/* new item struct */
-	register ITEM	*prev;		/* prev item, plundered for defaults */
-	register int	i, j, n, t;	/* various counters */
-	char		buf[80];	/* temp for default strings */
+	ITEM		*item;		/* new item struct */
+	ITEM		*prev;		/* prev item, plundered for defaults */
+	int		i, j, n, t;	/* various counters */
+	char		buf[40];	/* temp for default strings */
 
 							/* allocate array */
-	if (!form->items || form->nitems >= form->size) {
-		i = (form->size + CHUNK) * sizeof(ITEM *);
-		if (!(form->items = (ITEM **)(form->items
-					? realloc((void *)form->items, i)
-					: malloc(i)))) {
-			create_error_popup(mainwindow, errno,
-					"Can't create field");
-			return(FALSE);
-		}
-		form->size += CHUNK;
-	}
+	/* at least one user assumes success, so just use grow()/fatal */
+	/* besides, old code leaked items on failed realloc */
+	/* this also uses the 32/double method rather than CHUNK */
+	grow(0, "form field", ITEM *, form->items, form->nitems + 1, &form->size);
+
 							/* allocate item */
-	if (!(item = (ITEM *)malloc(sizeof(ITEM)))) {
-		create_error_popup(mainwindow, errno, "Can't create field");
-		return(FALSE);
-	}
+	/* again, recovery is pointless */
+	item = alloc(0, "form field", ITEM, 1);
 	for (i=form->nitems-1; i >= nitem; i--)
 		form->items[i+1] = form->items[i];
 	form->items[nitem] = item;
@@ -703,7 +696,7 @@ BOOL item_create(
 		item->idefault	   = mystrdup(item->idefault);
 		item->pressed	   = mystrdup(item->pressed);
 	} else {
-		memset((void *)item, 0, sizeof(ITEM));
+		memset(item, 0, sizeof(ITEM));
 		item->type	   = IT_INPUT;
 		item->selected	   = TRUE;
 		item->labeljust	   = J_LEFT;
@@ -779,33 +772,33 @@ void item_delete(
 	FORM		*form,		/* describes form and all items in it*/
 	int		nitem)		/* the current item, insert point */
 {
-	register ITEM	*item = form->items[nitem];
+	ITEM		*item = form->items[nitem];
 	int		i;
 
-	if (item->name)		free((void *)item->name);
-	if (item->label)	free((void *)item->label);
-	if (item->sumprint)	free((void *)item->sumprint);
-	if (item->flagcode)	free((void *)item->flagcode);
-	if (item->flagtext)	free((void *)item->flagtext);
-	if (item->gray_if)	free((void *)item->gray_if);
-	if (item->freeze_if)	free((void *)item->freeze_if);
-	if (item->invisible_if)	free((void *)item->invisible_if);
-	if (item->skip_if)	free((void *)item->skip_if);
-	if (item->idefault)	free((void *)item->idefault);
-	if (item->pressed)	free((void *)item->pressed);
-	if (item->ch_bar)	free((void *)item->ch_bar);
+	if (item->name)		free(item->name);
+	if (item->label)	free(item->label);
+	if (item->sumprint)	free(item->sumprint);
+	if (item->flagcode)	free(item->flagcode);
+	if (item->flagtext)	free(item->flagtext);
+	if (item->gray_if)	free(item->gray_if);
+	if (item->freeze_if)	free(item->freeze_if);
+	if (item->invisible_if)	free(item->invisible_if);
+	if (item->skip_if)	free(item->skip_if);
+	if (item->idefault)	free(item->idefault);
+	if (item->pressed)	free(item->pressed);
+	if (item->ch_bar)	free(item->ch_bar);
 
 	for (i=0; i < item->nmenu; i++)
 		menu_delete(&item->menu[i]);
-	if(item->menu)		free((void *)item->menu);
+	if(item->menu)		free(item->menu);
 
 	for (i=0; i < item->ch_ncomp; i++) {
 		item->ch_curr = i;
 		del_chart_component(item);
 	}
 	if (item->ch_comp)
-		free((void *)item->ch_comp);
-	free((void *)item);
+		free(item->ch_comp);
+	free(item);
 
 	for (i=nitem; i < form->nitems-1; i++)
 		form->items[i] = form->items[i+1];
@@ -814,10 +807,10 @@ void item_delete(
 
 void menu_delete(MENU *m)
 {
-	if(m->label)	free((void *)m->label);
-	if(m->name)	free((void *)m->name);
-	if(m->flagcode)	free((void *)m->flagcode);
-	if(m->flagtext)	free((void *)m->flagtext);
+	if(m->label)	free(m->label);
+	if(m->name)	free(m->name);
+	if(m->flagcode)	free(m->flagcode);
+	if(m->flagtext)	free(m->flagtext);
 }
 
 
@@ -828,15 +821,13 @@ void menu_delete(MENU *m)
  */
 
 ITEM *item_clone(
-	register ITEM	*parent)	/* item to clone */
+	ITEM		*parent)	/* item to clone */
 {
-	register ITEM	*item;		/* target item */
+	ITEM		*item;		/* target item */
 	int		i;
 
-	if (!(item = (ITEM *)malloc(sizeof(ITEM)))) {
-		create_error_popup(mainwindow, errno, "Can't clone field");
-		return(0);
-	}
+	/* caller assumes success, so fail fatally */
+	item = alloc(0, "clone form field", ITEM, 1);
 	*item = *parent;
 	item->name	   = mystrdup(parent->name);
 	item->label	   = mystrdup(parent->label);
@@ -853,14 +844,14 @@ ITEM *item_clone(
 	item->ch_nbars	   = 0;
 
 	if (item->nmenu) {
-		item->menu = (MENU*)malloc(item->nmenu * sizeof(MENU));
+		item->menu = alloc(0, "clone form field", MENU, item->nmenu);
 		for(i=0; i < item->nmenu; i++) {
 			item->menu[i] = parent->menu[i];
 			menu_clone(&item->menu[i]);
 		}
 	}
 	if (item->ch_comp) {
-		item->ch_comp = (CHART*)malloc(item->ch_ncomp * sizeof(CHART));
+		item->ch_comp = alloc(0, "clone form field", CHART, item->ch_ncomp);
 		for (i=0; i < item->ch_ncomp; i++)
 			clone_chart_component(&item->ch_comp[i],
 					    &parent->ch_comp[i]);
@@ -870,10 +861,10 @@ ITEM *item_clone(
 
 void menu_clone(MENU *m)
 {
-	if(m->label) m->label = strdup(m->label);
-	if(m->flagcode) m->flagcode = strdup(m->flagcode);
-	if(m->flagtext) m->flagtext = strdup(m->flagtext);
-	if(m->name) m->name = strdup(m->name);
+	m->label = zstrdup(m->label);
+	m->flagcode = zstrdup(m->flagcode);
+	m->flagtext = zstrdup(m->flagtext);
+	m->name = zstrdup(m->name);
 }
 
 #endif /* GROK || PLANGROK */

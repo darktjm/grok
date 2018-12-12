@@ -27,6 +27,7 @@ struct carditem {
 };
 typedef struct card {
 	struct form *form;	/* form struct that controls this card */
+	char	    *prev_form;	/* previous form name */
 	struct dbase*dbase;	/* database that callbacks use to store data */
 				/****** summary window ***********************/
 	int	    nquery;	/* # of valid row indices in query[] */
@@ -41,6 +42,7 @@ typedef struct card {
 	int	    row;	/* database row shown in card, -1=none */
 	int	    disprow;	/* row being displayed in main window */
 	int	    nitems;	/* # of items, also size of following array */
+	int	    last_query;	/* last query pd index, for ReQuery */
 	struct carditem items[1];
 } CARD;
 
@@ -75,9 +77,10 @@ typedef struct row {
 typedef struct dbase {
 	BOOL	rdonly;		/* no write permission for any section */
 	BOOL	modified;	/* TRUE if any section was modified */
+	int	col_sorted_by;	/* dbase is sorted by this column */
 	int	maxcolumns;	/* # of columns in widest row */
 	int	nrows;		/* # of valid rows in database */
-	int	size;		/* # of rows allocated */
+	size_t	size;		/* # of rows allocated */
 	short	nsects;		/* # of files loaded */
 	short	currsect;	/* current section, -1=all, 0..nsects-1=one */
 	SECTION	*sect;		/* describes all section files 0..nsects-1 */
@@ -314,7 +317,7 @@ typedef struct form {
 	int	xg, yg;		/* grid size in pixels */
 	int	xs, ys;		/* total size of form in pixels */
 	int	ydiv;		/* Y of divider between static part and card */
-	int	size;		/* # of items the item array has space for*/
+	size_t	size;		/* # of items the item array has space for*/
 	int	nitems;		/* # of items in this form */
 	ITEM	**items;	/* array of item definitions */
 	int	nqueries;	/* # of queries in query array */

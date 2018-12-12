@@ -26,11 +26,10 @@ static void mklist(void);
 static void editfile(char *);
 static void askname(BOOL);
 
-static BOOL	have_shell = FALSE;	/* message popup exists if TRUE */
-static QDialog	*shell;		/* popup menu shell */
+static QDialog		*shell = 0;	/* popup menu shell */
 static QListWidget	*list;		/* template list widget */
-static int	list_nlines;	/* # of lines displayed in scroll list */
-static BOOL	modified;	/* preferences have changed */
+static int		list_nlines;	/* # of lines displayed in scroll list */
+static BOOL		modified;	/* preferences have changed */
 
 
 /*
@@ -39,12 +38,12 @@ static BOOL	modified;	/* preferences have changed */
 
 static void destroy_templ_popup(void)
 {
-	if (have_shell) {
+	if (shell) {
 		if (modified)
 			write_preferences();
-		have_shell = FALSE;
 		shell->close();
 		delete shell;
+		shell = NULL;
 	}
 }
 
@@ -192,7 +191,7 @@ static void create_templ_print_popup(bool print)
 		set_toggle(w, !(pref.xflags & flag) == notf);
 	    }
 	    if (mp->code == 0x11 && pref.xflags) {
-		char buf[53];
+		char buf[26 * 2 + 1];
 		int i, m;
 		char *p;
 		for (i = 0, m = 1, p = buf; i < 26; i++, m <<= 1)
@@ -231,7 +230,6 @@ static void create_templ_print_popup(bool print)
 	set_dialog_cancel_cb(shell, button_callback(0x42));
 
 	popup_nonmodal(shell);
-	have_shell = TRUE;
 	modified = FALSE;
 }
 
@@ -298,11 +296,9 @@ static void set_export_card(void)
 	switch(pref.pselect) {
 	    case 'C':
 		curr_card->nquery = curr_card->qcurr < curr_card->nquery;
-		if(curr_card->nquery) {
-			curr_card->query = (int *)malloc(sizeof(*curr_card->query));
+		curr_card->query = alloc(0, "query", int, curr_card->nquery);
+		if(curr_card->nquery)
 			curr_card->query[0] = curr_card->qcurr;
-		} else
-			curr_card->query = NULL;
 		break;
 	    case 'e': {
 		int n;
@@ -310,25 +306,21 @@ static void set_export_card(void)
 			if(SECT_OK(curr_card->dbase, i))
 				n++;
 		curr_card->nquery = n;
-		if(curr_card->nquery) {
-			curr_card->query = (int *)malloc(curr_card->nquery * sizeof(*curr_card->query));
+		curr_card->query = alloc(0, "query", int, curr_card->nquery);
+		if(curr_card->nquery)
 			/* sorting sorts dbase, so no need to resort */
 			for(int i = n = 0; i < curr_card->dbase->nrows; i++)
 				if(SECT_OK(curr_card->dbase, i))
 					curr_card->query[n++] = i;
-		} else
-			curr_card->query = NULL;
 		break;
 	    }
 	    case 'A':
 		curr_card->nquery = curr_card->dbase->nrows;
-		if(curr_card->nquery) {
-			curr_card->query = (int *)malloc(curr_card->nquery * sizeof(*curr_card->query));
+		curr_card->query = alloc(0, "query", int, curr_card->nquery);
+		if(curr_card->nquery)
 			/* sorting sorts dbase, so no need to resort */
 			for(int i = 0; i < curr_card->dbase->nrows; i++)
 				curr_card->query[i] = i;
-		} else
-			curr_card->query = NULL;
 		break;
 	}
 }
@@ -403,16 +395,15 @@ static BOOL export_to_doc(QTextDocument &doc)
 	fflush(f);
 	unsigned long len = ftell(f);
 	rewind(f);
-	char *cdoc = (char *)malloc(len + 1);
+	char *cdoc = alloc(shell, "template results", char, len + 1);
 	if(!cdoc) {
-		create_error_popup(shell, 0, "No memory for results");
 		fclose(f);
 		return(FALSE);
 	}
 	/* Weird that glibc complains about ignoring read failure but not write */
 	/* especially given how unlikely this particular read is to fail */
 	if(fread(cdoc, len, 1, f) != 1)
-		exit(1);
+		fatal("Readback of template restuls failed");
 	fclose(f);
 	cdoc[len] = 0;
 	QString s(cdoc);
@@ -528,7 +519,7 @@ static void button_callback(
 				  if(!*q)
 					  *p = 0;
 				  else
-					  memmove(p, q, strlen(q) + 1);
+					  tmemmove(char, p, q, strlen(q) + 1);
 				  p--;
 				  rewrite = true;
 				  for(struct menu *mp=menu; APTR_OK(mp, menu); mp++) {
@@ -714,8 +705,9 @@ static void text_callback(void)
 	char				*string;
 
 	string = qstrdup(text->text());
-	for (name=string; *name == ' ' || *name == '\n'; name++);
-	if (*name) {
+	if(string)
+		for (name=string; *name == ' ' || *name == '\n'; name++);
+	if (string && *name) {
 		for (p=name; *p; p++)
 			if (*p == '/' || *p == ' ' || *p == '\t')
 				*p = '_';
@@ -728,9 +720,9 @@ static void text_callback(void)
 			name = get_template_path(name, 0, curr_card);
 
 		editfile(name);
-		free(name);
+		free(string);
 	}
-	free(string);
+	zfree(string);
 	textcancel_callback();
 }
 

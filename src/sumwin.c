@@ -58,7 +58,8 @@ void create_summary_menu(
 	CARD		*card)		/* card with query results */
 {
 	CARD		dummy;		/* if no card yet, use empty card */
-	char		buf[1024];	/* summary line buffer */
+	char		*buf = NULL;		/* summary line buffer */
+	size_t		buf_len;
 	int		n, w, h;
 
 	if (!w_summary)
@@ -67,12 +68,12 @@ void create_summary_menu(
 	w_summary->setUpdatesEnabled(false);
 	print_info_line();
 	if (!card)
-		memset((void *)(card = &dummy), 0, sizeof(dummy));
+		tzero(CARD, (card = &dummy), 1);
 
 	w_summary->clear();
 	for (n=0; n < card->nquery; n++)
-		make_summary_line(buf, card, card->query[n], w_summary);
-	make_summary_line(buf, card, -1, w_summary);
+		make_summary_line(&buf, &buf_len, card, card->query[n], w_summary);
+	make_summary_line(&buf, &buf_len, card, -1, w_summary);
 	if(card->nquery)
 		w_summary->setCurrentItem(w_summary->topLevelItem(0));
 
@@ -93,6 +94,8 @@ void create_summary_menu(
 		w_summary->header()->setStretchLastSection(true);
 	}
 	w_summary->setMinimumWidth(w);
+
+	free(buf);
 
 	// not sure how to set # of visible lines to pref.sumlines
 	// I'll just measure a row and add the header height.
@@ -136,7 +139,7 @@ static int selected_item(CARD *card)
 static bool in_sum_callback = false;
 static void sum_callback(int item_position)
 {
-	register CARD		*card = curr_card;
+	CARD		*card = curr_card;
 
 	if (!card || !card->wsummary)
 		return;
@@ -162,8 +165,8 @@ static void sum_callback(int item_position)
  */
 
 static int compare(
-	register const void *u,
-	register const void *v)
+	const void *u,
+	const void *v)
 {
 	const struct menu_item *mi0 = (const struct menu_item *)u;
 	const struct menu_item *mi1 = (const struct menu_item *)v;
@@ -172,7 +175,7 @@ static int compare(
 	return col0 - col1;
 }
 
-int get_summary_cols(struct menu_item **res, int *nres, const FORM *form)
+int get_summary_cols(struct menu_item **res, size_t *nres, const FORM *form)
 {
 	int i, ncol, m;
 
@@ -192,28 +195,24 @@ int get_summary_cols(struct menu_item **res, int *nres, const FORM *form)
 			}
 			i--; // keep processing same item
 		}
-		if (ncol >= *nres) {
-			if(!*nres)
-				*res = (struct menu_item *)malloc((*nres = form->nitems) * sizeof(**res));
-			else
-				*res = (struct menu_item *)realloc(*res, (*nres *= 2) * sizeof(**res));
-		}
+		grow(0, "summary", struct menu_item, *res, ncol + 1, nres);
 		(*res)[ncol].item = item;
 		(*res)[ncol++].menu = item->multicol ? &item->menu[m] : NULL;
 	}
-	qsort((void *)*res, ncol, sizeof(struct menu_item), compare);
+	qsort(*res, ncol, sizeof(struct menu_item), compare);
 	return ncol;
 }
 
 void make_summary_line(
-	char		*buf,		/* text buffer for result line */
+	char		**buf,		/* text buffer for result line */
+	size_t		*buf_len,	/* allocated length of *buf */
 	CARD		*card,		/* card with query results */
 	int		row,		/* database row */
 	QTreeWidget	*w,		/* non-0: add line to table widget */
 	int		lrow)		/* >=0: replace row #lrow */
 {
-	static int	nsorted = 0;	/* size of <sorted> array */
-	static struct menu_item	*sorted;	/* sorted item pointer list */
+	static size_t	nsorted = 0;	/* size of <sorted> array */
+	static struct menu_item	*sorted = 0;	/* sorted item pointer list */
 	const char	*data;		/* data string from the database */
 	int		data_len;
 	const ITEM	*item;		/* contains info about formatting */
@@ -227,7 +226,9 @@ void make_summary_line(
 	char		*allocdata = NULL;
 	int		sumwidth;
 
-	*buf = 0;
+	if(!*buf)
+		*buf = alloc(0, "summary line", char, (*buf_len = 80));
+	**buf = 0;
 	if (!card || !card->dbase || !card->form || row >= card->dbase->nrows)
 		return;
 	ncol = get_summary_cols(&sorted, &nsorted, card->form);
@@ -303,9 +304,10 @@ void make_summary_line(
 							  sep, esc)) {
 						char *e = BLANK(menu->flagtext) ?
 							menu->flagcode : menu->flagtext;
-						v = set_elt(v, nv++, e);
-						if(v && v == e)
-							v = strdup(v);
+						if(!set_elt(&v, nv++, e, card->form))
+							fatal("No memory");
+						if(v == e)
+							v = mystrdup(v);
 					}
 				}
 				data = allocdata = v;
@@ -315,20 +317,23 @@ void make_summary_line(
 			data_len = BLANK(data) ? 0 : strlen(data);
 		}
 		sumwidth = menu ? menu->sumwidth : item->sumwidth;
-		if (data_len > 80)
-			data_len = 80;
+#if 0 /* I don't think arbitrary cutoffs are good */
+		if (sumwidth > 80)
+			sumwidth = 80;
+#endif
 		if(data_len > sumwidth)
 			data_len = sumwidth;
-		memcpy(buf+x, data, data_len);
-		buf[x + data_len] = 0;
+		grow(0, "summary line", char, *buf, x + sumwidth + 3, buf_len);
+		tmemcpy(char, *buf+x, data, data_len);
+		(*buf)[x + data_len] = 0;
 		if (allocdata) {
 			free(allocdata);
 			allocdata = NULL;
 		}
-		buf[x + sumwidth] = 0;
-		for (j=x; buf[j]; j++)
-			if (buf[j] == '\n')
-				buf[j--] = 0;
+		(*buf)[x + sumwidth] = 0;
+		for (j=x; (*buf)[j]; j++)
+			if ((*buf)[j] == '\n')
+				(*buf)[j--] = 0;
 		if(w) {
 			if(!twi) {
 				if(row >= 0 && lrow >= 0) {
@@ -339,17 +344,17 @@ void make_summary_line(
 				} else
 					twi = new QTreeWidgetItem;
 			}
-			twi->setText(lcol++, buf + x);
+			twi->setText(lcol++, *buf + x);
 		}
-		x += j = strlen(buf+x);
-		for (; j < sumwidth && j < 80; j++)
-			buf[x++] = ' ';
-		buf[x++] = ' ';
-		buf[x++] = ' ';
-		buf[x]   = 0;
+		x += j = strlen(*buf+x);
+		for (; j < sumwidth; j++)
+			(*buf)[x++] = ' ';
+		(*buf)[x++] = ' ';
+		(*buf)[x++] = ' ';
+		(*buf)[x]   = 0;
 	}
 	if (x == 0)
-		sprintf(buf, row < 0 ? "" : "card %d", row);
+		sprintf(*buf, row < 0 ? "" : "card %d", row);
 	if(w && twi) {
 		if(row < 0)
 			w->setHeaderItem(twi);
@@ -460,10 +465,12 @@ void replace_summary_line(
 	CARD		*card,		/* card with query results */
 	int		row)		/* database row that has changed */
 {
-	char		buf[1024];	/* summary line buffer */
+	char		*buf = 0;	/* summary line buffer */
+	size_t		buf_len;
 
 	if (!card || !card->dbase || !card->form || row >= card->dbase->nrows)
 		return;
-	make_summary_line(buf, card, row, card->wsummary, card->qcurr);
+	make_summary_line(&buf, &buf_len, card, row, card->wsummary, card->qcurr);
+	free(buf);
 	scroll_summary(card);
 }

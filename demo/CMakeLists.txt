@@ -1,0 +1,2 @@
+install(DIRECTORY . DESTINATION ${GROK_LIB}/grokdir
+	PATTERN "CMakeLists.txt" EXCLUDE)
