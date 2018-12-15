@@ -327,20 +327,30 @@ bool read_form(
 
 	/* Use same path as the GUI for relative names */
 	if(!strchr(path, '/')) {
+		char *cwd = NULL;
+		size_t cwdsz;
 		do {
-			char *env;
-			env = getcwd(line, sizeof(line));
-			env = getenv("GROK_FORM");
-			if((fp = try_path(env ? env : line, &path)))
+			const char *env = getenv("GROK_FORM"), *ret;
+			if(env && (fp = try_path(env, &path)))
 				break;
-			strcat(line, "/grokdir");
-			if((fp = try_path(line, &path)))
+			cwd = alloc(0, "cwd", char, (cwdsz = 80));
+			while(!(ret = getcwd(cwd, cwdsz))) {
+				if(errno != ENAMETOOLONG)
+					fatal("cwd is too long");
+				fgrow(0, "cwd", char, cwd, (cwdsz *= 2), NULL);
+			}
+			if((fp = try_path(cwd, &path)))
+				break;
+			if(strlen(cwd) + 9 > cwdsz)
+				grow(0, "cwd", char, cwd, cwdsz + 9, NULL);
+			strcat(cwd, "/grokdir");
+			if((fp = try_path(cwd, &path)))
 				break;
 			if((fp = try_path(resolve_tilde(GROKDIR, NULL), &path)))
 				break;
 			fp = try_path(LIB "/grokdir", &path);
 		} while(0);
-			
+		zfree(cwd);
 	} else {
 		path = resolve_tilde(path, "gf");
 		fp = fopen(path, "r");

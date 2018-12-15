@@ -53,7 +53,7 @@ void destroy_edit_popup(void)
 	if (sourcefile) {
 		if (!(fp = fopen(name = sourcefile, "w"))) {
 			int e = errno;
-			fp = fopen(name = "/tmp/grokback", "w");
+			fp = fopen(name = P_tmpdir "/grokback", "w");
 			create_error_popup(mainwindow, e, fp
 				? "Failed to create file %s, wrote to %s"
 				: "Failed to create file %s or backup file %s",

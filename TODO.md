@@ -116,7 +116,8 @@ Code Improvements
 - Be more consistent on use of 0 vs NULL for pointers.  Yeah, my own
   additions are probably even more inconsistent than the old code was.
   The advantage of NULL is that it only works in pointer contexts.
-  The advantage of 0 is that it's shorter to write.
+  The advantage of 0 is that it's shorter to write.  In particular,
+  use zstrdup instead of mystrdup in contexts where NULL is acceptable.
 
 - Use specific pointer types instead of base classes to avoid the
   dynamic_cast overhead.  I'm not sure the compiler is smart enough
@@ -276,8 +277,93 @@ Important UI improvements
 - Do something about scaling factor.  Either use it to adjust font
   sizes at the same time, or drop it entirely.  Really only relevant
   for pixel-placed widgets, anyway, which I also want to eliminate.
+  
+  As a stopgap instead of purely automatic layout, this could be used
+  to fit the form to the current font:
 
-- Remove width limits in summary list.
+  The preference no longer adjust pixel placement at all.  It only
+  adjusts font size.  In fact, it could just be dropped entirely in
+  favor of picking the default font size in the preferences.  However,
+  it is still kept internally.
+
+  If a preference is set, the internal scaling factor auto-adjusts
+  to the current fonts (just the 5 supported fonts).  The form is
+  assumed to have been designed for the defaults (in fact, perhaps
+  the the form auto-unadjusts to the defaults on save, and
+  verify_form checks for clipping), and when the current font
+  dimensions differ, the entire GUI is scaled to compensate.  It
+  only checks fonts actually used by the form.
+
+  All storage and adjustment of coordinates is in floating point, only
+  converting to integer at the last possible moment.
+
+  At the minimum, all heights need to be adjusted to the new font
+  height.  Since fonts are maybe proportional, width is a different
+  matter.  Text widgets can be adjusted according to the average glyph
+  width.  Labels can be adjusted according to whether or not any
+  labels will end up being clipped.  Note that Print labels are
+  treated like text input fields in this case, and may end up clipped.
+
+  If that isn't enough, have a menu item or button during form
+  design that performs auto-layout.  This brings up a popup showing
+  the current fields and their ordering, and allows minor
+  adjustments to the layout process (at least to compensate for
+  widget order issues).  How the actual automatic layout works I
+  have no idea.
+
+  A slightly different approach is needed for translation, though.
+  For this, just expand or shrink translated labels to the new length,
+  and adjust all coordinates at or to the right of the end of the label
+  by the same amount.  This should probably never shrink, even though
+  ideographic languages tend to be much shorter.  Right-to-left
+  languages can probably never be supported, unless I inevert the entire
+  interface (but that doesn't account for the fact that right-to-left
+  languages often have left-to-right sub-texts).  Then again, given
+  the current user base (only 1 as far as I know), what's the point?
+
+- The above stop-gap measure for auto-resizing deals well enough with
+  the inflexibility aspect of pixel placement, but does nothing to
+  address the inconvenience of pixel placement.  I really have no idea
+  how best to address this, but here are a few ideas:
+
+  - The coordinates and sizes should be visible in the form editor.
+    This makes it easy to ensure alignment.  Even the demos had one
+    form that misaligned the right side of one of the elemnts.  The
+    current method of choosing initial size and position is good and
+    convenient, but not enough.
+
+- Have a next/previous field button, and a way to select a field by
+  name and/or column and/or label in the form editor.  This probably
+  also means that fields that are added or moved are re-sorted
+  immediately; this has the side benefit of showing the tab order
+  during form design.
+
+- Adjust the editor canvas cursor during hover, rather than just on click.
+
+- Support a Fiasco-like GUI:
+
+  - Support detachable/hidable card, listing, navigation buttons,
+    search.  Maybe move some of the button functions into the
+    menus.  The form editor doesn't even have a menu.
+
+  - Instead of the canvas being a separate window, replace the current
+    card display with the canvas (which would auto-detach for
+    convenient sizing if not already detached).  The formedit
+    window would become two separate popups: a global form info
+    popup (which comes up by default when not editing the current
+    form) and the item-specific advanced functions.  The
+    navigation buttons at the bottom would navigate between fields
+    instead of records, and the Add/Delete button would also get a
+    widget type and label field for quick adding of simple
+    widgets.
+    
+    The listing could remain, as a way of setting sumcol and sumwidth
+    by dragging and dropping, and maybe also editing the sortable and
+    default sort flags.  The menu would remain, but be replaced
+    by menu items more appropriate to editing the form.
+
+    The search line could be replaced by a way to search for fields by
+    name and/or column.
 
 - Support multiple named summary listings (i.e., column order and
   default sort).  Also, have a way to query what fields are in that
@@ -415,12 +501,21 @@ Infrastructure Improvements
 
 - Add ELSE and ELSEIF to template controls.
 
+- Make the standard exports also export in a format resembling the
+  current form layout, like Fiasco does.  This is probably very
+  hard, given the nature of the layout.  For one thing, it's
+  impossible to know what the target font size will be.
+
 - Make the HTML template generate tidy-compliant HTML.  First I'll
   have to figure out what exactly tidy wants anchors to look like,
   since it barfs on grok's HTML documentation's anchors.
 
 - Make text/facnytext templates take a "w" flag to enable wrapping
-  instead of clipping at max line length.
+  instead of clipping at max line length.  Note that this encroaches
+  on the "probably won't fly" task of multi-line listings, but I meant
+  in the GUI as well, which is much harder due to lack of native Qt
+  support.  It also doesn't cover HTML, which needs a different line
+  break algorithm.
 
 - Make a generic RST exporter, and support that for printing.  Maybe
   also md/discount, but I have come to hate md.  Supporting RST for
@@ -489,16 +584,19 @@ Infrastructure Improvements
   where possible for portability.  Some more obvious UNIXisms are:
 
     - Pretty much anything that needs <unistd.h> or any other
-      UNIX-specific headers: <sys/*.h>, <fcntl.h>, <pwd.h>
+      UNIX-specific headers: <sys/*.h>, <fcntl.h>, <pwd.h>.  This
+      includes the UNIX-specific user, uid and gid, and possibly
+      access.  The system call may be OK, but the actual usages
+      are probably UNIX-specific.
 
     - Use of / as a path separator and : as a path list separator.
       Windows likes using \ and ;, although / is at least
       supported. Note that the OS/2 changes in 1.5.4 already
-      addressed this a bit.
+      addressed this a bit, but I didn't copy those changes over.
 
-    - Installation paths
-
-    - Use of /dev/null, /tmp
+    - Installation paths (probably not an issue because the are all
+      configurable in cmake, but macos and android probably require
+      some work to package)
 
 - Port to another OS.  Easiest would probably be MacOS, if it weren't
   for the fact that I have no Mac to test on and dropped my Apple
