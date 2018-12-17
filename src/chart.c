@@ -54,12 +54,6 @@ void del_chart_component(
 	CHART		*chart = &item->ch_comp[item->ch_curr];
 	int		i;
 
-	if (--item->ch_ncomp < 1) {
-		zfree(item->ch_comp);
-		item->ch_comp  = 0;
-		item->ch_ncomp = 0;
-		return;
-	}
 	zfree(chart->excl_if);
 	zfree(chart->color);
 	zfree(chart->label);
@@ -68,6 +62,12 @@ void del_chart_component(
 	zfree(chart->value[2].expr);
 	zfree(chart->value[3].expr);
 
+	if (--item->ch_ncomp < 1) {
+		zfree(item->ch_comp);
+		item->ch_comp  = 0;
+		item->ch_ncomp = 0;
+		return;
+	}
 	for (i=item->ch_curr; i < item->ch_ncomp; i++)
 		item->ch_comp[i] = item->ch_comp[i+1];
 	if (item->ch_curr == item->ch_ncomp)

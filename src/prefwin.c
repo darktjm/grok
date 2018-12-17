@@ -17,7 +17,6 @@
 #include <unistd.h>
 #include <QtWidgets>
 #include <QtPrintSupport>
-#include "saveprint.h"
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
@@ -32,7 +31,6 @@ static QDialog		*shell;		/* popup menu shell */
 static QSpinBox		*w_linelen;	/* truncate printer lines */
 static QSpinBox		*w_lines;	/* summary lines text */
 static QDoubleSpinBox	*w_scale;	/* card scale text */
-static bool		modified;	/* preferences have changed */
 
 
 /*
@@ -49,25 +47,24 @@ void destroy_preference_popup(void)
 		i = w_linelen->value();
 		if (i > 39 && i <= 250 && pref.linelen != i) {
 			pref.linelen = i;
-			modified = true;
+			pref.modified = true;
 		}
 		i = w_lines->value();
 		if (i > 0 && i < 80 && pref.sumlines != i) {
 			pref.sumlines = i;
-			modified = true;
+			pref.modified = true;
 		}
 		// FIXME: since it's fp, it might always seem modified
 		d = w_scale->value();
 		if (d >= 0.1 && d <= 10.0 && d != pref.scale) {
 			pref.scale = d;
-			modified = true;
+			pref.modified = true;
 		}
 		have_shell = false;
 		shell->close();
 		delete shell;
-		if (modified)
+		if (pref.modified)
 			write_preferences();
-		modified = false;
 	}
 }
 
@@ -177,7 +174,7 @@ static void flag_callback(
 	*flag->value = set;
 	if (flag->value == &pref.uniquedb)
 		remake_dbase_pulldown();
-	modified = true;
+	pref.modified = true;
 }
 
 
@@ -188,7 +185,7 @@ static void spool_callback(void)
 	i = w_linelen->value();
 	if (i > 39 && i <= 250)
 		pref.linelen = i;
-	modified = true;
+	pref.modified = true;
 }
 
 
@@ -234,6 +231,7 @@ void write_preferences(void)
 		len -= 256;
 	} while(len > 0);
 	fclose(fp);
+	pref.modified = false;
 }
 
 

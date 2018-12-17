@@ -44,6 +44,7 @@ int main(
 	char		*argv[])
 {
 	int		n;
+	CARD		*card = 0;
 	char		*formname = 0;
 	char		*tmpl = 0;
 	char		*query	  = 0;
@@ -52,6 +53,8 @@ int main(
 	bool		planmode  = false;
 	bool		noheader  = false;
 	bool		do_export = false;
+	bool		do_pr_tmpl = false;
+	bool		bad_args = false;
 
 	setlocale(LC_ALL, "");
 	if ((progname = strrchr(argv[0], '/')) && progname[1])
@@ -60,18 +63,17 @@ int main(
 		progname = argv[0];
 	restricted = !strcmp(progname, "rgrok");
 
-	for (n=1; n < argc; n++)			/* options */
-		if (*argv[n] != '-')
+	for (n=1; n < argc; n++) {			/* options */
+		if (*argv[n] != '-') {
 			if (!formname)
 				formname = argv[n];
-			else if (do_export && !tmpl)
+			else if ((do_export || do_pr_tmpl) && !tmpl)
 				tmpl = argv[n];
 			else if (!query)
 				query = argv[n];
 			else
-				usage();
-
-		else if (argv[n][2] < 'a' || argv[n][2] > 'z')
+				bad_args = true;
+		} else if (!argv[n][2])
 			switch(argv[n][1]) {
 			  case 'd':
 				fputs(default_qss, stdout);
@@ -93,7 +95,14 @@ int main(
 				noheader = true;
 				break;
 			  case 'x':
+				if(do_pr_tmpl)
+					usage();
 				do_export   = true;
+				break;
+			  case 'X':
+				if(do_export)
+					usage();
+				do_pr_tmpl = true;
 				break;
 			  case 'r':
 				restricted = true;
@@ -101,6 +110,13 @@ int main(
 			  default:
 				usage();
 			}
+		else
+			bad_args = true;
+	}
+
+	/* only allow qt args in interactive mode */
+	if(bad_args && (ttymode || planmode || do_export || do_pr_tmpl))
+		usage();
 
 	(void)umask(0077);
 	tzset();
@@ -110,74 +126,87 @@ int main(
 		if (!formname)
 			usage();
 		read_preferences();
-		switch_form(formname);
-		if (!curr_card ||!curr_card->dbase ||!curr_card->dbase->nrows){
+		switch_form(card, formname);
+		if (!card ||!card->dbase ||!card->dbase->nrows){
 			fprintf(stderr, "%s: %s: no data\n",progname,formname);
-			_exit(0);
+			exit(0);
 		}
-		query_any(SM_SEARCH, curr_card, query);
-		if (!curr_card->nquery) {
+		query_any(SM_SEARCH, card, query);
+		if (!card->nquery) {
 			fprintf(stderr,"%s: %s: no match\n",progname,formname);
-			_exit(0);
+			exit(0);
 		}
 		if (!noheader) {
 			char *p;
-			make_summary_line(&buf, &buf_len, curr_card, -1);
+			make_summary_line(&buf, &buf_len, card, -1);
 			puts(buf);
 			for (p=buf; *p; p++)
 				*p = '-';
 			puts(buf);
 		}
-		for (n=0; n < curr_card->nquery; n++) {
-			make_summary_line(&buf, &buf_len, curr_card, curr_card->query[n]);
+		for (n=0; n < card->nquery; n++) {
+			make_summary_line(&buf, &buf_len, card, card->query[n]);
 			puts(buf);
 		}
 		zfree(buf);
 		fflush(stdout);
-		_exit(0);
+		exit(0);
 	}
 	if (planmode) {
 		if (!formname)
 			usage();
 		read_preferences();
-		switch_form(formname);
-		if (!curr_card ||!curr_card->dbase ||!curr_card->dbase->nrows)
-			_exit(0);
-		query_any(SM_SEARCH, curr_card, query ?
-					query : curr_card->form->planquery);
-		for (n=0; n < curr_card->nquery; n++)
-			make_plan_line(curr_card, curr_card->query[n]);
+		switch_form(card, formname);
+		if (!card ||!card->dbase ||!card->dbase->nrows)
+			exit(0);
+		query_any(SM_SEARCH, card, query ?
+					query : card->form->planquery);
+		for (n=0; n < card->nquery; n++)
+			make_plan_line(card, card->query[n]);
 		fflush(stdout);
-		_exit(0);
+		exit(0);
 	}
-	if (do_export) {
+	if (do_export || do_pr_tmpl) {
 		const char *p;
 		if (!formname || !tmpl)
 			usage();
 		read_preferences();
-		switch_form(formname);
-		if (!curr_card ||!curr_card->dbase ||!curr_card->dbase->nrows){
+		switch_form(card, formname);
+		if (!card ||!card->dbase ||!card->dbase->nrows){
 			fprintf(stderr, "%s: %s: no data\n",progname,formname);
-			_exit(0);
+			exit(0);
 		}
-		query_any(SM_SEARCH, curr_card, query);
-		if (!curr_card->nquery) {
+		query_any(SM_SEARCH, card, query);
+		if (!card->nquery) {
 			fprintf(stderr,"%s: %s: no match\n",progname,formname);
-			_exit(0);
+			exit(0);
 		}
-		if ((p = exec_template(0, 0, tmpl, 0, 0, curr_card)))
-			fprintf(stderr, "%s %s: %s\n", progname, formname, p);
+		if ((p = exec_template(0, 0, tmpl, 0, 0, card, do_pr_tmpl)))
+				fprintf(stderr, "%s %s: %s\n", progname, formname, p);
 		fflush(stdout);
-		_exit(0);
+		exit(0);
 	}
-	if (!nofork) {					/* background */
+	if (!nofork) {				/* background */
 		long pid = fork();
 		if (pid < 0)
 			perror("can't fork");
 		else if (pid > 0)
-			_exit(0);
+			exit(0);
 	}
 	app = new QApplication(argc, argv);
+	/* qt has removed args it understands, so recheck args */
+	formname = tmpl = query = 0;
+	for (n=1; n < argc; n++) {
+		if (*argv[n] != '-') {
+			if (!formname)
+				formname = argv[n];
+			else if (!query)
+				query = argv[n];
+			else
+				usage();
+		} else if (argv[n][2])
+			usage();
+	}
 	// propagate style sheet prefs down the widget tree
 	QCoreApplication::setAttribute(Qt::AA_UseStyleSheetPropagationInWidgetStyles, true);
 	// Qt Style Sheets are a poor substitute for X resources
@@ -229,14 +258,15 @@ int main(
 
 	// always do this, even if there is no form, so icon name and window
 	// size are set correctly
-	switch_form(formname);
+	switch_form(mainwindow->card, formname);
+	card = mainwindow->card;
 		
 	if (query) {
-		query_any(SM_SEARCH, curr_card, query);
-		create_summary_menu(curr_card);
-		curr_card->row = curr_card->query ? curr_card->query[0]
-						  : curr_card->dbase->nrows;
-		fillout_card(curr_card, false);
+		query_any(SM_SEARCH, card, query);
+		create_summary_menu(card);
+		card->row = card->query ? card->query[0]
+						  : card->dbase->nrows;
+		fillout_card(card, false);
 	}
 	mainwindow->show();
 	return app->exec();
@@ -250,19 +280,20 @@ int main(
 static void usage(void)
 {
 	fprintf(stderr, "Usage: %s [options] [form ['query']]\n", progname);
-	fprintf(stderr, "       %s -x form template[flags] ['query']\n", progname);
-	fprintf(stderr, "    Options:\n%s%s%s%s%s%s%s%s%s\n",
-			"\t-h\tprint this help text\n",
-			"\t-d\tdump fallback Qt Style Sheet and exit\n",
-			"\t-v\tprint version string\n",
-			"\t-t\tprint cards matching query to stdout\n",
-			"\t-T\tsame as -t without header line\n",
-			"\t-p\tprint cards matching query in `plan' format\n",
-			"\t-x\tevaluate and print template file to stdout\n",
-			"\t-f\tdon't fork on startup\n",
-			"\t-r\trestricted, disable form editor (rgrok)\n");
-	fprintf(stderr, "    the form argument is required for -t and -T.\n");
-	_exit(1);
+	fprintf(stderr, "       %s -x|-X form template[flags] ['query']\n", progname);
+	fputs("    Options:\n"
+	      "\t-h\tprint this help text\n"
+	      "\t-d\tdump fallback Qt Style Sheet and exit\n"
+	      "\t-v\tprint version string\n"
+	      "\t-t\tprint cards matching query to stdout\n"
+	      "\t-T\tsame as -t without header line\n"
+	      "\t-p\tprint cards matching query in `plan' format\n"
+	      "\t-x\tevaluate and print template file to stdout\n"
+	      "\t-X\tprint raw template file to stdout\n"
+	      "\t-f\tdon't fork on startup\n"
+	      "\t-r\trestricted, disable form editor (rgrok)\n\n"
+	      "    the form argument is required for -t and -T.\n", stderr);
+	exit(1);
 }
 
 

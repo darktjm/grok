@@ -49,7 +49,7 @@ set(grok_SRCS
         editwin.c eval.c evalfunc.c formfile.c formop.c formwin.c help.c
 	main.c mainwin.c popup.c prefwin.c query.c
 	querywin.c sectwin.c sumwin.c template.c templmk.c templwin.c
-	util.c HtmlCssUtils.cpp ${BISON_parser_OUTPUT_SOURCE}
+	util.c HtmlCssUtils.cpp saveprint.c ${BISON_parser_OUTPUT_SOURCE}
 	canv-widget.h chart-widget.h layout-qss.h
 )
 # I don't want to rename the original C sources
@@ -60,7 +60,11 @@ list(FILTER grok_C INCLUDE REGEX "\\.c\$")
 set_source_files_properties(${grok_C} PROPERTIES LANGUAGE CXX)
 # note that clang++ will generate a warning for every file; suppress
 # this by adding -xc++ to CMAKE_CXX_FLAGS and -xnone to CMAKE_EXE_LINKER_FLAGS.
+# -xnone may also need to be added to CMAKE_MODULE_LINKER_FLAGS,
+# CMAKE_SHARED_LINKER_FLAGS and CMAKE_STATIC_LINKER_FLAGS, depending.
 # The -xc++ suppresses the warning and the -xnone prevents massive link errors
+# On the other hand, just suppressing the warning with -Wno-deprecated
+# is easier and also works, at least until they decide to remove that "feature".
 
 add_executable(grok ${grok_SRCS})
 target_link_libraries(grok Qt5::Widgets Qt5::PrintSupport)

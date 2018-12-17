@@ -28,7 +28,6 @@ endfunction()
 
 add_subdirectory(src)
 add_subdirectory(doc)
-add_subdirectory(man)
 add_subdirectory(misc)
 add_subdirectory(demo)
 

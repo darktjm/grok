@@ -6,7 +6,7 @@ grok \- Desktop Database Manager and GUI Builder
 [-h] [-d] [-v] [-t] [-T] [-p] [-f] [\fIform\fR [\fIquery\fR]]
 
 .B grok
--x \fIform\fR \fItemplate\fR[\fIflags\fR] [\fIquery\fR]
+-x | -X \fIform\fR \fItemplate\fR[\fIflags\fR] [\fIquery\fR]
 .SH DESCRIPTION
 .B grok
 is a database manager that displays two-dimensional databases using a
@@ -53,6 +53,15 @@ Evaluates the given
 .I template
 and returns the results to standard output.  This provides much more
 control over output format than the -t, -T, and -p options.
+.IP \-X
+Output the given
+.I template
+to standard output without evaluating.  Mostly useful for printing the
+built-in automatic templates.  Least useful for printing
+.I +
+(standard input); use 
+.I cat
+for that.
 .IP \-f
 Don't fork on startup. This is useful for debugging.
 .IP form

@@ -114,9 +114,9 @@ static void pr_escaped(FILE *fp, const char *s, int len, int esc)
  */
 
 const char *mktemplate_html(
+	const CARD	*card,
 	FILE		*fp)		/* output file */
 {
-	CARD		*card = curr_card;
 	struct menu_item *itemorder;	/* order of items in summary */
 	int		nitems;		/* number of items in summary */
 	size_t		nalloc;		/* number of allocated items */
@@ -288,10 +288,10 @@ const char *mktemplate_html(
  * doesn't */
 
 static const char *mktemplate_text(
+	const CARD	*card,
 	FILE		*fp,		/* output file */
 	bool		overstrike)	/* fancy mode? */
 {
-	CARD		*card = curr_card;
 	struct menu_item *itemorder;	/* order of items in summary */
 	int		nitems;		/* number of items in summary */
 	size_t		nalloc;		/* number of allocated items */
@@ -310,7 +310,7 @@ static const char *mktemplate_text(
 							/*--- header ---*/
 	fputs("\\{IF +d}\n", fp);
 	/* just let sumwin.c build the header line */
-	make_summary_line(&buf, &buf_len, card, -1);
+	make_summary_header(&buf, &buf_len, card, 0);
 	if(overstrike) {
 		for(s = buf, i = len = 0; *s; s++, i++, len++) {
 #if CLIP_SUMMARY
@@ -429,7 +429,7 @@ static const char *mktemplate_text(
 	}
 	free(itemorder);
 	fputs("\n\\{IF -n}\n", fp);
-	for (i=0; i < curr_card->nitems; i++) {
+	for (i=0; i < card->nitems; i++) {
 		item = card->form->items[i];
 		if (item->type != IT_NOTE)
 			continue;
@@ -605,11 +605,11 @@ static const char *mktemplate_text(
 	return(0);
 }
 
-const char *mktemplate_plain(FILE *fp)
+const char *mktemplate_plain(const CARD *card, FILE *fp)
 {
-	return mktemplate_text(fp, false);
+	return mktemplate_text(card, fp, false);
 }
-const char *mktemplate_fancy(FILE *fp)
+const char *mktemplate_fancy(const CARD *card, FILE *fp)
 {
-	return mktemplate_text(fp, true);
+	return mktemplate_text(card, fp, true);
 }

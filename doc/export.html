@@ -139,6 +139,17 @@ template name <TT>+</TT>.  For example, to just print a few fields
      \{END}' | grok -x phone + /415
 </PRE>
 
+<P>The automatic templates (and any others as well, including
+<TT>+</TT> if you want an expensive <TT>cat</TT> command) can be
+viewed directly from the comand line using the <TT>-X</TT> option.
+This just copies the raw template (without evaluation) to standard
+output.  A form must still be specified, as each form has its own set
+of templates.  Any search string or flags are simply ignored.
+
+<PRE>
+     grok -X phone html > phone-html-template
+</PRE>
+
 <A NAME="ec">
 <H2>Writing Custom Templates</H2>
 
@@ -243,18 +254,34 @@ can be put into lines of their own without introducing unwanted newlines.
 	may optionally be prefixed with a plus-sign (<TT>+</TT>) to only
 	evaluate <I>text</I> for non-empty array elements.<P>
 
-<LI><TT>\{IF</TT> <I>expr</I><TT>}</TT> <I>text</I> <TT>\{ENDIF}</TT><BR>
+<LI><TT>\{IF</TT> <I>expr</I><TT>}</TT> <I>text</I> <TT>\{ELSEIF <I>expr</I>}</TT> <I>text</I> <TT>\{ELSE}</TT> <I>text</I> <TT>\{ENDIF}</TT><BR>
 	Conditional expressions evaluate text only if the expression
 	<I>expr</I> is true. Otherwise <I>text</I> is ignored. The
 	<I>text</I> may contain expressions and template expressions,
 	including <TT>FOREACH</TT> loops and other conditionals.
-	IF statements can be nested arbitrarily.<P>
+	IF statements can be nested arbitrarily.  Any <TT>FOREACH</TT>
+	within a text segment must also have its matching <TT>END</TT>
+	in the same text segment, at the same nesting level.<P>
+
+	The <I>text</I> may also contain <TT>ELSEIF</TT> at the
+	same nesting level, which is evaluated only if all prior
+	conditions were false; the text after it is then executed only
+	if its own <I>expr</I> evaluates to true.  There may be none
+	or as many <TT>ELSEIF</TT> directives as desired before the
+	<TT>ENDIF</TT>.  Similarly, <TT>ELSE</TT> is evaluated only if
+	all prior conditions were false; this is then executed
+	always.  Either no or exactly one <TT>ELSE</TT> should be
+	present, and any further <TT>\{ELSE}</TT> or <TT>ELSEIF</TT>
+	directives following that are complete ignored, although they
+	may trigger an error in a future release.  In short, either
+	only one branch of <I>text</I> is evaluated, or none.<P>
 
 	As described above, the user may specify one or more flags to
 	be set for an export, each corresponding to one of the 26
 	letters a through z,  The <I>expr</I> for <TT>IF</TT> may test
-	for a flag being set using <TT>-</TT><I>flag</I> and unset
-	using <TT>+</TT><I>flag</I>.
+	for such a flag being set using <TT>-</TT><I>flag</I> and unset
+	using <TT>+</TT><I>flag</I>.  See the built-in templates for
+	examples of their usage.
 
 <LI><TT>\{SUBST</TT> <I>c</I><TT>=</TT><I>string c</I><TT>=</TT><I>string</I> ... <TT>}</TT><BR>
 	Some characters are unwanted in output files. For example,

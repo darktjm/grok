@@ -11,6 +11,7 @@
 
 class QPrinter;
 struct pref {
+	bool	modified;	/* prefs need saving */
 	bool	ampm;		/* US time format if true, sane if false */
 	bool	mmddyy;		/* US date format if true, European if false */
 	bool	query2search;	/* copy query pulldn string to search string */

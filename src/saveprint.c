@@ -1,5 +1,12 @@
 // copied from https://stackoverflow.com/questions/12253363/persisting-serializing-qprinter-qprintdialog-between-execution
 /* The only changes I made were reindenting and #if-ing out the samples */
+/* Now I've also added some headers */
+#include "config.h"
+#include <QtWidgets>
+#include <QtPrintSupport>
+#include "grok.h"
+#include "form.h"
+#include "proto.h"
 /* Qt doesn't provide a way of saving print settings between runs.
  * I was going to write my own, but then I found this and decided to use it.
  * rather than writing my own */

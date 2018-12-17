@@ -83,6 +83,10 @@ Bugs
 
 - The help popup for questions immediately gets pushed behind question popup
 
+- Invalid long options pop up the usage() after the fork.  Fixing this
+  without disabling fork entirely is probably never going to happen,
+  because QApplication silently dies if it's run before the fork.
+
 Code Improvements
 -----------------
 
@@ -498,8 +502,6 @@ Infrastructure Improvements
   random.  Maybe always sort by default sort field first, at least.
   I'm also not sure how to present changes.  This will probably be way
   more work than it's worth.
-
-- Add ELSE and ELSEIF to template controls.
 
 - Make the standard exports also export in a format resembling the
   current form layout, like Fiasco does.  This is probably very

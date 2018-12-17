@@ -47,8 +47,7 @@ static void new_callback  (void);
 static void dup_callback  (void);
 static void del_callback  (void);
 
-CARD 			*curr_card;	/* card being displayed in main win, */
-QMainWindow		*mainwindow;	/* popup menus hang off main window */
+GrokMainWindow		*mainwindow;	/* popup menus hang off main window */
 #if 0
 static int		win_xs, win_ys;	/* size of main window w/o sum+card */
 #endif
@@ -92,7 +91,7 @@ void create_mainwindow()
 	QMenu		*menu, *submenu;
 	QVBoxLayout	*mainform;	/* form for summary table */
 
-	mainwindow = new QMainWindow();
+	mainwindow = new GrokMainWindow();
 	set_icon(mainwindow, 0); // from main(); there is no separate "toplevel"
 
 							/*-- menu bar --*/
@@ -145,7 +144,7 @@ void create_mainwindow()
 	menu->addAction("&About...", [=](){create_about_popup();});
 	menu->addAction("On &context", [=](){QWhatsThis::enterWhatsThisMode();},
 			Qt::CTRL|Qt::Key_H);
-	menu->addAction("Current &database", [=](){create_dbase_info_popup(curr_card);},
+	menu->addAction("Current &database", [=](){create_dbase_info_popup(mainwindow->card);},
 			Qt::CTRL|Qt::Key_D);
 	menu->addSeparator();
 	menu->addAction("&Introduction", [=](){help_callback(mainwindow, "intro");});
@@ -306,7 +305,7 @@ void create_mainwindow()
 
 	mainform->addLayout(bb); // needs to be last so it's on bottom
 
-	create_summary_menu(curr_card);
+	create_summary_menu(0);
 	remake_dbase_pulldown();
 	remake_section_pulldown();
 	remake_query_pulldown();
@@ -345,15 +344,16 @@ void resize_mainwindow(void)
  * off), or a search is done.
  */
 
-void print_info_line(void)
+void print_info_line()
 {
 	char		buf[128];
-	CARD		*card = curr_card;
-	DBASE		*dbase;
+	const CARD	*card;
+	const DBASE	*dbase;
 	int		s, n;
 
 	if (!mainwindow)
 		return;
+	card = mainwindow->card;
 	if (!card || !card->dbase || !card->form || !card->form->name) {
 		strcpy(buf, "No database");
 		print_button(w_mtime, "");
@@ -512,23 +512,24 @@ void remake_dbase_pulldown(void)
 
 #define MAXSC  200		/* no more than 200 sections in pulldown */
 
-void remake_section_pulldown(void)
+void remake_section_pulldown()
 {
+	CARD		*card = mainwindow->card;
 	int		maxn;
 	long		n;
 
 	sectpulldown->clear();
-	if (!curr_card || !curr_card->dbase || curr_card->form->proc) {
+	if (!card || !card->dbase || card->form->proc) {
 		sectpulldown->setEnabled(false);
 		return;
 	}
-	maxn = curr_card->dbase->havesects ? curr_card->dbase->nsects : 0;
+	maxn = card->dbase->havesects ? card->dbase->nsects : 0;
 	if (maxn > MAXSC - 2)
 		maxn = MAXSC - 2;
 	if(maxn)
 		sectpulldown->addAction("All", [=](){section_pulldown(0);});
 	for (n=0; n < maxn; n++) {
-		QString s(section_name(curr_card->dbase, n));
+		QString s(section_name(card->dbase, n));
 		s.replace('&', "&&");
 		sectpulldown->addAction(s, [=](){section_pulldown(n + 1);});
 	}
@@ -550,6 +551,7 @@ static QActionGroup	*qag = 0;	/* for readio-like queries */
 
 void remake_query_pulldown(void)
 {
+	CARD		*card = mainwindow->card;
 	long		i;		/* # of queries in pulldown */
 	int		n;		/* max # of lines in pulldown */
 
@@ -558,7 +560,7 @@ void remake_query_pulldown(void)
 		delete qag;
 		qag = 0;
 	}
-	if (!curr_card || !curr_card->form)
+	if (!card || !card->form)
 		return;
 
 	QAction *aq = qpulldown->addAction("Autoquery",
@@ -569,10 +571,10 @@ void remake_query_pulldown(void)
 	if (pref.autoquery)
 		qag = new QActionGroup(qpulldown);
 
-	n = curr_card->form->nqueries > MAXQ-2 ? MAXQ-2
-					       : curr_card->form->nqueries;
+	n = card->form->nqueries > MAXQ-2 ? MAXQ-2
+					       : card->form->nqueries;
 	for (i=0; i <= n; i++) {
-		DQUERY *dq = i ? &curr_card->form->query[i-1] : 0;
+		DQUERY *dq = i ? &card->form->query[i-1] : 0;
 		if (i && (dq->suspended || !dq->name || !dq->query))
 			continue;
 		QString name(i ? dq->name : "All");
@@ -581,14 +583,14 @@ void remake_query_pulldown(void)
 			QAction *a = qpulldown->addAction(name,
 					 [=](){query_pulldown(i-1);});
 			a->setCheckable(true);
-			a->setChecked(curr_card->form->autoquery == i-1);
+			a->setChecked(card->form->autoquery == i-1);
 			qag->addAction(a);
 		} else {
 			qpulldown->addAction(name, [=](){query_pulldown(i-1);});
 		}
 	}
 	// tearoff already set above
-	curr_card->last_query = curr_card->form->autoquery;
+	card->last_query = card->form->autoquery;
 }
 
 
@@ -601,13 +603,15 @@ static void	remake_popup(void);
 void remake_section_popup(
 	bool		newsects)	/* did the section list change? */
 {
+	CARD		*card = mainwindow->card;
+
 	if (newsects)
 		remake_popup();
 
-	if (!curr_card	|| !curr_card->dbase
-			||  curr_card->row < 0
-			||  curr_card->row >= curr_card->dbase->nrows
-			|| !curr_card->dbase->havesects) {
+	if (!card	|| !card->dbase
+			||  card->row < 0
+			||  card->row >= card->dbase->nrows
+			|| !card->dbase->havesects) {
 		if (w_sect->isVisible()) {
 			w_sect->setEnabled(false);
 			// I've no idea what this is doing here:
@@ -616,10 +620,10 @@ void remake_section_popup(
 		return;
 	}
 	if (w_sect->isVisible()) {
-		printf("%d\n", curr_card->dbase->row[curr_card->row]->section);
+		printf("%d\n", card->dbase->row[card->row]->section);
 		w_sect->setEnabled(true);
 		w_sect->setCurrentIndex(
-			curr_card->dbase->row[curr_card->row]->section);
+			card->dbase->row[card->row]->section);
 		// I've no idea what this is doing here
 		w_del->setEnabled(true);
 	}
@@ -628,16 +632,17 @@ void remake_section_popup(
 
 static void remake_popup(void)
 {
+	CARD		*card = mainwindow->card;
 	int		i, n;
 
 	w_sect->clear();
 	w_sect->hide();
-	n = curr_card->dbase->nsects;
+	n = card->dbase->nsects;
 	if (n < 2)
 		return;
 
 	for (i=0; i < n; i++) {
-		QString str(section_name(curr_card->dbase, i));
+		QString str(section_name(card->dbase, i));
 		str.replace('&', "&&");
 		w_sect->addItem(str);
 		// my use of a QComboBox makes marking individual items
@@ -661,6 +666,7 @@ static QActionGroup	*sag = 0;	/* for radio-like sort menu */
 
 void remake_sort_pulldown(void)
 {
+	CARD		*card = mainwindow->card;
 	int	sort_col[2*MAXS+1];	/* column for each pulldown item */
 	char		buf[128];	/* pulldown line text */
 	ITEM		*item;		/* scan items for sortable columns */
@@ -674,7 +680,7 @@ void remake_sort_pulldown(void)
 		sag = 0;
 	}
 
-	if (!curr_card || !curr_card->form || !curr_card->dbase)
+	if (!card || !card->form || !card->dbase)
 		return;
 
 	QAction *rs = sortpulldown->addAction("Reverse sort",
@@ -683,8 +689,8 @@ void remake_sort_pulldown(void)
 	rs->setChecked(pref.revsort);
 	sag = new QActionGroup(mainwindow);
 
-	for (n=1, i=0; i < curr_card->form->nitems; i++) {
-		item = curr_card->form->items[i];
+	for (n=1, i=0; i < card->form->nitems; i++) {
+		item = card->form->items[i];
 		if (!IN_DBASE(item->type) || item->nosort)
 			continue;
 		for (j=1; j < n; j++)
@@ -719,49 +725,50 @@ void remake_sort_pulldown(void)
  */
 
 void switch_form(
+	CARD		*&card,		/* card to switch */
 	char		*formname)	/* new form name */
 {
 	int		i;
 	char		*prev_form = 0;
 
-	if (curr_card && curr_card->dbase &&
-	    curr_card->dbase->modified &&
-	    !curr_card->dbase->rdonly &&
-	    !curr_card->form->rdonly &&
+	if (card && card->dbase &&
+	    card->dbase->modified &&
+	    !card->dbase->rdonly &&
+	    !card->form->rdonly &&
 	    /* this can only happen in a button switch() */
 	    /* but may as well test GUI is present */
 	    mainwindow &&
-	    !create_save_popup(mainwindow, curr_card->dbase,
-			       curr_card->form, "switchsave",
+	    !create_save_popup(mainwindow, card->dbase,
+			       card->form, "switchsave",
 			       "OK to discard changes and switch databases?"))
 		return;
 	if(mainwindow)
 		mainwindow->setUpdatesEnabled(false);
-	if (curr_card) {
-		zfree(curr_card->prev_form);
-		if (curr_card->form)
-			prev_form = mystrdup(curr_card->form->name);
-		destroy_card_menu(curr_card);
-		if (curr_card->dbase) {
-			if (curr_card->dbase->modified &&
-			   !curr_card->dbase->rdonly &&
-			   !curr_card->form->rdonly &&
-			   !write_dbase(curr_card->dbase,
-					curr_card->form, false)) {
+	if (card) {
+		zfree(card->prev_form);
+		if (card->form)
+			prev_form = mystrdup(card->form->name);
+		destroy_card_menu(card);
+		if (card->dbase) {
+			if (card->dbase->modified &&
+			   !card->dbase->rdonly &&
+			   !card->form->rdonly &&
+			   !write_dbase(card->dbase,
+					card->form, false)) {
 				if(mainwindow)
 					mainwindow->setUpdatesEnabled(true);
 				return;
 			}
-			dbase_delete(curr_card->dbase);
-			free(curr_card->dbase);
+			dbase_delete(card->dbase);
+			free(card->dbase);
 		}
-		if (curr_card->form) {
-			form_delete(curr_card->form);
-			free(curr_card->form);
+		if (card->form) {
+			form_delete(card->form);
+			free(card->form);
 		}
-		query_none(curr_card);
-		free(curr_card);
-		curr_card = 0;
+		query_none(card);
+		free(card);
+		card = 0;
 	}
 	if (!BLANK(formname)) {
 		FORM  *form  = form_create();
@@ -770,28 +777,28 @@ void switch_form(
 			(void)read_dbase(dbase, form,
 					form->dbase ? form->dbase : formname);
 
-		curr_card = create_card_menu(form, dbase, w_card);
-		if(!curr_card)
+		card = create_card_menu(form, dbase, w_card);
+		if(!card)
 			fatal("No memory for initial form");
-		curr_card->form  = form;
-		curr_card->prev_form = prev_form;
-		curr_card->dbase = dbase;
-		curr_card->row   = 0;
-		curr_card->last_query = -1;
+		card->form  = form;
+		card->prev_form = prev_form;
+		card->dbase = dbase;
+		card->row   = 0;
+		card->last_query = -1;
 		dbase->col_sorted_by = 0;
 		for (i=0; i < form->nitems; i++)
 			if (form->items[i]->defsort) {
 				pref.sortcol = form->items[i]->column;
 				pref.revsort = false;
-				dbase_sort(curr_card, pref.sortcol, 0);
+				dbase_sort(card, pref.sortcol, 0);
 				break;
 			}
 		if (form->autoquery >= 0 && form->autoquery < form->nqueries)
-			query_any(SM_SEARCH, curr_card,
+			query_any(SM_SEARCH, card,
 				  form->query[form->autoquery].query);
 		else
-			query_all(curr_card);
-		create_summary_menu(curr_card);
+			query_all(card);
+		create_summary_menu(card);
 
 		if (mainwindow) {
 			QString name(formname);
@@ -806,7 +813,7 @@ void switch_form(
 			mainwindow->setWindowIconText(name);
 			name.append(" - grok [*]");
 			mainwindow->setWindowTitle(name);
-			fillout_card(curr_card, false);
+			fillout_card(card, false);
 		}
 	} else {
 		/* unlike old code, prev_form is now lost */
@@ -815,8 +822,10 @@ void switch_form(
 		/* a form is loaded, and when that eventually happens, */
 		/* prev_form will have been NULL< anyway */
 		zfree(prev_form);
-		if (mainwindow)
+		if (mainwindow) {
 			mainwindow->setWindowIconText("None");
+			mainwindow->setWindowTitle("grok");
+		}
 	}
 
 	if (mainwindow) {
@@ -830,8 +839,8 @@ void switch_form(
 		remake_sort_pulldown();
 		remake_section_pulldown();	/* also sets w_sect, w_del */
 		resize_mainwindow();
-		if (curr_card && curr_card->dbase)
-			curr_card->dbase->modified = false;
+		if (card && card->dbase)
+			card->dbase->modified = false;
 		print_info_line();
 		mainwindow->setUpdatesEnabled(true);
 	}
@@ -846,26 +855,27 @@ void switch_form(
 static void find_and_select(
 	char		*string)	/* contents of search text widget */
 {
+	CARD				*card = mainwindow->card;
 	int		i, j = 0;	/* query count, query index */
 	int		oldrow;		/* if search fails, stay put */
 
-	if (!curr_card)
+	if (!card)
 		return;
-	oldrow = curr_card->row;
-	card_readback_texts(curr_card, -1);
-	for (i=0; i < curr_card->nquery; i++) {
-		j = (curr_card->qcurr + i + 1) % curr_card->nquery;
-		curr_card->row = curr_card->query[j];
-		if (match_card(curr_card, string))
+	oldrow = card->row;
+	card_readback_texts(card, -1);
+	for (i=0; i < card->nquery; i++) {
+		j = (card->qcurr + i + 1) % card->nquery;
+		card->row = card->query[j];
+		if (match_card(card, string))
 			break;
 	}
-	if (i == curr_card->nquery) {
-		curr_card->row = oldrow;
+	if (i == card->nquery) {
+		card->row = oldrow;
 		print_button(w_info, "No match.");
 	} else {
-		curr_card->qcurr = j;
-		fillout_card(curr_card, false);
-		scroll_summary(curr_card);
+		card->qcurr = j;
+		fillout_card(card, false);
+		scroll_summary(card);
 		print_info_line();
 	}
 }
@@ -880,7 +890,8 @@ static void find_and_select(
 static void file_pulldown(
 	int				item)
 {
-	card_readback_texts(curr_card, -1);
+	CARD				*card = mainwindow->card;
+	card_readback_texts(card, -1);
 	switch (item) {
 	  case 0: {						/* find&sel */
 		char *string = qstrdup(w_search->text());
@@ -890,11 +901,11 @@ static void file_pulldown(
 		break; }
 
 	  case 1:						/* print */
-		create_print_popup();
+		create_print_popup(card);
 		break;
 
 	  case 2:						/* export */
-		create_templ_popup();
+		create_templ_popup(card);
 		break;
 
 	  case 3:						/* preference*/
@@ -906,24 +917,24 @@ static void file_pulldown(
 	  /* 5 was About; moved to Help menu */
 
 	  case 6:						/* save */
-		if (curr_card && curr_card->form && curr_card->dbase)
-			if (curr_card->form->rdonly)
+		if (card && card->form && card->dbase)
+			if (card->form->rdonly)
 				create_error_popup(mainwindow, 0,
 				   "Database is marked read-only in the form");
 			else
-				(void)write_dbase(curr_card->dbase,
-						  curr_card->form, true);
+				(void)write_dbase(card->dbase,
+						  card->form, true);
 		else
 			create_error_popup(mainwindow,0,"No database to save");
 		print_info_line();
 		break;
 
 	  case 7:						/* quit*/
-		if (!curr_card ||  !curr_card->dbase
-			       ||  curr_card->dbase->rdonly
-			       ||  !curr_card->dbase->modified
-			       ||  curr_card->form->rdonly ||
-		    create_save_popup(mainwindow, curr_card->dbase, curr_card->form,
+		if (!card ||  !card->dbase
+			       ||  card->dbase->rdonly
+			       ||  !card->dbase->modified
+			       ||  card->form->rdonly ||
+		    create_save_popup(mainwindow, card->dbase, card->form,
 				"quit", "OK to discard changes and quit?"))
 			exit(0);
 
@@ -935,40 +946,41 @@ static void file_pulldown(
 static void newform_pulldown(
 	int				item)
 {
-	card_readback_texts(curr_card, -1);
+	CARD				*card = mainwindow->card;
+	card_readback_texts(card, -1);
 	switch (item) {
 	  case 0:						/* current */
-		if (curr_card && curr_card->form) {
-			if (curr_card->dbase		&&
-			   !curr_card->dbase->rdonly	&&
-			    curr_card->dbase->modified	&&
-			   !curr_card->form->rdonly	&&
-			   !create_save_popup(mainwindow, curr_card->dbase,
-					      curr_card->form, "switchsave",
+		if (card && card->form) {
+			if (card->dbase		&&
+			   !card->dbase->rdonly	&&
+			    card->dbase->modified	&&
+			   !card->form->rdonly	&&
+			   !create_save_popup(mainwindow, card->dbase,
+					      card->form, "switchsave",
 					      "OK to discard changes and edit form?"))
 						return;
-			create_formedit_window(curr_card->form, false, false);
+			create_formedit_window(card->form, false, false);
 		} else
 			create_error_popup(mainwindow, 0,
 		     "Please choose database to edit\nfrom Database pulldown");
 		break;
 
 	  case 1:						/* new */
-		switch_form(0);
+		switch_form(mainwindow->card, 0);
 		create_formedit_window(0, false, true);
 		break;
 
 	  case 2:						/* clone */
-		if (curr_card && curr_card->form) {
-			if (curr_card->dbase		&&
-			   !curr_card->dbase->rdonly	&&
-			    curr_card->dbase->modified	&&
-			   !curr_card->form->rdonly	&&
-			   !create_save_popup(mainwindow, curr_card->dbase,
-					      curr_card->form, "switchsave",
+		if (card && card->form) {
+			if (card->dbase		&&
+			   !card->dbase->rdonly	&&
+			    card->dbase->modified	&&
+			   !card->form->rdonly	&&
+			   !create_save_popup(mainwindow, card->dbase,
+					      card->form, "switchsave",
 					      "OK to discard changes and edit form?"))
 						return;
-			create_formedit_window(curr_card->form, true, true);
+			create_formedit_window(card->form, true, true);
 		} else
 			create_error_popup(mainwindow, 0,
 			"Please choose database from Database pulldown first");
@@ -980,14 +992,15 @@ static void newform_pulldown(
 static void dbase_pulldown(
 	int			item)
 {
+	CARD			*card = mainwindow->card;
 	static char		*path = 0;
 	static size_t		pathlen;
 
-	card_readback_texts(curr_card, -1);
+	card_readback_texts(card, -1);
 	grow(0, "dbase switch", char, path,
 	     strlen(db[item].path) + strlen(db[item].name+1) + 5, &pathlen);
 	sprintf(path, "%s/%s.gf", db[item].path, db[item].name+1);
-	switch_form(path);
+	switch_form(mainwindow->card, path);
 	remake_dbase_pulldown();
 }
 
@@ -995,22 +1008,23 @@ static void dbase_pulldown(
 static void section_pulldown(
 	int				item)
 {
-	card_readback_texts(curr_card, -1);
-	if (item == curr_card->dbase->nsects+1 || item == MAXSC-1 ||
-					!curr_card->dbase->havesects)
-		create_newsect_popup();
+	CARD				*card = mainwindow->card;
+	card_readback_texts(card, -1);
+	if (item == card->dbase->nsects+1 || item == MAXSC-1 ||
+					!card->dbase->havesects)
+		create_newsect_popup(card);
 	else {
-		curr_card->dbase->currsect = defsection = item-1;
+		card->dbase->currsect = defsection = item-1;
 		if (pref.autoquery)
-			do_query(curr_card->form->autoquery);
+			do_query(card->form->autoquery);
 		else
-			query_all(curr_card);
+			query_all(card);
 
-		create_summary_menu(curr_card);
+		create_summary_menu(card);
 
-		curr_card->row = curr_card->query ? curr_card->query[0]
-						  : curr_card->dbase->nrows;
-		fillout_card(curr_card, false);
+		card->row = card->query ? card->query[0]
+						  : card->dbase->nrows;
+		fillout_card(card, false);
 	}
 }
 
@@ -1019,23 +1033,24 @@ static void query_pulldown(
 	int		item,	/* -1: all, -2: autoquery */
 	bool		set)
 {
+	CARD		*card = mainwindow->card;
 	print_info_line();
-	if (!curr_card || !curr_card->dbase || !curr_card->dbase->nrows)
+	if (!card || !card->dbase || !card->dbase->nrows)
 		return;
-	card_readback_texts(curr_card, -1);
+	card_readback_texts(card, -1);
 	if (item == -2) {
 		pref.autoquery = set;
-		item = curr_card->form->autoquery;
+		item = card->form->autoquery;
 	} else if (pref.autoquery)
-		curr_card->form->autoquery = item;
+		card->form->autoquery = item;
 
 	do_query(item);
 
-	create_summary_menu(curr_card);
+	create_summary_menu(card);
 
-	curr_card->row = curr_card->query ? curr_card->query[0]
-					  : curr_card->dbase->nrows;
-	fillout_card(curr_card, false);
+	card->row = card->query ? card->query[0]
+					  : card->dbase->nrows;
+	fillout_card(card, false);
 	remake_query_pulldown();
 }
 
@@ -1044,17 +1059,18 @@ static void sort_pulldown(
 	int		item,	/* -1 is reverse flag */
 	bool		set)
 {
+	CARD		*card = mainwindow->card;
 	if (item < 0)
 		pref.revsort = set;
 	else
 		pref.sortcol = item;
 
-	card_readback_texts(curr_card, -1);
-	dbase_sort(curr_card, pref.sortcol, pref.revsort);
-	create_summary_menu(curr_card);
-	curr_card->row = curr_card->query ? curr_card->query[0]
-					  : curr_card->dbase->nrows;
-	fillout_card(curr_card, false);
+	card_readback_texts(card, -1);
+	dbase_sort(card, pref.sortcol, pref.revsort);
+	create_summary_menu(card);
+	card->row = card->query ? card->query[0]
+					  : card->dbase->nrows;
+	fillout_card(card, false);
 	remake_sort_pulldown();
 }
 
@@ -1068,41 +1084,42 @@ static void sort_pulldown(
 void do_query(
 	int		qmode)		/* -1=all, or query number */
 {
+	CARD		*card = mainwindow->card;
 	ROW		**row;		/* list of row struct pointers */
 	int		i;
 
-	for (row=curr_card->dbase->row,i=curr_card->dbase->nrows; i; i--,row++)
+	for (row=card->dbase->row,i=card->dbase->nrows; i; i--,row++)
 		(*row)->selected = 0;
-	if (curr_card->row < curr_card->dbase->nrows)
-		curr_card->dbase->row[curr_card->row]->selected |= 4;
-	if (curr_card->nquery)
-		curr_card->dbase->row[curr_card->query[curr_card->qcurr]]->
+	if (card->row < card->dbase->nrows)
+		card->dbase->row[card->row]->selected |= 4;
+	if (card->nquery)
+		card->dbase->row[card->query[card->qcurr]]->
 								selected |= 2;
 	if (qmode == -1)
-		query_all(curr_card);
+		query_all(card);
 
-	else if (*curr_card->form->query[qmode].query == '/') {
-		char *query = curr_card->form->query[qmode].query;
+	else if (*card->form->query[qmode].query == '/') {
+		char *query = card->form->query[qmode].query;
 		char *string = mystrdup(query + 1);
 		append_search_string(string);
-		query_search(SM_SEARCH, curr_card, query+1);
+		query_search(SM_SEARCH, card, query+1);
 	} else {
-		char *query = curr_card->form->query[qmode].query;
+		char *query = card->form->query[qmode].query;
 		if (pref.query2search) {
 			char *string = mystrdup(query);
 			append_search_string(string);
 		}
-		query_eval(SM_SEARCH, curr_card, query);
+		query_eval(SM_SEARCH, card, query);
 	}
-	for (row=curr_card->dbase->row,i=curr_card->dbase->nrows; i; i--,row++)
+	for (row=card->dbase->row,i=card->dbase->nrows; i; i--,row++)
 		if ((*row)->selected & 4)
-			curr_card->row = curr_card->dbase->nrows - i;
-	for (i=curr_card->nquery-1; i >= 0; i--)
-		if (curr_card->query[i] == curr_card->row) {
-			curr_card->qcurr = i;
+			card->row = card->dbase->nrows - i;
+	for (i=card->nquery-1; i >= 0; i--)
+		if (card->query[i] == card->row) {
+			card->qcurr = i;
 			break;
 		}
-	curr_card->last_query = qmode;
+	card->last_query = qmode;
 }
 
 
@@ -1163,6 +1180,7 @@ static void mode_callback(
 static void search_callback(
 	int				inc)
 {
+	CARD				*card = mainwindow->card;
 	if (inc) {
 		int o = s_offs + inc;
 		if (o > -NHIST && o <= 0 && history[(s_curr + o) % NHIST]) {
@@ -1174,8 +1192,8 @@ static void search_callback(
 	} else {
 		char *string = qstrdup(w_search->text());
 		if (searchmode != SM_FIND)
-			search_cards(searchmode, curr_card, string);
-		else if (curr_card->nquery > 0)
+			search_cards(searchmode, card, string);
+		else if (card->nquery > 0)
 			find_and_select(string);
 		append_search_string(string);
 	}
@@ -1184,8 +1202,9 @@ static void search_callback(
 
 static void requery_callback(void)
 {
-	if (curr_card->last_query >= 0)
-		query_pulldown(curr_card->last_query);
+	CARD				*card = mainwindow->card;
+	if (card->last_query >= 0)
+		query_pulldown(card->last_query);
 }
 
 
@@ -1215,14 +1234,15 @@ static void append_search_string(
 static void letter_callback(
 	int				letter)
 {
-	if (!curr_card || !curr_card->dbase || !curr_card->dbase->nrows)
+	CARD				*card = mainwindow->card;
+	if (!card || !card->dbase || !card->dbase->nrows)
 		return;
-	card_readback_texts(curr_card, -1);
-	query_letter(curr_card, letter);
-	create_summary_menu(curr_card);
-	curr_card->row = curr_card->query ? curr_card->query[0]
-					  : curr_card->dbase->nrows;
-	fillout_card(curr_card, false);
+	card_readback_texts(card, -1);
+	query_letter(card, letter);
+	create_summary_menu(card);
+	card->row = card->query ? card->query[0]
+					  : card->dbase->nrows;
+	fillout_card(card, false);
 }
 
 
@@ -1235,9 +1255,8 @@ static void letter_callback(
 static void pos_callback(
 	int				inc)
 {
-	CARD				*card = curr_card;
-
-	card_readback_texts(curr_card, -1);
+	CARD				*card = mainwindow->card;
+	card_readback_texts(card, -1);
 	if (card->qcurr + inc >= 0 &&
 	    card->qcurr + inc <  card->nquery) {
 		card->qcurr += inc;
@@ -1263,7 +1282,7 @@ static void pos_callback(
 static void add_card(
 	bool		dup)
 {
-	CARD		*card = curr_card;
+	CARD		*card = mainwindow->card;
 	ITEM		*item;
 	DBASE		*dbase = card->dbase;
 	int		i, s, save_sect = dbase->currsect;
@@ -1336,7 +1355,7 @@ static void new_callback(void)
 
 static void dup_callback(void)
 {
-	if (curr_card->row >= 0)
+	if (mainwindow->card->row >= 0)
 		add_card(true);
 }
 
@@ -1350,7 +1369,7 @@ static void dup_callback(void)
 
 static void del_callback(void)
 {
-	CARD				*card = curr_card;
+	CARD				*card = mainwindow->card;
 	int				*p, *q;
 	int				i, s;
 
@@ -1385,7 +1404,7 @@ static void del_callback(void)
 static void sect_callback(
 	int				item)
 {
-	CARD				*card = curr_card;
+	CARD				*card = mainwindow->card;
 	SECTION				*sect = card->dbase->sect;
 	int				olds, news;
 

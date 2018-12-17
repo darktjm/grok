@@ -1,4 +1,6 @@
-%{
+/* I want parser-related stuff to go into parser .h */
+/* This requires use of bison-specific %code directives */
+%code top {
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,58 +16,99 @@
 
 #define TAB	8		/* tab stops every 8 characters */
 
-static struct var {		/* variables 0..25 are a..z, cleared when */
-	char	*string;	/* switching databases. 26..51 are A..Z, */
-	double	value;		/* which are never cleared. */
-	bool	numeric;
-} var[52];
+}
 
-static char *yyzstrdup(const char *s)
+/* Yet more bison-specific code */
+/* This makes yyparse more reentrant */
+%code requires {
+typedef struct {
+	char	*ret;		/* returned string (see parser.y) */
+	CARD	*card;		/* database for which to evaluate */
+	char	*switch_name;	/* if switch statement was found, */
+	char	*switch_expr;	/* .. name to switch to and expr */
+	/* FIXME: either remove assigned or find a use for it */
+	bool	assigned;	/* did a field assignment */
+	char	*expr;		/* first char read by lexer */
+	char	*text;		/* next char to be read by lexer */
+	char	errormsg[2000];	/* error message if any, or "" */
+	/* FIXME: implement continuation if enough memory for it */
+	char	*errormsg_cont;	/* rest of message if too big */
+} PARSE_GLOBALS;
+#define PG PARSE_GLOBALS *g
+#define eval_error (!!g->errormsg[0])
+void parsererror(
+	PARSE_GLOBALS	*g,
+	const char	*msg);
+}
+%param {PARSE_GLOBALS *g}
+%define api.pure full
+
+/* This has to come after YYSTYPE is declared */
+%code provides {
+int parserlex(
+	YYSTYPE *lvalp,
+	PG);
+}
+
+%code {
+static char *yyzstrdup(PG, const char *s)
 {
 	char *ret = BLANK(s) ? NULL : strdup(s);
 	if(!BLANK(s) && !ret)
-		parsererror("NO memory");
+		parsererror(g, "No memory");
 	return ret;
 }
 #define check_error do { \
-	if(eval_error()) \
+	if(eval_error) \
 		YYERROR; \
 } while(0)
 #define yystrdup(d, s) do { \
-	d = yyzstrdup(s); \
+	d = yyzstrdup(g, s); \
 	check_error; \
 } while(0)
 
 static int	f_len	(char  *s)  { return(s ? strlen(s) : 0); }
-static char    *f_str	(double d)  { char buf[100]; sprintf(buf,"%.*lg",DBL_DIG + 1, d);
-					return(yyzstrdup(buf)); }
+static char    *f_str	(PG, double d)  { char buf[100]; sprintf(buf,"%.*lg",DBL_DIG + 1, d);
+					return(yyzstrdup(g, buf)); }
 static int	f_cmp	(char  *s,
 			 char  *t)  { int r = strcmp(STR(s), STR(t));
 				      zfree(s); zfree(t); return r;}
 
-static char    *getsvar	(int    v)  { return var[v].numeric ? f_str(var[v].value) :
-						yyzstrdup(var[v].string); }
-static double   getnvar	(int    v)  { return(var[v].numeric ? var[v].value :
-					var[v].string?atof(var[v].string):0);}
-static void	setsvari(int	v,
-			 char  *s)  { zfree(var[v].string);
-					var[v].numeric = false;
-					var[v].string = s; }
-static char    *setsvar	(int    v,
-			 char  *s)  {   setsvari(v, s);
-					return(yyzstrdup(var[v].string)); }
-static double   setnvar	(int    v,
-			 double d)  {   setsvari(v, 0);
-					var[v].numeric = true;
-					return(var[v].value = d); }
-void set_var(int v, char *s)
+static struct var *var_ptr(CARD *card, int v) {
+    /* variables 0..25 are a..z, cleared when */
+    /* switching databases (i.e., card-local). */
+    /* 26..51 are A..Z, which are never cleared after init */
+    /* FIXME: to be reentrant, this needs to lock global_vars or card */
+    static struct var global_vars[26] = {};
+    if(v < 26)
+	return &card->var[v];
+    return &global_vars[v-26];
+}
+#define VP struct var *vp = var_ptr(g->card, v)
+static char    *getsvar	(PG, int    v)  { VP; return vp->numeric ? f_str(g, vp->value) :
+						yyzstrdup(g, vp->string); }
+static double   getnvar	(PG, int    v)  { VP; return(vp->numeric ? vp->value :
+					vp->string?atof(vp->string):0);}
+static void	setsvari(PG, int	v,
+			 char  *s)  { VP; zfree(vp->string);
+					vp->numeric = false;
+					vp->string = s; }
+static char    *setsvar	(PG, int    v,
+			 char  *s)  {   VP; setsvari(g, v, s);
+					return(yyzstrdup(g, vp->string)); }
+static double   setnvar	(PG, int    v,
+			 double d)  {   VP; setsvari(g, v, 0);
+					vp->numeric = true;
+					return(vp->value = d); }
+void set_var(CARD *card, int v, char *s)
 {
-    zfree(var[v].string);
-    var[v].string = s;
-    var[v].numeric = false;
+    struct var *vp = var_ptr(card, v);
+    zfree(vp->string);
+    vp->string = s;
+    vp->numeric = false;
 }
 
-static char *f_concat(char *a, char *b)
+static char *f_concat(PG, char *a, char *b)
 {
 	int len = f_len(a) + f_len(b);
 	char *r;
@@ -78,7 +121,7 @@ static char *f_concat(char *a, char *b)
 	if(!r) {
 		zfree(a);
 		zfree(b);
-		parsererror("No memory");
+		parsererror(g, "No memory");
 		return NULL;
 	}
 	if (a)
@@ -90,24 +133,191 @@ static char *f_concat(char *a, char *b)
 	return r;
 }
 
-void init_variables(void) { int i; for (i=0; i < 26; i++) setsvari(i, 0); }
+}
 
-%}
+%code requires {
+/*---------------------------------------- eval.c ------------*/
+
+const char *subeval(
+	PG,
+	const char	*exp);
+bool subevalbool(
+	PG,
+	const char	*exp);
+void f_foreach(
+	PG,
+	char		*cond,
+	char		*expr);
+
+/*---------------------------------------- evalfunc.c ------------*/
+
+double f_num(
+	char		*s);
+double f_sum(				/* sum */
+	PG,
+	int		column);	/* number of column to average */
+double f_avg(				/* average */
+	PG,
+	int		column);	/* number of column to average */
+double f_dev(				/* standard deviation */
+	PG,
+	int		column);	/* number of column to average */
+double f_min(				/* minimum */
+	PG,
+	int		column);	/* number of column to average */
+double f_max(				/* maximum */
+	PG,
+	int		column);	/* number of column to average */
+double f_qsum(				/* sum */
+	PG,
+	int		column);	/* number of column to average */
+double f_qavg(				/* average */
+	PG,
+	int		column);	/* number of column to average */
+double f_qdev(				/* standard deviation */
+	PG,
+	int		column);	/* number of column to average */
+double f_qmin(				/* minimum */
+	PG,
+	int		column);	/* number of column to average */
+double f_qmax(				/* maximum */
+	PG,
+	int		column);	/* number of column to average */
+double f_ssum(				/* sum */
+	PG,
+	int		column);	/* number of column to average */
+double f_savg(				/* average */
+	PG,
+	int		column);	/* number of column to average */
+double f_sdev(				/* standard deviation */
+	PG,
+	int		column);	/* number of column to average */
+double f_smin(				/* minimum */
+	PG,
+	int		column);	/* number of column to average */
+double f_smax(				/* maximum */
+	PG,
+	int		column);	/* number of column to average */
+char *f_field(
+	PG,
+	int		column,
+	int		row);
+char *f_expand(
+	PG,
+	int		column,
+	int		row);
+char *f_assign(
+	PG,
+	int		column,
+	int		row,
+	char		*data);
+int f_section(
+	PG,
+	int		nrow);
+char *f_system(
+	PG,
+	char		*cmd);
+char *f_tr(
+	PG,
+	char		*string,
+	char		*rules);
+char *f_substr(
+	char		*string,
+	int		pos,
+	int		num);
+bool f_instr(
+	char		*match,
+	char		*string);
+struct arg *f_addarg(
+	PG,
+	struct arg	*list,		/* easier to keep struct arg local */
+	char		*value);	/* argument to append to list */
+void free_args(
+	struct arg	*list);		/* argument list to free */
+char *f_printf(
+	PG,
+	struct arg	*arg);
+int f_re_match(
+	PG,
+	char		*s,		/* string to search */
+	char		*e);		/* regular expression pattern */
+char *f_re_sub(
+	PG,
+	char		*s,		/* string to search/replace on */
+	char		*e,		/* regular expression pattern */
+	char		*r,		/* replacement string */
+	bool		all);		/* if false, only replace once */
+char *f_esc(
+	PG,
+	char		*s,
+	char		*e);
+int f_alen(
+	PG,
+	char		*array);
+char *f_elt(
+	PG,
+	char		*array,
+	int		n);
+char *f_slice(
+	PG,
+	char		*array,
+	int		start,
+	int		end);
+char *f_astrip(
+	PG,
+	char		*array);
+char *f_setelt(
+	PG,
+	char		*array,
+	int		n,
+	char		*val);
+void f_foreachelt(
+	PG,
+	int		var,
+	char		*array,
+	char		*cond,
+	char		*expr,
+	bool		nonblank);
+char *f_toset(
+	PG,
+	char		*a);
+char *f_union(
+	PG,
+	char		*a,
+	char		*b);
+char *f_intersect(
+	PG,
+	char		*a,
+	char		*b);
+char *f_setdiff(
+	PG,
+	char		*a,
+	char		*b);
+char *f_detab(
+	PG,
+	char		*s,
+	int		start,
+	int		tabstop);
+char *f_align(
+	PG,
+	char		*s,
+	char		*pad,
+	int		len,
+	int		where);
+}
+
+/*
+ * variable argument list element
+ */
+
+%code requires { struct arg { struct arg *next; char *value; }; }
 
 %union { int ival; double dval; char *sval; struct arg *aval; }
-/* THese destructors should wipe out any memory leaks on error, but they
+/* These destructors should wipe out any memory leaks on error, but they
  * only work in bison. */
-/* The only portable way would be to keep track of all allocations, and
- * free them when parsing is complete.  For example, add another link to
- * the "arg" structure (say, "alloc") and link all allocated args this way.
- * Never free args, but instead zero out their string and add to a "free"
- * list of args (linked via next).  There would no longer be a distinction
- * between strings and args in the %union, and all former string uses would
- * have to use the arg's string, and then move the arg to the free list.
- * When parsing is complete, just follow the alloc link and free any
- * non-NULL strings as well as the arg itself. */
 %destructor { zfree($$); } <sval>
 %destructor { free_args($$); } <aval>
+
 %type	<dval>	number numarg
 %type	<sval>	string
 %type	<aval>	args
@@ -151,71 +361,71 @@ void init_variables(void) { int i; for (i=0; i < 26; i++) setsvari(i, 0); }
 %start stmt
 
 %%
-stmt	: string			{ yyret = $1; }
+stmt	: string			{ g->ret = $1; }
 	;
 
 string	: STRING			{ $$ = $1; }
 	| '{' string '}'		{ $$ = $2; }
 	| string ';' string		{ $$ = $3; zfree($1); }
-	| string '.' string		{ $$ = f_concat($1, $3); check_error; }
-	| VAR %prec 's'			{ $$ = getsvar($1); check_error; }
+	| string '.' string		{ $$ = f_concat(g, $1, $3); check_error; }
+	| VAR %prec 's'			{ $$ = getsvar(g, $1); check_error; }
 	| VAR APP string		{ int v=$1;
-					  char *s=getsvar(v);
-					  if(eval_error()) { zfree(s); zfree($3); $$ = NULL; YYERROR; }
-					  $$ = setsvar(v, f_concat(s, $3));
+					  char *s=getsvar(g, v);
+					  if(eval_error) { zfree(s); zfree($3); $$ = NULL; YYERROR; }
+					  $$ = setsvar(g, v, f_concat(g, s, $3));
 					  check_error; }
-	| VAR '=' string		{ $$ = setsvar($1, $3); check_error; }
-	| '(' number ')'		{ $$ = f_str($2); check_error; }
+	| VAR '=' string		{ $$ = setsvar(g, $1, $3); check_error; }
+	| '(' number ')'		{ $$ = f_str(g, $2); check_error; }
 	| string '?' string ':' string	{ bool c = f_num($1); $$ = c ? $3 : $5;
 					  if (c) zfree($5); else zfree($3);}
-	| string '<' string		{ $$ = f_str((double)
+	| string '<' string		{ $$ = f_str(g, (double)
 							(f_cmp($1, $3) <  0)); check_error;}
-	| string '>' string		{ $$ = f_str((double)
+	| string '>' string		{ $$ = f_str(g, (double)
 							(f_cmp($1, $3) >  0)); check_error;}
-	| string EQ  string		{ $$ = f_str((double)
+	| string EQ  string		{ $$ = f_str(g, (double)
 							(f_cmp($1, $3) == 0)); check_error;}
-	| string NEQ string		{ $$ = f_str((double)
+	| string NEQ string		{ $$ = f_str(g, (double)
 							(f_cmp($1, $3) != 0)); check_error;}
-	| string REQ  string		{ $$ = f_str((double)
-							(f_re_match($1, $3) > 0)); check_error;}
-	| string RNEQ string		{ $$ = f_str((double)
-							(f_re_match($1, $3) == 0)); check_error;}
-	| string LE  string		{ $$ = f_str((double)
+	| string REQ  string		{ $$ = f_str(g, (double)
+							(f_re_match(g, $1, $3) > 0)); check_error;}
+	| string RNEQ string		{ $$ = f_str(g, (double)
+							(f_re_match(g, $1, $3) == 0)); check_error;}
+	| string LE  string		{ $$ = f_str(g, (double)
 							(f_cmp($1, $3) <= 0)); check_error;}
-	| string GE  string		{ $$ = f_str((double)
+	| string GE  string		{ $$ = f_str(g, (double)
 							(f_cmp($1, $3) >= 0)); check_error;}
-	| string IN  string		{ $$ = f_str((double)f_instr($1, $3)); check_error;}
-	| ESC '(' string ',' string ')'	{ if($5) $$ = f_esc($3, $5); else $$ = $3; check_error; }
-	| ESC '(' string ')'		{ $$ = f_esc($3, NULL); check_error; }
-	| string '[' DOTDOT number ']'	{ $$ = f_slice($1, 0, $4); } /* can't fail */
-	| string '[' number DOTDOT number ']'	{ $$ = f_slice($1, $3, $5); }
-	| string '[' number DOTDOT ']'	{ $$ = f_slice($1, $3, -1); }
-	| string '[' DOTDOT ']'		{ $$ = f_astrip($1); }
-	| string '[' number ']' 		{ $$ = f_elt($1, $3); } /* can't fail */
-	| string '[' number ']' AAS string  { $$ = f_setelt($1, $3, $6); check_error; }
-	| string UNION  string		{ $$ = f_union($1, $3); check_error; }
-	| string INTERSECT  string	{ $$ = f_intersect($1, $3);} /* can't fail */
-	| string DIFF  string		{ $$ = f_setdiff($1, $3);} /* can't fail */
-	| TOSET '(' string ')'		{ $$ = f_toset($3); check_error; }
-	| DETAB '(' string ')'		{ $$ = f_detab($3, 0, TAB); check_error; }
-	| DETAB '(' string ',' numarg ')'	{ $$ = f_detab($3, $5, TAB); check_error; }
-	| DETAB '(' string ',' numarg ',' number ')'	{ $$ = f_detab($3, $5, $7); check_error; }
-	| ALIGN '(' string ',' numarg ')'		{ $$ = f_align($3, NULL, $5, -1); check_error; }
-	| ALIGN '(' string ',' numarg ',' string ')'	{ $$ = f_align($3, $7, $5, -1); check_error; }
-	| ALIGN '(' string ',' numarg ',' string ',' number ')'	{ $$ = f_align($3, $7, $5, $9); check_error; }
-	| FIELD %prec 's'			{ $$ = f_field($1, yycard->row); check_error; }
-	| FIELD '[' number ']' 		{ $$ = f_field($1, $3); check_error; }
-	| FIELD '=' string		{ $$ = f_assign($1, yycard->row, $3);
-					  assigned = 1; } /* if this fails, it's fatal */
+	| string IN  string		{ $$ = f_str(g, (double)f_instr($1, $3)); check_error;}
+	| ESC '(' string ',' string ')'	{ if($5) $$ = f_esc(g, $3, $5); else $$ = $3; check_error; }
+	| ESC '(' string ')'		{ $$ = f_esc(g, $3, NULL); check_error; }
+	| string '[' DOTDOT number ']'	{ $$ = f_slice(g, $1, 0, $4); } /* can't fail */
+	| string '[' number DOTDOT number ']'	{ $$ = f_slice(g, $1, $3, $5); }
+	| string '[' number DOTDOT ']'	{ $$ = f_slice(g, $1, $3, -1); }
+	| string '[' DOTDOT ']'		{ $$ = f_astrip(g, $1); }
+	| string '[' number ']' 		{ $$ = f_elt(g, $1, $3); } /* can't fail */
+	| string '[' number ']' AAS string  { $$ = f_setelt(g, $1, $3, $6); check_error; }
+	| string UNION  string		{ $$ = f_union(g, $1, $3); check_error; }
+	| string INTERSECT  string	{ $$ = f_intersect(g, $1, $3);} /* can't fail */
+	| string DIFF  string		{ $$ = f_setdiff(g, $1, $3);} /* can't fail */
+	| TOSET '(' string ')'		{ $$ = f_toset(g, $3); check_error; }
+	| DETAB '(' string ')'		{ $$ = f_detab(g, $3, 0, TAB); check_error; }
+	| DETAB '(' string ',' numarg ')'	{ $$ = f_detab(g, $3, $5, TAB); check_error; }
+	| DETAB '(' string ',' numarg ',' number ')'	{ $$ = f_detab(g, $3, $5, $7); check_error; }
+	| ALIGN '(' string ',' numarg ')'		{ $$ = f_align(g, $3, NULL, $5, -1); check_error; }
+	| ALIGN '(' string ',' numarg ',' string ')'	{ $$ = f_align(g, $3, $7, $5, -1); check_error; }
+	| ALIGN '(' string ',' numarg ',' string ',' number ')'	{ $$ = f_align(g, $3, $7, $5, $9); check_error; }
+	| FIELD %prec 's'			{ $$ = f_field(g, $1, g->card->row); check_error; }
+	| FIELD '[' number ']' 		{ $$ = f_field(g, $1, $3); check_error; }
+	| FIELD '=' string		{ $$ = f_assign(g, $1, g->card->row, $3);
+					  g->assigned = 1; } /* if this fails, it's fatal */
 	| FIELD '[' number ']' '=' string 
-					{ $$ = f_assign($1, $3, $6);
-					  assigned = 1; } /* if this fails, it's fatal */
-	| SYSTEM '(' string ')'		{ $$ = f_system($3); check_error; }
+					{ $$ = f_assign(g, $1, $3, $6);
+					  g->assigned = 1; } /* if this fails, it's fatal */
+	| SYSTEM '(' string ')'		{ $$ = f_system(g, $3); check_error; }
 	| '$' SYMBOL			{ yystrdup($$, getenv($2)); }
 	| CHOP '(' string ')'		{ char *s=$3; if (s) { int n=strlen(s);
 					  if (n && s[n-1]=='\n') s[n-1] = 0; }
 					  $$ = s; }
-	| TR '(' string ',' string ')'	{ $$ = f_tr($3, $5); check_error; }
+	| TR '(' string ',' string ')'	{ $$ = f_tr(g, $3, $5); check_error; }
 	| SUBSTR '(' string ',' numarg ',' number ')'
 					{ $$ = f_substr($3, (int)$5, (int)$7);} /* can't fail */
 	| HOST				{ char *s; size_t len = 20; int e;
@@ -227,53 +437,53 @@ string	: STRING			{ $$ = $1; }
 						  s = (char *)malloc(len);
 					  }
 					  if(!s || !e) {
-						  yyerror("Error getting host name");
+						  parsererror(g, "Error getting host name");
 						  zfree(s);
 						  s = 0;
 					  }
 					  $$ = s; check_error; }
 	| USER				{ yystrdup($$, getenv("USER")); }
-	| PREVFORM			{ yystrdup($$, yycard->prev_form); }
-	| SECTION_ %prec 's'		{ if(!yycard || !yycard->dbase)
+	| PREVFORM			{ yystrdup($$, g->card->prev_form); }
+	| SECTION_ %prec 's'		{ if(!g->card || !g->card->dbase)
 						$$ = 0;
 					  else
 						yystrdup($$, section_name(
-						    yycard->dbase,
-						    yycard->dbase->currsect));}
-	| SECTION_ '[' number ']' 	{ if(!yycard || !yycard->dbase)
+						    g->card->dbase,
+						    g->card->dbase->currsect));}
+	| SECTION_ '[' number ']' 	{ if(!g->card || !g->card->dbase)
 						$$ = 0;
 					  else
 						yystrdup($$, section_name(
-						    yycard->dbase,
-						    f_section($3))); }
-	| FORM_				{ if(!yycard || !yycard->form
-						     || !yycard->form->name)
+						    g->card->dbase,
+						    f_section(g, $3))); }
+	| FORM_				{ if(!g->card || !g->card->form
+						     || !g->card->form->name)
 						$$ = 0;
 					  else
 						yystrdup($$, resolve_tilde
-						(yycard->form->name, "gf"));}
-	| DBASE_			{ if(!yycard || !yycard->form
-						     || !yycard->form->dbase)
+						(g->card->form->name, "gf"));}
+	| DBASE_			{ if(!g->card || !g->card->form
+						     || !g->card->form->dbase)
 						$$ = 0;
 					  else
 						yystrdup($$, resolve_tilde
-							(yycard->form->dbase,
-							 yycard->form->proc ?
+							(g->card->form->dbase,
+							 g->card->form->proc ?
 								0 : "db"));}
 	| SWITCH '(' string ',' string ')'
 					{ char *name = $3, *expr = $5;
-					  zfree(switch_name);
-					  zfree(switch_expr);
-					  switch_name = name;
-					  switch_expr = expr; 
+					  zfree(g->switch_name);
+					  zfree(g->switch_expr);
+					  g->switch_name = name;
+					  g->switch_expr = expr; 
 					  $$ = 0; }
-	| FOREACH '(' string ')'	{ f_foreach(0, $3); $$ = 0; check_error; }
+	| FOREACH '(' string ')'	{ f_foreach(g, 0, $3); $$ = 0; check_error; }
 	| FOREACH '(' string ',' string ')'
-					{ f_foreach($3, $5); $$ = 0; check_error; }
+					{ f_foreach(g, $3, $5); $$ = 0; check_error; }
 	| FOREACH '(' VAR ',' plus string ',' string ')'
-					{ f_foreachelt($3, $6, 0, $8, $5); $$ = 0; check_error; }
+					{ f_foreachelt(g, $3, $6, 0, $8, $5); $$ = 0; check_error; }
 	| FOREACH '(' VAR ',' plus string ',' string ',' string ')'
-					{ f_foreachelt($3, $6, $8, $10, $5); $$ = 0; check_error; }
+					{ f_foreachelt(g, $3, $6, $8, $10, $5); $$ = 0; check_error; }
 	| TIME				{ yystrdup($$, mktimestring
 						(time(0), false)); }
 	| DATE				{ yystrdup($$, mkdatestring
@@ -284,22 +494,22 @@ string	: STRING			{ $$ = $1; }
 						((time_t)$3)); }
 	| DURATION '(' number ')'	{ yystrdup($$, mktimestring
 						((time_t)$3, true)); }
-	| EXPAND '(' FIELD ')'		{ $$ = f_expand($3, yycard->row); check_error; }
+	| EXPAND '(' FIELD ')'		{ $$ = f_expand(g, $3, g->card->row); check_error; }
 	| EXPAND '(' FIELD '[' number ']' ')'
-					{ $$ = f_expand($3, $5); check_error; }
-	| PRINTF '(' args ')'		{ $$ = f_printf($3); check_error; }
-	| MATCH '(' string ',' string ')' { $$ = f_str(f_re_match($3, $5)); check_error; }
-	| SUB '(' string ',' string ',' string ')' { $$ = f_re_sub($3, $5, $7, false); check_error; }
-	| GSUB '(' string ',' string ',' string ')' { $$ = f_re_sub($3, $5, $7, true); check_error; }
+					{ $$ = f_expand(g, $3, $5); check_error; }
+	| PRINTF '(' args ')'		{ $$ = f_printf(g, $3); check_error; }
+	| MATCH '(' string ',' string ')' { $$ = f_str(g, f_re_match(g, $3, $5)); check_error; }
+	| SUB '(' string ',' string ',' string ')' { $$ = f_re_sub(g, $3, $5, $7, false); check_error; }
+	| GSUB '(' string ',' string ',' string ')' { $$ = f_re_sub(g, $3, $5, $7, true); check_error; }
 	| BSUB '(' string ')'		{ $$ = $3; if($3) backslash_subst($3); }
 	| BEEP				{ app->beep(); $$ = 0; }
-	| ERROR '(' args ')'		{ char *s = f_printf($3); check_error;
+	| ERROR '(' args ')'		{ char *s = f_printf(g, $3); check_error;
 					  create_error_popup(mainwindow, 0, s);
 					  zfree(s); $$ = 0; }
 	;
 
-args	: string			{ $$ = f_addarg(0, $1); check_error; }
-	| args ',' string		{ $$ = f_addarg($1, $3); check_error; }
+args	: string			{ $$ = f_addarg(g, 0, $1); check_error; }
+	| args ',' string		{ $$ = f_addarg(g, $1, $3); check_error; }
 	;
 
 number	: numarg			{ $$ = $1; }
@@ -308,40 +518,40 @@ number	: numarg			{ $$ = $1; }
 numarg	: NUMBER			{ $$ = $1; }
 	| '{' string '}'		{ $$ = f_num($2); }
 	| '(' number ')'		{ $$ = $2; }
-	| FIELD				{ $$ = f_num(f_field($1,yycard->row));}
-	| FIELD '[' number ']'		{ $$ = f_num(f_field($1, $3)); }
-	| FIELD '=' numarg		{ zfree(f_assign($1, yycard->row,
-					  f_str($$ = $3))); assigned = 1; check_error; }
+	| FIELD				{ $$ = f_num(f_field(g, $1,g->card->row));}
+	| FIELD '[' number ']'		{ $$ = f_num(f_field(g, $1, $3)); }
+	| FIELD '=' numarg		{ zfree(f_assign(g, $1, g->card->row,
+					  f_str(g, $$ = $3))); g->assigned = 1; check_error; }
 	| FIELD '[' number ']' '=' numarg
-					{ zfree(f_assign($1, $3,
-					  f_str($$ = $6))); assigned = 1; check_error; }
-	| VAR				{ $$ = getnvar($1); }
-	| VAR '=' numarg		{ $$ = setnvar($1, $3); }
+					{ zfree(f_assign(g, $1, $3,
+					  f_str(g, $$ = $6))); g->assigned = 1; check_error; }
+	| VAR				{ $$ = getnvar(g, $1); }
+	| VAR '=' numarg		{ $$ = setnvar(g, $1, $3); }
 	| VAR PLA numarg		{ int v = $1;
-					  $$ = setnvar(v, getnvar(v) + $3); }
+					  $$ = setnvar(g, v, getnvar(g, v) + $3); }
 	| VAR MIA numarg		{ int v = $1;
-					  $$ = setnvar(v, getnvar(v) - $3); }
+					  $$ = setnvar(g, v, getnvar(g, v) - $3); }
 	| VAR MUA numarg		{ int v = $1;
-					  $$ = setnvar(v, getnvar(v) * $3); }
+					  $$ = setnvar(g, v, getnvar(g, v) * $3); }
 	| VAR DVA numarg		{ int v = $1; double d=$3; if(d==0)d=1; /* cheater */
-					  $$ = setnvar(v, getnvar(v) / d); }
+					  $$ = setnvar(g, v, getnvar(g, v) / d); }
 	| VAR MOA numarg		{ int v = $1; double d=$3; if(d==0)d=1; /* cheater */
-					  $$ = setnvar(v, (double)((int)
-							  getnvar(v)%(int)d));}
+					  $$ = setnvar(g, v, (double)((int)
+							  getnvar(g, v)%(int)d));}
 	| VAR ANA numarg		{ int v = $1;
-					  $$ = setnvar(v, (double)((int)$3 &
-							  (int)getnvar(v))); }
+					  $$ = setnvar(g, v, (double)((int)$3 &
+							  (int)getnvar(g, v))); }
 	| VAR ORA numarg		{ int v = $1;
-					  $$ = setnvar(v, (double)((int)$3 |
-							  (int)getnvar(v))); }
+					  $$ = setnvar(g, v, (double)((int)$3 |
+							  (int)getnvar(g, v))); }
 	| VAR INC			{ int v = $1;
-					  $$ = setnvar(v, getnvar(v) + 1) - 1;}
+					  $$ = setnvar(g, v, getnvar(g, v) + 1) - 1;}
 	| VAR DEC_			{ int v = $1;
-					  $$ = setnvar(v, getnvar(v) - 1) + 1;}
+					  $$ = setnvar(g, v, getnvar(g, v) - 1) + 1;}
 	| INC VAR			{ int v = $2;
-					  $$ = setnvar(v, getnvar(v) + 1); }
+					  $$ = setnvar(g, v, getnvar(g, v) + 1); }
 	| DEC_ VAR			{ int v = $2;
-					  $$ = setnvar(v, getnvar(v) - 1); }
+					  $$ = setnvar(g, v, getnvar(g, v) - 1); }
 	| '-' numarg %prec UMINUS	{ $$ = - $2; }
 	| '!' numarg			{ $$ = ! $2; }
 	| '~' numarg			{ $$ = ~ (int)$2; }
@@ -366,40 +576,40 @@ numarg	: NUMBER			{ $$ = $1; }
 	| numarg AND numarg		{ $$ = $1 && $3; }
 	| numarg OR  numarg		{ $$ = $1 || $3; }
 	| numarg '?' number ':' numarg	{ $$ = $1 ?  $3 : $5; }
-	| THIS				{ $$ = yycard && yycard->row > 0 ?
-					       yycard->row : 0; }
-	| LAST				{ $$ = yycard && yycard->dbase ?
-					       yycard->dbase->nrows - 1 : -1; }
-	| DISP				{ $$ = yycard && yycard->dbase
-						      && yycard->disprow >= 0
-						      && yycard->disprow <
-							 yycard->dbase->nrows ?
-					       yycard->disprow : -1; }
-	| AVG   '(' FIELD ')'		{ $$ = f_avg($3); }
-	| DEV   '(' FIELD ')'		{ $$ = f_dev($3); }
-	| AMIN  '(' FIELD ')'		{ $$ = f_min($3); }
-	| AMAX  '(' FIELD ')'		{ $$ = f_max($3); }
-	| SUM   '(' FIELD ')'		{ $$ = f_sum($3); }
-	| QAVG  '(' FIELD ')'		{ $$ = f_qavg($3); }
-	| QDEV  '(' FIELD ')'		{ $$ = f_qdev($3); }
-	| QMIN  '(' FIELD ')'		{ $$ = f_qmin($3); }
-	| QMAX  '(' FIELD ')'		{ $$ = f_qmax($3); }
-	| QSUM  '(' FIELD ')'		{ $$ = f_qsum($3); }
-	| SAVG  '(' FIELD ')'		{ $$ = f_savg($3); }
-	| SDEV  '(' FIELD ')'		{ $$ = f_sdev($3); }
-	| SMIN  '(' FIELD ')'		{ $$ = f_smin($3); }
-	| SMAX  '(' FIELD ')'		{ $$ = f_smax($3); }
-	| SSUM  '(' FIELD ')'		{ $$ = f_ssum($3); }
+	| THIS				{ $$ = g->card && g->card->row > 0 ?
+					       g->card->row : 0; }
+	| LAST				{ $$ = g->card && g->card->dbase ?
+					       g->card->dbase->nrows - 1 : -1; }
+	| DISP				{ $$ = g->card && g->card->dbase
+						      && g->card->disprow >= 0
+						      && g->card->disprow <
+							 g->card->dbase->nrows ?
+					       g->card->disprow : -1; }
+	| AVG   '(' FIELD ')'		{ $$ = f_avg(g, $3); }
+	| DEV   '(' FIELD ')'		{ $$ = f_dev(g, $3); }
+	| AMIN  '(' FIELD ')'		{ $$ = f_min(g, $3); }
+	| AMAX  '(' FIELD ')'		{ $$ = f_max(g, $3); }
+	| SUM   '(' FIELD ')'		{ $$ = f_sum(g, $3); }
+	| QAVG  '(' FIELD ')'		{ $$ = f_qavg(g, $3); }
+	| QDEV  '(' FIELD ')'		{ $$ = f_qdev(g, $3); }
+	| QMIN  '(' FIELD ')'		{ $$ = f_qmin(g, $3); }
+	| QMAX  '(' FIELD ')'		{ $$ = f_qmax(g, $3); }
+	| QSUM  '(' FIELD ')'		{ $$ = f_qsum(g, $3); }
+	| SAVG  '(' FIELD ')'		{ $$ = f_savg(g, $3); }
+	| SDEV  '(' FIELD ')'		{ $$ = f_sdev(g, $3); }
+	| SMIN  '(' FIELD ')'		{ $$ = f_smin(g, $3); }
+	| SMAX  '(' FIELD ')'		{ $$ = f_smax(g, $3); }
+	| SSUM  '(' FIELD ')'		{ $$ = f_ssum(g, $3); }
 	| ABS   '(' number ')'		{ $$ = abs($3); }
-	| INT   '(' number ')'		{ $$ = (long)($3); }
+	| INT   '(' number ')'		{ $$ = (long long)($3); }
 	| BOUND '(' numarg ',' numarg ',' number ')'
 					{ double a=$3, b=$5, c=$7;
 					  $$ = a < b ? b : a > c ? c : a; }
 	| LEN   '(' string ')'		{ char *a=$3; $$ = a ? f_len(a) : 0;
 								zfree(a); }
 	| '#' string			{ $$ = $2 ? f_len($2) : 0; zfree($2); }
-	| ALEN_ string			{ $$ = f_alen($2); }
-	| MATCH '(' string ',' string ')' { $$ = f_re_match($3, $5); check_error; }
+	| ALEN_ string			{ $$ = f_alen(g, $2); }
+	| MATCH '(' string ',' string ')' { $$ = f_re_match(g, $3, $5); check_error; }
 	| SQRT  '(' number ')'		{ $$ = sqrt(abs($3));  } /* cheater */
 	| EXP   '(' number ')'		{ $$ = exp($3); }
 	| LOG   '(' number ')'		{ double a=$3; $$ = a<=0 ? 0:log10(a);} /* cheater */
@@ -415,9 +625,9 @@ numarg	: NUMBER			{ $$ = $1; }
 	| ATAN  '(' number ')'		{ $$ = atan($3); }
 	| ATAN2 '(' numarg ',' number ')'
 					{ $$ = atan2($3, $5); }
-	| SECTION_			{ $$ = yycard && yycard->dbase ?
-						yycard->dbase->currsect : 0; }
-	| SECTION_ '[' number ']'	{ $$ = f_section($3); }
+	| SECTION_			{ $$ = g->card && g->card->dbase ?
+						g->card->dbase->currsect : 0; }
+	| SECTION_ '[' number ']'	{ $$ = f_section(g, $3); }
 	| DATE				{ $$ = time(0); }
 	| DATE  '(' string ')'		{ $$ = $3 ? parse_datetimestring($3) : 0; zfree($3);}
 	| TIME  '(' string ')'		{ $$ = $3 ? parse_timestring($3, false) : 0; zfree($3);}

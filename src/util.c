@@ -37,7 +37,7 @@
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
-#if 1
+#if USE_COLOR_ICON
 #define static static const
 #include "Grok.xpm"
 #undef static
@@ -421,16 +421,16 @@ void set_icon(
 	QWidget			*shell,
 UNUSED	int			sub)		/* 0=main, 1=submenu */
 {
-	static QIcon icon;
-	if(icon.isNull()) {
-#if 1
-		icon.addPixmap(QPixmap(Grok));
+	static QIcon *icon;
+	if(!icon) {
+#if USE_COLOR_ICON
+		icon = new QIcon(QPixmap(Grok));
 #else
-		icon.addPixmap(QBitmap::fromData(QSize(bm_icon_width, bm_icon_height), bm_icon_bits));
+		icon = new QIcon(QBitmap::fromData(QSize(bm_icon_width, bm_icon_height), bm_icon_bits));
 #endif
 	}
 	/* there is only 1 icon, so sub is actually ignored */
-	shell->setWindowIcon(icon);
+	shell->setWindowIcon(*icon);
 }
 
 

@@ -63,7 +63,7 @@ shell.
 <P>grok supports the following command-line options:</P>
 
 <TT>grok</TT> [<I>options</I>] [<I>database</I> ['<I>query</I>']]<BR>
-<TT>grok</TT> -x <I>database</I> <I>template</I>[<I>flags</I>] ['<I>query</I>']]
+<TT>grok</TT> <TT>-x</TT> | <TT>-X</TT> <I>database</I> <I>template</I>[<I>flags</I>] ['<I>query</I>']]
 
 <UL>
 <LI><TT>-h</TT><BR>
@@ -106,6 +106,11 @@ shell.
 	the template can be appended to the name, each as a dash
 	followed by the flag letter (a-z).  See the chapter on
 	<A HREF="export.html">exports</A> for details.
+
+<LI><TT>-X</TT><BR>
+	Prints the <I>template</I>, unevaluated, to stdout.  The
+	query, if present, is ignored.  See above for valid template
+	names.
 
 <LI><TT>-f</TT><BR>
 	Do not fork on startup. This is mainly a debugging tool; it

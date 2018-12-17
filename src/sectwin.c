@@ -40,16 +40,16 @@ void destroy_newsect_popup(void)
  * create a new-section popup as a separate application shell.
  */
 
-static void add_callback(void);
+static void add_callback(CARD *card);
 static void can_callback(void);
 
-void create_newsect_popup(void)
+void create_newsect_popup(CARD *card)
 {
 	QVBoxLayout		*form;
 	QWidget			*w, *wt;
 
 	destroy_newsect_popup();
-	if (!curr_card || !curr_card->dbase)
+	if (!card || !card->dbase)
 		return;
 
 	// The proper way to ignore delete is to override QWindow::closeEvent()
@@ -68,9 +68,9 @@ void create_newsect_popup(void)
 
 	w_name = new QLineEdit;
 	form->addWidget(w_name);
-	set_text_cb(w_name, add_callback());
+	set_text_cb(w_name, add_callback(card));
 
-	wt = new QLabel(!curr_card->dbase->havesects && curr_card->dbase->nrows
+	wt = new QLabel(!card->dbase->havesects && card->dbase->nrows
 			? "All cards will be put into the new section."
 			: "The new section will be empty.");
 	form->addWidget(wt);
@@ -89,7 +89,7 @@ void create_newsect_popup(void)
 
 	w = mk_button(hb, "Add", dbbr(Accept));
 	reinterpret_cast<QPushButton *>(w)->setDefault(true);
-	set_button_cb(w, add_callback());
+	set_button_cb(w, add_callback(card));
 
 	popup_nonmodal(shell);
 	set_dialog_cancel_cb(shell, can_callback());
@@ -102,7 +102,7 @@ void create_newsect_popup(void)
  * All of these routines are direct X callbacks.
  */
 
-static void add_callback(void)
+static void add_callback(CARD *card)
 {
 	DBASE		*dbase;
 	SECTION		*sect;
@@ -112,7 +112,7 @@ static void add_callback(void)
 	char		*oldp = NULL, *newp = NULL, *dir = NULL;
 	bool		nofile = false;
 
-	if (!curr_card || !(dbase = curr_card->dbase)) {
+	if (!card || !(dbase = card->dbase)) {
 		destroy_newsect_popup();
 		return;
 	}
@@ -130,7 +130,7 @@ static void add_callback(void)
 				"A section with this name already exists.");
 			return;
 		}
-	path = resolve_tilde(curr_card->form->dbase, 0);
+	path = resolve_tilde(card->form->dbase, 0);
 	oldp = alloc(0, "sect file name", char, strlen(path) + 5);
 	sprintf(oldp, "%s.old", path);
 	dir = alloc(0, "sect file name", char, strlen(path) + 4);

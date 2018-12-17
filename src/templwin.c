@@ -19,17 +19,22 @@
 
 #define NLINES	15		/* number of lines in list widget */
 
-static void button_callback(int code, bool set = false);
+static void button_callback(CARD *card, int code, bool set = false);
 static void file_export_callback(const QString &file);
 
-static void mklist(void);
-static void editfile(char *);
-static void askname(bool);
+static void mklist(CARD *card);
+static void editfile(CARD *card, char *);
+static void askname(CARD *card, bool);
 
-static QDialog		*shell = 0;	/* popup menu shell */
-static QListWidget	*list;		/* template list widget */
-static int		list_nlines;	/* # of lines displayed in scroll list */
-static bool		modified;	/* preferences have changed */
+class TemplDialog : public QDialog {
+    public:
+	TemplDialog() {}
+	QListWidget	*list;
+	int		list_nlines;
+	CARD export_card = {};
+};
+
+static TemplDialog		*shell = 0;	/* popup menu shell */
 
 
 /*
@@ -39,7 +44,7 @@ static bool		modified;	/* preferences have changed */
 static void destroy_templ_popup(void)
 {
 	if (shell) {
-		if (modified)
+		if (pref.modified)
 			write_preferences();
 		shell->close();
 		delete shell;
@@ -92,14 +97,14 @@ static struct menu print_buttons[] = {
 	{ 'q',	0x45,	dbbb(Help),	0			}
 };
 
-static QStringList what_rows = {
+static const QStringList what_rows = {
 	"Current card only", "Current search results", "All cards in current section", "All cards"
 };
 static const char select_codes[] = "CSeA";
 
 #define BUILTIN_FLAGS "sdn"
 
-static void create_templ_print_popup(bool print)
+static void create_templ_print_popup(CARD *card, bool print)
 {
 	struct menu	*mp;			/* current menu[] entry */
 	QWidget		*w=0;
@@ -109,7 +114,7 @@ static void create_templ_print_popup(bool print)
 
 	destroy_templ_popup();
 
-	if (!curr_card) {
+	if (!card) {
 		create_error_popup(mainwindow, 0, "Select a database to %s", print ? "print" : "export");
 		return;
 	}
@@ -117,7 +122,7 @@ static void create_templ_print_popup(bool print)
 	// The proper way to ignore delete is to override QWindow::closeEvent()
 	// Instead, I'll do nothing.  It makes more sense to issue a reject
 	// (the default behavior), anyway - tjm
-	shell = new QDialog;
+	shell = new TemplDialog;
 	if (print)
 		shell->setWindowTitle("Grok Print");
 	else
@@ -157,14 +162,14 @@ static void create_templ_print_popup(bool print)
 	      case '-': if(!print) w = mk_separator();		break;
 	      case 'L':	if(!print || !mp->role) w = new QLabel(mp->text);  break;
 	      case 'S': {
-		  w = list = new QListWidget;
-		  list->setSelectionMode(QAbstractItemView::SingleSelection);
-		  // list->setAttribute("courierFont", true); // This isn't necessary
-		  list->addItem("QT is a pain in the ass");
-		  list->setMinimumHeight(list->sizeHintForRow(0) * NLINES);
-		  list->clear();
-		  list_nlines = 0;
-		  mklist();
+		  w = shell->list = new QListWidget;
+		  shell->list->setSelectionMode(QAbstractItemView::SingleSelection);
+		  // shell->list->setAttribute("courierFont", true); // This isn't necessary
+		  shell->list->addItem("QT is a pain in the ass");
+		  shell->list->setMinimumHeight(shell->list->sizeHintForRow(0) * NLINES);
+		  shell->list->clear();
+		  shell->list_nlines = 0;
+		  mklist(card);
 		  break;
 	      }
 	    }
@@ -204,15 +209,15 @@ static void create_templ_print_popup(bool print)
 	    }
 
 	    if (mp->type == 'b' || mp->type == 'q' || mp->type == 'B')
-		set_button_cb(w, button_callback(mp->code));
+		set_button_cb(w, button_callback(card, mp->code));
 	    else if (mp->type == 'F' || mp->type == 'f')
-		set_button_cb(w, button_callback(mp->code, set), bool set);
+		set_button_cb(w, button_callback(card, mp->code, set), bool set);
 	    else if (mp->type == 'M')
-		set_popup_cb(w, button_callback(mp->code + i), int, i);
+		set_popup_cb(w, button_callback(card, mp->code + i), int, i);
 	    else if (mp->code == 0x30)
-		set_textr_cb(w, button_callback(mp->code));
+		set_textr_cb(w, button_callback(card, mp->code));
 	    else if(mp->type == 'T')
-		set_text_cb(w, button_callback(mp->code));
+		set_text_cb(w, button_callback(card, mp->code));
 	    mp->widget = w;
 	}
 	if(print) {
@@ -222,25 +227,24 @@ static void create_templ_print_popup(bool print)
 			w = mk_button(hb, mp->text, mp->role);
 			if(mp->code == 0x46)
 				reinterpret_cast<QPushButton *>(w)->setDefault(true);
-			set_button_cb(w, button_callback(mp->code));
+			set_button_cb(w, button_callback(card, mp->code));
 			mp->widget = w;
 		}
 	}
 	// close does a reject by default, so no extra callback needed
-	set_dialog_cancel_cb(shell, button_callback(0x42));
+	set_dialog_cancel_cb(shell, button_callback(card, 0x42));
 
 	popup_nonmodal(shell);
-	modified = false;
 }
 
-void create_templ_popup(void)
+void create_templ_popup(CARD *card)
 {
-    create_templ_print_popup(false);
+    create_templ_print_popup(card, false);
 }
 
-void create_print_popup(void)
+void create_print_popup(CARD *card)
 {
-    create_templ_print_popup(true);
+    create_templ_print_popup(card, true);
 }
 
 /*
@@ -249,18 +253,18 @@ void create_print_popup(void)
 
 static void save_cb(UNUSED int seq, char *name)
 {
-	list->addItem(name);
-	list_nlines++;
+	shell->list->addItem(name);
+	shell->list_nlines++;
 }
 
-static void mklist(void)
+static void mklist(CARD *card)
 {
-	list->clear();
-	list_nlines = 0;
-	list_templates(save_cb, curr_card);
-	if (pref.xlistpos >= list_nlines)
-		pref.xlistpos = list_nlines-1;
-	list->setCurrentRow(pref.xlistpos);
+	shell->list->clear();
+	shell->list_nlines = 0;
+	list_templates(save_cb, card);
+	if (pref.xlistpos >= shell->list_nlines)
+		pref.xlistpos = shell->list_nlines-1;
+	shell->list->setCurrentRow(pref.xlistpos);
 }
 
 
@@ -269,7 +273,7 @@ static void mklist(void)
 
 static int get_list_seq(void)
 {
-	int i = list->currentRow();
+	int i = shell->list->currentRow();
 	if(i >= 0) {
 		pref.xlistpos = i;
 		return(true);
@@ -282,60 +286,60 @@ static int get_list_seq(void)
 #define SECT_OK(db,r) ((db)->currsect < 0 ||\
 		       (db)->currsect == (db)->row[r]->section)
 
-/* This is nasty, but curr_card is used too much to just make a replacement */
-static CARD *old_curr_card = 0;
-static void set_export_card(void)
+static void set_export_card(CARD *card)
 {
-	static CARD new_card;
-
-	if(pref.pselect == 'S' || !curr_card || !curr_card->dbase)
+	const int *oquery;
+	tzero(CARD, &shell->export_card, 1);
+	if(!card || !card->dbase)
 		return;
-	old_curr_card = curr_card;
-	new_card = *curr_card;
-	curr_card = &new_card;
+	shell->export_card = *card;
+	card = &shell->export_card;
 	switch(pref.pselect) {
+	    case 'S':
+		oquery = card->query;
+		card->query = alloc(0, "query", int, card->nquery);
+		tmemcpy(int, card->query, oquery, card->nquery);
+		break;
 	    case 'C':
-		curr_card->nquery = curr_card->qcurr < curr_card->nquery;
-		curr_card->query = alloc(0, "query", int, curr_card->nquery);
-		if(curr_card->nquery)
-			curr_card->query[0] = curr_card->qcurr;
+		card->nquery = card->qcurr < card->nquery;
+		card->query = alloc(0, "query", int, card->nquery);
+		if(card->nquery)
+			card->query[0] = card->qcurr;
 		break;
 	    case 'e': {
 		int n;
-		for(int i = n = 0; i < curr_card->dbase->nrows; i++)
-			if(SECT_OK(curr_card->dbase, i))
+		for(int i = n = 0; i < card->dbase->nrows; i++)
+			if(SECT_OK(card->dbase, i))
 				n++;
-		curr_card->nquery = n;
-		curr_card->query = alloc(0, "query", int, curr_card->nquery);
-		if(curr_card->nquery)
+		card->nquery = n;
+		card->query = alloc(0, "query", int, card->nquery);
+		if(card->nquery)
 			/* sorting sorts dbase, so no need to resort */
-			for(int i = n = 0; i < curr_card->dbase->nrows; i++)
-				if(SECT_OK(curr_card->dbase, i))
-					curr_card->query[n++] = i;
+			for(int i = n = 0; i < card->dbase->nrows; i++)
+				if(SECT_OK(card->dbase, i))
+					card->query[n++] = i;
 		break;
 	    }
 	    case 'A':
-		curr_card->nquery = curr_card->dbase->nrows;
-		curr_card->query = alloc(0, "query", int, curr_card->nquery);
-		if(curr_card->nquery)
+		card->nquery = card->dbase->nrows;
+		card->query = alloc(0, "query", int, card->nquery);
+		if(card->nquery)
 			/* sorting sorts dbase, so no need to resort */
-			for(int i = 0; i < curr_card->dbase->nrows; i++)
-				curr_card->query[i] = i;
+			for(int i = 0; i < card->dbase->nrows; i++)
+				card->query[i] = i;
 		break;
 	}
 }
 
 
-static void unset_export_card(void)
+static void unset_export_card(CARD *card)
 {
-	if(old_curr_card) {
-		zfree(curr_card->query);
-		curr_card = old_curr_card;
-		old_curr_card = NULL;
-	}
+	if(card)
+		tmemcpy(struct var, card->var, shell->export_card.var, 26);
+	zfree(shell->export_card.query);
 }
 
-static bool do_export(void)
+static bool do_export(CARD *card)
 {
 	struct menu	*mp;		/* for finding text widget */
 	const char	*err;
@@ -350,29 +354,29 @@ static bool do_export(void)
 	if (!get_list_seq())
 		return(false);
 
-	set_export_card();
+	set_export_card(card);
 	if(pref.xfile[0] != '|')
-		err = exec_template(pref.xfile, NULL, 0, pref.xlistpos, pref.xflags, curr_card);
+		err = exec_template(pref.xfile, NULL, 0, pref.xlistpos, pref.xflags, &shell->export_card);
 	else {
 		FILE *f = popen(pref.xfile + 1, "w");
 		if(!f)
 			err = "Can't open pipe";
 		else {
-			err = exec_template(NULL, f, 0, pref.xlistpos, pref.xflags, curr_card);
+			err = exec_template(NULL, f, 0, pref.xlistpos, pref.xflags, &shell->export_card);
 			pclose(f);
 		}
 	}
 	if (err) {
-		unset_export_card();
+		unset_export_card(card);
 		create_error_popup(shell, 0, "Export failed:\n%s", err);
 		return(false);
 	}
-	unset_export_card();
-	modified = true;
+	unset_export_card(card);
+	pref.modified = true;
 	return(true);
 }
 
-static bool export_to_doc(QTextDocument &doc)
+static bool export_to_doc(CARD *card, QTextDocument &doc)
 {
 	const char	*err;
 
@@ -384,14 +388,14 @@ static bool export_to_doc(QTextDocument &doc)
 		create_error_popup(shell, 0, "Can't create output file");
 		return(false);
 	}
-	set_export_card();
-	if ((err = exec_template(0, f, 0, pref.xlistpos, pref.xflags, curr_card))) {
-		unset_export_card();
+	set_export_card(card);
+	if ((err = exec_template(0, f, 0, pref.xlistpos, pref.xflags, &shell->export_card))) {
+		unset_export_card(card);
 		create_error_popup(shell, 0, "Export failed:\n%s", err);
 		fclose(f);
 		return(false);
 	}
-	unset_export_card();
+	unset_export_card(card);
 	fflush(f);
 	unsigned long len = ftell(f);
 	rewind(f);
@@ -408,14 +412,13 @@ static bool export_to_doc(QTextDocument &doc)
 	cdoc[len] = 0;
 	QString s(cdoc);
 	free(cdoc);
-	static QWidget *w = NULL;
-	static QFont printfont; // only for plain text; HTML assumed to be OK
-	if(!w) {
-		w = new QWidget;
+	static QFont *printfont; // only for plain text; HTML assumed to be OK
+	if(!printfont) {
+		QWidget *w = new QWidget;
 		w->setProperty("printFont", true);
 		w->setProperty("courierFont", true);
 		w->ensurePolished();
-		printfont = w->font();
+		printfont = new QFont(w->font());
 		delete w;
 	}
 	if(s.indexOf('\b') != -1) {
@@ -430,12 +433,12 @@ static bool export_to_doc(QTextDocument &doc)
 		s.prepend("<div style=\"white-space: pre;\">");
 		s.append("</div>");
 		doc.setHtml(s);
-		doc.setDefaultFont(printfont);
+		doc.setDefaultFont(*printfont);
 	} else {
 		if(Qt::mightBeRichText(s))
 			doc.setHtml(s);
 		else {
-			doc.setDefaultFont(printfont);
+			doc.setDefaultFont(*printfont);
 			doc.setPlainText(s);
 		}
 	}
@@ -444,25 +447,26 @@ static bool export_to_doc(QTextDocument &doc)
 
 
 static void button_callback(
+	CARD				*card,
 	int				code,
 	bool				set)
 {
 	switch(code) {
 	  case 0x20:						/* Create */
-		askname(false);
+		askname(card, false);
 		break;
 	  case 0x21:						/* Dup */
 		if (!get_list_seq())
 			return;
-		askname(true);
+		askname(card, true);
 		break;
 	  case 0x22:						/* Edit */
 		if (!get_list_seq())
 			break;
 		if (pref.xlistpos >= get_template_nbuiltins()) {
 			char *path = get_template_path(0,
-					pref.xlistpos, curr_card);
-			editfile(path);
+					pref.xlistpos, card);
+			editfile(card, path);
 			free(path);
 		} else
 			create_error_popup(shell, 0,
@@ -471,8 +475,8 @@ static void button_callback(
 	  case 0x23:						/* Delete */
 		if (!get_list_seq())
 			return;
-		(void)delete_template(shell, pref.xlistpos, curr_card);
-		mklist();
+		(void)delete_template(shell, pref.xlistpos, card);
+		mklist(card);
 		break;
 	  case 0x40:						/* Browse */
 	{
@@ -553,7 +557,7 @@ static void button_callback(
 	  }
 	  case 0x30:						/* text */
 	  case 0x41:						/* Export */
-		if (do_export())
+		if (do_export(card))
 	  case 0x42:						/* Cancel */
 		destroy_templ_popup();
 		break;
@@ -565,7 +569,7 @@ static void button_callback(
 		break;
 	  case 0x44: {						/* Preview */
 		QTextDocument *d =  new QTextDocument;
-		if(!export_to_doc(*d)) {
+		if(!export_to_doc(card, *d)) {
 			delete d;
 			break;
 		}
@@ -576,8 +580,8 @@ static void button_callback(
 	  case 0x46:
 	  case 0x47: {	 					/* Print */
 		QTextDocument d;
-		modified = true;
-		if(!export_to_doc(d))
+		pref.modified = true;
+		if(!export_to_doc(card, d))
 			break;
 		destroy_templ_popup();
 		if(code == 0x46) {
@@ -601,7 +605,7 @@ static void button_callback(
 	  case 0x52:
 	  case 0x53: {	 					/* Cards */
 		pref.pselect = select_codes[code - 0x50];
-		modified = true;
+		pref.modified = true;
 	  }
 	}
 }
@@ -628,30 +632,35 @@ static void file_export_callback(
  * user pressed Dup or Create. Ask for a new file name.
  */
 
-static void text_callback	(void);
+static void text_callback	(CARD *card);
 static void textcancel_callback	(void);
 
-static bool		have_askshell = false;	/* text popup exists if true */
-static QDialog		*askshell;	/* popup menu shell */
-static QLineEdit	*text;		/* template name string */
-static bool		duplicate;	/* dup file before editing */
+class TmplAskName : public QDialog {
+    public:
+	TmplAskName(QWidget *parent) : QDialog(parent) {}
+	QLineEdit	*text;		/* template name string */
+	bool		duplicate;	/* dup file before editing */
+};
+
+static TmplAskName	*askshell = 0;	/* popup menu shell */
 
 static void askname(
+	CARD		*card,
 	bool		dup)		/* duplicate file before editing */
 {
 	QWidget		*w;
 	QBoxLayout	*form;
 	QDialogButtonBox *b;
 
-	duplicate = dup;
-	if (have_askshell) {
+	askshell->duplicate = dup;
+	if (askshell) {
 		popup_nonmodal(askshell);
  		return;
 	}
 	// The proper way to ignore delete is to override QWindow::closeEvent()
 	// Instead, I'll do nothing.  It makes more sense to issue a reject
 	// (the default behavior), anyway - tjm
-	askshell = new QDialog(shell);
+	askshell = new TmplAskName(shell);
 	askshell->setWindowTitle("Template name");
 	askshell->setObjectName("tempform"); // for style sheets
 
@@ -664,9 +673,9 @@ static void askname(
 	w = new QLabel("Name for new template:");
 	form->addWidget(w);
 
-	text = new QLineEdit;
-	form->addWidget(text);
-	set_textr_cb(text, text_callback());
+	askshell->text = new QLineEdit;
+	form->addWidget(askshell->text);
+	set_textr_cb(askshell->text, text_callback(card));
 
 	b = new QDialogButtonBox;
 	form->addWidget(b);
@@ -680,45 +689,44 @@ static void askname(
 	// tjm - added this button mostly for consistency
 	w = mk_button(b, "Create", dbbr(Accept));
 	reinterpret_cast<QPushButton *>(w)->setDefault(true);
-	set_button_cb(w, text_callback());
+	set_button_cb(w, text_callback(card));
 
 	// close does a reject by default, so no extra callback needed
 	set_dialog_cancel_cb(shell, textcancel_callback());
 
 	popup_nonmodal(askshell);
-	have_askshell = true;
 }
 
 
 static void textcancel_callback(void)
 {
-	if (have_askshell)
+	if (askshell)
 		delete askshell;
-	have_askshell = false;
+	askshell = 0;
 }
 
 
-static void text_callback(void)
+static void text_callback(CARD *card)
 {
 	char				*name, *p;
 	char				*string;
 
-	string = qstrdup(text->text());
+	string = qstrdup(askshell->text->text());
 	if(string)
 		for (name=string; *name == ' ' || *name == '\n'; name++);
 	if (string && *name) {
 		for (p=name; *p; p++)
 			if (*p == '/' || *p == ' ' || *p == '\t')
 				*p = '_';
-		if (duplicate) {
+		if (askshell->duplicate) {
 			if (!(name = copy_template(askshell, name,
-						   pref.xlistpos, curr_card)))
+						   pref.xlistpos, card)))
 				return;
-			mklist();
+			mklist(card);
 		} else
-			name = get_template_path(name, 0, curr_card);
+			name = get_template_path(name, 0, card);
 
-		editfile(name);
+		editfile(card, name);
 		free(string);
 	}
 	zfree(string);
@@ -732,12 +740,13 @@ static void text_callback(void)
  */
 
 static void editfile(
+	CARD		*card,
 	char		*path)		/* path to edit */
 {
 	if (access(path, F_OK)) {
 		FILE *fp = fopen(path, "w");
 		fclose(fp);
-		mklist();
+		mklist(card);
 	}
 	edit_file(path, false, true, path, "tempedit");
 }

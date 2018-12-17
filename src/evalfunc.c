@@ -58,9 +58,10 @@ double f_num(
  */
 
 double f_sum(				/* sum */
+	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = yycard->dbase;
+	DBASE		*dbase = g->card->dbase;
 	double		sum;
 	int		row;
 
@@ -73,23 +74,25 @@ double f_sum(				/* sum */
 
 
 double f_avg(				/* average */
+	PG,
 	int		column)		/* number of column to average */
 {
-	double		sum = f_sum(column);
-	return(yycard->dbase->nrows ? sum / yycard->dbase->nrows : 0);
+	double		sum = f_sum(g, column);
+	return(g->card->dbase->nrows ? sum / g->card->dbase->nrows : 0);
 }
 
 
 double f_dev(				/* standard deviation */
+	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = yycard->dbase;
+	DBASE		*dbase = g->card->dbase;
 	double		sum, avg, val;
 	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
-	avg = f_avg(column);
+	avg = f_avg(g, column);
 	for (sum=0, row=dbase->nrows-1; row >= 0; row--) {
 		val = fnum(dbase_get(dbase, row, column)) - avg;
 		sum += val * val;
@@ -99,9 +102,10 @@ double f_dev(				/* standard deviation */
 
 
 double f_min(				/* minimum */
+	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = yycard->dbase;
+	DBASE		*dbase = g->card->dbase;
 	double		min = 1e100, val;
 	int		row;
 
@@ -117,9 +121,10 @@ double f_min(				/* minimum */
 
 
 double f_max(				/* maximum */
+	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = yycard->dbase;
+	DBASE		*dbase = g->card->dbase;
 	double		max = -1e100, val;
 	int		row;
 
@@ -140,68 +145,72 @@ double f_max(				/* maximum */
  */
 
 double f_qsum(				/* sum */
+	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = yycard->dbase;
+	DBASE		*dbase = g->card->dbase;
 	double		sum = 0;
 	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
-	if (!yycard->query)
-		return(f_sum(column));
-	for (row=0; row < yycard->nquery; row++)
-		sum += fnum(dbase_get(dbase, yycard->query[row], column));
+	if (!g->card->query)
+		return(f_sum(g, column));
+	for (row=0; row < g->card->nquery; row++)
+		sum += fnum(dbase_get(dbase, g->card->query[row], column));
 	return(sum);
 }
 
 
 double f_qavg(				/* average */
+	PG,
 	int		column)		/* number of column to average */
 {
-	double		sum = f_qsum(column);
+	double		sum = f_qsum(g, column);
 	int		count;
 
-	count = yycard->query ? yycard->nquery : yycard->dbase->nrows;
+	count = g->card->query ? g->card->nquery : g->card->dbase->nrows;
 	return(count ? sum / count : 0);
 }
 
 
 double f_qdev(				/* standard deviation */
+	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = yycard->dbase;
+	DBASE		*dbase = g->card->dbase;
 	double		sum = 0, avg, val;
 	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
-	if (!yycard->query)
-		return(f_dev(column));
-	if (!yycard->nquery)
+	if (!g->card->query)
+		return(f_dev(g, column));
+	if (!g->card->nquery)
 		return(0);
-	avg = f_qavg(column);
-	for (row=0; row < yycard->nquery; row++) {
-		val = fnum(dbase_get(dbase, yycard->query[row], column)) - avg;
+	avg = f_qavg(g, column);
+	for (row=0; row < g->card->nquery; row++) {
+		val = fnum(dbase_get(dbase, g->card->query[row], column)) - avg;
 		sum += val * val;
 	}
-	return(sqrt(sum / yycard->nquery));
+	return(sqrt(sum / g->card->nquery));
 }
 
 
 double f_qmin(				/* minimum */
+	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = yycard->dbase;
+	DBASE		*dbase = g->card->dbase;
 	double		min = 1e100, val;
 	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
-	if (!yycard->query)
-		return(f_min(column));
-	for (row=0; row < yycard->nquery; row++) {
-		val = fnum(dbase_get(dbase, yycard->query[row], column));
+	if (!g->card->query)
+		return(f_min(g, column));
+	for (row=0; row < g->card->nquery; row++) {
+		val = fnum(dbase_get(dbase, g->card->query[row], column));
 		if (val < min)
 			min = val;
 	}
@@ -210,18 +219,19 @@ double f_qmin(				/* minimum */
 
 
 double f_qmax(				/* maximum */
+	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = yycard->dbase;
+	DBASE		*dbase = g->card->dbase;
 	double		max = -1e100, val;
 	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
-	if (!yycard->query)
-		return(f_max(column));
-	for (row=0; row < yycard->nquery; row++) {
-		val = fnum(dbase_get(dbase, yycard->query[row], column));
+	if (!g->card->query)
+		return(f_max(g, column));
+	for (row=0; row < g->card->nquery; row++) {
+		val = fnum(dbase_get(dbase, g->card->query[row], column));
 		if (val > max)
 			max = val;
 	}
@@ -235,9 +245,10 @@ double f_qmax(				/* maximum */
  */
 
 double f_ssum(				/* sum */
+	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = yycard->dbase;
+	DBASE		*dbase = g->card->dbase;
 	int		sect;
 	double		sum;
 	int		row;
@@ -245,7 +256,7 @@ double f_ssum(				/* sum */
 	if (!dbase || column < 0)
 		return(0);
 	if ((sect = dbase->currsect) < 0)
-		return(f_sum(column));
+		return(f_sum(g, column));
 	for (sum=0, row=dbase->nrows-1; row >= 0; row--)
 		if (dbase->row[row]->section == sect)
 			sum += fnum(dbase_get(dbase, row, column));
@@ -254,9 +265,10 @@ double f_ssum(				/* sum */
 
 
 double f_savg(				/* average */
+	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = yycard->dbase;
+	DBASE		*dbase = g->card->dbase;
 	int		sect;
 	double		sum;
 	int		row, num=0;
@@ -264,7 +276,7 @@ double f_savg(				/* average */
 	if (!dbase || column < 0)
 		return(0);
 	if ((sect = dbase->currsect) < 0)
-		return(f_avg(column));
+		return(f_avg(g, column));
 	for (sum=0, row=dbase->nrows-1; row >= 0; row--)
 		if (dbase->row[row]->section == sect) {
 			sum += fnum(dbase_get(dbase, row, column));
@@ -275,9 +287,10 @@ double f_savg(				/* average */
 
 
 double f_sdev(				/* standard deviation */
+	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = yycard->dbase;
+	DBASE		*dbase = g->card->dbase;
 	int		sect;
 	double		sum, avg, val;
 	int		row, num=0;
@@ -285,8 +298,8 @@ double f_sdev(				/* standard deviation */
 	if (!dbase || column < 0)
 		return(0);
 	if ((sect = dbase->currsect) < 0)
-		return(f_dev(column));
-	avg = f_savg(column);
+		return(f_dev(g, column));
+	avg = f_savg(g, column);
 	for (sum=0, row=dbase->nrows-1; row >= 0; row--)
 		if (dbase->row[row]->section == sect) {
 			val = fnum(dbase_get(dbase, row, column)) - avg;
@@ -298,9 +311,10 @@ double f_sdev(				/* standard deviation */
 
 
 double f_smin(				/* minimum */
+	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = yycard->dbase;
+	DBASE		*dbase = g->card->dbase;
 	int		sect;
 	double		min = 1e100, val;
 	int		row;
@@ -308,7 +322,7 @@ double f_smin(				/* minimum */
 	if (!dbase || column < 0)
 		return(0);
 	if ((sect = dbase->currsect) < 0)
-		return(f_min(column));
+		return(f_min(g, column));
 	for (row=dbase->nrows-1; row >= 0; row--)
 		if (dbase->row[row]->section == sect) {
 			val = fnum(dbase_get(dbase, row, column));
@@ -320,9 +334,10 @@ double f_smin(				/* minimum */
 
 
 double f_smax(				/* maximum */
+	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = yycard->dbase;
+	DBASE		*dbase = g->card->dbase;
 	int		sect;
 	double		max = -1e100, val;
 	int		row;
@@ -330,7 +345,7 @@ double f_smax(				/* maximum */
 	if (!dbase || column < 0)
 		return(0);
 	if ((sect = dbase->currsect) < 0)
-		return(f_max(column));
+		return(f_max(g, column));
 	for (row=dbase->nrows-1; row >= 0; row--)
 		if (dbase->row[row]->section == sect) {
 			val = fnum(dbase_get(dbase, row, column));
@@ -346,16 +361,17 @@ double f_smax(				/* maximum */
  */
 
 char *f_field(
+	PG,
 	int		column,
 	int		row)
 {
-	const char *v = dbase_get(yycard->dbase, row, column);
+	const char *v = dbase_get(g->card->dbase, row, column);
 	char *res;
 	if(BLANK(v))
 		return NULL;
 	res = strdup(v);
 	if(!res)
-		parsererror("No memory");
+		parsererror(g, "No memory");
 	return res;
 }
 
@@ -365,16 +381,17 @@ char *f_field(
  */
 
 char *f_expand(
+	PG,
 	int		column,
 	int		row)
 {
-	char		*value = dbase_get(yycard->dbase, row, column), *ret;
+	char		*value = dbase_get(g->card->dbase, row, column), *ret;
 	int		i;
 
 	if (!value)
 		return(0);
-	for (i=0; i < yycard->form->nitems; i++) {
-		ITEM *item = yycard->form->items[i];
+	for (i=0; i < g->card->form->nitems; i++) {
+		ITEM *item = g->card->form->items[i];
 		if(item->multicol) {
 			int m;
 			for(m = 0; m < item->nmenu; m++)
@@ -383,7 +400,7 @@ char *f_expand(
 					   !strcmp(value, item->menu[m].flagcode)) {
 						ret = strdup(item->menu[m].flagtext);
 						if(!ret)
-							parsererror("No memory for expand");
+							parsererror(g, "No memory for expand");
 						return ret;
 					}
 					break;
@@ -399,7 +416,7 @@ char *f_expand(
 		    !strcmp(value, item->flagcode)) {
 			ret = strdup(item->flagtext);
 			if(!ret)
-				parsererror("No memory for expand");
+				parsererror(g, "No memory for expand");
 			return ret;
 		}
 		if (item->type == IT_FLAGS || item->type == IT_MULTI) {
@@ -408,21 +425,21 @@ char *f_expand(
 			int qbegin, qafter = -1;
 			char *v = NULL;
 			int nv = 0;
-			get_form_arraysep(yycard->form, &sep, &esc);
+			get_form_arraysep(g->card->form, &sep, &esc);
 			for(m = 0; m < item->nmenu; m++) {
 				if(find_unesc_elt(value, item->menu[m].flagcode,
 						  &qbegin, &qafter, sep, esc)) {
 					char *e = BLANK(item->menu[m].flagtext) ?
 						item->menu[m].flagcode :
 						item->menu[m].flagtext;
-					if(!set_elt(&v, nv++, e, yycard->form)) {
-						parsererror("No memory for expand");
+					if(!set_elt(&v, nv++, e, g->card->form)) {
+						parsererror(g, "No memory for expand");
 						return NULL;
 					}
 					if(v == e) {
 						v = strdup(v);
 						if(!v) {
-							parsererror("No memory for expand");
+							parsererror(g, "No memory for expand");
 							return NULL;
 						}
 					}
@@ -438,7 +455,7 @@ char *f_expand(
 			if(m < item->nmenu && item->menu[m].flagtext) {
 				ret = strdup(item->menu[m].flagtext);
 				if(!ret)
-					parsererror("No memory for expand");
+					parsererror(g, "No memory for expand");
 				return ret;
 			}
 			break;
@@ -446,7 +463,7 @@ char *f_expand(
 	}
 	ret = strdup(value);
 	if(!ret)
-		parsererror("No memory for expand");
+		parsererror(g, "No memory for expand");
 	return ret;
 }
 
@@ -456,11 +473,12 @@ char *f_expand(
  */
 
 char *f_assign(
+	PG,
 	int		column,
 	int		row,
 	char		*data)
 {
-	dbase_put(yycard->dbase, row, column, data);
+	dbase_put(g->card->dbase, row, column, data);
 	return(data);
 }
 
@@ -470,14 +488,15 @@ char *f_assign(
  */
 
 int f_section(
+	PG,
 	int		nrow)
 {
 	ROW		*row;		/* row to get from */
 
-	if (yycard && yycard->dbase
+	if (g->card && g->card->dbase
 		   && nrow >= 0
-		   && nrow < yycard->dbase->nrows
-		   && (row = yycard->dbase->row[nrow]))
+		   && nrow < g->card->dbase->nrows
+		   && (row = g->card->dbase->row[nrow]))
 		return(row->section);
 	return(0);
 }
@@ -488,6 +507,7 @@ int f_section(
  */
 
 char *f_system(
+	PG,
 	char		*cmd)
 {
 	char		*tpath;
@@ -533,7 +553,7 @@ char *f_system(
 				size = 4096;
 			data = (char *)malloc(sizeof(msg) - 2 + strlen(cmd) + size);
 			if(!data) {
-				parsererror("No memory for command error message");
+				parsererror(g, "No memory for command error message");
 				free(cmd);
 				unlink(tpath);
 				strcpy(p, "out");
@@ -560,7 +580,7 @@ char *f_system(
 			rewind(fp);
 			data = (char *)malloc(size + 1);
 			if(!data) {
-				parsererror("No memory for command output");
+				parsererror(g, "No memory for command output");
 				unlink(tpath);
 				free(tpath);
 				return 0;
@@ -585,6 +605,7 @@ char *f_system(
  */
 
 char *f_tr(
+	PG,
 	char		*string,
 	char		*rules)
 {
@@ -601,7 +622,7 @@ char *f_tr(
 		zfree(ret);
 		zfree(array);
 		zfree(rules);
-		parsererror("No memory for tr table");
+		parsererror(g, "No memory for tr table");
 		return(string);
 	}
 	memset(array, 0, 256 * sizeof(char *));
@@ -613,7 +634,7 @@ char *f_tr(
 		free(ret);
 		free(array);
 		zfree(rules);
-		parsererror(err);
+		parsererror(g, err);
 		return(string);
 	}
 	while (*str) {
@@ -621,7 +642,7 @@ char *f_tr(
 		i = array[(unsigned char)*str] ? strlen(array[(unsigned char)*str]) : 1;
 		if (len+i >= max && !(ret = (char *)realloc(ret, max += max/2))) {
 			free(pret);
-			parsererror("No memory for tr result");
+			parsererror(g, "No memory for tr result");
 			break;
 		}
 		if (array[(unsigned char)*str]) {
@@ -717,6 +738,7 @@ bool f_instr(
  */
 
 struct arg *f_addarg(
+	PG,
 	struct arg	*list,		/* easier to keep struct arg local */
 	char		*value)		/* argument to append to list */
 {
@@ -724,7 +746,7 @@ struct arg *f_addarg(
 	struct arg	*tail;
 
 	if(!newa) {
-		parsererror("No memory for arg");
+		parsererror(g, "No memory for arg");
 		free_args(list);
 		zfree(value);
 		return NULL;
@@ -763,6 +785,7 @@ void free_args(
 }
 
 char *f_printf(
+	PG,
 	struct arg	*arg)
 {
 	struct arg	*argp;		/* next argument */
@@ -787,7 +810,7 @@ char *f_printf(
 	buf = (char *)malloc((buflen = 32));
 	if(!buf) {
 		free_args(arg);
-		parsererror("No memory for printf result");
+		parsererror(g, "No memory for printf result");
 		return(0);
 	}
 #define check_buf(n) do { \
@@ -796,7 +819,7 @@ char *f_printf(
 		char *obuf = buf; \
 		while((int)(buflen *= 2) <= bp + l + 1); \
 		if(!(buf = (char *)realloc(buf, buflen))) { \
-			parsererror("No memory for printf result"); \
+			parsererror(g, "No memory for printf result"); \
 			free_args(arg); \
 			free(obuf); \
 			return(0); \
@@ -881,14 +904,14 @@ char *f_printf(
 // The following use QRegularExpression rather than POSIX EXTENDED as I
 // usually prefer for portability.  QRegularExpression is "perl-compatible".
 
-static bool re_check(QRegularExpression &re, char *e)
+static bool re_check(PG, QRegularExpression &re, char *e)
 {
     bool ret = re.isValid();
     if(!ret) {
 	char *msg = qstrdup(QString("Error in regular expression '") +
 			    QString(STR(e)) + QString("': ") +
 			    re.errorString());
-	parsererror(msg);
+	parsererror(g, msg);
 	free(msg);
     }
     zfree(e);
@@ -897,7 +920,7 @@ static bool re_check(QRegularExpression &re, char *e)
 
 // Find e in s, returning offset in s + 1 (0 == no match).
 // Both e and s are freed.
-int f_re_match(char *s, char *e)
+int f_re_match(PG, char *s, char *e)
 {
     if(!e || !*e) {
 	zfree(e);
@@ -905,7 +928,7 @@ int f_re_match(char *s, char *e)
 	return 1;
     }
     QRegularExpression re(STR(e));
-    if(!re_check(re, e)) {
+    if(!re_check(g, re, e)) {
 	zfree(s);
 	return 0;
     }
@@ -916,10 +939,10 @@ int f_re_match(char *s, char *e)
 
 // Replace e in s with r.  If all is true, advance and repeat while possible
 // r can contain \0 .. \9 and \{n} for subexpression replacmeents
-char *f_re_sub(char *s, char *e, char *r, bool all)
+char *f_re_sub(PG, char *s, char *e, char *r, bool all)
 {
     QRegularExpression re(STR(e));
-    if(!re_check(re, e)) {
+    if(!re_check(g, re, e)) {
 	zfree(r);
 	return s;
     }
@@ -979,7 +1002,7 @@ char *f_re_sub(char *s, char *e, char *r, bool all)
 
 /* get parser's current form's separator information */
 #define get_cur_arraysep(sep, esc) \
-	get_form_arraysep(yycard ? yycard->form : NULL, sep, esc);
+	get_form_arraysep(g->card ? g->card->form : NULL, sep, esc);
 
 void get_form_arraysep(const FORM *form, char *sep, char *esc)
 {
@@ -1025,7 +1048,7 @@ int stralen(const char *array, char sep, char esc)
     return ret - 1;
 }
 
-int f_alen(char *array)
+int f_alen(PG, char *array)
 {
     char sep, esc;
     int ret;
@@ -1059,7 +1082,7 @@ char *unescape(char *d, const char *s, int len, char esc)
     return d;
 }
 
-char *f_elt(char *array, int n)
+char *f_elt(PG, char *array, int n)
 {
     char sep, esc;
     int b, a;
@@ -1081,6 +1104,7 @@ char *f_elt(char *array, int n)
 }
 
 char *f_slice(
+	PG,
 	char		*array,
 	int		start,
 	int		end)
@@ -1114,6 +1138,7 @@ char *f_slice(
 }
 
 char *f_astrip(
+	PG,
 	char		*array)
 {
     if(!array)
@@ -1225,16 +1250,17 @@ bool set_elt(char **array, int n, char *val, const FORM *form)
     return array;
 }
 
-char *f_setelt(char *array, int n, char *val)
+char *f_setelt(PG, char *array, int n, char *val)
 {
-    if(!set_elt(&array, n, val, yycard->form))
-	parsererror("No memory");
+    if(!set_elt(&array, n, val, g->card->form))
+	parsererror(g, "No memory");
     if(val && val != array)
 	free(val);
     return array;
 }
 
 void f_foreachelt(
+	PG,
 	int		var,
 	char		*array,
 	char		*cond,
@@ -1256,22 +1282,22 @@ void f_foreachelt(
 	    if(begin == after && nonblank)
 		continue;
 	    if(begin == after)
-		set_var(var, NULL);
+		set_var(g->card, var, NULL);
 	    else {
 		char c = array[after], *s;
 		*unescape(array + begin, array + begin, after - begin, esc) = 0;
 		s = strdup(array + begin);
 		if(!s) {
-			parsererror("No memory for loop variable");
+			parsererror(g, "No memory for loop variable");
 			break;
 		}
-		set_var(var, s);
+		set_var(g->card, var, s);
 		// no need to re-escape and re-store value
 		array[after] = c;
 	    }
-	    if (!cond || subevalbool(cond))
-		subeval(expr); /* no-op if evalbool failed */
-	    if (eval_error())
+	    if (!cond || subevalbool(g, cond))
+		subeval(g, expr); /* no-op if evalbool failed */
+	    if (eval_error)
 		break;
 	}
     }
@@ -1280,7 +1306,7 @@ void f_foreachelt(
     zfree(expr);
 }
 
-char *f_esc(char *s, char *e)
+char *f_esc(PG, char *s, char *e)
 {
     if(!s || !*s) {
 	zfree(e);
@@ -1299,7 +1325,7 @@ char *f_esc(char *s, char *e)
     }
     char *ret = (char *)malloc(strlen(s) + exp + 1);
     if(!ret) {
-	parsererror("No memory");
+	parsererror(g, "No memory");
 	zfree(e);
 	return s;
     }
@@ -1383,16 +1409,16 @@ bool toset(char *a, char sep, char esc)
     return true;
 }
 
-char *f_toset(char *a)
+char *f_toset(PG, char *a)
 {
     char sep, esc;
     get_cur_arraysep(&sep, &esc);
     if(!toset(a, sep, esc))
-	parsererror("No memory for set conversion");
+	parsererror(g, "No memory for set conversion");
     return a;
 }
 
-char *f_union(char *a, char *b)
+char *f_union(PG, char *a, char *b)
 {
     if(!a)
 	return b;
@@ -1406,7 +1432,7 @@ char *f_union(char *a, char *b)
     char *oa = a;
     a = (char *)realloc(a, alen + blen + 2);
     if(!a) {
-	parsererror("No memory");
+	parsererror(g, "No memory");
 	free(oa);
 	free(b);
 	return a;
@@ -1499,7 +1525,7 @@ bool find_elt(const char *a, const char *s, int len, int *begin, int *after,
     return false;
 }
 
-int del_elt(char *a, int len, int begin, int after)
+static int del_elt(char *a, int len, int begin, int after)
 {
     if(a[after])
 	memmove(a + begin, a + after + 1, len - after);
@@ -1510,7 +1536,7 @@ int del_elt(char *a, int len, int begin, int after)
     return len;
 }
 
-char *f_intersect(char *a, char *b)
+char *f_intersect(PG, char *a, char *b)
 {
     if(!a || !*a || !b || !*b) {
 	zfree(a);
@@ -1536,7 +1562,7 @@ char *f_intersect(char *a, char *b)
     return b;
 }
 
-char *f_setdiff(char *a, char *b)
+char *f_setdiff(PG, char *a, char *b)
 {
     if(!b || !*b)
 	return a;
@@ -1566,7 +1592,7 @@ char *f_setdiff(char *a, char *b)
     return a;
 }
 
-char *f_detab(char *s, int start, int tabstop)
+char *f_detab(PG, char *s, int start, int tabstop)
 {
 	char *d, *p, *q;
 	int ntab = countchars(s, "\t");
@@ -1579,7 +1605,7 @@ char *f_detab(char *s, int start, int tabstop)
 	d = (char *)malloc(strlen(s) + ntab * tabstop + 1);
 	if(!d) {
 		free(s);
-		parsererror("No memory");
+		parsererror(g, "No memory");
 		return d;
 	}
 	for(p = s, q = d; *p; p++, start++) {
@@ -1599,7 +1625,7 @@ char *f_detab(char *s, int start, int tabstop)
 	return d;
 }
 
-char *f_align(char *s, char *pad, int len, int where)
+char *f_align(PG, char *s, char *pad, int len, int where)
 {
 	int slen = s ? strlen(s) : 0;
 	char *ns;
@@ -1622,7 +1648,7 @@ char *f_align(char *s, char *pad, int len, int where)
 	ns = (char *)malloc(len + 1);
 	if(!ns) {
 		zfree(s);
-		parsererror("No memory");
+		parsererror(g, "No memory");
 		return NULL;
 	}
 	if(where > 0) {

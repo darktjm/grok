@@ -1305,7 +1305,7 @@ static int readback_item(
 		      form_sort(form);
 		      if (!write_form(form))
 				return(0);
-		      switch_form(form->name);
+		      switch_form(mainwindow->card, form->name);
 		      form_delete(form);
 		      free(form);
 		      form = 0;

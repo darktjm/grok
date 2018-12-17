@@ -127,110 +127,14 @@ void edit_file(
 
 const char *evaluate(
 	CARD		*card,
-	const char	*exp);
-bool eval_error(void); /* true if last evaluate() encountered an error */
+	const char	*exp,
+	CARD		**switch_card = 0);	/* If non-0, allow switch() */
 bool evalbool(
 	CARD		*card,
 	const char	*exp);
-const char *subeval(
-	const char	*exp);
-bool subevalbool(
-	const char	*exp);
-void f_foreach(
-	char		*cond,
-	char		*expr);
-int parserlex(void);
-void parsererror(
-	const char	*msg);
-int yywrap(void);
-
-
-extern char		*yyret;		/* returned string (see parser.y) */
-extern CARD		*yycard;	/* database for which to evaluate */
-extern char		*switch_name;	/* if switch statement was found, */
-extern char		*switch_expr;	/* .. name to switch to and expr */
-extern bool		assigned;	/* did a field assignment */
-
-/*---------------------------------------- parser.y ------------*/
-int parserparse(void);
-void init_variables(void);
-void set_var(
-	int		v,
-	char		*s); /* takes ownership */
 
 /*---------------------------------------- evalfunc.c ------------*/
 
-double f_num(
-	char		*s);
-double f_sum(				/* sum */
-	int		column);	/* number of column to average */
-double f_avg(				/* average */
-	int		column);	/* number of column to average */
-double f_dev(				/* standard deviation */
-	int		column);	/* number of column to average */
-double f_min(				/* minimum */
-	int		column);	/* number of column to average */
-double f_max(				/* maximum */
-	int		column);	/* number of column to average */
-double f_qsum(				/* sum */
-	int		column);	/* number of column to average */
-double f_qavg(				/* average */
-	int		column);	/* number of column to average */
-double f_qdev(				/* standard deviation */
-	int		column);	/* number of column to average */
-double f_qmin(				/* minimum */
-	int		column);	/* number of column to average */
-double f_qmax(				/* maximum */
-	int		column);	/* number of column to average */
-double f_ssum(				/* sum */
-	int		column);	/* number of column to average */
-double f_savg(				/* average */
-	int		column);	/* number of column to average */
-double f_sdev(				/* standard deviation */
-	int		column);	/* number of column to average */
-double f_smin(				/* minimum */
-	int		column);	/* number of column to average */
-double f_smax(				/* maximum */
-	int		column);	/* number of column to average */
-char *f_field(
-	int		column,
-	int		row);
-char *f_expand(
-	int		column,
-	int		row);
-char *f_assign(
-	int		column,
-	int		row,
-	char		*data);
-int f_section(
-	int		nrow);
-char *f_system(
-	char		*cmd);
-char *f_tr(
-	char		*string,
-	char		*rules);
-char *f_substr(
-	char		*string,
-	int		pos,
-	int		num);
-bool f_instr(
-	char		*match,
-	char		*string);
-struct arg *f_addarg(
-	struct arg	*list,		/* easier to keep struct arg local */
-	char		*value);	/* argument to append to list */
-void free_args(
-	struct arg	*list);		/* argument list to free */
-char *f_printf(
-	struct arg	*arg);
-int f_re_match(
-	char		*s,		/* string to search */
-	char		*e);		/* regular expression pattern */
-char *f_re_sub(
-	 char		*s,		/* string to search/replace on */
-	 char		*e,		/* regular expression pattern */
-	 char		*r,		/* replacement string */
-	 bool		all);		/* if false, only replace once */
 /* count aoccurrences of c-chars in s */
 int countchars(
 	const char	*s,		/* string to search */
@@ -251,50 +155,6 @@ char *escape(
 	int		len,		/* # of chars in s to escape */
 	char		esc,		/* escape character */
 	const char	*toesc);	/* characters to escape; at least include esc! */
-char *f_esc(
-	char		*s,
-	char		*e);
-int f_alen(
-	char		*array);
-char *f_elt(
-	char		*array,
-	int		n);
-char *f_slice(
-	char		*array,
-	int		start,
-	int		end);
-char *f_astrip(
-	char		*array);
-char *f_setelt(
-	char		*array,
-	int		n,
-	char		*val);
-void f_foreachelt(
-	int		var,
-	char		*array,
-	char		*cond,
-	char		*expr,
-	bool		nonblank);
-char *f_toset(
-	char		*a);
-char *f_union(
-	char		*a,
-	char		*b);
-char *f_intersect(
-	char		*a,
-	char		*b);
-char *f_setdiff(
-	char		*a,
-	char		*b);
-char *f_detab(
-	char		*s,
-	int		start,
-	int		tabstop);
-char *f_align(
-	char		*s,
-	char		*pad,
-	int		len,
-	int		where);
 
 /* get a form's separator information */
 void get_form_arraysep(
@@ -359,6 +219,11 @@ bool find_unesc_elt(
 	char		esc);		/* array/element esc char */
 
 
+/*---------------------------------------- parser.y ------------*/
+
+/* Set a variable outside of evaluate(); used by templates */
+void set_var(CARD *card, int v, char *s);
+
 /*---------------------------------------- formfile.c ------------*/
 
 bool write_form(
@@ -417,14 +282,9 @@ extern const char	plan_code[];	/* code 0x260..0x26c */
 /*---------------------------------------- help.c ------------*/
 
 void destroy_help_popup(void);
-/* Qt doesn't support a "help callback" */
-/* closest would be binding the Help key, I guess */
 void bind_help(
 	QWidget		*parent,
 	const char	*topic);
-/* or maybe tooltip or "what's this?"? for the whole dialog? */
-/* tooltip/whatsThis requires loading text in advance, though */
-/* maybe later */
 void help_callback(
 	QWidget		*parent,
 	const char	*topic);
@@ -448,6 +308,7 @@ void remake_section_popup(
 void remake_query_pulldown(void);
 void remake_sort_pulldown(void);
 void switch_form(
+	CARD		*&card,		/* card to switch */
 	char		*formname);	/* new form name */
 void search_cards(
 	Searchmode	mode,		/* search, narrow, widen, ... */
@@ -456,8 +317,13 @@ void search_cards(
 void do_query(
 	int		qmode);		/* -1=all, or query number */
 
-extern CARD 		*curr_card;	/* card being displayed in main win, */
-extern QMainWindow	*mainwindow;	/* popup menus hang off main window */
+class GrokMainWindow : public QMainWindow {
+  public:
+    GrokMainWindow() {}
+    CARD *card = 0;
+};
+
+extern GrokMainWindow	*mainwindow;	/* popup menus hang off main window */
 
 /*---------------------------------------- popup.c ------------*/
 
@@ -501,7 +367,8 @@ const char *exec_template(
 	const char	*name,		/* template name to execute */
 	int		seq,		/* if name is 0, execute by seq num */
 	int		flags,		/* template flags a..z */
-	CARD		*card);		/* need this for form name */
+	CARD		*card,		/* need this for form name */
+	bool		pr_template = false);	/* output template itself to ofp */
 char *copy_template(
 	QWidget		*shell,		/* export window widget */
 	char		*tar,		/* target template name */
@@ -516,19 +383,28 @@ const char *substitute_setup(
 	const char	*instr);	/* x=y x=y ... command string */
 void backslash_subst(char *);
 
+/*---------------------------------------- saveprint.c ------------*/
+
+class QPrinter;
+QDataStream& operator<<(QDataStream &os, const QPrinter &printer);
+QDataStream& operator>>(QDataStream &is,  QPrinter &printer);
+
 /*---------------------------------------- templwin.c ------------*/
 
-void create_templ_popup(void);
-void create_print_popup(void);
+void create_templ_popup(CARD *card);
+void create_print_popup(CARD *card);
 
 /*---------------------------------------- templmk.c ------------*/
 
 /* These write a template to fp and return 0 on success, message on error */
 const char *mktemplate_html(
+	const CARD	*card,
 	FILE		*fp);
 const char *mktemplate_plain(
+	const CARD	*card,
 	FILE		*fp);
 const char *mktemplate_fancy(
+	const CARD	*card,
 	FILE		*fp);
 
 /*---------------------------------------- query.c ------------*/
@@ -568,7 +444,7 @@ void print_query_info(void);
 /*---------------------------------------- sectwin.c ------------*/
 
 void destroy_newsect_popup(void);
-void create_newsect_popup(void);
+void create_newsect_popup(CARD *card);
 
 /*---------------------------------------- sumwin.c ------------*/
 
@@ -595,6 +471,9 @@ void make_summary_line(
 	int		row,		/* database row */
 	QTreeWidget	*w = 0,		/* non-0: add line to table widget */
 	int		lrow = -1);	/* >=0: replace row #lrow */
+/* setting the header will never modify card */
+#define make_summary_header(b, l, c, w) \
+	make_summary_line(b, l, const_cast<CARD *>(c), -1, w)
 void make_plan_line(
 	CARD		*card,		/* card with query results */
 	int		row);		/* database row */

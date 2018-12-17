@@ -207,10 +207,10 @@ static QWidget *mk_groupbox(QWidget *wform, ITEM &item)
 		gb->setProperty(font_prop[item.labelfont], true);
 		w = gb;
 	} else
-		// so use a widget if no title.  I'd use a frame, but I have
-		// no idea what style to use
-		w = new QWidget(wform);
-	w->setObjectName("label");
+		// so use a frame if no title.  I have no idea what style to use,
+		// since Qt doesn't tell me what style the groupbox uses.
+		w = new QFrame(wform);
+	w->setObjectName("groupbox");
 	w->move(item.x, item.y);
 	w->resize(item.xs, item.ys);
 	return w;
@@ -578,7 +578,7 @@ static void create_item_widgets(
 		// I suppose I could modify the FlexLayout example instead
 		// of doing this, but I don't feel like it.
 		/* no outlet for error, so fatal */
-		unsigned int *colwidth = alloc(0, "layout", unsigned int, item.nmenu);
+		unsigned int *colwidth = zalloc(0, "layout", unsigned int, item.nmenu);
 		QGridLayout *l = new QGridLayout(carditem->w0);
 		l->setSpacing(0); // default; qss may override
 		l->setMargin(0);
@@ -606,8 +606,10 @@ static void create_item_widgets(
 				// The first row is cut off at col
 				// Remaing rows are cut by 1 at a time
 				ncol = row ? ncol - 1 : col;
-				if(row && ncol > 1) {
-					memset(colwidth, 0, ncol * sizeof(*colwidth));
+				if(ncol == 1)
+					break;
+				if(row) {
+					tzero(unsigned int, colwidth, ncol);
 					curwidth = row = col = 0;
 					QListIterator<QObject *>iter(carditem->w0->children());
 					while(iter.hasNext()) {
@@ -644,6 +646,7 @@ static void create_item_widgets(
 						colwidth[col] = bw;
 					}
 				}
+				col--; /* gcc had better wrap this */
 			}
 			if(++col >= ncol) {
 				col = 0;
@@ -897,22 +900,12 @@ static void card_callback(
 
 	  case IT_BUTTON:				/* pressable button */
 		if ((redraw = item->pressed)) {
-			zfree(switch_name);
-			zfree(switch_expr);
-			switch_name = switch_expr = 0;
-			n = evaluate(card, item->pressed);
-			if (switch_name) {
-				switch_form(switch_name);
-				card = curr_card;
-			}
-			if (switch_expr)
-				search_cards(SM_SEARCH, card, switch_expr);
+			/* passing in &mainwindow->card allows switch to work */
+			n = evaluate(card, item->pressed, &mainwindow->card);
+			card = mainwindow->card;
 			if (!BLANK(n)) {
 				int UNUSED ret = system(n);
 			}
-			zfree(switch_name);
-			zfree(switch_expr);
-			switch_name = switch_expr = 0;
 		}
 		break;
 	  default: ;

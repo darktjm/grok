@@ -670,11 +670,15 @@
 	\{FOREACH [+v expr} ... \{END}
 	    Loop over non-blank elements of array expr, setting v to the
 	    element.  Nesting is shared with database loops (10).
-	\{IF expr} ... \{ENDIF}
+	\{IF expr} ... \{ELSEIF expr} ... \{ELSE} ... \{ENDIF}
 	    Only evaluate text in between if expr is true.  Nesting is
 	    essentially unlimited.  The expr may also test if one of
 	    user-settable flags a-z is set.  -f is true if flag f is
-	    set, and +f is true if flag f is unset.
+	    set, and +f is true if flag f is unset.  If the condition was false,
+	    the next ELSEIF is evaluated, and the text following that
+	    is used, if true; there may be zero or more ELSEIFs.  If
+	    no condition matched, and there is an ELSE, the text following
+	    that is used, instead.  The ELSE is also optional.
 	\{SUBST c=string c=string ... }
 	    Plain expressions' results are automatically escaped using
 	    by replacing each character c with the string that follows.

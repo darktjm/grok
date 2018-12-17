@@ -180,6 +180,20 @@ possible to actually make portable applications.  Then again, maybe
 I'm missing something.  Like using XML and/or designer to define all
 the user interface, as it seems to want (not gonna happen).
 
+I just realized that Qt options were only being passed through because
+grok ignores all multi-letter options.  I wanted to tighten that up,
+but once again Qt does its best to disallow it.  Just starting up the
+application whenever a bad argument is found doesn't work, because Qt
+silently dies if you fork and try to use the applicaiton in the child
+process.  Qt also doesn't provide any way to process the arguments
+other than doing a full applicaiton startup (which really ought to be
+delayed until exec is called).  Qt also expects me to duplicate the
+documentation for its command-line arguments in my own documentation,
+while at the same time leaving it subject to change in future vesions
+without notice.  I can't even tell if it's possible to change some of
+Qt's options on operating systems that don't present a command line,
+like Android.
+
 As a side issue, I had to jump through extra hoops to get gentoo to
 provide me with debug information, even though it should have been as
 simple as adding debug to the USE flags.  Not only did I have to add

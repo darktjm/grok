@@ -791,11 +791,10 @@ void item_delete(
 		menu_delete(&item->menu[i]);
 	zfree(item->menu);
 
-	for (i=0; i < item->ch_ncomp; i++) {
-		item->ch_curr = i;
+	while (item->ch_ncomp) {
+		item->ch_curr = item->ch_ncomp - 1;
 		del_chart_component(item);
 	}
-	zfree(item->ch_comp);
 	free(item);
 
 	for (i=nitem; i < form->nitems-1; i++)

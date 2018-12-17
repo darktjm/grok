@@ -320,6 +320,11 @@ automatically generated exports may change without notice.  If you
 rely on a format, make a copy and use that instead.  A number of
 changes were introduced in this release alone.
 
+As of this release, the printer commands are no longer stored in
+preferences (although the Qt GUI's print settings are).  If you relied
+on a long-winded command being in preferences to save you some typing,
+just convert that into a shorter-named shell script.
+
 Version 2.4 (in progress)
  * Removed a debugging printf that I left in 2.3.
  * Switched from Qt's qmake to the more generic cmake.  This corrects
@@ -330,3 +335,8 @@ Version 2.4 (in progress)
    (as documented).  Now it counts from the end of the array.  Note
    that underlying array traversal is still from the start, so accessing
    elements from the end is less efficient.
+ * Added ELSE and ELSEIF to templates
+ * Added -X to print raw template
+
+FOREACH and END must now be in the same conditional segment.  Not
+doing so was never really supported, but now it is enforced.

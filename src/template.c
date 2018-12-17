@@ -31,7 +31,7 @@ static char	*templates[MAXFILES];	/* list of user-defd template names */
 static struct builtins {
 	const char	*name;
 	const char	*desc;
-	const char	*(*func)(FILE *);
+	const char	*(*func)(const CARD*, FILE *);
 } builtins[] = {
 	{ "html",	"(auto HTML)",		mktemplate_html },
 	{ "text",	"(auto text)",		mktemplate_plain },
@@ -41,6 +41,7 @@ static struct builtins {
 int get_template_nbuiltins(void) { return(NBUILTINS); }
 
 static const char *eval_template(
+	CARD		*card,
 	FILE		*ifp,		/* template file */
 	const char	*iname,		/* template name */
 	int		flags,		/* flags a..z */
@@ -103,7 +104,7 @@ void list_templates(
 			grow(0, "template name", char, buf, nlen + dlen + 3, &buflen);
 			memcpy(buf, builtins[seq].name, nlen);
 			memset(buf + nlen, ' ', 2);
-			memcpy(buf, builtins[seq].desc, dlen + 1);
+			memcpy(buf + nlen + 2, builtins[seq].desc, dlen + 1);
 			(*func)(seq, buf);
 		}
 	}
@@ -134,7 +135,8 @@ const char *exec_template(
 	const char	*name,		/* template name to execute */
 	int		seq,		/* if name is 0, execute by seq num */
 	int		flags,		/* flags a..z */
-	CARD		*card)		/* need this for form name */
+	CARD		*card,		/* need this for form name */
+	bool		pr_template)	/* if true, export template itself to ofp */
 {
 	FILE		*fp;		/* template file (input) */
 	char		*path;		/* template file path */
@@ -142,6 +144,8 @@ const char *exec_template(
 
 	if (!ntemps)
 		list_templates(0, card);
+	if (pr_template && !ofp /*  && !oname */) /* for now, grok doesn't support writing to a named file */
+		ofp = stdout;
 	if (name) {
 		int len = strlen(name);
 		while(1) {
@@ -159,10 +163,10 @@ const char *exec_template(
 			/* stdin only possible in non-interactive mode */
 			if(!app && len == 1 && name[0] == '+') {
 				/* It'd be nice, but FOREACH seeks */
-				// return eval_template(stdin, "stdin", flags, ofp, oname);
+				// return eval_template(card, stdin, "stdin", flags, ofp, oname);
 				static char buf[1024];
 				int n;
-				fp = tmpfile();
+				fp = pr_template ? ofp : tmpfile();
 				if(!fp)
 					return "Can't open temporary file for template output";
 				while(1) {
@@ -173,8 +177,10 @@ const char *exec_template(
 					fwrite(buf, n, 1, fp);
 				}
 				fflush(fp); // FIXME: report errors
+				if(pr_template)
+					return 0;
 				rewind(fp);
-				return eval_template(fp, "stdin", flags, ofp, oname);
+				return eval_template(card, fp, "stdin", flags, ofp, oname);
 			}
 			if(len < 2 || name[len - 2] != '-' ||
 			   name[len - 1] < 'a' || name[len - 1] > 'z')
@@ -186,20 +192,34 @@ const char *exec_template(
 	if (seq >= NBUILTINS + ntemps)
 		return("no such template");
 	if (seq < NBUILTINS) {
-		fp = tmpfile();
+		fp = pr_template ? ofp : tmpfile();
 		if(!fp)
 			return "Can't open temporary file for template output";
-		if (!(ret = (*builtins[seq].func)(fp))) {
-			rewind(fp);
-			ret = eval_template(fp, builtins[seq].name, flags, ofp, oname);
-		} else
+		if (!(ret = (*builtins[seq].func)(card, fp))) {
+			if(!pr_template) {
+				rewind(fp);
+				ret = eval_template(card, fp, builtins[seq].name, flags, ofp, oname);
+			}
+		} else if(!pr_template)
 			fclose(fp);
 	} else {
 		path = get_template_path(templates[seq - NBUILTINS], 0, card);
 		if (!(fp = fopen(path, "r")))
 			ret = "failed to open template file";
-		else
-			ret = eval_template(fp, path, flags, ofp, oname);
+		else if(pr_template) {
+			static char buf[1024];
+			int n;
+			while(1) {
+				n = fread(buf, 1, sizeof(buf), fp);
+				// FIXME: retry on EAGAIN or EINTR
+				if(!n) // FIXME: report errors
+					break;
+				fwrite(buf, n, 1, ofp);
+			}
+			fflush(ofp); // FIXME: report errors
+			ret = NULL;
+		} else
+			ret = eval_template(card, fp, path, flags, ofp, oname);
 		free(path);
 	}
 	return(ret);
@@ -229,7 +249,7 @@ char *copy_template(
 			create_error_popup(shell, errno,
 					   err = "Failed to create %s", tar);
 		else {
-			if ((err = (*builtins[seq].func)(ofp)))
+			if ((err = (*builtins[seq].func)(card, ofp)))
 				create_error_popup(shell, 0,
 						   "Failed to create %s:\n%s", tar, err);
 			fclose(ofp);
@@ -288,20 +308,30 @@ bool delete_template(
 #define ISOCTAL(c) ((c)>='0' && (c)<='7')
 #define NEST		10
 
-static char html_subst[] = "<=&lt; >=&gt; &=&amp; \n=<BR>";
-static const char *eval_command(char *, bool *, int);
+static const char html_subst[] = "<=&lt; >=&gt; &=&amp; \n=<BR>";
+static const char *eval_command(CARD *, char *, bool *, int);
 static const char *putstring(const char *);
 
-struct forstack { long offset; int num; int nquery; int *query; char *array; };
+struct forstack {
+	long	offset;	/* file offset following FOREACH */
+	int	num;	/* current offset into array */
+	int	nquery;	/* # if elements in query (var index in array FOREACH) */
+	int	*query;	/* array for normal FOREACH */
+	char	*array;	/* array for string-as-array FOREACH */
+	int	nest;	/* n_true_if at time of FOREACH */
+};
 
-enum opcode { O_EXPR, O_IF, O_ENDIF, O_FOREACH,
-	      O_END, O_QUIT, O_FILE, O_SUBST };
+enum opcode { O_EXPR, O_IF, O_ELSE, O_ELSEIF, O_ENDIF, O_FOREACH, O_END,
+	      O_QUIT, O_FILE, O_SUBST };
+const char quit_cmd[] = "QUIT";
 static const struct { enum opcode opcode; const char *name; } opcode_list[] = {
 	{ O_IF,		"IF",		},
+	{ O_ELSE,	"ELSE",		},
+	{ O_ELSEIF,	"ELSEIF",	},
 	{ O_ENDIF,	"ENDIF"		},
 	{ O_FOREACH,	"FOREACH"	},
 	{ O_END,	"END"		},
-	{ O_QUIT,	"QUIT"		},
+	{ O_QUIT,	quit_cmd	},
 	{ O_FILE,	"FILE"		},
 	{ O_SUBST,	"SUBST"		},
 	{ O_EXPR,	0		}
@@ -317,10 +347,10 @@ static int		default_nquery;	/* number of rows in default_query */
 static int		default_row;	/* row to use outside foreach loops */
 static int		n_true_if;	/* number of true nested \{IF}'s */
 static int		n_false_if;	/* number of false nested \{IF}'s */
+std::vector<bool>	had_true;
 static struct forstack	forstack[NEST];	/* context for current foreach loop */
 static int		forlevel;	/* forstack index, -1=not in a loop */
 static int		forskip;	/* # of empty loops, skip to END */
-
 
 
 /*
@@ -328,7 +358,8 @@ static int		forskip;	/* # of empty loops, skip to END */
  * Return 0 if all went well, or an error string.
  */
 
-const char *eval_template(
+static const char *eval_template(
+	CARD		*card,
 	FILE		*iifp,		/* template file */
 	const char	*iname,		/* template name */
 	int		flags,		/* flags a..z */
@@ -347,13 +378,14 @@ const char *eval_template(
 	int		i;
 
 	ifp = iifp;
-	default_row   = curr_card->row;
+	default_row   = card->row;
 	default_query = 0;
-	if ((default_nquery = curr_card->nquery)) {
+	if ((default_nquery = card->nquery)) {
 		default_query = alloc(0, "query", int, default_nquery);
-		tmemcpy(int, default_query, curr_card->query, default_nquery);
+		tmemcpy(int, default_query, card->query, default_nquery);
 	}
 	n_true_if = n_false_if = forskip = 0;
+	had_true.clear();
 	forlevel = -1;
 	outname = oname ? mystrdup(resolve_tilde(oname, 0)) : 0;
 	ofp = iofp;
@@ -380,8 +412,8 @@ const char *eval_template(
 			}
 			if (!bracelevel) {
 				word[indx] = 0;
-				if ((p = eval_command(word+1, &eat_nl, flags))) {
-					if (!strcmp(p, "QUIT"))
+				if ((p = eval_command(card, word+1, &eat_nl, flags))) {
+					if (p == quit_cmd)
 						*word = 0;
 					else {
 						int len = strlen(iname) + strlen(p) + 20;
@@ -393,8 +425,8 @@ const char *eval_template(
 					break;
 				}
 			} else {
-				/* + 1 for terminating 0, + 1 for EXPR's terminating brace */
-				grow(0, "template parse", char, word, indx + 2, &wordlen);
+				/* +1 for c, + 1 for term 0, + 1 for EXPR's term brace */
+				grow(0, "template parse", char, word, indx + 3, &wordlen);
 				word[indx++] = c;
 			}
 		} else {
@@ -436,10 +468,10 @@ const char *eval_template(
 	while (forlevel >= 0)
 		free(forstack[forlevel--].query);
 
-	zfree(curr_card->query);
-	curr_card->query  = default_query;
-	curr_card->nquery = default_nquery;
-	curr_card->row    = default_row;
+	zfree(card->query);
+	card->query  = default_query;
+	card->nquery = default_nquery;
+	card->row    = default_row;
 
 	for (i=0; i < 256; i++)
 		if (subst[i]) {
@@ -462,6 +494,7 @@ const char *eval_template(
  */
 
 static const char *eval_command(
+	CARD		*card,
 	char		*word,		/* command to evaluate */
 	bool		*eat_nl,	/* if command, set to true (skip \n) */
 	int		flags)		/* template flags a..z */
@@ -482,9 +515,39 @@ static const char *eval_command(
 	while (ISSPACE(*word)) word++;
 	switch(opcode_list[i].opcode) {
 	  case O_IF:
-		if (n_false_if) {
-			n_false_if++;
-			return(0);
+	  case O_ELSEIF:
+	  	if (forskip) {
+			if (opcode_list[i].opcode == O_IF)
+				n_false_if++;
+			break;
+		}
+		if (opcode_list[i].opcode == O_IF) {
+			if (n_false_if) {
+				n_false_if++;
+				break;
+			}
+			if ((int)had_true.size() > n_false_if + n_true_if + 1)
+				had_true[n_false_if + n_true_if + 1] = false;
+		} else {
+			if (n_false_if > 1)
+				return 0;
+			if (n_false_if) {
+				if ((int)had_true.size() > n_false_if + n_true_if &&
+				    had_true[n_false_if + n_true_if])
+					return 0;
+				n_false_if--;
+				/* drop through to if processing */
+			} else if (n_true_if) {
+				if (forlevel >= 0 &&
+				    forstack[forlevel].nest == n_true_if)
+					return "ELSEIF before END";
+				had_true.resize(n_true_if + 1);
+				had_true[n_true_if] = true;
+				n_false_if++;
+				n_true_if--;
+				return 0;
+			} else
+				return "ELSEIF without IF";
 		}
 		if ((*word == '-' || *word == '+') && word[1] >= 'a' && word[1] <= 'z' && !word[2]) {
 			if(!!(flags & (1<<(word[1] - 'a'))) == (*word == '-'))
@@ -492,27 +555,51 @@ static const char *eval_command(
 			else
 				n_false_if++;
 		} else {
-			if (evalbool(curr_card, word))
+			if (evalbool(card, word))
 				n_true_if++;
 			else
 				n_false_if++;
 		}
 		break;
 
+	  case O_ELSE:
+		if (forskip || n_false_if > 1)
+			return 0;
+		if (n_false_if) {
+			if((int)had_true.size() > n_false_if + n_true_if &&
+			   had_true[n_false_if + n_true_if])
+				return 0; /* "Too many ELSEs"; -- only true if all elses were ELSE */
+			n_false_if = 0;
+			n_true_if++;
+		} else if (n_true_if) {
+			if (forlevel >= 0 &&
+			    forstack[forlevel].nest == n_true_if)
+				return "ELSE before END";
+			had_true.resize(n_true_if + 1);
+			had_true[n_true_if] = true;
+			n_true_if--;
+			n_false_if++;
+		} else
+			return("ELSE without IF");
+		break;
+
 	  case O_ENDIF:
 		if (n_false_if)
 			n_false_if--;
-		else if (n_true_if)
+		else if (n_true_if) {
+			if (forlevel >= 0 &&
+			    forstack[forlevel].nest == n_true_if)
+				return "ENDIF before END";
 			n_true_if--;
-		else
+		} else
 			return("ENDIF without IF");
 		break;
 
 	  case O_FOREACH:
-		if (forskip)
+		if (forskip || n_false_if) {
 			forskip++;
-		if (forskip || n_false_if)
 			break;
+		}
 		if (forlevel == NEST-1)
 			return("FOREACH nested too deep");
 
@@ -529,6 +616,7 @@ static const char *eval_command(
 				return "Array FOREACH must specify variable";
 			sp = &forstack[++forlevel];
 			sp->offset = ftell(ifp);
+			sp->nest = n_true_if;
 			/* nquery -> variable + 1 */
 			/*           or -(variable + 1) if nonblank */
 			sp->nquery = *word >= 'a' ? *word - 'a' : *word + 26 - 'A';
@@ -539,22 +627,24 @@ static const char *eval_command(
 			sp->query  = NULL;
 			word++;
 		        while (ISSPACE(*word)) word++;
-			sp->array = zstrdup(evaluate(curr_card, word));
+			sp->array = zstrdup(evaluate(card, word));
 			{
 				char sep, esc;
-				get_form_arraysep(curr_card->form, &sep, &esc);
+				get_form_arraysep(card->form, &sep, &esc);
 				int begin, after = -1;
 				do {
 					next_aelt(sp->array, &begin, &after, sep, esc);
 				} while(after >= 0 && begin == after &&
 					sp->nquery < 0);
-				if(after < 0)
+				if(after < 0) {
 					forskip++;
-				else {
+					zfree(sp->array);
+					forlevel--;
+				} else {
 					int var = (sp->nquery < 0 ? -sp->nquery : sp->nquery) - 1;
 					char c = sp->array[after];
 					*unescape(sp->array + begin, sp->array + begin, after - begin, esc) = 0;
-					set_var(var, zstrdup(sp->array + begin));
+					set_var(card, var, zstrdup(sp->array + begin));
 					// no need to re-escape and re-store value
 					sp->array[after] = c;
 				}
@@ -563,28 +653,27 @@ static const char *eval_command(
 			break;
 		}
 		if (*word) {
-			query_any(SM_SEARCH, curr_card, word);
-			nq = curr_card->nquery;
-			qu = curr_card->query;
+			query_any(SM_SEARCH, card, word);
+			nq = card->nquery;
+			qu = card->query;
 		} else {
 			nq = default_nquery;
 			qu = default_query;
 		}
-		if (curr_card->nquery) {
+		if (card->nquery) {
 			sp = &forstack[++forlevel];
 			sp->offset = ftell(ifp);
+			sp->nest = n_true_if;
 			sp->num    = 0;
 			sp->nquery = nq;
 			sp->query  = alloc(0, "query", int, nq);
 			tmemcpy(int, sp->query, qu, nq);
-			curr_card->row = sp->query[sp->num];
+			card->row = sp->query[sp->num];
 		} else
 			forskip++;
 		break;
 
 	  case O_END:
-		if (n_false_if)
-			break;
 		if (forskip) {
 			forskip--;
 			break;
@@ -592,9 +681,11 @@ static const char *eval_command(
 		if (forlevel < 0)
 			return("END without FOREACH");
 		sp = &forstack[forlevel];
+		if (n_false_if || sp->nest != n_true_if)
+			return("IF before END");
 		if(!sp->query) {
 			char sep, esc;
-			get_form_arraysep(curr_card->form, &sep, &esc);
+			get_form_arraysep(card->form, &sep, &esc);
 			int begin, after = sp->num;
 			do {
 				next_aelt(sp->array, &begin, &after, sep, esc);
@@ -607,7 +698,7 @@ static const char *eval_command(
 				int var = (sp->nquery < 0 ? -sp->nquery : sp->nquery) - 1;
 				char c = sp->array[after];
 				*unescape(sp->array + begin, sp->array + begin, after - begin, esc) = 0;
-				set_var(var, zstrdup(sp->array + begin));
+				set_var(card, var, zstrdup(sp->array + begin));
 				// no need to re-escape and re-store value
 				sp->array[after] = c;
 				fseek(ifp, sp->offset, SEEK_SET);
@@ -616,7 +707,7 @@ static const char *eval_command(
 			break;
 		}
 		if (++sp->num < sp->nquery) {
-			curr_card->row = sp->query[sp->num];
+			card->row = sp->query[sp->num];
 			fseek(ifp, sp->offset, SEEK_SET);
 		} else {
 			free(sp->query);
@@ -630,7 +721,7 @@ static const char *eval_command(
 		if (ofp && close_ofp)
 			fclose(ofp);
 		zfree(outname);
-		outname = zstrdup(evaluate(curr_card, word));
+		outname = zstrdup(evaluate(card, word));
 		ofp = 0;
 		close_ofp = true;
 		break;
@@ -657,7 +748,7 @@ static const char *eval_command(
 		*--word = '{';
 		strcat(word, "}");
 
-		pc = evaluate(curr_card, word);
+		pc = evaluate(card, word);
 		if(!pc)
 			return "error in expression";
 		cmd[1] = 0;
@@ -668,7 +759,7 @@ static const char *eval_command(
 
 	  case O_QUIT:
 		if (!forskip && !n_false_if)
-			return "QUIT";
+			return quit_cmd;
 	}
 	return(0);
 }

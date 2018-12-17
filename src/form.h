@@ -4,6 +4,13 @@
  * form and database definitions
  */
 
+/* An expression variable */
+struct var {
+	char	*string;
+	double	value;
+	bool	numeric;
+};
+
 /*
  * the CARD data structure describes a card window on the screen. A card can
  * be installed in any form widget. A card has two main parts: a form that
@@ -29,6 +36,7 @@ typedef struct card {
 	struct form *form;	/* form struct that controls this card */
 	char	    *prev_form;	/* previous form name */
 	struct dbase*dbase;	/* database that callbacks use to store data */
+	struct var  var[26];	/* card-local expression variables */
 				/****** summary window ***********************/
 	int	    nquery;	/* # of valid row indices in query[] */
 	int	    qcurr;	/* index into query[] for displayed card */
@@ -326,11 +334,4 @@ typedef struct form {
 	char	*planquery;	/* default query for -p option */
 	FIELDS	*fields;	/* map fields to item#/menu# */
 } FORM;
-
-
-/*
- * for the parser, variable argument list element
- */
-
-struct arg { struct arg *next; char *value; };
 #endif

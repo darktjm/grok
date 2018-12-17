@@ -134,3 +134,5 @@
 "/* Note that charts don't have text right now, so this is unused. */\n"
 /*   Unused */
 "GrokChart { font: 12px \"Helvetica\"; }\n"
+"/* Qt provides no hints on how to style unlabeled group boxes */\n"
+"QFrame#groupbox { border: 3px groove palette(mid); padding : 5px; }\n"

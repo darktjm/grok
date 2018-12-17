@@ -341,38 +341,38 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 		event->ignore();
 		return;
 	}
-	for (nitem=0; nitem < curr_card->nitems; nitem++)
-		if (this == curr_card->items[nitem].w0 ||
-		    this == curr_card->items[nitem].w1)
+	for (nitem=0; nitem < mainwindow->card->nitems; nitem++)
+		if (this == mainwindow->card->items[nitem].w0 ||
+		    this == mainwindow->card->items[nitem].w1)
 			break;
-	if (nitem >= curr_card->nitems	||		/* illegal */
-	    curr_card->dbase == 0	||		/* preview dummy card*/
-	    curr_card->row < 0) {			/* card still empty */
+	if (nitem >= mainwindow->card->nitems	||		/* illegal */
+	    mainwindow->card->dbase == 0	||		/* preview dummy card*/
+	    mainwindow->card->row < 0) {			/* card still empty */
 		event->ignore();
 		return;
 	}
-	item = curr_card->form->items[nitem];
+	item = mainwindow->card->form->items[nitem];
 
 	if (press > 0) { // button down
 		moving = false;
 		down_x = event->x();
 		down_y = event->y();
-		row    = pick_chart(curr_card, nitem, &comp, down_x, down_y);
-		if (row >= 0 && row < curr_card->dbase->nrows) {
-			card_readback_texts(curr_card, -1);
-			curr_card->row = row;
-			for (i=0; i < curr_card->nquery; i++)
-				if (curr_card->query[i] == row) {
-					curr_card->qcurr = i;
+		row    = pick_chart(mainwindow->card, nitem, &comp, down_x, down_y);
+		if (row >= 0 && row < mainwindow->card->dbase->nrows) {
+			card_readback_texts(mainwindow->card, -1);
+			mainwindow->card->row = row;
+			for (i=0; i < mainwindow->card->nquery; i++)
+				if (mainwindow->card->query[i] == row) {
+					mainwindow->card->qcurr = i;
 					break;
 				}
-			fillout_card(curr_card, false);
-			scroll_summary(curr_card);
+			fillout_card(mainwindow->card, false);
+			scroll_summary(mainwindow->card);
 			chart = &item->ch_comp[comp];
-			p = dbase_get(curr_card->dbase, row,
+			p = dbase_get(mainwindow->card->dbase, row,
 						chart->value[CC_X].field);
 			x_val = p ? atof(p) : 0;
-			p = dbase_get(curr_card->dbase, row,
+			p = dbase_get(mainwindow->card->dbase, row,
 						chart->value[CC_Y].field);
 			y_val = p ? atof(p) : 0;
 		}
@@ -396,7 +396,7 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 	if (press < 0) { // button up
 		if (moving) {
 			print_info_line();
-			fillout_card(curr_card, false);
+			fillout_card(mainwindow->card, false);
 		}
 		return;
 	}
@@ -411,7 +411,7 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 		f = x_val + x * (xmax-xmin) / xval->mul / item->xs;
 		f = snap(f, item->ch_xsnap);
 		sprintf(buf, "%.12lg", f);
-		dbase_put(curr_card->dbase, row, xval->field, buf);
+		dbase_put(mainwindow->card->dbase, row, xval->field, buf);
 		redraw = true;
 	}
 	if (yval->mode == CC_DRAG && yval->mul != 0) {
@@ -419,9 +419,9 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 		f = y_val + y * (ymax-ymin) / yval->mul / item->ys;
 		f = snap(f, item->ch_ysnap);
 		sprintf(buf, "%.12lg", f);
-		dbase_put(curr_card->dbase, row, yval->field, buf);
+		dbase_put(mainwindow->card->dbase, row, yval->field, buf);
 		redraw = true;
 	}
 	if (redraw)
-		draw_chart(curr_card, nitem);
+		draw_chart(mainwindow->card, nitem);
 }

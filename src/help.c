@@ -137,17 +137,21 @@ static void context_callback(void)
 
 static char *add_card_help(const char *topic, char *message)
 {
-	if (!strcmp(topic, "card") && curr_card && curr_card->form
-						&& curr_card->form->help) {
+	const CARD *card;
+	if (!mainwindow)
+		return NULL;
+	card = mainwindow->card;
+	if (!strcmp(topic, "card") && card && card->form
+						&& card->form->help) {
 		char *msg = (char *)realloc(message, strlen(message) +
-				 	strlen(curr_card->form->help) + 2);
+				 	strlen(card->form->help) + 2);
 		if(!msg) {
 			free(message);
 			return NULL;
 		}
 		message = msg;
 		strcat(message, "\n");
-		strcat(message, curr_card->form->help);
+		strcat(message, card->form->help);
 	}
 	return message;
 }
@@ -214,6 +218,11 @@ static char *get_text(
 	return(text);
 }
 
+/* Qt doesn't support a "help callback" */
+/* closest would be binding the Help key, I guess */
+/* or maybe tooltip or "what's this?"? for the whole dialog? */
+/* tooltip/whatsThis requires loading text in advance, though */
+/* the help text is too big for either, but even more so for tooltip */
 void bind_help(
 	QWidget		*parent,
 	const char	*topic)

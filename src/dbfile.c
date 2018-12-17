@@ -225,9 +225,6 @@ bool read_dbase(
 		return(false);
 	}
 	dbase_delete(dbase);
-#ifdef GROK
-	init_variables();
-#endif
 	ctimex_next = 0;
 	if (*path != '/' && *path != '~' && form->path) {
 		const char *p;
@@ -538,7 +535,7 @@ static bool read_tfile(
 	const char		*path)		/* file to read list from */
 {
 	static char		*pathbuf = 0;	/* file name with path */
-	size_t			pathbuflen;
+	static size_t		pathbuflen;
 	SECTION			*sect;		/* new section */
 	FILE			*fp;		/* open file */
 	int			r = 0;		/* current row to change */

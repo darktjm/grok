@@ -23,9 +23,9 @@
 #include "proto.h"
 
 static      QTreeWidget	*w_summary = NULL;
-static void sum_callback(int r);
+static void sum_callback(CARD *card, int r);
 
-QWidget *create_summary_widget(void)
+QWidget *create_summary_widget()
 {
 	w_summary  = new QTreeWidget(mainwindow);
 	bind_help(w_summary, "summary"); // formerly set in mainwin.c
@@ -43,8 +43,6 @@ QWidget *create_summary_widget(void)
 	w_summary->setHeaderHidden(true);
 	w_summary->resize(400, 20);
 
-	set_qt_cb(QTreeWidget, currentItemChanged, w_summary,
-		  sum_callback(w_summary->indexOfTopLevelItem(c)), QTreeWidgetItem *c);
 	return w_summary;
 }
 
@@ -66,14 +64,23 @@ void create_summary_menu(
 		return;
 	QSignalBlocker sb(w_summary);
 	w_summary->setUpdatesEnabled(false);
+	/* undo previous cb, if present */
+	w_summary->disconnect(SIGNAL(currentItemChanged(QTreeWidgetItem *, QTreeWidgetItem *)));
+	/* connect to new card */
+	if (card)
+		set_qt_cb(QTreeWidget, currentItemChanged, w_summary,
+			  sum_callback(card, w_summary->indexOfTopLevelItem(c)),
+			  QTreeWidgetItem *c);
 	print_info_line();
-	if (!card)
-		tzero(CARD, (card = &dummy), 1);
+	if (!card) {
+		tzero(CARD, &dummy, 1);
+		card = &dummy;
+	}
 
 	w_summary->clear();
 	for (n=0; n < card->nquery; n++)
 		make_summary_line(&buf, &buf_len, card, card->query[n], w_summary);
-	make_summary_line(&buf, &buf_len, card, -1, w_summary);
+	make_summary_header(&buf, &buf_len, card, w_summary);
 	if(card->nquery)
 		w_summary->setCurrentItem(w_summary->topLevelItem(0));
 
@@ -137,10 +144,8 @@ static int selected_item(CARD *card)
 }
 
 static bool in_sum_callback = false;
-static void sum_callback(int item_position)
+static void sum_callback(CARD *card, int item_position)
 {
-	CARD		*card = curr_card;
-
 	if (!card || !card->wsummary)
 		return;
 	in_sum_callback = true;
