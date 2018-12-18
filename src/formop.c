@@ -21,20 +21,12 @@
 #include <errno.h>
 #include <QtWidgets>
 #include "config.h"
-
-#if defined(GROK) || defined(PLANGROK)
-
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
 
 #define XSNAP(x)	((x)-(x)%form->xg)
 #define YSNAP(y)	((y)-(y)%form->yg)
-
-#ifndef GROK
-void clone_chart_component(to, from) CHART *to, *from; {}
-void del_chart_component(item) ITEM *item; {}
-#endif
 
 static void		set_form_defaults(FORM *);
 
@@ -76,7 +68,6 @@ static void set_form_defaults(
  * menu.
  */
 
-#ifdef GROK
 FORM *form_clone(
 	FORM		*parent)	/* old form */
 {
@@ -114,13 +105,11 @@ FORM *form_clone(
 	form->fields = NULL;
 	return(form);
 }
-#endif /* GROK */
 
 
 /*
- * destroy a form struct and all its items. The pointer passed is not freed.
+ * destroy a form struct and all its items.
  * Make sure to remove all windows that display a view of this form first.
- * Initialize the form with defaults (this is used when reading form file).
  */
 
 void form_delete(
@@ -151,7 +140,7 @@ void form_delete(
 	}
 	if (form->fields)
 		delete form->fields;
-	set_form_defaults(form);
+	free(form);
 }
 
 /*
@@ -161,7 +150,6 @@ void form_delete(
  * first incorrect item.
  */
 
-#ifdef GROK
 #define ISMULTI(i) (i->type == IT_MENU  || i->type == IT_RADIO || \
 		    i->type == IT_FLAGS || i->type == IT_MULTI)
 #define ISFLAG(i) (i->type == IT_FLAG  || i->type == IT_CHOICE)
@@ -621,7 +609,6 @@ void form_sort(
 		return;
 	qsort(form->items, form->nitems, sizeof(ITEM *), icompare);
 }
-#endif /* GROK */
 
 
 /*------------------------------------------------- operations on form items */
@@ -632,7 +619,6 @@ void form_sort(
  * also if an item is added (we only want the added one selected afterwards).
  */
 
-#ifdef GROK
 void item_deselect(
 	FORM		*form)		/* describes form and all items in it*/
 {
@@ -647,7 +633,6 @@ void item_deselect(
 		}
 	}
 }
-#endif /* GROK */
 
 
 /*
@@ -863,5 +848,3 @@ void menu_clone(MENU *m)
 	m->flagtext = zstrdup(m->flagtext);
 	m->name = zstrdup(m->name);
 }
-
-#endif /* GROK || PLANGROK */

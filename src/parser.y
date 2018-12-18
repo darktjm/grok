@@ -74,17 +74,21 @@ static int	f_cmp	(char  *s,
 			 char  *t)  { int r = strcmp(STR(s), STR(t));
 				      zfree(s); zfree(t); return r;}
 
-static struct var *var_ptr(CARD *card, int v) {
+static EVAR *var_ptr(CARD *card, int v) {
     /* variables 0..25 are a..z, cleared when */
     /* switching databases (i.e., card-local). */
     /* 26..51 are A..Z, which are never cleared after init */
     /* FIXME: to be reentrant, this needs to lock global_vars or card */
-    static struct var global_vars[26] = {};
-    if(v < 26)
-	return &card->var[v];
+    static EVAR global_vars[26] = {};
+    if(v < 26) {
+	static EVAR dummy = {};
+	if(!card || !card->dbase) /* should never happen */
+	    return &dummy;
+	return &card->dbase->var[v];
+    }
     return &global_vars[v-26];
 }
-#define VP struct var *vp = var_ptr(g->card, v)
+#define VP EVAR *vp = var_ptr(g->card, v)
 static char    *getsvar	(PG, int    v)  { VP; return vp->numeric ? f_str(g, vp->value) :
 						yyzstrdup(g, vp->string); }
 static double   getnvar	(PG, int    v)  { VP; return(vp->numeric ? vp->value :
@@ -102,7 +106,7 @@ static double   setnvar	(PG, int    v,
 					return(vp->value = d); }
 void set_var(CARD *card, int v, char *s)
 {
-    struct var *vp = var_ptr(card, v);
+    EVAR *vp = var_ptr(card, v);
     zfree(vp->string);
     vp->string = s;
     vp->numeric = false;

@@ -760,22 +760,25 @@ void switch_form(
 				return;
 			}
 			dbase_delete(card->dbase);
-			free(card->dbase);
 		}
-		if (card->form) {
+		if (card->form)
 			form_delete(card->form);
-			free(card->form);
-		}
 		query_none(card);
 		free(card);
 		card = 0;
 	}
 	if (!BLANK(formname)) {
-		FORM  *form  = form_create();
-		DBASE *dbase = dbase_create();
-		if (read_form(form, formname))
-			(void)read_dbase(dbase, form,
+		FORM  *form;
+		DBASE *dbase = NULL;
+		if ((form = read_form(formname)))
+			dbase = read_dbase(form,
 					form->dbase ? form->dbase : formname);
+		/* old code always created form & dbase, even if invalid */
+		/* so for now, this code does, too */
+		if (!form)
+			form = form_create();
+		if (!dbase)
+			dbase = dbase_create();
 
 		card = create_card_menu(form, dbase, w_card);
 		if(!card)

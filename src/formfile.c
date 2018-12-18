@@ -13,24 +13,16 @@
 #include <time.h>
 #include <QtWidgets>
 #include "config.h"
-
-#if defined(GROK) || defined(PLANGROK)
-
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
 
-#ifdef PLANGROK
-static DQUERY *add_dquery(FORM *fp) {return(0);}
-static void remake_dbase_pulldown(void) {}
-#endif
 
 static const char * const itemname[NITEMS] = {
 	"None", "Label", "Print", "Input", "Time", "Note", "Choice", "Flag",
 	"Button", "Chart", "Number", "Menu", "Radio", "Multi", "Flags" };
 
 
-#ifdef GROK
 /*
  * Write the form and all the items in it. Also create the database named
  * in the form if it doesn't exist.
@@ -248,7 +240,6 @@ bool write_form(
 	free(dbpath);
 	return(true);
 }
-#endif /* GROK */
 
 
 /*
@@ -312,10 +303,10 @@ static char *get_string(FILE *fp, char *val, char *buf, size_t buflen,
 	}
 }
 
-bool read_form(
-	FORM			*form,		/* form and items to write */
+FORM *read_form(
 	const char		*path)		/* file to read list from */
 {
+	FORM			*form;		/* form and items to write */
 	FILE			*fp;		/* open file */
 	static char		line[1024];	/* line buffer */
 	char			*p, *key;	/* next char in line buf */
@@ -358,9 +349,9 @@ bool read_form(
 	if (!fp) {
 		create_error_popup(mainwindow, errno,
 			"Failed to open form file %s", path);
-		return(false);
+		return NULL;
 	}
-	form_delete(form);
+	form = form_create();
 	form->path = mystrdup(path);
 	for (;;) {
 		if (!fgets(line, sizeof(line), fp))
@@ -378,7 +369,7 @@ bool read_form(
 		if (!strcmp(key, "item")) {
 			if (!item_create(form, form->nitems)) {
 				form_delete(form);
-				return(false);
+				return NULL;
 			}
 			chart = NULL;
 			menu = NULL;
@@ -602,9 +593,7 @@ bool read_form(
 	/* verify_form() will also create the symtab */
 	if(!verify_form(form, NULL, mainwindow)) {
 		form_delete(form);
-		return(false);
+		return NULL;
 	}
-	return(true);
+	return form;
 }
-
-#endif /* GROK || PLANGROK */

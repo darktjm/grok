@@ -102,8 +102,7 @@ bool write_dbase(
 	DBASE		*dbase,		/* form and items to write */
 	const FORM	*form,		/* contains column delimiter */
 	bool		force);		/* write even if not modified*/
-bool read_dbase(
-	DBASE		*dbase,		/* form and items to write */
+DBASE *read_dbase(
 	const FORM	*form,		/* contains column delimiter */
 	const char	*path);		/* file to read list from */
 
@@ -228,8 +227,7 @@ void set_var(CARD *card, int v, char *s);
 
 bool write_form(
 	const FORM	*form);		/* form and items to write */
-bool read_form(
-	FORM		*form,		/* form and items to write */
+FORM *read_form(
 	const char	*path);		/* file to read list from */
 
 /*---------------------------------------- formop.c ------------*/

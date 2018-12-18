@@ -18,9 +18,6 @@
 #include <sys/stat.h>
 #include <QtWidgets>
 #include "config.h"
-
-#if defined(GROK) || defined(PLANGROK)
-
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
@@ -41,16 +38,14 @@ DBASE *dbase_create(void)
 
 	/* since even this code assumes success, errors are fatal */
 	dbase = zalloc(0, "database", DBASE, 1);
-	/* this one was fatal in old code as well */
-	dbase->sect = zalloc(0, "section", SECTION, 1);
-	dbase->nsects	= 1;
-	dbase->currsect	= -1;
+	/* this used to pointlessly create a section, but it was
+	 * always followed by a call to dbase_delete(), which freed it */
 	return(dbase);
 }
 
 
 /*
- * destroy a dbase struct and all its data. The pointer passed is not freed.
+ * destroy a dbase struct and all its data.
  */
 
 void dbase_delete(
@@ -62,8 +57,7 @@ void dbase_delete(
 	if (!dbase)
 		return;
 	for (r=0; r < dbase->nsects; r++)
-		if (dbase->sect[r].path)
-			free(dbase->sect[r].path);
+		zfree(dbase->sect[r].path);
 	zfree(dbase->sect);
 
 	for (r=0; r < dbase->nrows; r++) {
@@ -73,7 +67,9 @@ void dbase_delete(
 		free(row);
 	}
 	zfree(dbase->row);
-	tzero(DBASE, dbase, 1);
+	for(r=0; r < 26; r++)
+		zfree(dbase->var[r].string);
+	free(dbase);
 }
 
 
@@ -237,7 +233,6 @@ bool dbase_put(
 }
 
 
-#ifdef GROK
 /*
  * sort database by a column. Leading blanks are stripped before the
  * comparison. If a string begins with a number, compare numerically.
@@ -334,6 +329,3 @@ void dbase_sort(
 	}
 	assert(j == card->nquery);
 }
-
-#endif /* GROK */
-#endif /* GROK || PLANGROK */

@@ -1,6 +1,8 @@
 grok - Graphical Resource Organizer Kit
 =======================================
 
+Grok is a simple database manager and UI builder.
+
 For people who don't read long READMEs, I'll describe compilation and
 installation first.  Before starting, install C++ development tools
 (C++-11 minimum; tested with gcc and clang), cmake (tested with

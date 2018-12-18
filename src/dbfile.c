@@ -15,9 +15,6 @@
 #include <dirent.h>
 #include <QtWidgets>
 #include "config.h"
-
-#if defined(GROK) || defined(PLANGROK)
-
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
@@ -210,11 +207,11 @@ static bool read_dir_or_file (DBASE *, const FORM *, const char *);
 static bool read_file	     (DBASE *, const FORM *, const char *, time_t);
 static bool read_tfile	     (DBASE *, const FORM *, const char *);
 
-bool read_dbase(
-	DBASE			*dbase,		/* form and items to write */
+DBASE *read_dbase(
 	const FORM		*form,		/* contains column delimiter */
 	const char		*path)		/* file to read list from */
 {
+	DBASE			*dbase;
 	static char		*pathbuf = 0;	/* file name with path */
 	static size_t		pathbuflen;
 	bool			ret;		/* return code, false=error */
@@ -222,9 +219,9 @@ bool read_dbase(
 	if (!path || !*path) {
 		create_error_popup(mainwindow, 0,
 			"Database has no name, cannot read from disk");
-		return(false);
+		return NULL;
 	}
-	dbase_delete(dbase);
+	dbase = dbase_create();
 	ctimex_next = 0;
 	if (*path != '/' && *path != '~' && form->path) {
 		const char *p;
@@ -246,7 +243,7 @@ bool read_dbase(
 	dbase->currsect = -1;
 	dbase->modified = false;
 	print_info_line();
-	return(ret);
+	return dbase;
 }
 
 
@@ -577,5 +574,3 @@ static bool read_tfile(
 	fclose(fp);
 	return(true);
 }
-
-#endif /* GROK || PLANGROK */

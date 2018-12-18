@@ -1307,7 +1307,6 @@ static int readback_item(
 				return(0);
 		      switch_form(mainwindow->card, form->name);
 		      form_delete(form);
-		      free(form);
 		      form = 0;
 	 	      return(0);
 
@@ -1317,7 +1316,6 @@ static int readback_item(
 			destroy_canvas_window();
 			destroy_query_window();
 			form_delete(form);
-			free(form);
 			form = 0;
 		      }
 	 	      return(0);

@@ -133,9 +133,9 @@ version 1.5.4
 
 -----  All releases below this line are by Thomas J. Moore,
 -----  https://bitbucket.org/darktjm/grok/
------  git tag reltag can be downloaded as
------      https://bitbucket.org/darktjm/grok/get/reltag.tar.bz2
------  however, bitbucket doesn't give the archive a good directory name
+-----  "git tag <reltag>" can be downloaded as
+-----      https://bitbucket.org/darktjm/grok/get/<reltag>.tar.bz2
+-----  however, bitbucket doesn't give the archive or directory a good name
 
 version 1.5.1 (git tag xmbase_grok-1.5.1, SVN 494), released 26.10.18
 
@@ -190,15 +190,16 @@ version 2.0 (git tag grok-2.0, SVN 508), released 14.11.18
       written to/read from the .gf file. (added to TODO.md)
     * Many chart-related options.  The whole chart thing needs to be
       rethought, anyway.  I have no intention of re-implementing gdchart
-      here.  Note that ch_label, ch_xexpr, ch_yexpr, will no longer be written to/read
-      from the .gf file.
+      here.  Note that ch_label, ch_xexpr, ch_yexpr, will no longer be
+      written to/read from the .gf file.
   * Now uses the color application icon.  The old icon is still there for
     reference, but I'm not even going to bother packaging it.
-  * field separators > 0x7f, such as \377, did not work. Fixed.
-  * Show in summary: an expression to mangle fields for summary view
+  * From upstream 1.5.4:
+    * field separators > 0x7f, such as \377, did not work. Fixed.
+    * Show in summary: an expression to mangle fields for summary view
 
-Databases which rely on the dynamic behavior of invisible_if in 2.0
-will not work the same if loaded into 1.5.1 or earlier.
+New databases which rely on the dynamic behavior of invisible_if in
+2.0 will not work the same if loaded into 1.5.1 or earlier.
 
 Version 2.0.1 (git tag grok-2.0.1, SVN 510), released 14.11.18
   * Minor bug fixes; use this instead of 2.0.
@@ -214,10 +215,11 @@ Version 2.1 (git tag grok-2.1, SVN 518), released 17.11.18
   * Added string-as-array/set support: esc ## s[] s[]->v toset |+ |- |*
     and foreach() and \{FOREACH} for arrays & sets.
   * \{QUIT} now works
-  * form definition files no longer store values at their defaults
+  * From upstream 1.5.4:
+    * form definition files no longer store values at their defaults
 
-Databases which use regular expression functions, array functions, or
-\{QUIT} will not function correctly in 2.0 or earlier.
+New databases which use regular expression functions, array functions,
+or \{QUIT} will not function correctly in 2.0 or earlier.
 
 Note that I had intneded to put more into 2.1, but paniced when I
 realized you couldn't create new, blank forms any more.  It turned out
@@ -231,7 +233,7 @@ Version 2.2 (git tag grok-2.2, SVN 528), released 1.12.18
     value, barely.  This bug was introduced in 2.0.
   * Multiple Choice groups in a card would hide the selection of all
     but the last displayed (bottom-right) group.  This bug was
-    introduced in 2.0. 
+    introduced in 2.0.
   * Moving summary window selection away from a modified record will no
     longer revert the movement
   * Input fields can now be combo boxes, whose menu is filled in from
@@ -328,8 +330,9 @@ just convert that into a shorter-named shell script.
 Version 2.4 (in progress)
  * Removed a debugging printf that I left in 2.3.
  * Switched from Qt's qmake to the more generic cmake.  This corrects
-   a few problems with the documentation.
- * Fixed some bugs in Setting array elements.  See the SVN log for
+   a few problems with the documentation.  Builds now depend on cmake
+   and bison (byacc used to work, but not any more).
+ * Fixed some bugs in setting array elements.  See the SVN log for
    details.  These bugs were all introduced in 2.1.
  * Accessing negative elements in an array used to always return blank
    (as documented).  Now it counts from the end of the array.  Note
@@ -337,6 +340,14 @@ Version 2.4 (in progress)
    elements from the end is less efficient.
  * Added ELSE and ELSEIF to templates
  * Added -X to print raw template
+ * Several issues with Flag/Choice Group layout (since 2.2) have been fixed
+ * Qt flags are now processed only (and fully) if the GUI is brought up.
+   Using Qt flags in non-interactive commands is an error, as is any
+   flag not recognized by grok or Qt.  Previously two-part options such
+   as -style <file> would use <file> as a grok option; no more.
+
+Any templates that use ELSE or ELSEIF will not work in version 2.3 or
+earlier.
 
 FOREACH and END must now be in the same conditional segment.  Not
 doing so was never really supported, but now it is enforced.

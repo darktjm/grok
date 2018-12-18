@@ -13,7 +13,6 @@
 
 #define USE_COLOR_ICON	1			/* use xpm icon instead of xbm */
 
-#define GROK					/* for src sharing with plan */
 #define GROKDIR		"~/.grok"		/* grok working dir */
 #define PREFFILE	".grokrc"		/* preference file in GROKDIR*/
 #define HELP_FN		"grok.hlp"		/* help text file */

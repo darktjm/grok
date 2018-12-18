@@ -332,10 +332,8 @@ static void set_export_card(CARD *card)
 }
 
 
-static void unset_export_card(CARD *card)
+static void unset_export_card(void)
 {
-	if(card)
-		tmemcpy(struct var, card->var, shell->export_card.var, 26);
 	zfree(shell->export_card.query);
 }
 
@@ -367,11 +365,11 @@ static bool do_export(CARD *card)
 		}
 	}
 	if (err) {
-		unset_export_card(card);
+		unset_export_card();
 		create_error_popup(shell, 0, "Export failed:\n%s", err);
 		return(false);
 	}
-	unset_export_card(card);
+	unset_export_card();
 	pref.modified = true;
 	return(true);
 }
@@ -390,12 +388,12 @@ static bool export_to_doc(CARD *card, QTextDocument &doc)
 	}
 	set_export_card(card);
 	if ((err = exec_template(0, f, 0, pref.xlistpos, pref.xflags, &shell->export_card))) {
-		unset_export_card(card);
+		unset_export_card();
 		create_error_popup(shell, 0, "Export failed:\n%s", err);
 		fclose(f);
 		return(false);
 	}
-	unset_export_card(card);
+	unset_export_card();
 	fflush(f);
 	unsigned long len = ftell(f);
 	rewind(f);

@@ -312,14 +312,14 @@ static void make_grokdir(void)
 "file, and it is the default location for forms and databases.\n"
 "If you are running grok for the first time and intend to use it\n"
 "regularly, press OK now and copy all files from the grokdir\n"
-"demo directory in the grok distribution into %s .\n"
+"demo directory in the grok distribution into " GROKDIR " .\n"
 "\n"
 "If you want to experiment with grok first, press Cancel. If\n"
 "you have a grokdir directory in the directory you started\n"
-"grok from, it will be used in place of %s, but you may\n"
+"grok from, it will be used in place of " GROKDIR ", but you may\n"
 "not be able to create new forms and databases, and con-\n"
 "figuration changes will not be saved.",
-						path, GROKDIR, GROKDIR)) {
+						path)) {
 	    (void)chmod(path, 0700);
 	    (void)mkdir(path, 0700);
 	    if (access(path, X_OK))

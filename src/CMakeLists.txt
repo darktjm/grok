@@ -34,7 +34,8 @@ add_compile_definitions(QT_DEPRECATED_WARNINGS)
 # byacc works correctly, but isn't reentrant (even with -P and YYPURE=1)
 # https://invisible-island.net/byacc/byacc.html version 20180609
 # bison works correctly, and is reentrant version 3.2.1 (and probably eariler)
-# I also now use a bison-specific feature (%destructor), so bison it is.
+# I also now use bison-specific features (%code, %destructor, purity),
+# only some of which could be done differently with great effort
 find_package(BISON REQUIRED)
 BISON_TARGET(parser parser.y
 	     # CMake puts output in source dir by default, which I don't like
