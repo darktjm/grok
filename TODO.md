@@ -47,10 +47,6 @@ Features in Progress
 Bugs
 ----
 
-- Clicking on a radio button (update=ALL) causes menu table to narrow
-  in form editor.  Qt's resizing is a mystery to me, and one I don't
-  relish investigating.
-
 - Sometimes 1st widget of card appears even though no record is
   selected in main card window display.  Speaking of which, the static
   area doesn't really work any differently from the bottom area, as far
@@ -58,9 +54,6 @@ Bugs
   to revisit that.
 
 - Main window sizing issues:
-
-    - The summary list is too wide.  The right-most column almost
-      always extends too far, and I don't know how to shrink it.
 
     - The window doesn't resize to a narrow version on database switch
       (but it does do so on initial load and randomly, for some
@@ -85,14 +78,6 @@ Bugs
     instead, I have to call adjustSize() manually on the parent
     widgets.  Twice.  Calling updateGeometry() doesn't seem to do
     anything, except when it does.
-
-- The layout of the form item editor needs tweaking.  At the very
-  least, the chart options do not seem to have the right label
-  width.  Also, items in the scroll area are too wide, or the scroll
-  area is too narrow, depending on how you look at it, but only if
-  the chart options appear. Otherwise, the opposite issue exists.  It
-  appears that the layout is partially being influenced by invisible
-  widgets.
 
 - Look more closely at all Qt-related licenses.  I don't want this
   program to be GPL.  In particular, QUiLoader seems to use a

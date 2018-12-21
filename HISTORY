@@ -371,7 +371,7 @@ non-template expressions, and will result in syntax errors prior to
 2.4. FOREACH and END must now be in the same conditional segment. Not
 doing so was never really supported, but now it is enforced.  While
 foreach() expression strings using explicit braces will continue
-working, any which were in reality fixed strings that weren't indended
+working, any which were in reality fixed strings that weren't intended
 as expressions will not, and will likely result in a syntax error.
 Use of the new other-database prefix will result in syntax errors
 prior to 2.4.

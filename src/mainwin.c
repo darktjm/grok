@@ -180,7 +180,7 @@ void create_mainwindow()
 	w_search = new QLineEdit;
 	w_search->sizePolicy().setHorizontalStretch(1);
 	hb->addWidget(w_search);
-	set_text_cb(w_search, search_callback(0));
+	set_textr_cb(w_search, search_callback(0));
 	bind_help(w_search, "search");
 
 	QHBoxLayout *h = new QHBoxLayout;

@@ -194,13 +194,7 @@ static void resize_menu_table(QTableWidget *tw)
 		h += tw->horizontalScrollBar()->height();
 	tw->setMaximumHeight(h);
 	tw->setMinimumHeight(h);
-	// Why do I have to manually make room in the parent widget?
-	tw->parentWidget()->adjustSize();
-	// Why do I have to manually make room in the scrolling canvas as well?
-	tw->parentWidget()->parentWidget()->adjustSize();
-	// Most importantly, why do I have to do it twice??
-	tw->parentWidget()->adjustSize();
-	tw->parentWidget()->parentWidget()->adjustSize();
+	tw->updateGeometry();
 }
 
 /*
@@ -726,6 +720,7 @@ void create_formedit_window(
 			break;
 		    case ']':
 			scroll->setWidget(scroll_w);
+			scroll->setWidgetResizable(true);
 			scroll_w->show();
 			break;
 		    case '{':

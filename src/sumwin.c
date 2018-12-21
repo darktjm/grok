@@ -101,6 +101,7 @@ void create_summary_menu(
 		w_summary->header()->setStretchLastSection(true);
 	}
 	w_summary->setMinimumWidth(w);
+	w_summary->updateGeometry();
 
 	free(buf);
 
