@@ -487,8 +487,7 @@ void destroy_formedit_window(void)
 
 void create_formedit_window(
 	FORM			*def,		/* new form to edit */
-	bool			copy,		/* use a copy of <def> */
-	bool			isnew)		/* ok to change form name */
+	bool			copy)		/* use a copy of <def> */
 {
 	struct _template	*tp;
 	int			n, len, off;	/* width of first column */
@@ -508,10 +507,6 @@ void create_formedit_window(
 			zfree(form->name);
 			form->name = 0;
 		}
-	}
-	if (isnew && form->path) {
-		free(form->path);
-		form->path = 0;
 	}
 	canvas = create_canvas_window(form);		/* canvas window */
 	if (have_shell) {
@@ -1278,7 +1273,7 @@ static int readback_item(
 		      }
 		      break;
 
-	  case 0x10e: create_card_menu(form, 0, 0);
+	  case 0x10e: create_card_menu(form, 0, 0, false);
 		      break;
 
 	  case 0x10f: help_callback(shell, "edit");

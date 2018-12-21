@@ -22,7 +22,6 @@
 #include "proto.h"
 
 static void done_callback (void);
-static void spool_callback(void);
 
 struct pref	pref;		/* global preferences */
 
@@ -31,6 +30,7 @@ static QDialog		*shell;		/* popup menu shell */
 static QSpinBox		*w_linelen;	/* truncate printer lines */
 static QSpinBox		*w_lines;	/* summary lines text */
 static QDoubleSpinBox	*w_scale;	/* card scale text */
+static QSpinBox		*w_db_keep;	/* open unused databases */
 
 
 /*
@@ -60,6 +60,11 @@ void destroy_preference_popup(void)
 			pref.scale = d;
 			pref.modified = true;
 		}
+		i = w_db_keep->value();
+		if (i >= 0 && i != pref.db_keep) {
+			pref.db_keep = i;
+			pref.modified = true;
+		}
 		have_shell = false;
 		shell->close();
 		delete shell;
@@ -81,8 +86,7 @@ static const struct flag { bool *value; const char *text; } flags[] = {
 	{ &pref.letters,	"Enable search by initial letter"	},
 	{ &pref.allwords,	"Letter search checks all words"	},
 	{ &pref.incremental,	"Incremental searches and queries"	},
-	{ &pref.uniquedb,	"Don't show duplicate databases"	},
-	{ 0,			0					}
+	{ &pref.uniquedb,	"Don't show duplicate databases"	}
 };
 
 static void flag_callback(const struct flag*, bool);
@@ -104,7 +108,7 @@ void create_preference_popup(void)
 	form = new QGridLayout(shell);
 	bind_help(shell, "pref");
 							/*-- flags --*/
-	for (flag=flags; flag->value; flag++) {
+	for (flag=flags; APTR_OK(flag, flags); flag++) {
 		QCheckBox *cb = new QCheckBox(flag->text);
 		form->addWidget(cb, row++, 0, 1, 2);
 		cb->setCheckState(*flag->value ? Qt::Checked : Qt::Unchecked);
@@ -119,7 +123,6 @@ void create_preference_popup(void)
 	form->addWidget(new QLabel("Text export line length:"), row, 0);
 	form->addWidget(w_linelen = new QSpinBox, row++, 1);
 	w_linelen->setRange(40, 250);
-	set_spin_cb(w_linelen, spool_callback());
 
 							/*-- nlines, scale --*/
 	form->addWidget(mk_separator(), row++, 0, 1, 2);
@@ -131,6 +134,10 @@ void create_preference_popup(void)
 	form->addWidget(new QLabel("Card scaling factor:"), row, 0);
 	form->addWidget(w_scale = new QDoubleSpinBox, row++, 1);
 	w_scale->setRange(0.1, 10.0);
+
+	form->addWidget(new QLabel("Max unused in-mem db:"), row, 0);
+	form->addWidget(w_db_keep = new QSpinBox, row++, 1);
+	w_db_keep->setRange(0, 200);
 
 							/*-- buttons --*/
 	form->addWidget(mk_separator(), row++, 0, 1, 2);
@@ -152,6 +159,7 @@ void create_preference_popup(void)
 	w_linelen->setValue(pref.linelen);
 	w_lines->setValue(pref.sumlines);
 	w_scale->setValue(pref.scale);
+	w_db_keep->setValue(pref.db_keep);
 	have_shell = true;
 }
 
@@ -174,17 +182,6 @@ static void flag_callback(
 	*flag->value = set;
 	if (flag->value == &pref.uniquedb)
 		remake_dbase_pulldown();
-	pref.modified = true;
-}
-
-
-static void spool_callback(void)
-{
-	int				i;
-
-	i = w_linelen->value();
-	if (i > 39 && i <= 250)
-		pref.linelen = i;
 	pref.modified = true;
 }
 
@@ -215,6 +212,7 @@ void write_preferences(void)
 	fprintf(fp, "unique	%s\n",	pref.uniquedb     ? "yes" : "no");
 	fprintf(fp, "scale	%.*lg\n",	DBL_DIG + 1, pref.scale);
 	fprintf(fp, "lines	%d\n",	pref.sumlines);
+	fprintf(fp, "db_keep	%d\n",	pref.db_keep);
 	fprintf(fp, "xflags	%d\n",	pref.xflags);
 	/* not going to add xfile & xlistpos */
 	fprintf(fp, "pselect	%c\n",	pref.pselect);
@@ -255,6 +253,7 @@ void read_preferences(void)
 	pref.sumlines	= 8;
 	pref.pselect	= 'S';
 	pref.linelen	= 79;
+	pref.db_keep	= 10;
 	/* non-graphical runs don't need printer */
 	/* this will break if non-graphical app ever writes prefs */
 	if(app)
@@ -287,6 +286,7 @@ void read_preferences(void)
 		if (!strcmp(key, "unique"))	pref.uniquedb	 = value;
 		if (!strcmp(key, "scale"))	pref.scale	 = atof(p);
 		if (!strcmp(key, "lines"))	pref.sumlines	 = value;
+		if (!strcmp(key, "db_keep"))	pref.db_keep	 = value;
 		if (!strcmp(key, "xflags"))	pref.xflags	 = value;
 		if (!strcmp(key, "pselect"))	pref.pselect	 = *p;
 		if (!strcmp(key, "linelen"))	pref.linelen	 = atoi(p);

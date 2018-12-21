@@ -25,6 +25,8 @@
 #include "form.h"
 #include "proto.h"
 
+FORM		*form_list;	/* all loaded forms */
+
 #define XSNAP(x)	((x)-(x)%form->xg)
 #define YSNAP(y)	((y)-(y)%form->yg)
 
@@ -77,7 +79,8 @@ FORM *form_clone(
 	/* user assumes success, so this should be fatal */
 	form = alloc(0, "clone form", FORM, 1);
 	*form = *parent;
-	form->path    = mystrdup(parent->path);
+	form->path    = NULL;
+	form->next    = NULL;
 	form->name    = mystrdup(parent->name);
 	form->dbase   = mystrdup(parent->dbase);
 	form->comment = mystrdup(parent->comment);
@@ -117,8 +120,16 @@ void form_delete(
 {
 	DQUERY		*dq;		/* default query entry */
 	int		i;
+	CARD		*card;
 
 	if (!form)
+		return;
+	/* on the one hand, forms are small enough to never delete */
+	/* on the other hand, they are read quickly enough to always delete */
+	for (card = card_list; card; card = card->next)
+		if (card->form == form)
+			break;
+	if (card)
 		return;
 	for (i=form->nitems - 1; i >= 0; --i)
 		item_delete(form, i);
@@ -138,6 +149,11 @@ void form_delete(
 		}
 		free(form->query);
 	}
+	for (FORM **prev = &form_list; *prev; prev = &(*prev)->next)
+		if(*prev == form) {
+			*prev = form->next;
+			break;
+		}
 	if (form->fields)
 		delete form->fields;
 	free(form);

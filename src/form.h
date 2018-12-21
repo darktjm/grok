@@ -26,13 +26,19 @@ struct carditem {
    QWidget   *w1;		/* secondary widget (card form, label etc) */
 };
 typedef struct card {
+	mutable			/* dbase_write() modifies nothing but this */
+	struct card *next;	/* link for all reusable cards */
 	struct form *form;	/* form struct that controls this card */
 	char	    *prev_form;	/* previous form name */
 	struct dbase*dbase;	/* database that callbacks use to store data */
 				/****** summary window ***********************/
 	int	    nquery;	/* # of valid row indices in query[] */
 	int	    qcurr;	/* index into query[] for displayed card */
+	int	col_sorted_by;	/* dbase is sorted by this column */
+	int	    *sorted;	/* all database rows in sort order */
 	int	    *query;	/* row numbers of cards that satisfy query */
+	char	    *letter_mask; /* letters search within last results */
+	int	    lm_size;	/* size of letter_mask */
 	QTreeWidget *wsummary;	/* summary list widget, for destroying */
 				/****** card window **************************/
 	QDialog	    *shell;	/* if nonzero, card has its own window */
@@ -46,6 +52,7 @@ typedef struct card {
 	struct carditem items[1];
 } CARD;
 
+extern CARD *card_list;
 
 /*
  * database header struct. A database is basically a big 2-D array of data
@@ -66,8 +73,6 @@ typedef struct section {
 typedef struct row {
 	short	ncolumns;	/* # of columns allocated */
 	short	section;	/* section this row belongs to */
-	int	selected;	/* for dbase_sort: restore query after sort */
-	int	seq;		/* used during sort, preserves order */
 	time_t	mtime;		/* last modification time */
 	time_t	ctime;		/* creation time, identifies card uniquely */
 	int	ctimex;		/* just in case two cards have same ctime */
@@ -82,20 +87,25 @@ typedef struct evar {
 } EVAR;
 
 typedef struct dbase {
+	struct dbase *next;	/* link for all loaded databases */
+	char	*path;		/* File/dir; also unique key in dbase_list */
 	bool	rdonly;		/* no write permission for any section */
 	bool	modified;	/* true if any section was modified */
-	int	col_sorted_by;	/* dbase is sorted by this column */
 	int	maxcolumns;	/* # of columns in widest row */
 	int	nrows;		/* # of valid rows in database */
 	size_t	size;		/* # of rows allocated */
 	short	nsects;		/* # of files loaded */
+	/* FIXME: move currsect to card */
+	/* it's basically a per-window GUI thing */
 	short	currsect;	/* current section, -1=all, 0..nsects-1=one */
 	SECTION	*sect;		/* describes all section files 0..nsects-1 */
 	bool	havesects;	/* db is a directory, >1 sections possible */
 	ROW	**row;		/* array of <nrows> rows */
-	EVAR	var[26];	/* card-local expression variables */
+	int	ctimex_next;	/* just in case two cards have same ctime */
+	EVAR	var[26];	/* dbase-local expression variables */
 } DBASE;
 
+extern DBASE *dbase_list;
 
 /*
  * Form describe data types and graphical layout of a card. There is a
@@ -312,6 +322,7 @@ typedef struct dquery {
 } DQUERY;
 	
 typedef struct form {
+	struct form *next;	/* link for all loaded forms */
 	char	*path;		/* complete path name form was read from */
 	char	*name;		/* filename of form */
 	char	*dbase;		/* referenced database filename */
@@ -334,4 +345,6 @@ typedef struct form {
 	char	*planquery;	/* default query for -p option */
 	FIELDS	*fields;	/* map fields to item#/menu# */
 } FORM;
+
+extern FORM *form_list;
 #endif

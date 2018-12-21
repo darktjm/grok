@@ -25,8 +25,6 @@
 #define R_SEP	'\n'			/* row (card) separator */
 #define ESC	'\\'			/* treat next char literally */
 
-static int	ctimex_next;		/* for generating unique row->ctimex */
-
 
 /*
  * If the print spooler dies for some reason, print a message. Don't let
@@ -71,6 +69,7 @@ bool write_dbase(
 				ok &= write_file (dbase, form, s);
 				ok &= write_tfile(dbase, form, s);
 			}
+	dbase_delete(NULL);
 	return(ok);
 }
 
@@ -202,7 +201,7 @@ static bool write_file(
 #define LCHUNK	4096		/* alloc this many new list ptrs */
 #define BCHUNK	1024		/* alloc this many new chars for item */
 
-static bool find_db_file     (DBASE *, const FORM *, const char *);
+static DBASE *find_db_file   (const FORM *, const char *);
 static bool read_dir_or_file (DBASE *, const FORM *, const char *);
 static bool read_file	     (DBASE *, const FORM *, const char *, time_t);
 static bool read_tfile	     (DBASE *, const FORM *, const char *);
@@ -214,15 +213,12 @@ DBASE *read_dbase(
 	DBASE			*dbase;
 	static char		*pathbuf = 0;	/* file name with path */
 	static size_t		pathbuflen;
-	bool			ret;		/* return code, false=error */
 
 	if (!path || !*path) {
 		create_error_popup(mainwindow, 0,
 			"Database has no name, cannot read from disk");
 		return NULL;
 	}
-	dbase = dbase_create();
-	ctimex_next = 0;
 	if (*path != '/' && *path != '~' && form->path) {
 		const char *p;
 		int plen = strlen(path);
@@ -233,17 +229,13 @@ DBASE *read_dbase(
 			path = pathbuf;
 		}
 	}
-	if (!(ret = find_db_file(dbase, form, path))) {
-		DBASE *ndb = dbase_create();
-		*dbase = *ndb;
-		free(ndb);
+	path = resolve_tilde(path, 0);
+	if (!(dbase = find_db_file(form, path))) {
 		create_error_popup(mainwindow, 0, "Failed to read %s", path);
+		return dbase_create();
 	}
 
-	dbase->currsect = -1;
-	dbase->modified = false;
-	print_info_line();
-	return dbase;
+	return(dbase);
 }
 
 
@@ -251,23 +243,42 @@ DBASE *read_dbase(
  * read both path.db and path, in that order. Return false if both failed.
  */
 
-static bool find_db_file(
-	DBASE			*dbase,		/* form and items to write */
+static DBASE *find_db_file(
 	const FORM		*form,		/* contains column delimiter */
 	const char		*path)		/* file to read list from */
 {
+	DBASE			*dbase;
 	static char		*pathbuf = 0;	/* file name with path */
 	static size_t		pathbuflen;
 	int			nread = 0;	/* # of successful reads */
 
 	grow(0, "db path", char, pathbuf, strlen(path) + 4, &pathbuflen);
 	sprintf(pathbuf, "%s.db", path);
-	if (!access(pathbuf, F_OK))
+	for(dbase = dbase_list; dbase; dbase = dbase->next)
+		if(!strcmp(dbase->path, pathbuf))
+			return dbase;
+	if (!access(pathbuf, F_OK)) {
+		dbase = dbase_create();
 		nread += read_dir_or_file(dbase, form, pathbuf);
-	if (!nread && !access(path, F_OK))
-		/* FIXME: delete pathbuf, maybe */
+		if(nread) {
+			dbase->path = mystrdup(pathbuf);
+			dbase->next = dbase_list;
+			dbase_list = dbase;
+			return dbase;
+		}
+		dbase_delete(dbase);
+		/* FIXME: maybe since .db exists, ignore non-.db */
+	}
+	for(dbase = dbase_list; dbase; dbase = dbase->next)
+		if(!strcmp(dbase->path, path))
+			return dbase;
+	dbase = dbase_create();
+	if (!access(path, F_OK))
 		nread += read_dir_or_file(dbase, form, path);
-	return(nread > 0);
+	dbase->path = mystrdup(nread ? path : pathbuf);
+	dbase->next = dbase_list;
+	dbase_list = dbase;
+	return dbase;
 }
 
 
@@ -355,7 +366,6 @@ static bool read_file(
 							/* step 1: open file */
 	signal(SIGPIPE, broken_pipe_handler);
 	if (form->proc) {
-		path = resolve_tilde(path, "db");
 		char *cmd = alloc(mainwindow, "procedural command", char,
 				  strlen(path) + strlen(form->name) + 5);
 		if(!cmd)
@@ -367,7 +377,6 @@ static bool read_file(
 			return(false);
 		}
 	} else {
-		path = resolve_tilde(path, "db");
 		if (!(fp = fopen(path, "r")))
 			return(false);
 	}
@@ -434,7 +443,7 @@ static bool read_file(
 			dbase_put(dbase, row, col++, buf);
 			dbase->row[row]->mtime  = 0;
 			dbase->row[row]->ctime  = 0;
-			dbase->row[row]->ctimex = ctimex_next++;
+			dbase->row[row]->ctimex = dbase->ctimex_next++;
 			bindex = 0;
 			if (feof(fp) || c0 == R_SEP) {		/* next row */
 				col = nc = 0;
@@ -560,6 +569,8 @@ static bool read_tfile(
 			dbase->row[r]->mtime = mt;
 			dbase->row[r]->ctime = ct;
 			dbase->row[r]->ctimex = ctx;
+			if(dbase->ctimex_next <= ctx)
+				dbase->ctimex_next = ctx + 1;
 		}
 	fgetc(fp);
 	if (!feof(fp) || r != dbase->nrows) {

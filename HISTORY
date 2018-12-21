@@ -198,6 +198,8 @@ version 2.0 (git tag grok-2.0, SVN 508), released 14.11.18
     * field separators > 0x7f, such as \377, did not work. Fixed.
     * Show in summary: an expression to mangle fields for summary view
 
+Compatibility Issues:
+
 New databases which rely on the dynamic behavior of invisible_if in
 2.0 will not work the same if loaded into 1.5.1 or earlier.
 
@@ -218,14 +220,16 @@ Version 2.1 (git tag grok-2.1, SVN 518), released 17.11.18
   * From upstream 1.5.4:
     * form definition files no longer store values at their defaults
 
-New databases which use regular expression functions, array functions,
-or \{QUIT} will not function correctly in 2.0 or earlier.
-
 Note that I had intneded to put more into 2.1, but paniced when I
 realized you couldn't create new, blank forms any more.  It turned out
 I needn't have worried, since the bug causing it was introduced after
 2.0.1, anyway.  Maybe I need a release manager.  Then again, it's not
 likely anywone but me cares.  It's not like I advertise this anywhere.
+
+Compatibility Issues:
+
+New databases which use regular expression functions, array functions,
+or \{QUIT} will not function correctly in 2.0 or earlier.
 
 Version 2.2 (git tag grok-2.2, SVN 528), released 1.12.18
   * Date widgets were updating after every keystroke, which
@@ -255,12 +259,14 @@ Version 2.2 (git tag grok-2.2, SVN 528), released 1.12.18
 Note that I put more changes into 2.2.1 (released the same day) than
 expected, but there were a lot of problems to fix.  One which wasn't a
 problem, but technically a new, incompatible feature:
-  * Automatic HTML export templates now repsect sumwidth in summary lists
+  * Automatic HTML export templates now respect sumwidth in summary lists
     by shortening headers and data if necessary
 
 Also, I feel that making help text more legible is a critical enough
 feature that I'm releasing 2.2.2 (grok 2.2.1, SVN 530, 2.12.18) just
 for that.
+
+Compatibility Issues:
 
 Databases which use the new widget types (Number, Choice Group, Choice
 Menu, Flag Group, Flag Menu) will not function correctly in 2.1 or
@@ -317,6 +323,8 @@ Version 2.3 (git tag grok-2.3, SVN 536), released 7.12.18
    which must now be done using exports either on the command line or
    by exporting to a pipe.
 
+Compatibility Issues:
+
 This hasn't been explicitly stated before, but the specific format of
 automatically generated exports may change without notice.  If you
 rely on a format, make a copy and use that instead.  A number of
@@ -329,6 +337,10 @@ just convert that into a shorter-named shell script.
 
 Version 2.4 (in progress)
  * Removed a debugging printf that I left in 2.3.
+ * Letter buttons now work as I expect them to (i.e., pressing one after
+   another switches to the other letter, rather than adding it to the
+   search constraints).
+ * The min and max functions are no longer constrained to a range.
  * Switched from Qt's qmake to the more generic cmake.  This corrects
    a few problems with the documentation.  Builds now depend on cmake
    and bison (byacc used to work, but not any more).
@@ -345,9 +357,31 @@ Version 2.4 (in progress)
    Using Qt flags in non-interactive commands is an error, as is any
    flag not recognized by grok or Qt.  Previously two-part options such
    as -style <file> would use <file> as a grok option; no more.
+ * foreach() expressions used to support non-expressions, basically
+   requiring () or {}, even though non-expressions make no sense in this
+   context.  Now they are always evaluated as a string expression.
+ * Multiple databases can now be in memory at once.  A preference was
+   added to control how many.
+   * @"dbase"/"search"+"field"-"field": prefixes expr to work on other db
 
-Any templates that use ELSE or ELSEIF will not work in version 2.3 or
-earlier.
+Compatibility Issues:
 
-FOREACH and END must now be in the same conditional segment.  Not
-doing so was never really supported, but now it is enforced.
+Any templates that use ELSE or ELSEIF will assume these are
+non-template expressions, and will result in syntax errors prior to
+2.4. FOREACH and END must now be in the same conditional segment. Not
+doing so was never really supported, but now it is enforced.  While
+foreach() expression strings using explicit braces will continue
+working, any which were in reality fixed strings that weren't indended
+as expressions will not, and will likely result in a syntax error.
+Use of the new other-database prefix will result in syntax errors
+prior to 2.4.
+
+A sort followed by a save used to save the rows in the current sort
+order.  This is no longer the case; row order only changes to account
+for row deletions and insertions.  Sorting is done separately, so that
+multiple sort orders may be applied to the same database at once.
+File sort order is never changed.  This was never completely persistent,
+as  the default sort order is applied on initial load.  It may affect
+use of the raw data in other applications, though.  Never rely on the
+order or representation of the raw data; instead, use export templates
+to make things look like you want.

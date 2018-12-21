@@ -19,25 +19,28 @@
 
 void parsererror(
 	PARSE_GLOBALS	*g,
-	const char	*msg)
+	const char	*msg, ...)
 {
+	va_list ap;
 	if (!*g->errormsg) {
 		int sl, l = sprintf(g->errormsg,
 				"Problem with search expression\n"
 				"%.80s in column %d near '%.4s':\n",
 				g->expr, (int)(g->text - g->expr), g->text);
-		fprintf(stderr, "%s: %s%s\n", progname, g->errormsg, msg);
-		sl = strlen(msg);
-		if(sl < (int)sizeof(g->errormsg) - l - 1)
-			memcpy(g->errormsg + l, msg, sl + 1);
-		else {
-			memcpy(g->errormsg + l, msg, sizeof(g->errormsg) - l - 1);
-			g->errormsg[sizeof(g->errormsg) - 1] = 0;
-			msg += sizeof(g->errormsg) - l - 1;
-			sl -= sizeof(g->errormsg) - l - 1;
-			g->errormsg_cont = (char *)malloc(sl + 1);
-			if(g->errormsg_cont)
-				memcpy(g->errormsg_cont, msg, sl + 1);
+		fprintf(stderr, "%s: %s\n", progname, g->errormsg);
+		va_start(ap, msg);
+		vfprintf(stderr, msg, ap);
+		va_end(ap);
+		va_start(ap, msg);
+		sl = vsnprintf(g->errormsg + l, sizeof(g->errormsg) - l, msg, ap);
+		va_end(ap);
+		if(sl > (int)sizeof(g->errormsg) - l - 1) {
+			g->errormsg_full = (char *)malloc(sl + 1);
+			if(g->errormsg_full) {
+				va_start(ap, msg);
+				vsprintf(g->errormsg_full, msg, ap);
+				va_end(ap);
+			}
 		}
 	}
 }
@@ -66,7 +69,7 @@ const char *evaluate(
 	zfree(pg.ret);
 	pg.ret  = 0;
 	*pg.errormsg = 0;
-	zfree(pg.errormsg_cont);
+	zfree(pg.errormsg_full);
 	pg.assigned  = 0;
 	pg.text = pg.expr = strdup(exp);
 	if(!pg.text) {
@@ -80,7 +83,9 @@ const char *evaluate(
 
 	free(pg.expr);
 	if (*pg.errormsg) {
-		create_error_popup(mainwindow, 0, pg.errormsg);
+		create_error_popup(mainwindow, 0,
+				   pg.errormsg_full ? pg.errormsg_full
+						    : pg.errormsg);
 		return(0);
 	}
 	if (switch_card) {
@@ -106,8 +111,6 @@ const char *subeval(
 
 	if (!exp || *g->errormsg) // refuse to continue on errors
 		return(0);
-	if (!*exp || (*exp != '(' && *exp != '{' && *exp != '$'))
-		return(exp);
 	zfree(g->ret);
 	g->ret  = 0;
 	/* old code saved switch, but that ignores switches in subeval */
@@ -167,9 +170,11 @@ void f_foreach(
 {
 	DBASE		*dbase	    = g->card->dbase;
 	int		saved_row   = g->card->row;
+	int		row;
 
 	if (expr && !eval_error)
-		for (g->card->row=0; g->card->row < dbase->nrows; g->card->row++){
+		for (row=0; row < dbase->nrows; row++){
+			g->card->row = g->card->sorted ? g->card->sorted[row] : row;
 			if (!cond || subevalbool(g, cond))
 				subeval(g, expr); /* no-op if evalbool failed */
 			if (eval_error)

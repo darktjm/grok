@@ -132,7 +132,11 @@ through <TT>Z</TT> that can hold strings or numbers. When a variable is
 assigned to, the result of the assignment is returned. All variables
 <TT>a</TT>...<TT>z</TT> are reset to the empty string (or 0) when a
 database is loaded from disk; variables <TT>A</TT>...<TT>Z</TT> are
-never automatically cleared.
+never automatically cleared.  In essence, the <TT>A</TT>...<TT>Z</TT>
+are globals, and <TT>a</TT>...<TT>z</TT> are local to the database
+(i.e., the data, not the form).  When multiple databases are loaded at
+once, each database has its own, separate <TT>a</TT>...<TT>z</TT>
+variables.
 
 <P><TABLE WIDTH="100%" CELLPADDING=4 BORDER=0 CELLSPACING=4>
 <TR BGCOLOR=#a0a0e0><TH>operator<TH>type<TH>operation
@@ -254,6 +258,65 @@ using the ``<TT>.</TT>'' (dot) operator.  Although <TT>foreach</TT>,
 like <TT>switch</TT>, can only be used in string expressions it does
 not return anything.
 
+<P>A more light-weight method of switching to another dabase is the
+use of a database prefix:
+<TT>@</TT><I>other-db</I><TT>/</TT><I>query</I><TT>+</TT><I>sort-field</I><TT>:</TT><I>expr</I>.
+The parameters are interpreted as follows:
+
+<UL>
+<LI><TT>@</TT> <I>other-db</I><BR>
+	This is required, and specifies the database to use.
+	<I>other-db</I> is a string expression which is parsed and
+	evaluated in the context of the current database.  It names a
+	database in the same way as the database name command-line
+	parameter:  either a relative or absolute path to the form
+	definition file.
+<LI><TT>/</TT> <I>query</I><BR>
+	This is optional, and specifies the initial query applied to the
+	new database.  It is only relevant for functions which use
+	the current query results, such as <TT>qsum</TT>.  If not specified,
+	the form's default search is performed, instead.  <I>query</I>
+	is a string expression which is parsed and evaluated in the
+	context of the current database, but then the contents of the
+	string are parsed and evaluated as a query in the context of
+	<I>other-db</I>.
+<LI><TT>+</TT> <I>sort-field</I><BR>
+	This is optional, and specifies the sort order applied to the
+	new database.  The <TT>+</TT> may be replaced by a
+	<TT>-</TT> for descending order rather than ascending.  More than
+	one may be present.  If more than one is given, the database will
+	be sorted by all given fields in the given order.  It is only
+	relevant for functions which use the current sort order, such
+	as <TT>foreach</TT>.  If not specified, the form's default sort
+	field is sorted in ascending order.  <I>sort-field</I> is a
+	string expression which is parsed and evaluated in the context
+	of the current database, but the contents of the string are a
+	field name or column number in the new database, optionally
+	prefixed by an underscore.
+<LI><TT>:</TT> <I>expr</I><BR>
+	This is required.  The <TT>:</TT> marks the beginning of an
+	expression parsed and evaluated in the context of the new
+	database.  This means that field names refer to fields in the
+	new database, and the variables a-z refer to variables which are
+	local to the new database.  To pass values back to the old
+	context, either use global variables A-Z or simply return
+	the value desired.  Unlike <TT>foreach</TT>, the <TT>@</TT>
+	operator returns the result of evaluating <I>expr</I>.  The
+	<I>expr</I> is terminated by the end of expression or a
+	comma or semicolon at the same nesting level.  For clarity, it
+	may be a good idea to enclose <I>expr</I> in curly braces.
+	Note that anything referencing the current card or section
+	(e.g. <TT>disp</TT>, <TT>ssum</TT>) will work unpredictably.
+</UL>
+
+<PRE>
+   b=@"biblio"+"Date"-"Title":{t="";foreach("t.=_Date.' '._Title.bsub('\n')");t}
+</PRE>
+
+This sorts biblio by date and then in reverse title order and returns
+the list of dates and titles in <TT>b</TT>.  <TT>t</TT> is not
+affected in any database but biblio.
+
 <P><TABLE WIDTH="100%" CELLPADDING=4 BORDER=0 CELLSPACING=4>
 <TR BGCOLOR=#a0a0e0><TH>operator<TH>type<TH>operation
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B>,<B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from the database, current card
@@ -291,7 +354,8 @@ not return anything.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>prevform</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The name of the previous accessed form file
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>switch(</TT><B>s1</B>, <B>s2</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Database switch and/or query; see above
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>foreach(</TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Apply expression to all cards; see above
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>foreach(</TT><B>s1</B>, <B>s2</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Apply expression to all matching cards; see above
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>foreach(</TT><B>s1</B><TT>,</TT> <B>s2</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Apply expression to all matching cards; see above
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>@</TT><B>s1</B> <TT>/</TT><B>s2</B> <TT>+</TT><B>s3</B> <TT>:</TT> <B>s4</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Parse, evaluate and return <B>s4</B> as if it appeared in database named by <B>s1</B>, with default query <B>s2</B> and sorted by <B>s3</B>.  See above.
 </TABLE>
 
 

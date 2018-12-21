@@ -19,9 +19,15 @@ void redraw_canvas_item(
 
 void destroy_card_menu(
 	CARD		*card);		/* card to destroy */
+void free_card(
+	CARD		*card);		/* card to destroy */
 CARD *create_card_menu(
 	FORM		*form,		/* form that controls layout */
 	DBASE		*dbase,		/* database for callbacks, or 0 */
+	QWidget		*wform,		/* form widget to install into, or 0 */
+	bool		no_gui);	/* true to just init card */
+void build_card_menu(
+	CARD		*card,		/* initialized non-GUI card */
 	QWidget		*wform);	/* form widget to install into, or 0 */
 void card_readback_texts(
 	CARD		*card,		/* card that is displayed in window */
@@ -75,7 +81,7 @@ time_t parse_datetimestring(
 
 DBASE *dbase_create(void);
 void dbase_delete(
-	DBASE		*dbase);	/* dbase to delete */
+	DBASE		*dbase);	/* dbase to maybe delete */
 bool dbase_addrow(
 	int		*rowp,		/* ptr to returned row number */
 	DBASE		*dbase);	/* database to add row to */
@@ -94,7 +100,8 @@ bool dbase_put(
 void dbase_sort(
 	CARD		*card,		/* database and form to sort */
 	int		col,		/* column to sort by */
-	int		rev);		/* reverse if nonzero */
+	bool		rev,		/* reverse if nonzero */
+	bool		noinit = false);/* multi-field sort */
 
 /*---------------------------------------- dbfile.c ------------*/
 
@@ -226,7 +233,7 @@ void set_var(CARD *card, int v, char *s);
 /*---------------------------------------- formfile.c ------------*/
 
 bool write_form(
-	const FORM	*form);		/* form and items to write */
+	FORM		*form);		/* form and items to write */
 FORM *read_form(
 	const char	*path);		/* file to read list from */
 
@@ -267,8 +274,7 @@ void menu_clone(
 void destroy_formedit_window(void);
 void create_formedit_window(
 	FORM		*def,		/* new form to edit */
-	bool		copy,		/* use a copy of <def> */
-	bool		isnew);		/* ok to change form name */
+	bool		copy);		/* use a copy of <def> */
 void sensitize_formedit(void);
 void fillout_formedit(void);
 void fillout_formedit_widget_by_code(
@@ -652,4 +658,4 @@ char *qstrdup(
 #define qsprintf QString::asprintf
 
 #define ALEN(a) (int)(sizeof(a)/sizeof((a)[0]))
-#define APTR_OK(a, s) ((a)-(s) < ALEN(s))
+#define APTR_OK(p, a) ((p)-(a) < ALEN(a))

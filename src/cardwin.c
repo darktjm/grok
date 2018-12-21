@@ -32,9 +32,27 @@ static bool store(CARD *, int, const char *, int menu = 0);
 class CardWindow : public QDialog {
 public:
     CARD *card;
-    ~CardWindow() { free(card); }
+    ~CardWindow() { free_card(card); }
 };
 
+
+CARD *card_list;	/* all allocated cards */
+
+void free_card(
+	CARD		*card)		/* card to destroy */
+{
+	CARD **prev;
+	query_none(card);
+	zfree(card->sorted);
+	zfree(card->prev_form);
+	zfree(card->letter_mask);
+	for(prev = &card_list; *prev; prev = &(*prev)->next)
+		if(*prev == card) {
+			*prev = card->next;
+			break;
+		}
+	free(card);
+}
 
 /*
  * Read back any unread text widgets. Next, destroy the card widgets, and
@@ -47,11 +65,8 @@ public:
 void destroy_card_menu(
 	CARD		*card)		/* card to destroy */
 {
-	int		i;		/* item counter */
-
 	if (!card)
 		return;
-	card_readback_texts(card, -1);
 	// Unlike original Motif, I don't ceate a subwidget inside the container
 	// So wform is either the mainwindow's widget or shell
 	if (card->shell) {
@@ -65,10 +80,7 @@ void destroy_card_menu(
 			delete card->wcard;
 		card->wstat = card->wcard = 0;
 	}
-	for (i=0; i < card->nitems; i++) {
-		card->items[i].w0 = 0;
-		card->items[i].w1 = 0;
-	}
+	tzero(struct carditem, card->items, card->nitems);
 	card->wform = card->shell = 0;
 }
 
@@ -87,23 +99,36 @@ void destroy_card_menu(
 CARD *create_card_menu(
 	FORM		*form,		/* form that controls layout */
 	DBASE		*dbase,		/* database for callbacks, or 0 */
-	QWidget		*wform)		/* form widget to install into, or 0 */
+	QWidget		*wform,		/* form widget to install into, or 0 */
+	bool		no_gui)		/* true to just init card */
 {
 	CARD		*card;		/* new card being allocated */
-	int		xs, ys, ydiv;	/* card size and divider */
 	int		n;
 
 							/*-- alloc card --*/
 	n = sizeof(CARD) + sizeof(struct carditem) * form->nitems;
-	if (!(card = (CARD *)malloc(n)))
+	if (!(card = (CARD *)calloc(n, 1)))
 		return(NULL);
-	memset(card, 0, n);
+	card->next = card_list;
+	card_list = card->next;
 	card->form   = form;
 	card->dbase  = dbase;
 	card->row    = -1;
 	card->nitems = form->nitems;
-	if (!mainwindow)
+	if (no_gui)
 		return(card);
+	build_card_menu(card, wform);
+	return(card);
+}
+
+void build_card_menu(
+	CARD		*card,		/* initialized non-GUI card */
+	QWidget		*wform)		/* form widget to install into, or 0 */
+{
+	FORM		*form = card->form;
+	int		xs, ys, ydiv;	/* card size and divider */
+	int		n;
+
 	xs   = pref.scale * form->xs;
 	ys   = pref.scale * form->ys;
 	ydiv = pref.scale * form->ydiv;
@@ -163,7 +188,6 @@ CARD *create_card_menu(
 		card->wstat->show();
 	if(card->wcard)
 		card->wcard->show();
-	return(card);
 }
 
 

@@ -13,6 +13,12 @@
  *	query_eval(mode, card, expr)
  */
 
+/* FIXME: change the use of a single mask to "store" previous queries when
+ *        narrowing to the use of a linked list of searches; that way
+ *        the search stack can survive database changes */
+/*        This would also fix the letter buttons, as they can just pop the
+ *        last letter query off the stack */
+
 #include "config.h"
 #include <unistd.h>
 #include <stdlib.h>
@@ -25,7 +31,7 @@
 #define SECT_OK(db,r) ((db)->currsect < 0 ||\
 		       (db)->currsect == (db)->row[r]->section)
 
-static bool alloc_query(CARD *, char **);
+static bool alloc_query(CARD *, char **, bool);
 static bool search_matches_card(CARD *, const char *);
 static int expr_matches_card(CARD *, const char *);
 
@@ -110,11 +116,13 @@ void query_all(
 {
 	int		r, n;
 
-	if (!alloc_query(card, 0))
+	if (!alloc_query(card, 0, false))
 		return;
-	for (r=n=0; r < card->dbase->nrows; r++)
-		if (SECT_OK(card->dbase, r))
-			card->query[n++] = r;
+	for (r=n=0; r < card->dbase->nrows; r++) {
+		int sr = card->sorted ? card->sorted[r] : r;
+		if (SECT_OK(card->dbase, sr))
+			card->query[n++] = sr;
+	}
 	card->nquery = n;
 }
 
@@ -133,12 +141,13 @@ void query_search(
 	char		*mask;		/* for skipping unselected cards */
 	const char	*search;	/* lower-case search string */
 
-	if (!alloc_query(card, &mask))
+	if (!alloc_query(card, &mask, false))
 		return;
 	search = strlower(string);
 	if (mode == SM_SEARCH && pref.incremental)
 		mode = SM_NARROW;
-	for (card->row=0; card->row < card->dbase->nrows; card->row++) {
+	for (int row=0; row < card->dbase->nrows; row++) {
+		card->row = card->sorted ? card->sorted[row] : row;
 		if (!SECT_OK(card->dbase, card->row))
 			continue;
 		switch(mode) {
@@ -160,7 +169,7 @@ void query_search(
 				card->query[card->nquery++] = card->row;
 				continue;
 			}
-			FALLTHROUGH
+			break;
 		  case SM_NARROW:
 			if (!mask || !mask[card->row])
 				continue;
@@ -193,23 +202,24 @@ void query_letter(
 		query_all(card);
 		return;
 	}
-	if (!alloc_query(card, &mask))
+	if (!alloc_query(card, &mask, true))
 		return;
 	letter = letter == 26 ? 0 : letter+'A';
-	if (card->dbase->col_sorted_by >= card->dbase->maxcolumns-1)
-		card->dbase->col_sorted_by = 0;
-	for (r=0; r < card->dbase->nrows; r++)
-		if (SECT_OK(card->dbase, r) && (!mask || mask[r])) {
-			data = dbase_get(card->dbase, r, card->dbase->col_sorted_by);
+	if (card->col_sorted_by >= card->dbase->maxcolumns-1)
+		card->col_sorted_by = 0;
+	for (r=0; r < card->dbase->nrows; r++) {
+		int sr = card->sorted ? card->sorted[r] : r;
+		if (SECT_OK(card->dbase, sr) && (!mask || mask[sr])) {
+			data = dbase_get(card->dbase, sr, card->col_sorted_by);
 			while (data && SKIP(*data))
 				data++;
 			if ((!data || !*data || strchr("0123456789_", *data))
 								&& !letter)
-				card->query[card->nquery++] = r;
+				card->query[card->nquery++] = sr;
 			else if (data && letter)
 				while (*data) {
 					if ((*data & ~0x20) == letter) {
-						card->query[card->nquery++] = r;
+						card->query[card->nquery++] = sr;
 						break;
 					}
 					if (!pref.allwords)
@@ -220,6 +230,7 @@ void query_letter(
 						data++;
 				}
 		}
+	}
 	zfree(mask);
 }
 
@@ -239,11 +250,12 @@ void query_eval(
 	char		*mask;		/* for skipping unselected cards */
 	int		match;		/* to detect/skip errors */
 
-	if (!alloc_query(card, &mask))
+	if (!alloc_query(card, &mask, false))
 		return;
 	if (mode == SM_SEARCH && pref.incremental)
 		mode = SM_NARROW;
-	for (card->row=0; card->row < card->dbase->nrows; card->row++) {
+	for (int row=0; row < card->dbase->nrows; row++) {
+		card->row = card->sorted ? card->sorted[row] : row;
 		if (!SECT_OK(card->dbase, card->row))
 			continue;
 		switch(mode) {
@@ -290,21 +302,37 @@ void query_eval(
 
 static bool alloc_query(
 	CARD		*card,		/* database and form */
-	char		**mask)		/* where to store pointer to string */
+	char		**mask,		/* where to store pointer to string */
+	bool		is_letter)	/* if true, mask is static */
 {
 	if (mask) {
 		int r;
 		*mask = 0;
+		/* FIXME: this should do no more if !card->dbase->nrows */
+		/* FIXME: should delete any time database has been modified */
+		if (!is_letter || card->lm_size != card->dbase->nrows) {
+			zfree(card->letter_mask);
+			card->letter_mask = 0;
+		}
 		/* what's the point of using abort_malloc here? */
-		if (card->query && !(*mask = (char *)malloc(card->dbase->nrows))) {
+		if (card->query && (!is_letter || !card->letter_mask) &&
+		    !(*mask = (char *)malloc(card->dbase->nrows))) {
 			create_error_popup(mainwindow, errno,
 					   "No memory for query result summary");
 			return(false);
 		}
-		if (*mask) {
+		if (is_letter && card->letter_mask) {
+			if (*mask)
+				memcpy(*mask, card->letter_mask, card->dbase->nrows);
+		} else if (*mask) {
 			(void)memset(*mask, 0, card->dbase->nrows);
 			for (r=0; r < card->nquery; r++)
 				(*mask)[card->query[r]] = 1;
+			if (is_letter) {
+				card->letter_mask = alloc(0, "result summary", char, card->dbase->nrows);
+				memcpy(card->letter_mask, *mask, card->dbase->nrows);
+				card->lm_size = card->dbase->nrows;
+			}
 		}
 	}
 	query_none(card);

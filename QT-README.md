@@ -201,3 +201,43 @@ the nostrip FEATURE, but I had to explicitly add -ggdb3 to CXXFLAGS.
 This is also a failing of the Qt build itself, and compiling with
 OPTION+=debug should, but doesn't, do that automatically (or maybe
 it's because of gentoo's attempts at integrating CXXFLAGS).
+
+As time goes on, I hate Qt more and more.  Qt wants me to invest in it
+wholly or not at all, and I'm starting to lean towards not at all.  I
+regret having chosen it.  I would probably have some issues with IUP,
+but in the end, it would probably have been a better choice.  Either
+that, or gtk+, since I am used to glib and use it myself for other
+projects; who cares if it doesn't work on Android: making the Qt port
+work on Android will be a major effort, as well.  It's too much
+trouble to start over now, though.  If I do, maybe I'll switch to
+HTML/JavaScript and rewrite it as a standalone web server or fastcgi
+program.
+
+  - If I want to label a button like a "standard" button in the theme
+    would be labeled, I have to either use QDialogButtonBox or use
+    private, undocumented, subject to change without notice, hard to
+    access functions.
+
+  - If I want to decorate something in the same way the theme
+    does, I can't without re-implementing large chunks of code
+    (again, Qt has the means to do it, but hides it).  The only
+    way is to use built-in widgets that already use the decoration
+    style.  For example, it's impossible for me to make a
+    label-less imitation of QGroupBox using QFrame (the default
+    theme on Linux and probably others as well reserves space for
+    the label even if blank).
+
+  - If I want to use Qt's Unicode support, I have to use UTF-16
+    everywhere.  Otherwise, I have to manually convert from UTF-8 to
+    UTF-16 whenever I use the GUI or any other Qt functions.  Like
+    above, Qt has the needed code, but hides it behind ultra-private
+    interfaces.  In general, I hate the fact that Qt decided to make
+    everything 16-bit.  Only in certain locales is that anything but a
+    waste of storage space.
+
+  - Qt's "What's This?" support cannot be customized in any meaningful
+    way without completely reimplementing it.
+
+  - Qt's date widgets are awful, and even popping up a calendar
+    requires tons of boilerplate, you guessed it, hidden inside the
+    widget code.

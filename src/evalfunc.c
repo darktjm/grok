@@ -106,17 +106,18 @@ double f_min(				/* minimum */
 	int		column)		/* number of column to average */
 {
 	DBASE		*dbase = g->card->dbase;
-	double		min = 1e100, val;
+	double		min, val;
 	int		row;
 
-	if (!dbase || column < 0)
+	if (!dbase || column < 0 || !dbase->nrows)
 		return(0);
-	for (row=dbase->nrows-1; row >= 0; row--) {
+	min = fnum(dbase_get(dbase, dbase->nrows-1, column));
+	for (row=dbase->nrows-2; row >= 0; row--) {
 		val = fnum(dbase_get(dbase, row, column));
 		if (val < min)
 			min = val;
 	}
-	return(min == 1e100 ? 0 : min);
+	return(min);
 }
 
 
@@ -125,17 +126,18 @@ double f_max(				/* maximum */
 	int		column)		/* number of column to average */
 {
 	DBASE		*dbase = g->card->dbase;
-	double		max = -1e100, val;
+	double		max, val;
 	int		row;
 
-	if (!dbase || column < 0)
+	if (!dbase || column < 0 || !dbase->nrows)
 		return(0);
-	for (row=dbase->nrows-1; row >= 0; row--) {
+	max = fnum(dbase_get(dbase, dbase->nrows-1, column));
+	for (row=dbase->nrows-2; row >= 0; row--) {
 		val = fnum(dbase_get(dbase, row, column));
 		if (val > max)
 			max = val;
 	}
-	return(max == -1e100 ? 0 : max);
+	return(max);
 }
 
 
@@ -202,19 +204,22 @@ double f_qmin(				/* minimum */
 	int		column)		/* number of column to average */
 {
 	DBASE		*dbase = g->card->dbase;
-	double		min = 1e100, val;
+	double		min, val;
 	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
 	if (!g->card->query)
 		return(f_min(g, column));
-	for (row=0; row < g->card->nquery; row++) {
+	if (!g->card->nquery)
+		return(0);
+	min = fnum(dbase_get(dbase, g->card->query[0], column));
+	for (row=1; row < g->card->nquery; row++) {
 		val = fnum(dbase_get(dbase, g->card->query[row], column));
 		if (val < min)
 			min = val;
 	}
-	return(min == 1e100 ? 0 : min);
+	return(min);
 }
 
 
@@ -223,19 +228,22 @@ double f_qmax(				/* maximum */
 	int		column)		/* number of column to average */
 {
 	DBASE		*dbase = g->card->dbase;
-	double		max = -1e100, val;
+	double		max, val;
 	int		row;
 
 	if (!dbase || column < 0)
 		return(0);
 	if (!g->card->query)
 		return(f_max(g, column));
+	if (!g->card->nquery)
+		return(0);
+	max = fnum(dbase_get(dbase, g->card->query[0], column));
 	for (row=0; row < g->card->nquery; row++) {
 		val = fnum(dbase_get(dbase, g->card->query[row], column));
 		if (val > max)
 			max = val;
 	}
-	return(max == -1e100 ? 0 : max);
+	return(max);
 }
 
 
@@ -316,7 +324,7 @@ double f_smin(				/* minimum */
 {
 	DBASE		*dbase = g->card->dbase;
 	int		sect;
-	double		min = 1e100, val;
+	double		min = 0, val;
 	int		row;
 
 	if (!dbase || column < 0)
@@ -325,11 +333,16 @@ double f_smin(				/* minimum */
 		return(f_min(g, column));
 	for (row=dbase->nrows-1; row >= 0; row--)
 		if (dbase->row[row]->section == sect) {
+			min = fnum(dbase_get(dbase, row, column));
+			break;
+		}
+	for (row-- ; row >= 0; row--)
+		if (dbase->row[row]->section == sect) {
 			val = fnum(dbase_get(dbase, row, column));
 			if (val < min)
 				min = val;
 		}
-	return(min == 1e100 ? 0 : min);
+	return(min);
 }
 
 
@@ -339,7 +352,7 @@ double f_smax(				/* maximum */
 {
 	DBASE		*dbase = g->card->dbase;
 	int		sect;
-	double		max = -1e100, val;
+	double		max = 0, val;
 	int		row;
 
 	if (!dbase || column < 0)
@@ -348,11 +361,16 @@ double f_smax(				/* maximum */
 		return(f_max(g, column));
 	for (row=dbase->nrows-1; row >= 0; row--)
 		if (dbase->row[row]->section == sect) {
+			max = fnum(dbase_get(dbase, row, column));
+			break;
+		}
+	for (row--; row >= 0; row--)
+		if (dbase->row[row]->section == sect) {
 			val = fnum(dbase_get(dbase, row, column));
 			if (val > max)
 				max = val;
 		}
-	return(max == -1e100 ? 0 : max);
+	return(max);
 }
 
 
@@ -908,11 +926,9 @@ static bool re_check(PG, QRegularExpression &re, char *e)
 {
     bool ret = re.isValid();
     if(!ret) {
-	char *msg = qstrdup(QString("Error in regular expression '") +
-			    QString(STR(e)) + QString("': ") +
-			    re.errorString());
-	parsererror(g, msg);
-	free(msg);
+	char *msg = qstrdup(re.errorString());
+	parsererror(g, "Error in regular expression '%s': %s", e, STR(msg));
+	zfree(msg);
     }
     zfree(e);
     return ret;
@@ -1335,11 +1351,13 @@ char *f_esc(PG, char *s, char *e)
     return ret;
 }
 
+/* array should be a global, but C's qsort doesn't support globals */
+/* I'm tring to eliminate statics, so I won't pass it that way */
+/* another fix would be to use std::sort, but this is OK, too. */
 struct aelt_loc {
+    const char *array;
     int b, a;
 };
-
-static const char *sort_array;
 
 static int cmp_aelt(const void *_a, const void *_b)
 {
@@ -1350,7 +1368,7 @@ static int cmp_aelt(const void *_a, const void *_b)
     int c;
     if(!alen && !blen)
 	return 0;
-    c = memcmp(sort_array + a->b, sort_array + b->b, alen > blen ? blen : alen);
+    c = memcmp(a->array + a->b, b->array + b->b, alen > blen ? blen : alen);
     if(c || alen == blen)
 	return c;
     if(alen > blen)
@@ -1375,10 +1393,10 @@ bool toset(char *a, char sep, char esc)
 	return false;
     for(e = elts, i = 0; i < alen; e++, i++) {
 	next_aelt(a, &begin, &after, sep, esc);
+	e->array = a;
 	e->b = begin;
 	e->a = after;
     }
-    sort_array = a;
     qsort(elts, alen, sizeof(*elts), cmp_aelt);
     // ah, screw it.  Just make it anew, always
     // doing it in-place would just be too much processing for little benefit
@@ -1665,4 +1683,127 @@ char *f_align(PG, char *s, char *pad, int len, int where)
 	ns[len] = 0;
 	zfree(s);
 	return ns;
+}
+
+CARD *f_db_start(
+	PG,
+	char		*formname,
+	char		*search,
+	struct db_sort	*sort)
+{
+	CARD  *ocard = g->card;
+	FORM  *form;
+	DBASE *dbase = NULL;
+
+	/* FIXME: make relative to current form first if relative */
+	if ((form = read_form(formname)))
+		dbase = read_dbase(form, form->dbase ? form->dbase : formname);
+	else {
+		parsererror(g, "Can't find form %s", STR(formname));
+		zfree(formname);
+		zfree(search);
+		free_db_sort(sort);
+		return NULL;
+	}
+	zfree(formname);
+	if(!dbase)
+		dbase = dbase_create();
+	g->card = create_card_menu(form, dbase, 0, true);
+	g->card->prev_form = zstrdup(ocard->form->name);
+	g->card->last_query = -1;
+	if(search)
+		query_any(SM_SEARCH, g->card, search);
+	else if (form->autoquery >= 0 && form->autoquery < form->nqueries)
+		query_any(SM_SEARCH, g->card, form->query[form->autoquery].query);
+	else
+		query_all(g->card);
+	zfree(search);
+	if(!sort) {
+		for (int i=0; i < form->nitems; i++)
+			if (form->items[i]->defsort) {
+				dbase_sort(g->card, form->items[i]->column, 0);
+				break;
+			}
+	} else {
+		/* since sorts are stable, sort from lowest to highest */
+		/* list was created in reverse order already */
+		bool did_sort = false;
+		while(sort) {
+			struct db_sort *ds = sort;
+			sort = sort->next;
+			const char *f = ds->field;
+			int fn = -1;
+			if(f && *f == '_')
+				f++;
+			if(f && isdigit(*f))
+				fn = atoi(f);
+			else if(f) {
+				FIELDS *s = form->fields;
+				auto it = s->find((char *)f);
+				if(it != s->end()) {
+					int i = it->second % form->nitems;
+					int m = it->second / form->nitems;
+					fn = form->items[i]->multicol ?
+						form->items[i]->menu[m].column :
+						form->items[i]->column;
+				}
+			}
+			if(fn == -1) {
+				parsererror(g, "Invalid sort field '%s'", STR(ds->field));
+				free_db_sort(sort);
+				sort = NULL;
+			} else {
+				dbase_sort(g->card, fn, ds->dir < 0, did_sort);
+				did_sort = true;
+			}
+			zfree(ds->field);
+			free(ds);
+		}
+	}
+	return ocard;
+}
+
+void f_db_end(
+	PG,
+	CARD		*card)
+{
+	FORM *form = g->card->form;
+	DBASE *dbase = g->card->dbase;
+
+	free_card(g->card);
+	form_delete(form);
+	dbase_delete(dbase);
+	g->card = card;
+}
+
+struct db_sort *new_db_sort(
+	PG,
+	struct db_sort	*prev,
+	int		dir,
+	char		*field)
+{
+	struct db_sort *sort = (struct db_sort *)malloc(sizeof(*sort));
+
+	if(!sort) {
+		free_db_sort(prev);
+		zfree(field);
+		parsererror(g, "No memory for db switch");
+		return NULL;
+	}
+	/* I actually want these in reverse order, since that's how I sort */
+	sort->dir = dir;
+	sort->field = field;
+	sort->next = prev;
+	return sort;
+}
+
+void free_db_sort(
+	struct db_sort	*sort)
+{
+	while(sort) {
+		struct db_sort *next = sort->next;
+		zfree(sort->field);
+		free(sort);
+		sort = next;
+	}
 }

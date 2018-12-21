@@ -176,8 +176,7 @@ static char *get_text(
 		return(0);
 	*text = 0;
 	if (!(fn = find_file(HELP_FN, false)) || !(fp = fopen(fn, "r"))) {
-		sprintf(text, "Sorry, no help available,\n%s not found",
-								HELP_FN);
+		strcpy(text, "Sorry, no help available,\n" HELP_FN " not found");
 		return(text);
 	}
 	for (;;) {					/* find topic */

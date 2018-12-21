@@ -13,6 +13,37 @@ games again...
 
    -- Thomas J. Moore
 
+Features in Progress
+--------------------
+
+- Multi-save: when saving, if there are other modified databases,
+  present a checkbox list to offer saving them, as well.  Default is
+  checked for only current database.
+
+- (Multi-)Revert: discard changes in current database (and offer others
+  with checkboxes as well).  Default is checked for only current
+  database.
+
+- Purge: discard all non-visible databases (maybe with checkboxes?)
+
+- On quit, multi-save as well, but cancel essentially reverts.  Default
+  is checked for all, with Save button as default like current
+  save/cancel dialogs.
+
+- FOREACH other database (FOREACH @db [sort-fields] [search])
+
+- Support multiple views; i.e. multiple main windows.  So far, it's
+  possible to have multiple card structures, each of which supports its
+  own sort order and query.  For now, don't worry too much about the
+  same row being edited in multiple windows at once, although a change
+  should probably at least force a refresh in all other windows.
+
+- My original plan was to get fkey support into this release, but my
+  recent annoyance with Qt combined with the gog winter sale and thae
+  fact that I seem to be introducing more bugs than features have
+  really lowered my motivation to do so.  The above-listed items will
+  be enough, and I may even drop multi-window support for now.
+
 Bugs
 ----
 
@@ -24,7 +55,7 @@ Bugs
   selected in main card window display.  Speaking of which, the static
   area doesn't really work any differently from the bottom area, as far
   as I can tell, even though the docs say otherwise, so maybe I need
-  to revisit that. 
+  to revisit that.
 
 - Main window sizing issues:
 
@@ -62,9 +93,6 @@ Bugs
   the chart options appear. Otherwise, the opposite issue exists.  It
   appears that the layout is partially being influenced by invisible
   widgets.
-
-- As expected, letter buttons still don't work. The first press works,
-  but subsequent presses go all weird.
 
 - Look more closely at all Qt-related licenses.  I don't want this
   program to be GPL.  In particular, QUiLoader seems to use a
@@ -144,15 +172,18 @@ Code Improvements
 Minor UI Improvements
 ---------------------
 
-- Move search mode selection to menu, or something.  Maybe add hotkeys
-  so it's easier to do.  I rarely switch, and having that big old
-  menu button take up space while the search text shrinks is awful
-  (maybe also remove the Search button while I'm at it, since
+- Move search mode selection to menu, or something.  Maybe add
+  hotkeys so it's easier to do.  I rarely switch, and having that
+  big old menu button take up space while the search text shrinks is
+  awful (maybe also remove the Search button while I'm at it, since
   pressing return does the same thing).  Plus, I"m not even sure I
-  understand what all of those options do.  I only use the first and
-  last.  I should read the code.  Maybe this ties into why the alpha
-  buttons don't work.  Maybe make ctrl-f switch the mode to the last
-  by default?
+  understand what all of those options do (probably at least because
+  widen was broken, and the entire widget isn't even documented
+  outside of grok.hlp and HISTORY).  I only use the first and last.
+
+  It would be best to have a full stack of query strings, since data
+  changes make the simplistic use of a mask broken (as does the letter
+  code in general).
 
 - file dialog is always GTK+.  Is there a way to make it "native QT"?
   Setting style does not affect this.
@@ -234,6 +265,22 @@ Important UI improvements
   relatively complete.  Running tidy on it causes more problems than
   it fixes.
 
+- Add a <name>.ru file for recently used things.  Right now, this
+  should include search expressions and export file names.  In
+  addition, maybe move other "recently used" preferences into the .ru
+  file, like the selected export and print options.  Also, for
+  searches, maybe have a combo box for selecting search expressions
+  that includes the recently used ones (probably difficult given the
+  nature of the table editing).
+
+- Sort by expression: add a menu item below sort fields to pop up a
+  string requester; last expression is then added to menu.  In fact,
+  keep a history of expressions, and have a preference window popup
+  that allows assigning names to them for permanent presence in the
+  menu, and in any case keep 5-10 last expressions in the <name>.ru
+  file described above.  Also, in the new @db stuff, if the string
+  starts with ( or { interpret as a string/numeric expression.
+
 - Add list of field names to expression grammar help text, similar to
   fields text in query editor.  Or, just make that a separate
   universal popup.  Or, add it to Database Info.
@@ -264,7 +311,12 @@ Important UI improvements
   makes some sort of automatic layout almost necessary. Note that
   the official 1.5.3 had partial German translation, but I will
   probably want to use more standard translation methods (e.g. LANG=
-  instead of a pulldown, .po[t] files)
+  instead of a pulldown, .po[t] files).  Qt provides its own
+  translation routines that are, of course, completely different from
+  what I expect.  I either have to invest in Qt's method or write my
+  own, non-portable method.  I suppose I could use LGPL GNU gettext,
+  if it is sufficient.  Otherwise, I'm stuck with Qt's method.  Does
+  Qt even provide tools for message extraction?
 
 - Support an external editor.  Or maybe make the built-in one better.
   I'm leaning on the former, since I don't want to implement a text
@@ -281,7 +333,7 @@ Important UI improvements
 - Do something about scaling factor.  Either use it to adjust font
   sizes at the same time, or drop it entirely.  Really only relevant
   for pixel-placed widgets, anyway, which I also want to eliminate.
-  
+
   As a stopgap instead of purely automatic layout, this could be used
   to fit the form to the current font:
 
@@ -360,7 +412,7 @@ Important UI improvements
     instead of records, and the Add/Delete button would also get a
     widget type and label field for quick adding of simple
     widgets.
-    
+
     The listing could remain, as a way of setting sumcol and sumwidth
     by dragging and dropping, and maybe also editing the sortable and
     default sort flags.  The menu would remain, but be replaced
@@ -377,8 +429,6 @@ Important UI improvements
   canvas and preview.  Perhaps even allow drag & drop to move around
   and resize.  Better yet, remove the col/width fields entirely and make
   the "preview" thing the way to set those values.
-
-- Support multiple views; i.e. multiple main windows.
 
 - Don't make form editor a dialog, so that it doesn't get placed at
   the center of the screen.  Or, at least don't make canvas a
@@ -447,6 +497,20 @@ Infrastructure Improvements
     desired multi-character sequence is a single glyph) delimiters
     must be supported.  Anything that scans one character at a time
     needs to be re-evaluated.
+
+    My idea of using iconv for auto-conversion will probably not work.
+    iconv expects a charset string, and I can only get such a string
+    from POSIX nl_langinfo(CODESET), which isn't on non-POSIX systems.
+    There are half-assed implementations for Windows, but I don't know
+    if Android is POSIX, and in the end, it's more trouble than it's
+    worth.  Note that although GNU gettext comes with one of those
+    half-assed replacements, it's part of the GPL code, and as such
+    unusable, since I have no intention of making grok GPL.
+
+    Of course the C library also has mbtowc and wctomb, but it
+    does not define what a wc is (i.e., what encoding), so I don't
+    think that's usable, either.  It's so nice that all the code to do
+    the conversions is there, but it's all unusable.
 
 -   Database checks in verify_form().  Right now, it only validates
     the form definition itself, but not the data in the database.
@@ -541,7 +605,7 @@ Infrastructure Improvements
   probably also support the glitzy 3d pie charts that R discourages (I
   remember writing one at the same job where I created form.cgi in
   support of switching to R from SAS, but that was a losing battle,
-  anyway). 
+  anyway).
 
 - Make generic exporters for common data interchange formats, like CSV
   and json and <shudder>XML.
@@ -614,7 +678,7 @@ Card Improvements
 -----------------
 
 -   Make Date/Time edit widgets work the way I want them to.  Until
-    these issues are fixed, I have made the use of Qt date/time 
+    these issues are fixed, I have made the use of Qt date/time
     widgets optional.  The fact that they reduce the display space
     with the arrow/spinner button(s) and don't support durations
     larger than 23:59 isn't that big a deal.

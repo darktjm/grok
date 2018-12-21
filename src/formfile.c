@@ -17,20 +17,23 @@
 #include "form.h"
 #include "proto.h"
 
-
 static const char * const itemname[NITEMS] = {
 	"None", "Label", "Print", "Input", "Time", "Note", "Choice", "Flag",
 	"Button", "Chart", "Number", "Menu", "Radio", "Multi", "Flags" };
 
 
+static bool create_form_db(const char *path, bool proc);
+
+
 /*
  * Write the form and all the items in it. Also create the database named
- * in the form if it doesn't exist.
+ * in the form if it doesn't exist.  Also link into main list, replacing
+ * form with same path if present (FIXME: canonicalize path first)
  * Returns false if the file could not be written.
  */
 
 bool write_form(
-	const FORM	*form)		/* form and items to write */
+	FORM		*form)		/* form and items to write */
 {
 	const char	*path;		/* file name to write to */
 	FILE		*fp;		/* open file */
@@ -48,8 +51,14 @@ bool write_form(
 			"Form has no name, cannot save to disk");
 		return(false);
 	}
-	if (!form->path)
+	if (!form->path) {
 		path = resolve_tilde(path, "gf");
+		if (!(form->path = strdup(path))) {
+			create_error_popup(mainwindow, errno,
+				"No memory for form path");
+			return(false);
+		}
+	}
 	if (!(fp = fopen(path, "w"))) {
 		create_error_popup(mainwindow, errno,
 			"Failed to create form file %s", path);
@@ -198,12 +207,81 @@ bool write_form(
 			}
 		}
 	}
-	fclose(fp);
+	fclose(fp); /* FIXME: report errors */
+	form->next = form_list;
+	form_list = form;
+	/* FIXME: this isn't an exact match for how it's done in mainwin.c */
+	const char *ndb = form_list->dbase ? form_list->dbase : form_list->name;
+	DBASE *new_db = NULL;
+	for (form = form_list->next; form; form = form->next)
+		if(!strcmp(form->path, path))
+			break;
+	if(form) {
+		CARD *card;
+		DBASE *del_db = NULL;
+		for (card = card_list; card; )
+			if(card->form == form) {
+				QWidget *w = card->wform;
+				QWidget *sh = card->shell;
+				if (w || sh) {
+					card_readback_texts(card, -1);
+					destroy_card_menu(card);
+				} if (sh) { /* card was deleted; back to top */
+					card = card_list;
+					continue;
+				}
+				card->form = form_list;
+				if(new_db != card->dbase) {
+					/* FIXME: this isn't an exact match for how it's done in mainwin.c */
+					const char *odb = form->dbase ? form->dbase : form->name;
+					if(!new_db && !strcmp(STR(odb), STR(ndb))) {
+						new_db = card->dbase;
+						/* ensure all prior ones were set */
+						/* this should actually just be a waste of time */
+						card = card_list;
+						continue;
+					} else {
+						del_db = card->dbase;
+						card->dbase = new_db;
+					}
+				}
+				if (w)
+					build_card_menu(card, w);
+				card = card->next;
+			}
+		if(del_db) {
+			/* if form's db changed, old db will likely never be used again */
+			for(card = card_list; card; card = card->next)
+				if(card->dbase == del_db)
+					break;
+			if(!card)
+				dbase_delete(del_db);
+		}
+		form_delete(form);
+	}
 	remake_dbase_pulldown();
 
+	bool created_db = create_form_db(path, form->proc);
+	if(!new_db) {
+		/* FIXME: code below to create db hasn't been run yet */
+		new_db = read_dbase(form_list, ndb);
+		if (!new_db)
+			new_db = dbase_create();
+		for(CARD *card = card_list; card; card = card->next)
+			if(card->form == form_list)
+				card->dbase = new_db;
+	}
+	return created_db;
+}
+
+static bool create_form_db(const char *path, bool proc)
+{
+	FILE		*fp;		/* open file */
+	int		i;		/* item counter */
 	/* This used to only support relative .db files in GROKDIR */
 	/* The loading routines only check the same dir as the .gf, though */
 	char *dbpath = mystrdup(path);
+
 	i = strlen(dbpath);
 	if(i < 3 || strcmp(dbpath + i - 3, ".gf")) {
 		free(dbpath);
@@ -213,12 +291,12 @@ bool write_form(
 	/* it's checked here, other than creation wanting the .db extencsion */
 	dbpath[i] = 0;
 	/* On the other hand, having a non-readable non-db file is useless */
-	if (access(dbpath, form->proc ? X_OK : R_OK))
+	if (access(dbpath, proc ? X_OK : R_OK))
 		strcpy(dbpath + i, ".db");
 	/* auto-creation of procedurals won't work */
 	/* best to just force user to edit */
 	/* if they want to do it later, they can set it to /bintrue */
-	if (!form->proc && access(dbpath, F_OK) && errno == ENOENT) {
+	if (!proc && access(dbpath, F_OK) && errno == ENOENT) {
 		if (!(fp = fopen(dbpath, "w"))) {
 			create_error_popup(mainwindow, errno,
 "The form was created successfully, but the\n"
@@ -229,7 +307,7 @@ bool write_form(
 		}
 		fclose(fp);
 	}
-	if (access(dbpath, form->proc ? X_OK : R_OK)) {
+	if (access(dbpath, proc ? X_OK : R_OK)) {
 		create_error_popup(mainwindow, errno,
 "The form was created successfully, but the\n"
 "database file %s exists but is not readable.\n"
@@ -306,7 +384,7 @@ static char *get_string(FILE *fp, char *val, char *buf, size_t buflen,
 FORM *read_form(
 	const char		*path)		/* file to read list from */
 {
-	FORM			*form;		/* form and items to write */
+	FORM			*form;
 	FILE			*fp;		/* open file */
 	static char		line[1024];	/* line buffer */
 	char			*p, *key;	/* next char in line buf */
@@ -351,6 +429,11 @@ FORM *read_form(
 			"Failed to open form file %s", path);
 		return NULL;
 	}
+	for(form = form_list; form; form = form->next)
+		if(!strcmp(form->path, path)) {
+			fclose(fp);
+			return form;
+		}
 	form = form_create();
 	form->path = mystrdup(path);
 	for (;;) {
@@ -595,5 +678,8 @@ FORM *read_form(
 		form_delete(form);
 		return NULL;
 	}
+	form->next = form_list;
+	form_list = form;
 	return form;
 }
+

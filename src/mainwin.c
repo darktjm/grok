@@ -731,48 +731,26 @@ void switch_form(
 	int		i;
 	char		*prev_form = 0;
 
-	if (card && card->dbase &&
-	    card->dbase->modified &&
-	    !card->dbase->rdonly &&
-	    !card->form->rdonly &&
-	    /* this can only happen in a button switch() */
-	    /* but may as well test GUI is present */
-	    mainwindow &&
-	    !create_save_popup(mainwindow, card->dbase,
-			       card->form, "switchsave",
-			       "OK to discard changes and switch databases?"))
-		return;
 	if(mainwindow)
 		mainwindow->setUpdatesEnabled(false);
 	if (card) {
-		zfree(card->prev_form);
-		if (card->form)
-			prev_form = mystrdup(card->form->name);
+		DBASE		*odbase = card->dbase;
+		FORM		*oform = card->form;
+		card_readback_texts(card, -1);
 		destroy_card_menu(card);
-		if (card->dbase) {
-			if (card->dbase->modified &&
-			   !card->dbase->rdonly &&
-			   !card->form->rdonly &&
-			   !write_dbase(card->dbase,
-					card->form, false)) {
-				if(mainwindow)
-					mainwindow->setUpdatesEnabled(true);
-				return;
-			}
-			dbase_delete(card->dbase);
-		}
-		if (card->form)
-			form_delete(card->form);
-		query_none(card);
-		free(card);
+		if((oform))
+			prev_form = mystrdup(oform->name);
+		free_card(card);
+		form_delete(oform);
+		dbase_delete(odbase);
 		card = 0;
 	}
 	if (!BLANK(formname)) {
 		FORM  *form;
 		DBASE *dbase = NULL;
 		if ((form = read_form(formname)))
-			dbase = read_dbase(form,
-					form->dbase ? form->dbase : formname);
+			dbase = read_dbase(form, form->dbase ? form->dbase
+							     : formname);
 		/* old code always created form & dbase, even if invalid */
 		/* so for now, this code does, too */
 		if (!form)
@@ -780,7 +758,7 @@ void switch_form(
 		if (!dbase)
 			dbase = dbase_create();
 
-		card = create_card_menu(form, dbase, w_card);
+		card = create_card_menu(form, dbase, w_card, !mainwindow);
 		if(!card)
 			fatal("No memory for initial form");
 		card->form  = form;
@@ -788,7 +766,7 @@ void switch_form(
 		card->dbase = dbase;
 		card->row   = 0;
 		card->last_query = -1;
-		dbase->col_sorted_by = 0;
+		card->col_sorted_by = 0;
 		for (i=0; i < form->nitems; i++)
 			if (form->items[i]->defsort) {
 				pref.sortcol = form->items[i]->column;
@@ -953,38 +931,22 @@ static void newform_pulldown(
 	card_readback_texts(card, -1);
 	switch (item) {
 	  case 0:						/* current */
-		if (card && card->form) {
-			if (card->dbase		&&
-			   !card->dbase->rdonly	&&
-			    card->dbase->modified	&&
-			   !card->form->rdonly	&&
-			   !create_save_popup(mainwindow, card->dbase,
-					      card->form, "switchsave",
-					      "OK to discard changes and edit form?"))
-						return;
-			create_formedit_window(card->form, false, false);
-		} else
+		if (card && card->form)
+			create_formedit_window(card->form, false);
+		else
 			create_error_popup(mainwindow, 0,
 		     "Please choose database to edit\nfrom Database pulldown");
 		break;
 
 	  case 1:						/* new */
 		switch_form(mainwindow->card, 0);
-		create_formedit_window(0, false, true);
+		create_formedit_window(0, false);
 		break;
 
 	  case 2:						/* clone */
-		if (card && card->form) {
-			if (card->dbase		&&
-			   !card->dbase->rdonly	&&
-			    card->dbase->modified	&&
-			   !card->form->rdonly	&&
-			   !create_save_popup(mainwindow, card->dbase,
-					      card->form, "switchsave",
-					      "OK to discard changes and edit form?"))
-						return;
-			create_formedit_window(card->form, true, true);
-		} else
+		if (card && card->form)
+			create_formedit_window(card->form, true);
+		else
 			create_error_popup(mainwindow, 0,
 			"Please choose database from Database pulldown first");
 		break;
@@ -1088,16 +1050,8 @@ void do_query(
 	int		qmode)		/* -1=all, or query number */
 {
 	CARD		*card = mainwindow->card;
-	ROW		**row;		/* list of row struct pointers */
 	int		i;
 
-	for (row=card->dbase->row,i=card->dbase->nrows; i; i--,row++)
-		(*row)->selected = 0;
-	if (card->row < card->dbase->nrows)
-		card->dbase->row[card->row]->selected |= 4;
-	if (card->nquery)
-		card->dbase->row[card->query[card->qcurr]]->
-								selected |= 2;
 	if (qmode == -1)
 		query_all(card);
 
@@ -1114,9 +1068,6 @@ void do_query(
 		}
 		query_eval(SM_SEARCH, card, query);
 	}
-	for (row=card->dbase->row,i=card->dbase->nrows; i; i--,row++)
-		if ((*row)->selected & 4)
-			card->row = card->dbase->nrows - i;
 	for (i=card->nquery-1; i >= 0; i--)
 		if (card->query[i] == card->row) {
 			card->qcurr = i;
@@ -1394,6 +1345,11 @@ static void del_callback(void)
 		q += *p != card->row;
 	}
 	card->nquery -= p - q;
+	p = q = &card->sorted[0];
+	for (i=0; i < card->dbase->nrows + 1; i++, p++) {
+		*q = *p - (*p > card->row);
+		q += *p != card->row;
+	}
 	print_info_line();
 	fillout_card(card, false);
 	create_summary_menu(card);

@@ -432,10 +432,10 @@
 	into the summary table, and the last just moves the selection bar.
 
 	  All               search all cards
-	  In query          search all cards selected by the last query
+	  In query          search all cards selected by the last menu query
 	  Narrow            search only cards already in the summary
 	  Widen             search all cards and add them to the summary
-	  Widen in query    search the last query and add to the summary
+	  Widen in query    search the last menu query and add to the summary
 	  Find & select     do not change summary, just select next match
 
 	The last 20 searches are remembered and can be retrieved using the
@@ -655,9 +655,9 @@
 	an open curly brace ({).  Template expressions begin with \{ and
 	end with }.  The first word of such an expression can be one of the
 	special template keywords, in which case a single newline immediately
-	following the expression will be ignored, if present.  Otherise, if is 
-	normal string expression, whose value is output in place of the
-	expression.
+	following the expression will be ignored, if present.  Otherise, it
+	is a normal string expression, whose value is output in place of the
+	expression, with current substitutions applied.
 
 	Special template keywords are:
 
@@ -680,11 +680,11 @@
 	    no condition matched, and there is an ELSE, the text following
 	    that is used, instead.  The ELSE is also optional.
 	\{SUBST c=string c=string ... }
-	    Plain expressions' results are automatically escaped using
-	    by replacing each character c with the string that follows.
+	    Plain expressions' results are automatically escaped by
+	    replacing each character c with the string that follows.
 	    A c=string pair may be replaced with HTML to perform common
 	    HTML substitutions, instead (< > & and \n->BR); subsequent
-	    replacements override earlier ones.
+	    replacements override earlier ones.  Disable with c=c.
 	\{FILE expr}
 	    Redirect output to a different file, specified by expr.
 	    The previous file is closed.  The new file is only opened if
@@ -744,28 +744,37 @@
 	    except underscores.
 	    NOTE: changing this mode takes effect only when grok is restarted.
 
+	Letter search checks all words: this flag modifies the letter search,
+	    if enabled, such that the first letter of all words in the sorted
+	    column is checked. This is useful for people's names to search for
+	    first and last initial.
+
 	Incremental searches and queries, if enabled, base every new search,
 	    query, and letter search on the results of the previous. Instead
 	    of searching all cards, only those displayed in the summary are
 	    searched. This does not apply to the "All" search; it always puts
 	    all cards into the summary.
 
-	Letter search checks all words: this flag modifies the letter search,
-	    if enabled, such that the first letter of all words in the sorted
-	    column is checked. This is useful for people's names to search for
-	    first and last initial.
-
-	Summary lines: the number of lines displayed in the summary window below
-	    the search area. This choice takes effect only when grok is restarted.
+	Don't show duplicate databases, if enabled, only the first version
+	    of each named database in the search path is added to the
+	    Database pulldown.
 
 	Text export line length: the number of characters after which lines are
 	    truncated when exporting using the built-in text or fancytext
 	    templates.  The default is 79.
 
+	Summary lines: the number of lines displayed in the summary window below
+	    the search area. This choice takes effect only when grok is restarted.
+
 	Card scaling factor: if the screen resolution is very low, it may be
 	    necessary to enter a number less than 1 to reduce the sizes of items
 	    in the card at the bottom of the screen. 0.75 or 0.5 are recommended.
 	    This takes effect only when the next database is loaded.
+
+	Max unused in-mem db: to speed up switching between databases, some
+	    may be kept in memory even when not currently being manipulated.
+	    This is the maximum number of unmodified, unreferenced databases
+	    to keep in memory.  The least recently used is removed first.
 %% pref_done
 	DONE
 
@@ -1720,8 +1729,9 @@
 
 	Variables: variables are letters a through z and A through Z that can
 	hold strings or numbers. When a variable is assigned to, the result
-	of the assignment is returned. All lower-case variables are reset to
-	the empty string (or 0) when a database is loaded from disk.
+	of the assignment is returned. All lower-case variables are database
+	locals and are reset to the empty string (or 0) when a database is
+	loaded from disk.
 
 	  var		value of variable
 	  var = s		assign string to variable
@@ -1779,6 +1789,14 @@
 	  foreach (s1, s2)	evaluate s2 as an expression for all cards where
 			expression s1 returns true (after stripping spaces, not
 			blank and first character is not 0, f, or F.
+
+	  The database prefix returns the value of the string expression
+	  following the colon up to the first unnested semicolon or comma,
+	  parsing that expression as if it appeared in the database named s1,
+	  with the (optional) search s2, sorted by the (optional) field s3.
+	  More than one search field may be appended, and - inverts the order
+
+	  @ s1 / s2 + s3 : ... ;
 
 	The switch function only works as an action for buttons:
 

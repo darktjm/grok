@@ -77,7 +77,7 @@ void GrokChart::paintEvent(QPaintEvent *)
 	CHART		*chart;		/* describes current component */
 	const char	*res;		/* result of expr evaluation */
 	BAR		*bar;		/* current bar */
-	int		r, c;		/* row (card) and comp (bar) counters*/
+	int		r, c, sr;	/* row (card) and comp (bar) counters*/
 	int		i;		/* index values */
 	double		f;		/* coordinate in value space */
 
@@ -96,7 +96,8 @@ void GrokChart::paintEvent(QPaintEvent *)
 	xmax = ymax = -1e30;
 	bar = item->ch_bar;
 	for (r=0; r < card->dbase->nrows; r++) {
-		card->row = r;
+		sr = card->sorted ? card->sorted[r] : r;
+		card->row = sr;
 		for (c=0; c < item->ch_ncomp; c++, bar++) {
 			chart = &item->ch_comp[c];
 			if ((res=evaluate(card,chart->excl_if)) && atoi(res)) {
@@ -127,7 +128,7 @@ void GrokChart::paintEvent(QPaintEvent *)
 						  : 0;
 					break;
 				  case CC_DRAG:
-					res = dbase_get(card->dbase, r,
+					res = dbase_get(card->dbase, sr,
 							chart->value[i].field);
 					bar->value[i] =
 						res ? atof(res)
@@ -199,7 +200,8 @@ void GrokChart::paintEvent(QPaintEvent *)
 	 */
 	bar = item->ch_bar;
 	for (r=0; r < card->dbase->nrows; r++) {
-		card->row = r;
+		sr = card->sorted ? card->sorted[r] : r;
+		card->row = sr;
 		for (c=0; c < item->ch_ncomp; c++, bar++) {
 			int x  = XPIX(snap(bar->value[0], item->ch_xsnap));
 			int xs = XPIX(snap(bar->value[0] +
@@ -216,11 +218,11 @@ void GrokChart::paintEvent(QPaintEvent *)
 				y++, ys-=2;
 			painter.setPen(fillcolor[bar->color % COL_CHART_N]);
 			drawrect(painter, item, x, y, xs, ys);
-			if (r == save_row || (!chart->xfat && !chart->yfat)) {
+			if (sr == save_row || (!chart->xfat && !chart->yfat)) {
 				painter.setPen(boxcolor); // used to be COL_STD
 				drawbox(painter, item, x, y, xs, ys);
 			}
-			if (r == save_row) {
+			if (sr == save_row) {
 				painter.setPen(hlcolor); // used to be COL_SHEET
 				drawbox(painter, item, x+1, y+1, xs-2, ys-2);
 			}
@@ -309,7 +311,7 @@ int GrokChart::pick_chart(
 			if (xpick >= x && xpick < x + xs &&
 			    ypick >= y && ypick < y + ys) {
 				*comp = c;
-			    	return(r);
+				return(card->sorted ? card->sorted[r] : r);
 			}
 		}
 	}

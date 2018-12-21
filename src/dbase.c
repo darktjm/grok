@@ -25,6 +25,8 @@
 #define CHUNK	32			/* alloc 32 new rows at a time */
 
 
+DBASE *dbase_list;
+
 
 /*
  * allocate a new empty dbase struct with no data elements. Use dbase_addrow
@@ -38,8 +40,6 @@ DBASE *dbase_create(void)
 
 	/* since even this code assumes success, errors are fatal */
 	dbase = zalloc(0, "database", DBASE, 1);
-	/* this used to pointlessly create a section, but it was
-	 * always followed by a call to dbase_delete(), which freed it */
 	return(dbase);
 }
 
@@ -48,14 +48,12 @@ DBASE *dbase_create(void)
  * destroy a dbase struct and all its data.
  */
 
-void dbase_delete(
+static void really_delete_dbase(
 	DBASE		*dbase)		/* dbase to delete */
 {
 	int		r, c;		/* data counter */
 	ROW		*row;		/* row to delete */
 
-	if (!dbase)
-		return;
 	for (r=0; r < dbase->nsects; r++)
 		zfree(dbase->sect[r].path);
 	zfree(dbase->sect);
@@ -67,9 +65,54 @@ void dbase_delete(
 		free(row);
 	}
 	zfree(dbase->row);
+	zfree(dbase->path);
 	for(r=0; r < 26; r++)
 		zfree(dbase->var[r].string);
 	free(dbase);
+}
+
+
+/* The public interface only deletes unreferenced databases */
+/* It might even delete more than one, not necessarily passed-in one */
+void dbase_delete(
+	DBASE		*dbase)		/* dbase to delete */
+{
+	CARD		*card;
+	DBASE		**prev;
+	int		n;
+
+	/* If the database has no path, it's not in the list, so delete */
+	if(dbase && !dbase->path)
+		really_delete_dbase(dbase);
+	/* but prune databases anyway */
+	for(n = 0, prev = &dbase_list; *prev; prev = &(*prev)->next)
+		if(!(*prev)->modified) {
+			for (card = card_list; card; card = card->next)
+				if (card->dbase == *prev)
+					break;
+			if(!card && ++n > pref.db_keep) {
+				DBASE *dbase = *prev;
+				*prev = dbase->next;
+				really_delete_dbase(dbase);
+				if(!*prev)
+					return;
+			}
+		}
+}
+
+
+/* Whenever a dbase is referenced, move it to the top of the list */
+static void dbase_to_top(DBASE *dbase)
+{
+	DBASE **prev;
+	if (dbase && dbase->path && dbase != dbase_list)
+		for(prev = &dbase_list; *prev; prev = &(*prev)->next)
+			if(*prev == dbase) {
+				*prev = dbase->next;
+				dbase->next = dbase_list;
+				dbase_list = dbase;
+				return;
+			}
 }
 
 
@@ -92,6 +135,7 @@ bool dbase_addrow(
 	SECTION		 *sect;			/* current insert section */
 	int		 newsect = 0;
 
+	dbase_to_top(dbase);
 	newsect = dbase->nsects<2 || dbase->currsect<0 ? 0 : dbase->currsect;
 	if (dbase->nrows+1 >= (int)dbase->size) {
 		i = (dbase->size + CHUNK) * sizeof(ROW);
@@ -140,6 +184,7 @@ void dbase_delrow(
 
 	if (!dbase || nrow >= dbase->nrows)
 		return;
+	dbase_to_top(dbase);
 	row = dbase->row[nrow];
 	dbase->sect[row->section].nrows--;
 	dbase->sect[row->section].modified = true;
@@ -168,6 +213,7 @@ char *dbase_get(
 {
 	ROW		*row;		/* row to get from */
 
+	dbase_to_top((DBASE *)dbase);
 	if (dbase && nrow >= 0
 		  && nrow < dbase->nrows
 		  && (row = dbase->row[nrow])
@@ -209,6 +255,7 @@ bool dbase_put(
 		   || !(row = dbase->row[nrow])
 		   || dbase->sect[row->section].rdonly)
 		return(false);
+	dbase_to_top(dbase);
 	if (ncolumn >= dbase->maxcolumns)
 		dbase->maxcolumns = ncolumn + 1;
 	if (ncolumn >= row->ncolumns) {
@@ -246,12 +293,10 @@ bool dbase_put(
  */
 
 static int compare_one(
-	const void	*u,
-	const void	*v,
+	const ROW	*ru,
+	const ROW	*rv,
 	int		col)
 {
-	ROW		*ru = *(ROW **)u;
-	ROW		*rv = *(ROW **)v;
 	char		*cu;
 	char		*cv;
 	double		du, dv;
@@ -273,59 +318,63 @@ static int compare_one(
 }
 
 
-static int col_sorted_by;
-static int reverse;
-static int compare(
-	const void		*u,
-	const void		*v)
-{
-	int diff = compare_one(u, v, col_sorted_by);
-	if (!diff)
-		diff = (*(ROW **)v)->seq - (*(ROW **)u)->seq;
-	return(reverse ? -diff : diff);
-}
+/* If there's one thing I hate most about C, it's the fact that the most
+ * useful library function has no global user data pointer */
+/* I guess this means I'm going to have to use C++, which at least passes
+ * "this" to objects */
+#include <algorithm>
+
+struct db_comp {
+	const ROW * const *rows;
+	int col_sorted_by;
+	bool reverse;
+	bool operator() (int u, int v)
+	{
+		int diff = compare_one(rows[u], rows[v], col_sorted_by);
+		return(reverse ? diff > 0 : diff < 0);
+	}
+};
 
 
 void dbase_sort(
 	CARD		*card,		/* database and form to sort */
 	int		col,		/* column to sort by */
-	int		rev)		/* reverse if nonzero */
+	bool		rev,		/* reverse if nonzero */
+	bool		noinit)		/* multi-field sort */
 {
 	FORM		*form;		/* card form */
 	DBASE		*dbase;		/* card data */
-	ROW		**row;		/* list of row struct pointers */
 	int		i, j;
+	db_comp		cmp;
+#define sort_it(a, n) std::stable_sort<int *>(&a[0], &a[n], cmp)
 
 	if (!card)
 		return;
-	reverse = rev;
 	dbase = card->dbase;
 	form  = card->form;
 	if (!dbase || !form || dbase->nrows < 2)
 		return;
 
-	card->dbase->col_sorted_by = col_sorted_by = col;
-	for (row=dbase->row, i=dbase->nrows; i; i--, row++) {
-		(*row)->selected = 0;
-		(*row)->seq      = i;
+	cmp.reverse = rev;
+	card->col_sorted_by = cmp.col_sorted_by = col;
+	cmp.rows = dbase->row;
+	if (!noinit) {
+		grow(0, "dbase sort order", int, card->sorted, dbase->nrows, 0);
+		for (i = 0; i < dbase->nrows; i++)
+			card->sorted[i] = i;
 	}
-	for (i=card->nquery-1; i >= 0; i--)
-		dbase->row[card->query[i]]->selected = 1;
-	if (card->row < dbase->nrows)
-		dbase->row[card->row]->selected |= 4;
-	if (card->nquery)
-		dbase->row[card->query[card->qcurr]]->selected |= 2;
-
-	qsort(card->dbase->row, dbase->nrows, sizeof(ROW *), compare);
-
-	card->qcurr = 0;
-	for (row=dbase->row, i=j=0; i < dbase->nrows; i++, row++) {
-		if ((*row)->selected & 2)
-			card->qcurr = j;
-		if ((*row)->selected & 1)
-			card->query[j++] = i;
-		if ((*row)->selected & 4)
-			card->row = i;
+	sort_it(card->sorted, dbase->nrows);
+	if(card->nquery) {
+		if(card->qcurr < card->nquery)
+			i = card->query[card->qcurr];
+		else
+			i = -1;
+		sort_it(card->query, card->nquery);
+		if(i >= 0)
+			for(j = 0; j < card->nquery; j++)
+				if(card->query[j] == i) {
+					card->qcurr = j;
+					break;
+				}
 	}
-	assert(j == card->nquery);
 }

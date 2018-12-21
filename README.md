@@ -99,8 +99,9 @@ You may also wish to check out some of the other files included in
 this project, such as my notes on the QT port (QT-README.md), my
 current plans (TODO.md) and the high-level change list (HISTORY).
 You can also see the HTML documentation in the doc directory.  The
-original README (now absorbed here) mentioned a PostScript/LaTeX
-manual, but that was not in the above-mentioned archive.
+original README (now absorbed here) mentioned a PostScript/TeX
+manual, but that was not in the above-mentioned archive (I believe it
+was converted to HTML in 1.5; 1.4.3 still has the TeX sources).
 
 Copyright:
 ---------

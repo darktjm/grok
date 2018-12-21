@@ -314,19 +314,21 @@ static void set_export_card(CARD *card)
 		card->nquery = n;
 		card->query = alloc(0, "query", int, card->nquery);
 		if(card->nquery)
-			/* sorting sorts dbase, so no need to resort */
-			for(int i = n = 0; i < card->dbase->nrows; i++)
-				if(SECT_OK(card->dbase, i))
-					card->query[n++] = i;
+			for(int i = n = 0; i < card->dbase->nrows; i++) {
+				int r = card->sorted ? card->sorted[i] : i;
+				if(SECT_OK(card->dbase, r))
+					card->query[n++] = r;
+			}
 		break;
 	    }
 	    case 'A':
 		card->nquery = card->dbase->nrows;
 		card->query = alloc(0, "query", int, card->nquery);
 		if(card->nquery)
-			/* sorting sorts dbase, so no need to resort */
-			for(int i = 0; i < card->dbase->nrows; i++)
-				card->query[i] = i;
+			for(int i = 0; i < card->dbase->nrows; i++) {
+				int r = card->sorted ? card->sorted[i] : i;
+				card->query[i] = r;
+			}
 		break;
 	}
 }

@@ -29,6 +29,7 @@ struct pref {
 	int	sortcol;	/* initially form->defsort, then sort pulldn */
 	bool	revsort;	/* initially false, then line1 of sort pulldn*/
 	bool	autoquery;	/* run form.autoquery after every change? */
+	int	db_keep;	/* keep at most this many unrefed databases */
 	QPrinter *printer;	/* printer settings */
 };
 

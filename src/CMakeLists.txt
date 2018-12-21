@@ -1,4 +1,4 @@
-add_compile_definitions(LIB="${GROK_LIB}")
+add_compile_definitions(LIB="${GROK_LIB}" PATH=LIB)
 
 set(GROK_BIN "${CMAKE_INSTALL_PREFIX}/bin"
     CACHE PATH "Where to install the grok binary")
@@ -6,6 +6,7 @@ mark_as_advanced(GROK_BIN)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
+#set(CMAKE_AUTORCC ON)
 find_package(Qt5 COMPONENTS Widgets PrintSupport REQUIRED)
 
 # Needed for private interface to retrieve standard button names
@@ -41,6 +42,7 @@ BISON_TARGET(parser parser.y
 	     # CMake puts output in source dir by default, which I don't like
              ${CMAKE_CURRENT_BINARY_DIR}/parser.cpp
 	     DEFINES_FILE ${CMAKE_CURRENT_BINARY_DIR}/parser.h
+	     VERBOSE ${CMAKE_CURRENT_BINARY_DIR}/parser.output}
 	     COMPILE_FLAGS "-p parser")
 # This suppresses a cmake warning
 set_property(SOURCE ${BISON_parser_OUTPUTS} PROPERTY SKIP_AUTOMOC ON)
@@ -52,6 +54,7 @@ set(grok_SRCS
 	querywin.c sectwin.c sumwin.c template.c templmk.c templwin.c
 	util.c HtmlCssUtils.cpp saveprint.c ${BISON_parser_OUTPUT_SOURCE}
 	canv-widget.h chart-widget.h layout-qss.h
+#	grok-res.qrc
 )
 # I don't want to rename the original C sources
 # I still can't do this by simply changing extensions-related vars, but
@@ -80,7 +83,7 @@ if(Iconv_FOUND)
 	include(CheckCXXSourceRuns)
 	set(CMAKE_REQUIRED_INCLUDES ${Iconv_INCLUDE_DIRS})
 	set(CMAKE_REQUIRED_LIBRARIES ${Iconv_LIBRARIES})
-	check_cxx_source_runs([[
+	set(langinfo_src [[
 		#include <stdio.h>
 		#include <stdlib.h>
 		#include <iconv.h>
@@ -103,6 +106,9 @@ if(Iconv_FOUND)
 			iconv_close(i);
 			return 0;
 		}
-		]] LANGINFO_WORKS)
+		]])
+	# running won't work for cross-compiling, so I'll just assume it works
+#	check_cxx_source_runs("${langinfo_src}" LANGINFO_WORKS)
+	check_cxx_source_compiles("${langinfo_src}" LANGINFO_WORKS)
 endif()
 configure_file(config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)

@@ -30,15 +30,14 @@ typedef struct {
 	bool	assigned;	/* did a field assignment */
 	char	*expr;		/* first char read by lexer */
 	char	*text;		/* next char to be read by lexer */
-	char	errormsg[2000];	/* error message if any, or "" */
-	/* FIXME: implement continuation if enough memory for it */
-	char	*errormsg_cont;	/* rest of message if too big */
+	char	errormsg[1000];	/* error message if any, or "" */
+	char	*errormsg_full;	/* full message if too big for above */
 } PARSE_GLOBALS;
 #define PG PARSE_GLOBALS *g
 #define eval_error (!!g->errormsg[0])
 void parsererror(
 	PARSE_GLOBALS	*g,
-	const char	*msg);
+	const char	*msg, ...);
 }
 %param {PARSE_GLOBALS *g}
 %define api.pure full
@@ -114,7 +113,8 @@ void set_var(CARD *card, int v, char *s)
 
 static char *f_concat(PG, char *a, char *b)
 {
-	int len = f_len(a) + f_len(b);
+	int alen = f_len(a);
+	int len = alen + f_len(b);
 	char *r;
 	if(!len) {
 		zfree(a);
@@ -132,7 +132,7 @@ static char *f_concat(PG, char *a, char *b)
 		strcpy(r, a);
 	zfree(a);
 	if (b)
-		strcat(r, b);
+		strcpy(r + alen, b);
 	zfree(b);
 	return r;
 }
@@ -308,6 +308,21 @@ char *f_align(
 	char		*pad,
 	int		len,
 	int		where);
+CARD *f_db_start(
+	PG,
+	char		*formname,
+	char		*search,
+	struct db_sort	*sort);
+void f_db_end(
+	PG,
+	CARD		*card);
+struct db_sort *new_db_sort(
+	PG,
+	struct db_sort	*prev,
+	int		dir,
+	char		*field);
+void free_db_sort(
+	struct db_sort	*sort);
 }
 
 /*
@@ -316,15 +331,28 @@ char *f_align(
 
 %code requires { struct arg { struct arg *next; char *value; }; }
 
-%union { int ival; double dval; char *sval; struct arg *aval; }
+/* database sort order specifier linked list */
+%code requires { struct db_sort { struct db_sort *next; int dir; char *field; }; }
+
+%union {
+	int ival;
+	double dval;
+	char *sval;
+	struct arg *aval;
+	CARD *cval;
+	struct db_sort *Sval;
+}
 /* These destructors should wipe out any memory leaks on error, but they
  * only work in bison. */
 %destructor { zfree($$); } <sval>
 %destructor { free_args($$); } <aval>
+%destructor { free_db_sort($$); } <Sval>
 
 %type	<dval>	number numarg
 %type	<sval>	string
 %type	<aval>	args
+%type	<cval>	db_prefix
+%type	<Sval>	db_sort
 %type	<ival>	plus
 %token	<dval>	NUMBER
 %token	<sval>	STRING SYMBOL
@@ -481,6 +509,7 @@ string	: STRING			{ $$ = $1; }
 					  g->switch_name = name;
 					  g->switch_expr = expr; 
 					  $$ = 0; }
+	| db_prefix string %prec DOTDOT	{ $$ = $2; f_db_end(g, $1); }
 	| FOREACH '(' string ')'	{ f_foreach(g, 0, $3); $$ = 0; check_error; }
 	| FOREACH '(' string ',' string ')'
 					{ f_foreach(g, $3, $5); $$ = 0; check_error; }
@@ -516,8 +545,20 @@ args	: string			{ $$ = f_addarg(g, 0, $1); check_error; }
 	| args ',' string		{ $$ = f_addarg(g, $1, $3); check_error; }
 	;
 
+db_prefix
+	: '@' string db_sort ':'	{ $$ = f_db_start(g, $2, NULL, $3); check_error; }
+	| '@' string '/' string db_sort ':'	{ $$ = f_db_start(g, $2, $4, $5); check_error; }
+	;
+
+db_sort	: '+' string			{ $$ = new_db_sort(g, 0, 1, $2); check_error; }
+	| '-' string			{ $$ = new_db_sort(g, 0, -1, $2); check_error; }
+	| db_sort '+' string		{ $$ = new_db_sort(g, $1, 1, $3); check_error; }
+	| db_sort '-' string		{ $$ = new_db_sort(g, $1, -1, $3); check_error; }
+	;
+
 number	: numarg			{ $$ = $1; }
         | number ',' numarg		{ $$ = $3; }
+	;
 
 numarg	: NUMBER			{ $$ = $1; }
 	| '{' string '}'		{ $$ = f_num($2); }
