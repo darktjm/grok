@@ -353,7 +353,6 @@ void free_db_sort(
 %type	<aval>	args
 %type	<cval>	db_prefix
 %type	<Sval>	db_sort
-%type	<ival>	plus
 %token	<dval>	NUMBER
 %token	<sval>	STRING SYMBOL
 %token	<ival>	FIELD VAR
@@ -513,10 +512,16 @@ string	: STRING			{ $$ = $1; }
 	| FOREACH '(' string ')'	{ f_foreach(g, 0, $3); $$ = 0; check_error; }
 	| FOREACH '(' string ',' string ')'
 					{ f_foreach(g, $3, $5); $$ = 0; check_error; }
-	| FOREACH '(' VAR ',' plus string ',' string ')'
-					{ f_foreachelt(g, $3, $6, 0, $8, $5); $$ = 0; check_error; }
-	| FOREACH '(' VAR ',' plus string ',' string ',' string ')'
-					{ f_foreachelt(g, $3, $6, $8, $10, $5); $$ = 0; check_error; }
+	| FOREACH '(' VAR ',' string ')'
+					{ f_foreach(g, getsvar(g, $3), $5); $$ = 0; check_error; }
+	| FOREACH '(' VAR ',' string ',' string ')'
+					{ f_foreachelt(g, $3, $5, 0, $7, 0); $$ = 0; check_error; }
+	| FOREACH '(' VAR ',' string ',' string ',' string ')'
+					{ f_foreachelt(g, $3, $5, $7, $9, 0); $$ = 0; check_error; }
+	| FOREACH '(' VAR ',' '+' string ',' string ')'
+					{ f_foreachelt(g, $3, $6, 0, $8, 1); $$ = 0; check_error; }
+	| FOREACH '(' VAR ',' '+' string ',' string ',' string ')'
+					{ f_foreachelt(g, $3, $6, $8, $10, 1); $$ = 0; check_error; }
 	| TIME				{ yystrdup($$, mktimestring
 						(time(0), false)); }
 	| DATE				{ yystrdup($$, mkdatestring
@@ -701,7 +706,4 @@ numarg	: NUMBER			{ $$ = $1; }
 					  $$ = a ? access(a, (int)$5) : 0;
 					  zfree(a); }
 	;
-
-plus	: { $$ = 0; }
-	| '+' { $$ = 1; }
 %%

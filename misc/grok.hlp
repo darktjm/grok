@@ -58,39 +58,32 @@
 %% trouble
 	TROUBLESHOOTING
 
-	*  The Qt port has some known sizing-related bugs on which I
-	   am making no progress.  The fix for all of these is to manually
-	   move and resize the window after loading a database, if needed.
-
-	   *  Qt often moves the main window when it resizes it after a
-	      database load.
-
-	   *  Randomly, the window will end up too big after a database
-	      load.
-
-	   *  The summary list widget has a too-large minimum size, leaving
-	      a blank area at the end of the line.  This can't be fixed
-	      by manual resizing, contrary to the statement above, but it
-	      is generally a small enough excess that it doesn't matter.
+	*  The window sometimes moves when it resizes after a database
+	   load.  This may be an FVWM-only issue; the only cure is to
+	   manually move it back where you want it.
 
 	*  Qt does not like synthetic key events.  Bugs have been reported
-	   and fixed, but there are still issues.  For example, I bind
-	   Ctrl-Q in FVWM in some windows.  This causes grok to ignore
-	   Ctrl-Q for the "Quit" menu shortcut.  The shortcuts are currently
-	   hard-coded into the application.
+	   against Qt and fixed, but there are still issues.  For example, I
+	   bind Ctrl-Q in some windows.  There is no way to do this except to
+	   always intercept Ctrl-Q and pass it on (as a synthetic event,
+	   usually) to windows that don't need the binding.  The shortcuts
+	   used by grok are currently hard-coded into the application, so
+	   you're stuck with them; unlike the Motif version, there is no
+	   equivalent to X resources for binding overrides.
 
 	If you have problems you can't resolve, or if you have suggestions
-	for new features, or porting instructions for new platforms, send mail
-	to me at thomas@bitrot.de. Also check my homepage for new releases:
-	http://www.bitrot.de/grok.html.
-
-	IF YOU MAIL, DO NOT FORGET TO INCLUDE YOUR VERSION NUMBER
-	AS REPORTED BY "grok -v". If you ask me for patches or files, also tell
-	me whether you have the gzip compression program.
-
-	Mail to grok-request@bitrot.de to subscribe to the mailing list.
-	Mail to thomas@bitrot.de if you have questions, comments, or forms
-	to contribute.
+	for new features, or porting instructions for new platforms, post
+	them at https://bitbucket.org/darktjm/grok/issues/.  You will need
+	to create a (free) Bitbucket account before doing so, as I will
+	likely ignore anonymous requests (because there is no way to
+	contact anonymous requestors for more information).  I will also
+	review git pull requests, but I don't actually use git/bitbucket
+	for source code control, and will likely lose some metadata if I
+	merge them.
+	
+	You can mail me directly at darktjm@gmail.com as well, but I would
+	prefer you air your grievances in public and track them using the
+	issue tracking facility.
 %% files
 	FILES AND PROGRAMS
 

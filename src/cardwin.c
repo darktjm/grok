@@ -115,9 +115,8 @@ CARD *create_card_menu(
 	card->dbase  = dbase;
 	card->row    = -1;
 	card->nitems = form->nitems;
-	if (no_gui)
-		return(card);
-	build_card_menu(card, wform);
+	if (!no_gui)
+		build_card_menu(card, wform);
 	return(card);
 }
 
@@ -134,8 +133,7 @@ void build_card_menu(
 	ydiv = pref.scale * form->ydiv;
 							/*-- make form --*/
 	if (wform) {
-		wform->resize(xs+6, ys+6);
-		wform->setMinimumSize(xs+6, ys+6);
+		wform->setFixedSize(xs+6, ys+6);
 		card->wform = wform;
 	} else {
 		CardWindow *cw = new CardWindow;
@@ -144,12 +142,7 @@ void build_card_menu(
 		card->shell = cw;
 		card->shell->setWindowTitle("Card");
 		set_icon(card->shell, 1);
-		card->shell->resize(xs+6, ys+6);
-		card->shell->setMinimumSize(xs+6, ys+6);
-		// This doesn't seem to work; it's probably just a layout hint:
-		// card->shell->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-		// But this does.
-		card->shell->setMaximumSize(xs+6, ys+6);
+		card->shell->setFixedSize(xs+6, ys+6);
 		wform = card->wform = card->shell;
 		card->shell->setObjectName("wform");
 		popup_nonmodal(card->shell);
@@ -159,16 +152,14 @@ void build_card_menu(
 	    card->wstat = new QWidget(wform);
 	    card->wstat->setAutoFillBackground(true);  // should be true already, but isn't?
 	    card->wstat->resize(xs+6, ydiv);
-	    card->wstat->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 	    card->wstat->setObjectName("staticform");
 	}
 	if (ydiv < ys) {
 	    QFrame *f = new QFrame(wform);
 	    f->setAutoFillBackground(true);  // should be true already, but isn't?
-	    f->show(); // why is this needed?
 	    f->move(0, ydiv);
-	    f->resize(xs+6, ys-ydiv+6);
-	    f->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+	    f->setFixedSize(xs+6, ys-ydiv+6);
+	    f->show(); // why is this needed?
 	    f->setLineWidth(3);
 	    f->setFrameStyle(QFrame::Panel | QFrame::Sunken);
 	    f->setObjectName("cardframe");

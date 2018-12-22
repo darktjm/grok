@@ -53,31 +53,17 @@ Bugs
   as I can tell, even though the docs say otherwise, so maybe I need
   to revisit that.
 
-- Main window sizing issues:
-
-    - The window doesn't resize to a narrow version on database switch
-      (but it does do so on initial load and randomly, for some
-      reason). resize(minimumSize()) after adjustSize() does help,
-      but not enough.  Even "switching" to the same database
-      produces random results.
-
-    - When the main window resizes after a database switch, it not
-      only resizes the window, but also moves it.  It should stay in
-      one place.  Saving and restoring the position after
-      adjustSize() does nothing, so maybe it's being moved
-      elsewhere.  This may well be a window manager issue, though; I'm
-      one of the few people who still uses FVWM, which I have been
-      using for over 20 years now.  Some weirdnesses only apply to
-      FVWM.
-
-    I will probably need to eventually break down and dredge thorugh
-    the Qt source to figure out how resizing actually works.  Adding
-    the auto-grow/shrink tables to the form editor had resizing issues,
-    as well.  I expect changing contents' sizes should cause a ripple
-    effect throughout the hierarchy to adjust to this size, but
-    instead, I have to call adjustSize() manually on the parent
-    widgets.  Twice.  Calling updateGeometry() doesn't seem to do
-    anything, except when it does.
+- When the main window resizes after a database switch, it not only
+  resizes the window, but also moves it.  It should stay in one
+  place.  Saving and restoring the position after adjustSize() does
+  nothing, so maybe it's being moved elsewhere.  This may well be a
+  window manager issue, though; I'm one of the few people who still
+  uses FVWM, which I have been using for over 20 years now.  Some
+  weirdnesses only apply to FVWM.
+      
+  I have debugged the other sizing issues, but have no patience for
+  this one.  If anyone else ever complains about it, I might look
+  into it again.
 
 - Look more closely at all Qt-related licenses.  I don't want this
   program to be GPL.  In particular, QUiLoader seems to use a

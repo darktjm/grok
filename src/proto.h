@@ -323,7 +323,6 @@ void do_query(
 
 class GrokMainWindow : public QMainWindow {
   public:
-    GrokMainWindow() {}
     CARD *card = 0;
 };
 

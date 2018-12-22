@@ -47,6 +47,38 @@ static void new_callback  (void);
 static void dup_callback  (void);
 static void del_callback  (void);
 
+/*
+ * The following is part one in a fix for a bug that had been plaguing
+ * grok since 2.0:  the main window is supposed to shrink to fit the
+ * contents when starting up or switching to new databases, but instead it
+ * would only do that part of the time.  The rest of the time, the window
+ * was too big (often double or triple width, and 40%+ extra height).
+ *
+ * The underlying cause is both my misunderstanding of the function I was
+ * using (it is, after all, my first ever Qt project) and bizarre, possibly
+ * xcb/X11/fvwm-related behavior.   The function I call is adjustSize(),
+ * which I took to be similar to tk's pack function, to shrink the window
+ * to fit its contents.  The shrinking actually doesn't happen.  So, to
+ * fix that, I added a resize(minimumSize()) right after adjustSize().  This
+ * always works on startup, but randomly fails on switches.  It turns out
+ * that this is due to the fact that adjustSize()'s resize and the subsequent
+ * explicit resize were being executed in a random order.  I still don't
+ * know what causes this random order yet, but it needed to be fixed.
+ *
+ * My fix involves making the adjustSize() resize work correctly to begin
+ * with.  Qt offers only one "shrink to fit" option:  shrink to fit
+ * the sizeHint (but not the minimumSizeHint).  Thus the following causes
+ * the central widget to always return its minimum size as a size hint
+ * rather than some random value deteremined by its current size and
+ * whether or not the letter buttons are there.  More on the fix below,
+ * in resize_mainwindow().
+ */
+
+class MinWidget : public QWidget {
+    public:
+	QSize sizeHint() const { QWidget::sizeHint(); return minimumSizeHint(); }
+};
+
 GrokMainWindow		*mainwindow;	/* popup menus hang off main window */
 #if 0
 static int		win_xs, win_ys;	/* size of main window w/o sum+card */
@@ -155,8 +187,9 @@ void create_mainwindow()
 			Qt::CTRL|Qt::Key_G);
 	menu->addAction("&Variables and QSS", [=](){help_callback(mainwindow, "resources");});
 
-	w = new QWidget;
+	w = new MinWidget;
 	mainwindow->setCentralWidget(w);
+	w->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
 	mainform = new QVBoxLayout(w);
 	add_layout_qss(mainform, "mainform");
 							/*-- search string --*/
@@ -296,10 +329,10 @@ void create_mainwindow()
 							/*-- card --*/
 	// this isn't really necessary, since the card is in a frame
 	mainform->addWidget(mk_separator());
+
 	w_card = new QWidget;
-	w_card->resize(400, 6);
+	w_card->setFixedSize(400, 6);
 	w_card->setObjectName("cardform");
-	w_card->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 	bind_help(w_card, "card");
 	mainform->addWidget(w_card);
 
@@ -315,25 +348,53 @@ void create_mainwindow()
 
 /*
  * resize the main window such that there is enough room for the summary
- * and the card. During startup, create_mainwindow() has stored the size
- * without summary and card, now add enough space for the new summary and
- * card and resize the window.
+ * and the card, and no more.
  */
 
 void resize_mainwindow(void)
 {
-	// FIXME: window moves -- saving & restoring position doesn't help
-	// I'll probably have to override mainwindow->move().
-	// QPoint pos(mainwindow->pos());
+	/*
+	 * This used to be one line:  mainwindow->adjustSize().  Later,
+	 * I added a second line when I realized that adjustSize doesn't
+	 * shrink to fit:  mainwindow->resize(mainwindow->minimumSize()).
+	 * This worked well enough most of the time, but still randomly
+	 * screwed up, because the resizes were happinging in a random
+	 * order.  Instead of trying to figure out and fix that issue,
+	 * I ensure that adjustSize() gets the size right the first time
+	 * around.  Part of its problem was that the central widget was
+	 * reporting a weird size sometimes, so I now run adjustSize on it
+	 * (which doesn't trigger a main window resize, so it's safe).
+	 */
+	QWidget *c = mainwindow->centralWidget();
+	c->adjustSize();
+	c->updateGeometry();  // probably not useful, and possibly unsafe
+	/*
+	 * I then ensure that the main window will shrink to fit by using
+	 * the layout's SetFixedSize constraint, which forces resizing to
+	 * sizeHint.  The sizeHint for the central widget is still too big,
+	 * so I override it above by returning minimumSizeHint, instead.
+	 * After shrinking to fit, SetFixedSize disallows all resizing,
+	 * so the window becomes non-resizable.  That was the original
+	 * intention in the Motif version, but I prefer allowing the
+	 * user to stretch the width for a wider search text widget and
+	 * to stretch the height for more visible rows (rather than requiring
+	 * the user to set the # of rows preference every time).
+	 */
+	QLayout *l = mainwindow->layout();
+	l->setSizeConstraint(QLayout::SetFixedSize);
+
 	mainwindow->adjustSize();
-	// mainwindow->move(pos);
-	// FIXME: window is too large -- setting to "minimum size" doesn't work
-	// except randomly (almost always the first time).  Even switching
-	// to the same form will randomly resize it to something much larger
-	//
-	// Sometimes it appears as though it's toggling between some large
-	// size and the correct size.  WTF?
-	mainwindow->resize(mainwindow->minimumSize());
+
+	/* Now that the window is the correct size, make it resizable again */
+	l->setSizeConstraint(QLayout::SetDefaultConstraint);
+	mainwindow->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+
+	/*
+	 * Now, assuming Qt doesn't randomly revert the above 2 lines,
+	 * everything is as planned.  I changed databases a lot and never
+	 * saw it fail.  If I ever do, I'll have to come up with another
+	 * fix.  <sigh> I hate Qt.
+	 */
 }
 
 
@@ -819,10 +880,10 @@ void switch_form(
 		remake_query_pulldown();
 		remake_sort_pulldown();
 		remake_section_pulldown();	/* also sets w_sect, w_del */
-		resize_mainwindow();
 		if (card && card->dbase)
 			card->dbase->modified = false;
 		print_info_line();
+		resize_mainwindow();
 		mainwindow->setUpdatesEnabled(true);
 	}
 }

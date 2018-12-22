@@ -340,6 +340,8 @@ Version 2.4 (in progress)
  * Letter buttons now work as I expect them to (i.e., pressing one after
    another switches to the other letter, rather than adding it to the
    search constraints).
+ * Fixed several resizing-related issues introduced in 2.0 and 2.2.
+ * Fixed foreach(a,b) where a is a variable (broken in 2.1)
  * The min and max functions are no longer constrained to a range.
  * Switched from Qt's qmake to the more generic cmake.  This corrects
    a few problems with the documentation.  Builds now depend on cmake

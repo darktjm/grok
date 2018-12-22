@@ -41,7 +41,7 @@ QWidget *create_summary_widget()
 	w_summary->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
 	w_summary->setHeaderHidden(true);
-	w_summary->resize(400, 20);
+	w_summary->setMinimumSize(400, 20);
 
 	return w_summary;
 }
@@ -101,7 +101,6 @@ void create_summary_menu(
 		w_summary->header()->setStretchLastSection(true);
 	}
 	w_summary->setMinimumWidth(w);
-	w_summary->updateGeometry();
 
 	free(buf);
 
@@ -117,7 +116,7 @@ void create_summary_menu(
 	if(!n)
 		w_summary->clear();
 	w_summary->setMinimumHeight(h);
-	w_summary->resize(w, h);
+	w_summary->updateGeometry();
 
 	if(n) {
 		scroll_summary(card);
