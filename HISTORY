@@ -229,7 +229,11 @@ likely anywone but me cares.  It's not like I advertise this anywhere.
 Compatibility Issues:
 
 New databases which use regular expression functions, array functions,
-or \{QUIT} will not function correctly in 2.0 or earlier.
+or \{QUIT} will not function correctly in 2.0 or earlier.  Prior to 2.1,
+literal search expressions in FOREACH could start with [.  This is now
+interpreted as an array FOREACH, and will likely result in an error.
+To correct the error, prefix the literal search expression with a
+slash (/).
 
 Version 2.2 (git tag grok-2.2, SVN 528), released 1.12.18
   * Date widgets were updating after every keystroke, which
@@ -365,18 +369,27 @@ Version 2.4 (in progress)
  * Multiple databases can now be in memory at once.  A preference was
    added to control how many.
    * @"dbase"/"search"+"field"-"field": prefixes expr to work on other db
+   * @dbase on FOREACH switches to alternate database
+ * FOREACH supports changing the sort order for foreign or same database
 
 Compatibility Issues:
 
-Any templates that use ELSE or ELSEIF will assume these are
-non-template expressions, and will result in syntax errors prior to
-2.4. FOREACH and END must now be in the same conditional segment. Not
-doing so was never really supported, but now it is enforced.  While
+Prior to 2.4, any templates that use ELSE or ELSEIF will assume these
+are non-template expressions, and will result in syntax errors.
+FOREACH and END must now be in the same conditional segment. Not doing
+so was never really supported, but now it is enforced.  While
 foreach() expression strings using explicit braces will continue
 working, any which were in reality fixed strings that weren't intended
-as expressions will not, and will likely result in a syntax error.
-Use of the new other-database prefix will result in syntax errors
-prior to 2.4.
+as expressions will not, and will likely result in a syntax error. Use
+of the new other-database prefix will result in syntax errors prior to
+2.4.
+
+The foreign database and sort operators in FOREACH will be considered
+part of the search string prior to 2.4.  Prior to 2.4, search strings
+could begin with @, +, or -.  These are now interpreted as the foreign
+database and sort field specifiers.  This will likely result in an
+error when running the template, which can be cured by prefiing the
+literal search expression with a slash (/).
 
 A sort followed by a save used to save the rows in the current sort
 order.  This is no longer the case; row order only changes to account

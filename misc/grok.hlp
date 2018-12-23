@@ -654,9 +654,12 @@
 
 	Special template keywords are:
 
-	\{FOREACH expr} ... \{END}
+	\{FOREACH @db +sort -sort ... expr} ... \{END}
 	    Loop over database matching optional expr or the search in effect
-	    for the template if not present.  May nest 10 levels.
+	    for the template if not present.  May nest 20 levels.
+	    @db is optional, and switches to given db.  -sort/+sort are
+	    optional fields to sort by. db and field names may be in
+	    quotes or in curly braces to use an expression
 	\{FOREACH [v expr} ... \{END}
 	    Loop over elements of array expr, setting v to the element.
 	    Nesting is shared with database loops (10).

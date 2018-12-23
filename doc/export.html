@@ -225,7 +225,7 @@ can be put into lines of their own without introducing unwanted newlines.
 <P>Here is a list of all supported template expressions:
 
 <UL>
-<LI><TT>\{FOREACH</TT> <I>expr</I><TT>}</TT> <I>text</I> <TT>\{END}</TT><BR>
+<LI><TT>\{FOREACH</TT> <TT>@</TT> <I>dbname</I> <TT>+</TT> <I>fieldname</I> <TT>-</TT> <I>fieldname</I> ... <I>expr</I><TT>}</TT> <I>text</I> <TT>\{END}</TT><BR>
 	The text between the <TT>FOREACH</TT> and <TT>END</TT> commands
 	is executed once for every card for which the query expression
 	<I>expr</I> is true.  Every card is considered in the order of
@@ -235,14 +235,35 @@ can be put into lines of their own without introducing unwanted newlines.
 	evaluating <I>text</I> and considers the next card until the last
 	card has been executed. The <I>text</I> can contain expressions
 	and template expressions.  <TT>FOREACH</TT> loops can be nested
-	10 levels deep.
+	20 levels deep.<P>
 
-	<P>The query expression <I>expr</I> is optional; if it is missing
+	The query expression <I>expr</I> is optional; if it is missing
 	the most recent query from the enclosing <TT>FOREACH</TT> loop is
 	used, or if there is none, the last query from the command line
 	or from the Query pulldown or from a text search in the main
 	menu is used. It is recommended to not use query expressions
 	because they make the -x command-line option less useful.<P>
+
+	The loop may be executed in a foreign database by adding the
+	optional <TT>@</TT> <I>dbname</I> prefix.  The <I>dbname</I>
+	may either be a string literal (enclosed by single or double
+	quotes, with backslash escaping the next character within the
+	quotes), a string expression enclosed in curly braces, or a
+	literal word which is terminated by the next +, -, or space.
+	Within the loop and the search expression, all variable and
+	field references refer to the foreign database.  The field
+	names for sorts also refer to the foreign database.  However,
+	the expressions used to generate the field names and the
+	database name (if the curly brace form is used) are still
+	evaluated in the context of the enclosing database.<P>
+
+	The sort order may be modified by adding one or more optional
+	sort specifiers consisting of a sign and a <I>fieldname</I>.  The
+	plus sign indicates ascending order, and the minus descending.
+	Field names support the same three formats as the <I>dbname</I>.
+	The leading underscore of the field name is optional.  When
+	accessing a foreign database, if there is no sort order specified,
+	the default order for that database is used.<P>
 
 <LI><TT>\{FOREACH [</TT><I>var</I> <I>expr</I><TT>}</TT> <I>text</I> <TT>\{END}</TT><BR>
     <TT>\{FOREACH [+</TT><I>var</I> <I>expr</I><TT>}</TT> <I>text</I> <TT>\{END}</TT><BR>

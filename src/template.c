@@ -306,10 +306,13 @@ bool delete_template(
 
 #define ISSPACE(c) ((c)==' ' || (c)=='\t' || (c)=='\n')
 #define ISOCTAL(c) ((c)>='0' && (c)<='7')
-#define NEST		10
+#define NEST		20
 
 static const char html_subst[] = "<=&lt; >=&gt; &=&amp; \n=<BR>";
-static const char *eval_command(CARD *, char *, bool *, int);
+static const char *eval_command(CARD *&, char *, bool *, int);
+static const char *sort_foreach_db(char *&word, CARD *card, CARD *ocard, bool first);
+static const char *parse_db_name(CARD *card, char *&word, const char *&db_name);
+static void free_other_db(CARD *);
 static const char *putstring(const char *);
 
 struct forstack {
@@ -319,6 +322,9 @@ struct forstack {
 	int	*query;	/* array for normal FOREACH */
 	char	*array;	/* array for string-as-array FOREACH */
 	int	nest;	/* n_true_if at time of FOREACH */
+	CARD	*card;	/* enclosing card if a db change was made */
+	int	*default_query;	/* enclosing default query from -x option or 0 */
+	int	default_nquery;	/* enclosing number of rows in default_query */
 };
 
 enum opcode { O_EXPR, O_IF, O_ELSE, O_ELSEIF, O_ENDIF, O_FOREACH, O_END,
@@ -465,8 +471,13 @@ static const char *eval_template(
 		fclose(ofp);
 	if (outname)
 		free(outname);
-	while (forlevel >= 0)
+	while (forlevel >= 0) {
+		if(forstack[forlevel].card) {
+			free_other_db(card);
+			card = forstack[forlevel].card;
+		}
 		free(forstack[forlevel--].query);
+	}
 
 	zfree(card->query);
 	card->query  = default_query;
@@ -494,7 +505,7 @@ static const char *eval_template(
  */
 
 static const char *eval_command(
-	CARD		*card,
+	CARD		*&card,
 	char		*word,		/* command to evaluate */
 	bool		*eat_nl,	/* if command, set to true (skip \n) */
 	int		flags)		/* template flags a..z */
@@ -595,7 +606,7 @@ static const char *eval_command(
 			return("ENDIF without IF");
 		break;
 
-	  case O_FOREACH:
+	  case O_FOREACH: {
 		if (forskip || n_false_if) {
 			forskip++;
 			break;
@@ -652,15 +663,63 @@ static const char *eval_command(
 			}
 			break;
 		}
+		CARD *other_db = NULL;
+		if(*word == '@') {
+			FORM *form;
+			DBASE *dbase;
+			const char *db_name, *msg;
+			char c;
+			word++;
+			if((msg = parse_db_name(card, word, db_name)))
+				return msg;
+			c = *word;
+			*word = 0;
+			if(!*db_name || !((form = read_form(db_name))))
+				return "Can't find database";
+			if(!(dbase = read_dbase(form, form->dbase ? form->dbase : db_name)))
+				dbase = dbase_create();
+			other_db = create_card_menu(form, dbase, 0, true);
+			other_db->prev_form = zstrdup(card->form->name);
+			other_db->last_query = -1;
+			*word = c;
+		}
+		CARD *ncard = other_db ? other_db : card;
+		/* sorting this db requires a new card to avoid resorting old */
+		if (!other_db && (*word == '+' || *word == '-')) {
+			other_db = create_card_menu(card->form, card->dbase, 0, true);
+			other_db->prev_form = zstrdup(card->prev_form);
+			other_db->last_query = -1;
+			ncard = other_db;
+		}
+		/* sorting is recursive to invert sort order */
+		/* I'd prefer to delay until after query, since it's pointless
+		 * to sort if the query returns nothing, but that's OK for now */
+		if(const char *msg = sort_foreach_db(word, ncard, card, !!other_db)) {
+			free_other_db(other_db);
+			return msg;
+		}
 		if (*word) {
-			query_any(SM_SEARCH, card, word);
-			nq = card->nquery;
-			qu = card->query;
-		} else {
+			query_any(SM_SEARCH, ncard, word);
+			nq = ncard->nquery;
+			qu = ncard->query;
+		} else if (!other_db || other_db->form == card->form) {
 			nq = default_nquery;
 			qu = default_query;
+		} else {
+			const FORM *form = ncard->form;
+			/* do_query, but without saving in history */
+			/* also, don't bother setting row */
+			if(form->autoquery < 0)
+				query_all(ncard);
+			else {
+				const char *q = form->query[form->autoquery].query;
+				if(*q == '/')
+					query_search(SM_SEARCH, ncard, q + 1);
+				else
+					query_eval(SM_SEARCH, ncard, q);
+			}
 		}
-		if (card->nquery) {
+		if (ncard->nquery) {
 			sp = &forstack[++forlevel];
 			sp->offset = ftell(ifp);
 			sp->nest = n_true_if;
@@ -668,11 +727,25 @@ static const char *eval_command(
 			sp->nquery = nq;
 			sp->query  = alloc(0, "query", int, nq);
 			tmemcpy(int, sp->query, qu, nq);
-			card->row = sp->query[sp->num];
-		} else
+			ncard->row = sp->query[sp->num];
+			if(other_db) {
+				sp->card = card;
+				if (card->form != other_db->form) {
+					sp->default_nquery = default_nquery;
+					sp->default_query = default_query;
+					default_nquery = nq;
+					default_query = sp->query;
+				} else
+					sp->default_nquery = -1;
+				card = other_db;
+			} else
+				sp->card = NULL;
+		} else {
+			free_other_db(other_db);
 			forskip++;
+		}
 		break;
-
+	  }
 	  case O_END:
 		if (forskip) {
 			forskip--;
@@ -711,6 +784,14 @@ static const char *eval_command(
 			fseek(ifp, sp->offset, SEEK_SET);
 		} else {
 			free(sp->query);
+			if (sp->card) {
+				free_other_db(card);
+				card = sp->card;
+				if(sp->default_nquery >= 0) {
+					default_query = sp->default_query;
+					default_nquery = sp->default_nquery;
+				}
+			}
 			forlevel--;
 		}
 		break;
@@ -764,6 +845,115 @@ static const char *eval_command(
 	return(0);
 }
 
+static const char *sort_foreach_db(char *&word, CARD *card, CARD *ocard, bool first)
+{
+	while(ISSPACE(*word))
+		word++;
+	if(*word != '+' && *word != '-') {
+		if(first) {
+			const FORM *form = card->form;
+			for (int i=0; i < form->nitems; i++)
+				if (form->items[i]->defsort) {
+					dbase_sort(card, form->items[i]->column, 0);
+					break;
+				}
+		}
+		return NULL;
+	}
+	bool rev = *word++ == '-';
+	const char *field, *msg;
+	if((msg = parse_db_name(ocard, word, field)))
+		return msg;
+	char c = *word;
+	int fn;
+	*word = 0;
+	if(field && *field == '_')
+		field++;
+	if(!field || !*field)
+		return "Invalid field name";
+	if(isdigit(*field))
+		fn = atoi(field);
+	else {
+		const FORM *form = card->form;
+		const FIELDS *s = form->fields;
+		auto it = s->find((char *)field);
+		if(it != s->end()) {
+			int i = it->second % form->nitems;
+			int m = it->second / form->nitems;
+			fn = form->items[i]->multicol ?
+				form->items[i]->menu[m].column :
+				form->items[i]->column;
+		} else
+			return "Invalid field name";
+	}
+	*word = c;
+	sort_foreach_db(word, card, ocard, false);
+	dbase_sort(card, fn, rev, !first && card->sorted);
+	return NULL;
+}
+
+/* 3 formats are supported for db names and sort fields:
+ *   "-enclosed string with \-escaped next char
+ *   {}-enclosed expression
+ *   plain text, terminated by next space or +, -
+ */
+
+static const char *parse_db_name(CARD *card, char *&word, const char *&db_name)
+{
+	while(ISSPACE(*word))
+		word++;
+	db_name = word;
+	if(*word == '"' || *word == '\'') {
+		char q = *word, *d = word;
+		while(*++word && *word != q) {
+			if(*word == '\\' && word[1])
+				word++;
+			*d++ = *word;
+		}
+		if(!*word)
+			return "Unterminated name";
+		*d = 0;
+		word++;
+	} else if(*word == '{') {
+		int bnest = 0;
+		char c;
+		while(*++word && (bnest || *word != '}')) {
+			if(*word == '"') {
+				while(*++word && *word != '"')
+					if(*word == '\\' && word[1])
+						word++;
+				if(!*word)
+					return "Unterminated name";
+			} else if(*word == '{')
+					bnest++;
+			else if(*word == '}')
+				bnest--;
+		}
+		if(!*word)
+			return "Unterminated name";
+		c = *++word;
+		*word = 0;
+		db_name = evaluate(card, db_name);
+		if(!db_name)
+			return "Error in name expression";
+		*word = c;
+	} else {
+		while(*word && (*word != '+' && *word != '-' && !ISSPACE(*word)))
+			word++;
+	}
+	return NULL;
+}
+
+static void free_other_db(CARD *card)
+{
+	if(card) {
+		FORM *form = card->form;
+		DBASE *dbase = card->dbase;
+		free_card(card);
+		form_delete(form);
+		dbase_delete(dbase);
+	}
+}
 
 /*
  * Set up substitutions by parsing the "x=y x=y ..." substitution string into

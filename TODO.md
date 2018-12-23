@@ -30,8 +30,6 @@ Features in Progress
   is checked for all, with Save button as default like current
   save/cancel dialogs.
 
-- FOREACH other database (FOREACH @db [sort-fields] [search])
-
 - Support multiple views; i.e. multiple main windows.  So far, it's
   possible to have multiple card structures, each of which supports its
   own sort order and query.  For now, don't worry too much about the
@@ -39,7 +37,7 @@ Features in Progress
   should probably at least force a refresh in all other windows.
 
 - My original plan was to get fkey support into this release, but my
-  recent annoyance with Qt combined with the gog winter sale and thae
+  recent annoyance with Qt combined with the gog winter sale and the
   fact that I seem to be introducing more bugs than features have
   really lowered my motivation to do so.  The above-listed items will
   be enough, and I may even drop multi-window support for now.

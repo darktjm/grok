@@ -39,7 +39,7 @@ static int expr_matches_card(CARD *, const char *);
 static const char *strlower(const char *string)
 {
 	static char	*search = 0;	/* lower-case search string */
-	size_t		search_len;
+	static size_t	search_len;
 	const char	*p;
 	char		*q;		/* copy and comparison pointers */
 	grow(0, "search string", char, search, strlen(string) + 1, &search_len);

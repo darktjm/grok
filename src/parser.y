@@ -1,4 +1,4 @@
-/* I want parser-related stuff to go into parser .h */
+/* I want parser-related stuff to go into parser-generated header */
 /* This requires use of bison-specific %code directives */
 %code top {
 #include "config.h"
@@ -22,7 +22,7 @@
 /* This makes yyparse more reentrant */
 %code requires {
 typedef struct {
-	char	*ret;		/* returned string (see parser.y) */
+	char	*ret;		/* returned string */
 	CARD	*card;		/* database for which to evaluate */
 	char	*switch_name;	/* if switch statement was found, */
 	char	*switch_expr;	/* .. name to switch to and expr */
@@ -347,6 +347,7 @@ void free_db_sort(
 %destructor { zfree($$); } <sval>
 %destructor { free_args($$); } <aval>
 %destructor { free_db_sort($$); } <Sval>
+%destructor { f_db_end(g, $$); } <cval>
 
 %type	<dval>	number numarg
 %type	<sval>	string
@@ -392,7 +393,7 @@ void free_db_sort(
 %start stmt
 
 %%
-stmt	: string			{ g->ret = $1; }
+stmt	: string			{ zfree(g->ret); g->ret = $1; }
 	;
 
 string	: STRING			{ $$ = $1; }
