@@ -385,8 +385,26 @@ char *f_field(
 {
 	const char *v = dbase_get(g->card->dbase, row, column);
 	char *res;
+	char buf[20];
 	if(BLANK(v))
 		return NULL;
+	/* following used to be handled in read_dbase() */
+	/* but I don't want internal rep different from external */
+	for(int i = g->card->form->nitems - 1; i >= 0; i--) {
+		const ITEM *item = g->card->form->items[i];
+		if(item->type == IT_TIME && item->column == column) {
+			const char *p;
+
+			for (p=v; *p; p++)
+				if (*p=='.' || *p==':' || *p=='/')
+					break;
+			if(*p) {
+				sprintf(buf, "%ld",
+					(long)parse_time_data(v, item->timefmt));
+				v = buf;
+			}
+		}
+	}
 	res = strdup(v);
 	if(!res)
 		parsererror(g, "No memory");
@@ -496,7 +514,16 @@ char *f_assign(
 	int		row,
 	char		*data)
 {
-	dbase_put(g->card->dbase, row, column, data);
+	const char *v = data;
+
+	/* following used to be handled in write_dbase() */
+	/* but I don't want internal rep different from external */
+	for (int i = g->card->form->nitems - 1; i >= 0; i--) {
+		const ITEM *item = g->card->form->items[i];
+		if (item->type == IT_TIME && item->column == column)
+			v = format_time_data(atol(data), item->timefmt);
+	}
+	dbase_put(g->card->dbase, row, column, v);
 	return(data);
 }
 
@@ -1707,7 +1734,8 @@ CARD *f_db_start(
 	}
 	zfree(formname);
 	if(!dbase)
-		dbase = dbase_create();
+		dbase = dbase_create(form);
+	form->dbpath = dbase->path;
 	g->card = create_card_menu(form, dbase, 0, true);
 	g->card->prev_form = zstrdup(ocard->form->name);
 	g->card->last_query = -1;

@@ -947,6 +947,7 @@ void card_readback_texts(
 	char		*data;		/* data string to store */
 	time_t		time;		/* parsed time */
 	char		buf[40];	/* if numeric time, temp string */
+	ITEM		*item;
 
 	if (!card || !card->form || !card->form->items || !card->dbase
 		  ||  card->form->rdonly
@@ -956,10 +957,11 @@ void card_readback_texts(
 	start = which >= 0 ? which : 0;
 	end   = which >= 0 ? which : card->nitems-1;
 	for (nitem=start; nitem <= end; nitem++) {
+		item = card->form->items[nitem];
 		if (!card->items[nitem].w0		||
 		    card->form->items[nitem]->rdonly)
 			continue;
-		switch(card->form->items[nitem]->type) {
+		switch(item->type) {
 		  case IT_INPUT:
 			data = read_text_button(card->items[nitem].w0, 0);
 			(void)store(card, nitem, data);
@@ -972,34 +974,24 @@ void card_readback_texts(
 			break;
 
 		  case IT_TIME:
-			if (card->form->items[nitem]->timewidget) {
+			if (item->timewidget) {
 				time = reinterpret_cast<QDateTimeEdit *>
 					(card->items[nitem].w0)->dateTime().toSecsSinceEpoch();
-				sprintf(buf, "%ld", (long)time);
 			} else {
 				data = read_text_button(card->items[nitem].w0, 0);
 				while (*data == ' ' || *data == '\t' || *data == '\n')
 					data++;
 				if (!*data)
-					*buf = 0;
-				else {
-					switch(card->form->items[nitem]->timefmt) {
-					    case T_DATE:
-						time = parse_datestring(data);
-						break;
-					    case T_TIME:
-						time = parse_timestring(data, false);
-						break;
-					    case T_DATETIME:
-						time = parse_datetimestring(data);
-						break;
-					    case T_DURATION:
-						time = parse_timestring(data, true);
-					}
-					sprintf(buf, "%ld", (long)time);
-				}
+					data = 0;
+				else
+					time = parse_time_data(data,
+							       item->timefmt);
 			}
-			(void)store(card, nitem, buf);
+			/* this used to store time as a number */
+			/* but then converted to timefmt on write_dbase */
+			/* It's safer to keep in-memory form same as on-disk */
+			(void)store(card, nitem, data ?
+				    format_time_data(time, item->timefmt) : 0);
 			if (which >= 0)
 				fillout_item(card, nitem, false);
 			break;
@@ -1071,31 +1063,42 @@ static bool store(
  */
 
 const char *format_time_data(
-	const char	*data,		/* string from database */
+	time_t		time,
 	TIMEFMT		timefmt)	/* new format, one of T_* */
 {
-	static char	buf[40];	/* for date/time conversion */
-	int		value = data ? atoi(data) : 0;
+	const char *data = NULL;
 
-	if (!data)
-		return("");
-	value = atoi(data);
 	switch(timefmt) {
 	  case T_DATE:
-		data = mkdatestring(value);
+		data = mkdatestring(time);
 		break;
 	  case T_TIME:
-		data = mktimestring(value, false);
+		data = mktimestring(time, false);
 		break;
 	  case T_DURATION:
-		data = mktimestring(value, true);
+		data = mktimestring(time, true);
 		break;
 	  case T_DATETIME:
-		sprintf(buf, "%s  %s", mkdatestring(value),
-				       mktimestring(value, false));
-		data = buf;
+		data = mkdatetimestring(time);
 	}
 	return(data);
+}
+
+time_t parse_time_data(
+	const char	*data,
+	TIMEFMT		timefmt)	/* new format, one of T_* */
+{
+	switch(timefmt) {
+	    case T_DATE:
+		return parse_datestring(data);
+	    case T_TIME:
+		return parse_timestring(data, false);
+	    case T_DATETIME:
+		return parse_datetimestring(data);
+	    case T_DURATION:
+		return parse_timestring(data, true);
+	}
+	return 0;
 }
 
 
@@ -1171,16 +1174,21 @@ void fillout_item(
 
 	switch(item->type) {
 	  case IT_TIME:
+		/* this used to parse time as a number */
+		/* but that was converted from timefmt on read_dbase */
+		/* It's safer to keep in-memory form same as on-disk */
 		if (item->timewidget) {
 			if (!deps) {
 				QDateTime dt;
-				dt.setSecsSinceEpoch(atol(STR(data)));
+				dt.setSecsSinceEpoch(parse_time_data(data, item->timefmt));
 				reinterpret_cast<QDateTimeEdit *>(w0)->
 					setDateTime(dt);
 			}
 			break;
 		}
-		data = format_time_data(data, item->timefmt);
+		data = BLANK(data) ? data :
+			format_time_data(parse_time_data(data, item->timefmt),
+					 item->timefmt);
 		FALLTHROUGH
 	  case IT_INPUT:
 		if (!deps) {

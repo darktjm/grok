@@ -374,6 +374,16 @@ Version 2.4 (in progress)
 
 Compatibility Issues:
 
+Prior to 2.4, databases were read from .db and then non-.db, in that
+order.  Now, it skips the non-.db if it finds .db.  Reading from both
+(or the non-.db file at all, for that matter) was never documented
+behavior, prone to invisible issues.  To fix, concatenate the non-.db
+file with the .db file.  If you really need multiple files, use the
+section feature.  The non-.db file should be reserved for procedural
+databases, as that is only the the default for them, so if you have
+databases that don't have the .db extension, you should rename them as
+well.
+
 Prior to 2.4, any templates that use ELSE or ELSEIF will assume these
 are non-template expressions, and will result in syntax errors.
 FOREACH and END must now be in the same conditional segment. Not doing

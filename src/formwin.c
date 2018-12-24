@@ -1289,6 +1289,11 @@ static int readback_item(
 				}
 				return(0);
 		      }
+		      {
+			      QString msg;
+			      if(!check_loaded_forms(msg, form))
+				      return(0);
+		      }
 	  	      destroy_formedit_window();
 		      destroy_canvas_window();
 		      destroy_query_window();

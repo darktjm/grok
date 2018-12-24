@@ -22,9 +22,6 @@ static const char * const itemname[NITEMS] = {
 	"Button", "Chart", "Number", "Menu", "Radio", "Multi", "Flags" };
 
 
-static bool create_form_db(const char *path, bool proc);
-
-
 /*
  * Write the form and all the items in it. Also create the database named
  * in the form if it doesn't exist.  Also link into main list, replacing
@@ -59,6 +56,7 @@ bool write_form(
 			return(false);
 		}
 	}
+	/* FIXME: check_loaded_Forms(form, dbase); for each dbase using form */
 	if (!(fp = fopen(path, "w"))) {
 		create_error_popup(mainwindow, errno,
 			"Failed to create form file %s", path);
@@ -210,8 +208,6 @@ bool write_form(
 	fclose(fp); /* FIXME: report errors */
 	form->next = form_list;
 	form_list = form;
-	/* FIXME: this isn't an exact match for how it's done in mainwin.c */
-	const char *ndb = form_list->dbase ? form_list->dbase : form_list->name;
 	DBASE *new_db = NULL;
 	for (form = form_list->next; form; form = form->next)
 		if(!strcmp(form->path, path))
@@ -234,7 +230,7 @@ bool write_form(
 				if(new_db != card->dbase) {
 					/* FIXME: this isn't an exact match for how it's done in mainwin.c */
 					const char *odb = form->dbase ? form->dbase : form->name;
-					if(!new_db && !strcmp(STR(odb), STR(ndb))) {
+					if(!new_db && !strcmp(STR(odb), form_list->dbase)) {
 						new_db = card->dbase;
 						/* ensure all prior ones were set */
 						/* this should actually just be a waste of time */
@@ -260,65 +256,29 @@ bool write_form(
 		form_delete(form);
 	}
 	remake_dbase_pulldown();
-
-	bool created_db = create_form_db(path, form->proc);
-	if(!new_db) {
-		/* FIXME: code below to create db hasn't been run yet */
-		new_db = read_dbase(form_list, ndb);
-		if (!new_db)
-			new_db = dbase_create();
-		for(CARD *card = card_list; card; card = card->next)
-			if(card->form == form_list)
-				card->dbase = new_db;
-	}
-	return created_db;
-}
-
-static bool create_form_db(const char *path, bool proc)
-{
-	FILE		*fp;		/* open file */
-	int		i;		/* item counter */
-	/* This used to only support relative .db files in GROKDIR */
-	/* The loading routines only check the same dir as the .gf, though */
-	char *dbpath = mystrdup(path);
-
-	i = strlen(dbpath);
-	if(i < 3 || strcmp(dbpath + i - 3, ".gf")) {
-		free(dbpath);
-		return(true); /* invalid, really, but leave it alone */
-	}
-	/* The loader checks .db first, but it doesn't matter what order */
-	/* it's checked here, other than creation wanting the .db extencsion */
-	dbpath[i] = 0;
-	/* On the other hand, having a non-readable non-db file is useless */
-	if (access(dbpath, proc ? X_OK : R_OK))
-		strcpy(dbpath + i, ".db");
+	path = db_path(form);
 	/* auto-creation of procedurals won't work */
 	/* best to just force user to edit */
 	/* if they want to do it later, they can set it to /bintrue */
-	if (!proc && access(dbpath, F_OK) && errno == ENOENT) {
-		if (!(fp = fopen(dbpath, "w"))) {
+	if (!form->proc && access(path, F_OK) && errno == ENOENT) {
+		if (!(fp = fopen(path, "w"))) {
 			create_error_popup(mainwindow, errno,
 "The form was created successfully, but the\n"
 "database file %s cannot be created.\n"
 "No cards can be entered into the new Form.\n\nProblem: ", path);
-			free(dbpath);
 			return(false);
 		}
 		fclose(fp);
 	}
-	if (access(dbpath, proc ? X_OK : R_OK)) {
+	if (access(path, form->proc ? X_OK : R_OK)) {
 		create_error_popup(mainwindow, errno,
 "The form was created successfully, but the\n"
 "database file %s exists but is not readable.\n"
 "No cards can be entered into the new Form.\n\nProblem: ", path);
-		free(dbpath);
 		return(false);
 	}
-	free(dbpath);
 	return(true);
 }
-
 
 /*
  * Read the form and all the items in it from a file.

@@ -21,16 +21,18 @@
  * displayed in the card menu. This makes deleting cards a bit difficult.
  */
 
+typedef struct form FORM;
+typedef struct dbase DBASE;
 struct carditem {
    QWidget   *w0;		/* primary input widget, 0 if invisible_if */
    QWidget   *w1;		/* secondary widget (card form, label etc) */
 };
-typedef struct card {
-	mutable			/* dbase_write() modifies nothing but this */
-	struct card *next;	/* link for all reusable cards */
-	struct form *form;	/* form struct that controls this card */
+typedef struct card CARD;
+struct card {
+	CARD	     *next;	/* link for all reusable cards */
+	FORM	    *form;	/* form struct that controls this card */
 	char	    *prev_form;	/* previous form name */
-	struct dbase*dbase;	/* database that callbacks use to store data */
+	DBASE	    *dbase;	/* database that callbacks use to store data */
 				/****** summary window ***********************/
 	int	    nquery;	/* # of valid row indices in query[] */
 	int	    qcurr;	/* index into query[] for displayed card */
@@ -50,7 +52,7 @@ typedef struct card {
 	int	    nitems;	/* # of items, also size of following array */
 	int	    last_query;	/* last query pd index, for ReQuery */
 	struct carditem items[1];
-} CARD;
+};
 
 extern CARD *card_list;
 
@@ -86,24 +88,25 @@ typedef struct evar {
 	bool	numeric;
 } EVAR;
 
-typedef struct dbase {
-	struct dbase *next;	/* link for all loaded databases */
-	char	*path;		/* File/dir; also unique key in dbase_list */
-	bool	rdonly;		/* no write permission for any section */
-	bool	modified;	/* true if any section was modified */
-	int	maxcolumns;	/* # of columns in widest row */
-	int	nrows;		/* # of valid rows in database */
-	size_t	size;		/* # of rows allocated */
-	short	nsects;		/* # of files loaded */
+struct dbase {
+	DBASE	    *next;	/* link for all loaded databases */
+	char	    *path;	/* File/dir; also unique key in dbase_list */
+	const FORM  *form;	/* form this was loaded with */
+	bool	    rdonly;	/* no write permission for any section */
+	bool	    modified;	/* true if any section was modified */
+	int	    maxcolumns;	/* # of columns in widest row */
+	int	    nrows;	/* # of valid rows in database */
+	size_t	    size;	/* # of rows allocated */
+	short	    nsects;	/* # of files loaded */
 	/* FIXME: move currsect to card */
 	/* it's basically a per-window GUI thing */
-	short	currsect;	/* current section, -1=all, 0..nsects-1=one */
-	SECTION	*sect;		/* describes all section files 0..nsects-1 */
-	bool	havesects;	/* db is a directory, >1 sections possible */
-	ROW	**row;		/* array of <nrows> rows */
-	int	ctimex_next;	/* just in case two cards have same ctime */
-	EVAR	var[26];	/* dbase-local expression variables */
-} DBASE;
+	short	    currsect;	/* current section, -1=all, 0..nsects-1=one */
+	SECTION	    *sect;	/* describes all section files 0..nsects-1 */
+	bool	    havesects;	/* db is a directory, >1 sections possible */
+	ROW	    **row;	/* array of <nrows> rows */
+	int	    ctimex_next;/* just in case two cards have same ctime */
+	EVAR	    var[26];	/* dbase-local expression variables */
+};
 
 extern DBASE *dbase_list;
 
@@ -321,11 +324,12 @@ typedef struct dquery {
 	char	*query;		/* query expression for evaluate() */
 } DQUERY;
 	
-typedef struct form {
-	struct form *next;	/* link for all loaded forms */
+struct form {
+	FORM	*next;	/* link for all loaded forms */
 	char	*path;		/* complete path name form was read from */
 	char	*name;		/* filename of form */
 	char	*dbase;		/* referenced database filename */
+	char	*dbpath;	/* databae path if known/loaded */
 	char	*comment;	/* user-defined comment */
 	char	*help;		/* help text */
 	unsigned char cdelim;	/* column delimiter in database file */
@@ -344,7 +348,7 @@ typedef struct form {
 	DQUERY	*query;		/* default queries for query pulldown */
 	char	*planquery;	/* default query for -p option */
 	FIELDS	*fields;	/* map fields to item#/menu# */
-} FORM;
+};
 
 extern FORM *form_list;
 #endif

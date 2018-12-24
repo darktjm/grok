@@ -33,7 +33,10 @@ void card_readback_texts(
 	CARD		*card,		/* card that is displayed in window */
 	int		which);		/* all -f < 0, one item only if >= 0 */
 const char *format_time_data(
-	const char	*data,		/* string from database */
+	time_t		time,
+	TIMEFMT		timefmt);	/* new format, one of T_* */
+time_t parse_time_data(
+	const char	*data,
 	TIMEFMT		timefmt);	/* new format, one of T_* */
 void fillout_card(
 	CARD		*card,		/* card to draw into menu */
@@ -66,22 +69,29 @@ void draw_chart(
 
 const char *mkdatestring(
 	time_t		time);		/* date in seconds */
-char *mktimestring(
+const char *mktimestring(
 	time_t		time,		/* date in seconds */
 	bool		dur);		/* duration, not time-of-day */
+const char *mkdatetimestring(
+	time_t		time);		/* date in seconds */
 time_t parse_datestring(
-	char		*text);		/* input string */
+	const char	*text);		/* input string */
 time_t parse_timestring(
-	char		*text,		/* input string */
+	const char	*text,		/* input string */
 	bool		dur);		/* duration, not time-of-day */
 time_t parse_datetimestring(
-	char		*text);		/* input string */
+	const char	*text);		/* input string */
 
 /*---------------------------------------- dbase.c ------------*/
 
-DBASE *dbase_create(void);
+DBASE *dbase_create(
+	const FORM	*form);		/* how to read/write dbase */
+bool check_dbase_form(
+	const FORM	*form);
 void dbase_delete(
 	DBASE		*dbase);	/* dbase to maybe delete */
+void dbase_clear(
+	DBASE		*dbase);	/* dbase to clear data from */
 bool dbase_addrow(
 	int		*rowp,		/* ptr to returned row number */
 	DBASE		*dbase);	/* database to add row to */
@@ -105,13 +115,14 @@ void dbase_sort(
 
 /*---------------------------------------- dbfile.c ------------*/
 
+const char *db_path(
+	const FORM	*form);
 bool write_dbase(
 	DBASE		*dbase,		/* form and items to write */
-	const FORM	*form,		/* contains column delimiter */
 	bool		force);		/* write even if not modified*/
 DBASE *read_dbase(
-	const FORM	*form,		/* contains column delimiter */
-	const char	*path);		/* file to read list from */
+	const FORM	*form,		/* col delim, proc info, etc. */
+	bool		force = false);	/* revert if already loaded */
 
 /*---------------------------------------- editwin.c ------------*/
 
@@ -248,6 +259,9 @@ bool verify_form(
 	FORM		*form,		/* form to verify */
 	int		*bug,		/* retuirned buggy item # */
 	QWidget		*shell);	/* error popup parent */
+bool check_loaded_forms(
+	QString		&msg,
+	const FORM	*form);
 void form_edit_script(
 	FORM		*form,		/* form to edit */
 	QWidget		*shell,		/* error popup parent */
@@ -335,13 +349,10 @@ void create_error_popup(
 	QWidget		*widget,
 	int		error,
 	const char	*fmt, ...);
-bool create_save_popup(
+bool create_query_popup(
 	QWidget		*widget,	/* window that caused this */
-	DBASE		*dbase,		/* form and items to write */
-	FORM		*form,		/* contains column delimiter */
 	const char	*help,		/* help text tag for popup */
 	const char	*fmt, ...);	/* message */
-#define create_query_popup(w,...) create_save_popup(w, NULL, NULL, __VA_ARGS__)
 void create_dbase_info_popup(
 	CARD		*card);
 

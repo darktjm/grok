@@ -55,7 +55,7 @@ const char *mkdatestring(
  * return some sensible string representation of a time (no date)
  */
 
-char *mktimestring(
+const char *mktimestring(
 	time_t			time,		/* date in seconds */
 	bool			dur)		/* duration, not time-of-day */
 {
@@ -78,6 +78,14 @@ char *mktimestring(
 }
 
 
+const char *mkdatetimestring(time_t time)
+{
+	static char buf[40]; /* max is 15, actually */
+
+	sprintf(buf, "%s %s", mkdatestring(time), mktimestring(time, 0));
+	return buf;
+}
+
 /*
  * parse the date string, and return the number of seconds. The default
  * time argument is for the +x notation, it's typically the trigger date
@@ -87,14 +95,14 @@ char *mktimestring(
  */
 
 time_t parse_datestring(
-	char		*text)		/* input string */
+	const char	*text)		/* input string */
 {
 	time_t		today;		/* current date in seconds */
 	struct tm	*tm;		/* today's date */
 	long		num[3];		/* m,d,y or d,m,y */
 	int		nnum;		/* how many numbers in text */
 	long		i;		/* tmp counter */
-	char		*p;		/* text scan pointer */
+	const char	*p;		/* text scan pointer */
 	char		buf[10];	/* lowercase weekday name */
 	bool		mmddyy = pref.mmddyy;
 
@@ -104,26 +112,23 @@ time_t parse_datestring(
 	tm->tm_hour = 12;
 	while (*text == ' ' || *text == '\t')		/* skip blanks */
 		text++;
-	for (p=text; *p; p++)				/* -> lowercase */
-		if (*p >= 'A' && *p <= 'Z')
-			*p += 'a' - 'A';
 							/* today, tomorrow? */
-	if (!strncmp(text, "tod", 3) ||
-	    !strncmp(text, "heu", 3) ||
-	    !strncmp(text, "auj", 3) || !*text)
+	if (!strncasecmp(text, "tod", 3) ||
+	    !strncasecmp(text, "heu", 3) ||
+	    !strncasecmp(text, "auj", 3) || !*text)
 		return(today);
 
-	if (!strncmp(text, "tom", 3) ||
-	    !strncmp(text, "mor", 3) ||
-	    !strncmp(text, "dem", 3))
+	if (!strncasecmp(text, "tom", 3) ||
+	    !strncasecmp(text, "mor", 3) ||
+	    !strncasecmp(text, "dem", 3))
 		return(today + 86400);
 
-	if (!strncmp(text, "yes", 3) ||
-	    !strncmp(text, "ges", 3) ||
-	    !strncmp(text, "hie", 3))
+	if (!strncasecmp(text, "yes", 3) ||
+	    !strncasecmp(text, "ges", 3) ||
+	    !strncasecmp(text, "hie", 3))
 		return(today - 86400);
 
-	if (!strncmp(text, "ueb", 3))
+	if (!strncasecmp(text, "ueb", 3))
 		return(today + 2*86400);
 							/* weekday name? */
 	for (i=0; i < 7; i++) {
@@ -197,7 +202,7 @@ time_t parse_datestring(
  */
 
 time_t parse_timestring(
-	char			*text,		/* input string */
+	const char		*text,		/* input string */
 	bool			dur)		/* duration, not time-of-day */
 {
 	time_t			today;		/* current date in seconds */
@@ -205,7 +210,7 @@ time_t parse_timestring(
 	long			num[3];		/* h,m,s */
 	int			nnum;		/* how many numbers in text */
 	int			ndigits;	/* digit counter */
-	char			*p = text;	/* text pointer */
+	const char		*p = text;	/* text pointer */
 	int			i;		/* text index, backwards*/
 	char			ampm = 0;	/* 0, 'a', or 'p' */
 	int			h, m, s;	/* hours, minutes, seconds */
@@ -260,7 +265,7 @@ time_t parse_timestring(
  */
 
 time_t parse_datetimestring(
-	char			*text)		/* input string */
+	const char		*text)		/* input string */
 {
 	struct tm	tm1, tm2;	/* for adding date and time */
 	time_t		t;		/* parsed time */

@@ -46,6 +46,7 @@ static void pos_callback	(int);
 static void new_callback  (void);
 static void dup_callback  (void);
 static void del_callback  (void);
+static bool multi_save_revert(bool);
 
 /*
  * The following is part one in a fix for a bug that had been plaguing
@@ -149,6 +150,10 @@ void create_mainwindow()
 	submenu->addAction("Create, use current as &template...", [=](){newform_pulldown(2);});
 	menu->addAction("&Save", [=](){file_pulldown(6);},
 			Qt::CTRL|Qt::Key_S);
+	menu->addAction("Save &All", [=](){file_pulldown(8);},
+			Qt::CTRL|Qt::SHIFT|Qt::Key_S);
+	menu->addAction("Re&vert/Save...", [=](){file_pulldown(9);},
+			Qt::CTRL|Qt::SHIFT|Qt::Key_R);
 	menu->addAction("&Quit", [=](){file_pulldown(7);},
 			Qt::CTRL|Qt::Key_Q);
 	
@@ -810,14 +815,14 @@ void switch_form(
 		FORM  *form;
 		DBASE *dbase = NULL;
 		if ((form = read_form(formname)))
-			dbase = read_dbase(form, form->dbase ? form->dbase
-							     : formname);
+			dbase = read_dbase(form, form->dbase);
 		/* old code always created form & dbase, even if invalid */
 		/* so for now, this code does, too */
 		if (!form)
 			form = form_create();
 		if (!dbase)
-			dbase = dbase_create();
+			dbase = dbase_create(form);
+		form->dbpath = dbase->path;
 
 		card = create_card_menu(form, dbase, w_card, !mainwindow);
 		if(!card)
@@ -880,8 +885,6 @@ void switch_form(
 		remake_query_pulldown();
 		remake_sort_pulldown();
 		remake_section_pulldown();	/* also sets w_sect, w_del */
-		if (card && card->dbase)
-			card->dbase->modified = false;
 		print_info_line();
 		resize_mainwindow();
 		mainwindow->setUpdatesEnabled(true);
@@ -959,28 +962,37 @@ static void file_pulldown(
 	  /* 5 was About; moved to Help menu */
 
 	  case 6:						/* save */
-		if (card && card->form && card->dbase)
+		if (card && card->form && card->dbase) {
 			if (card->form->rdonly)
 				create_error_popup(mainwindow, 0,
 				   "Database is marked read-only in the form");
-			else
-				(void)write_dbase(card->dbase,
-						  card->form, true);
-		else
+			else {
+				(void)write_dbase(card->dbase, true);
+				/* formerly in write_dbase() */
+				print_info_line();
+			}
+		} else
 			create_error_popup(mainwindow,0,"No database to save");
 		print_info_line();
 		break;
 
 	  case 7:						/* quit*/
-		if (!card ||  !card->dbase
-			       ||  card->dbase->rdonly
-			       ||  !card->dbase->modified
-			       ||  card->form->rdonly ||
-		    create_save_popup(mainwindow, card->dbase, card->form,
-				"quit", "OK to discard changes and quit?"))
+		if (multi_save_revert(true))
 			exit(0);
+		break;
 
 	  /* 8 was Rambo Quit; removed */
+	 case 8:						/* save all */
+		for (DBASE *db = dbase_list; db; db = db->next)
+			if (db->modified)
+				write_dbase(db, true);
+		/* formerly in write_dbase() */
+		print_info_line();
+		break;
+
+	 case 9:						/* Revert */
+		multi_save_revert(false);
+		break;
 	}
 }
 
@@ -1344,7 +1356,8 @@ static void add_card(
 	for (i=0; i < card->form->nitems; i++, item++) {
 		item = card->form->items[i];
 		if (item->type == IT_INPUT || item->type == IT_TIME
-					   || item->type == IT_NOTE) {
+					   || item->type == IT_NOTE
+					   || item->type == IT_NUMBER) {
 			card->items[i].w0->setFocus();
 			break;
 		}
@@ -1446,4 +1459,154 @@ static void sect_callback(
 		print_info_line();
 	}
 	remake_section_popup(false);
+}
+
+bool multi_save_revert(
+	bool		is_quit)
+{
+	DBASE *dbase;
+	QDialog *dlg;
+	QGridLayout *form;
+	QString dlg_label;
+	QLabel *top_line;
+	DBASE *cur_dbase = is_quit || !mainwindow->card ? 0 : mainwindow->card->dbase;
+	QCheckBox **checkboxes = 0;
+	size_t nrows = 0, checkboxes_size;
+	QLabel *label;
+	/* I used to pass in a flag, but why bother? */
+	if(!dbase_list) /* does nothing if no loaded databases */
+		return true;
+	for(dbase = dbase_list; dbase; dbase = dbase->next)
+		if(dbase->modified)
+			break;
+	if(!dbase && is_quit) /* does nothing if quit & nothing to save */
+		return true;
+	/* FIXME: for multi-window, also skip databases displayed in window */
+	/*        for fkey, also skip referenced tables */
+	if(!dbase && dbase_list == cur_dbase && !dbase_list->next) {
+		/* does almost nothing if nothing to save/revert or purge */
+		create_error_popup(mainwindow, 0, "Nothing to revert or purge.");
+		return true;
+	}
+	/* FIXME: auto-save-all before allowing fatal exit from this point on */
+	dlg = new QDialog(mainwindow);
+	dlg->setWindowTitle(is_quit ? "Revert/Save Databases" :
+				      "Revert/Save/Purge Databases");
+	dlg->setObjectName("multisave");
+	set_icon(dlg, 1);
+	bind_help(dlg, is_quit ? "quit" : "revert");
+	form = new QGridLayout(dlg);
+	dlg_label = dbase ?
+		"One or more databses are modified.  If you revert "
+		"them, all changes will be lost."
+	      : "One or more databases are in memory, but not "
+		"displayed.  Do you want to purge them from memory?";
+	if(is_quit)
+		dlg_label += "\nYou must explicitly Revert or Save all of "
+			     "them before quitting the application.";
+	top_line = new QLabel(dlg_label);
+	form->addWidget(top_line, 0, 0, 1, 4);
+	form->addItem(new QSpacerItem(0, 20), 1, 0, 1, 4);
+	if(dbase) {
+		form->addWidget(new QLabel("Save"), 2, 0);
+		form->addWidget(new QLabel("Revert"), 2, 1);
+	}
+	if(!is_quit)
+		form->addWidget(new QLabel("Purge"), 2, 2);
+	form->setColumnStretch(3, 1);
+	for(int m = 0; m < 2; m++) {
+		for(dbase = dbase_list; dbase; dbase = dbase->next) {
+			if(dbase->modified != !m)
+				continue;
+			if(dbase == cur_dbase && !dbase->modified)
+				continue;
+			zgrow(0, "save dialog", QCheckBox *, checkboxes,
+			      nrows * 4, nrows * 4 + 4, &checkboxes_size);
+			if(!m) {
+				QCheckBox *s = new QCheckBox, *r = new QCheckBox;
+				checkboxes[nrows * 4] = s;
+				s->setChecked(dbase != cur_dbase);
+				set_button_cb(s, if(c) r->setChecked(false),
+					      bool c);
+				form->addWidget(s, 3 + nrows, 0);
+				checkboxes[nrows * 4 + 1] = r;
+				r->setChecked(dbase == cur_dbase);
+				set_button_cb(r, if(c) s->setChecked(false),
+					      bool c);
+				form->addWidget(r, 3 + nrows, 1);
+			}
+			if(!is_quit) {
+				checkboxes[nrows * 4 + 2] = new QCheckBox;
+				form->addWidget(checkboxes[nrows * 4 + 2], 3 + nrows, 2);
+			}
+			label = new QLabel(dbase->form->name);
+			label->setToolTip(QString::asprintf(
+				"Form: %s\nDatabase: %s%s",
+				dbase->form->path, dbase->path,
+				dbase->form->proc ? " (procedural)" : ""));
+			form->addWidget(label, 3 + nrows, 3);
+			checkboxes[nrows * 4 + 3] = reinterpret_cast<QCheckBox *>(dbase);
+			nrows++;
+		}
+	}
+	form->addWidget(mk_separator(), 4 + nrows, 0, 1, 4);
+	QDialogButtonBox *bb = new QDialogButtonBox;
+	QAbstractButton *b;
+	b = mk_button(bb, 0, dbbb(Help));
+	set_button_cb(b, help_callback(dlg, is_quit ? "quit" : "revert"));
+	b = mk_button(bb, 0, dbbb(Cancel));
+	set_button_cb(b, dlg->reject());
+	b = mk_button(bb, 0, dbbb(Ok));
+	set_button_cb(b, dlg->accept());
+	form->addWidget(bb, 5 + nrows, 0, 1, 4);
+	bool ret;
+	while(1) {
+		size_t i;
+		ret = dlg->exec();
+		if(!ret)
+			break;
+		for(i = 0; i < nrows; i++)
+			if(checkboxes[i * 4] &&
+			   !checkboxes[i * 4]->isChecked() &&
+			   !checkboxes[i * 4 + 1]->isChecked() &&
+			   (is_quit || checkboxes[i * 4 + 2]->isChecked())) {
+				if(!is_quit)
+					top_line->setText(dlg_label +
+							  QString("  You cannot purge a database without first saving or reverting it."));
+				break;
+			}
+		if(i < nrows)
+			continue;
+		for(i = 0; i < nrows; i++) {
+			dbase = reinterpret_cast<DBASE *>(checkboxes[i * 4 + 3]);
+			if(checkboxes[i * 4]) {
+				if(checkboxes[i * 4]->isChecked()) {
+					write_dbase(dbase, true);
+					if(dbase == cur_dbase)
+						/* formerly in write_dbase() */
+						print_info_line();
+				} else if(!is_quit && checkboxes[i * 4 + 1]->isChecked()) {
+					read_dbase(dbase->form, true);
+					if(dbase == cur_dbase) {
+						create_summary_menu(mainwindow->card);
+						fillout_card(mainwindow->card, false);
+						print_info_line();
+					}
+				}
+			}
+			if(!is_quit && checkboxes[i * 4 + 2]->isChecked()) {
+				for(DBASE **prev = &dbase_list; *prev; prev = &(*prev)->next)
+					if(*prev == dbase) {
+						*prev = dbase->next;
+						break;
+					}
+				dbase_clear(dbase);
+				free(dbase);
+			}
+		}
+		break;
+	}
+	free(checkboxes);
+	delete dlg;
+	return ret;
 }

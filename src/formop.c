@@ -120,17 +120,16 @@ void form_delete(
 {
 	DQUERY		*dq;		/* default query entry */
 	int		i;
-	CARD		*card;
+	DBASE		*dbase;
 
 	if (!form)
 		return;
-	/* on the one hand, forms are small enough to never delete */
-	/* on the other hand, they are read quickly enough to always delete */
-	for (card = card_list; card; card = card->next)
-		if (card->form == form)
+	for (dbase = dbase_list; dbase; dbase = dbase->next)
+		if (dbase->form == form)
 			break;
-	if (card)
+	if (dbase)
 		return;
+	/* a card can't have a form without a dbase, so no point in checking */
 	for (i=form->nitems - 1; i >= 0; --i)
 		item_delete(form, i);
 
@@ -138,6 +137,7 @@ void form_delete(
 	zfree(form->path);
 	zfree(form->name);
 	zfree(form->dbase);
+	zfree(form->dbpath);
 	zfree(form->comment);
 	zfree(form->help);
 	zfree(form->planquery);
@@ -235,6 +235,7 @@ bool verify_form(
 	QString		msg;		/* error messages */
 	int		i0;		/* next free char in msg */
 	int		sumwidth = 0;	/* total length of summary */
+	bool		ret;
 
 	if (bug)
 		*bug = form->nitems;
@@ -547,27 +548,65 @@ bool verify_form(
 	zfree(scol);
 	if (form->nitems && sumwidth == 0)
 		msg += "Summary is empty:  all summary widths are 0\n";
-	if (msg.size()) {
+	ret = !msg.size();
+	for (nitem=0; nitem < form->nitems; nitem++) {
+		item = form->items[nitem];
+		if (item->type == IT_NOTE && item->maxlen <= 100)
+			msg += qsprintf(
+	"Warning: note field \"%s\" (#%d) has short max length %d",
+				STR(item->name), nitem,
+				item->maxlen);
+	}
+	check_loaded_forms(msg, form);
+	if(msg.size()) {
 		char *s = qstrdup(msg);
 		create_error_popup(shell, 0, s);
 		free(s);
-		return false;
-	} else {
-		for (nitem=0; nitem < form->nitems; nitem++) {
-			item = form->items[nitem];
-			if (item->type == IT_NOTE && item->maxlen <= 100)
-				msg += qsprintf(
-		"Warning: note field \"%s\" (#%d) has short max length %d",
-					STR(item->name), nitem,
-					item->maxlen);
-		}
-		if (msg.size()) {
-			char *s = qstrdup(msg);
-			create_error_popup(shell, 0, s);
-			free(s);
-		}
-		return true;
 	}
+	return ret;
+}
+
+
+bool check_loaded_forms(QString &msg, const FORM *form)
+{
+	const char *db_path = 0/* construct dbase path */;
+	const char *form_path = 0/* construct form path */;
+
+	for(DBASE *dbase = dbase_list; dbase; dbase = dbase->next) {
+		if(!strcmp(dbase->path, db_path)) {
+			if(dbase->form->cdelim != form->cdelim) {
+				msg += "Warning: this form's databse is "
+				       "already loaded using a different "
+				       "column delimiter.  You will be "
+				       "required to unload the database "
+				       "before saving this form.";
+			}
+			if(dbase->form->syncable != form->syncable) {
+				msg += "Warning: this form's database is "
+				       "already loaded using a different "
+				       "column delimiter.  You will be "
+				       "required to unload the database "
+				       "before saving this form.";
+			}
+		} else if(!strcmp(dbase->form->path, form_path)) {
+			if(mainwindow->card && dbase == mainwindow->card->dbase)
+				card_readback_texts(mainwindow->card, -1);
+			if(dbase->modified)
+				msg += "Warning: this form's database changed "
+				       "but unsaved changes remain in the old "
+				       "one.\nYou will be required to save or "
+				       "discard those changes before saving "
+				       "this form.";
+			else
+				msg += "Warning: this form's databse changed; "
+				       "all previously loaded databases using "
+				       "this form will be unloaded.";
+		}
+	}
+	/* FIXME: if any new fields are dates, and old field was not
+	 *        a date with same format, convert to new format */
+	/* possibly setting modified flag in the process */
+	return true;
 }
 
 

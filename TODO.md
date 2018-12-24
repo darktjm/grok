@@ -16,25 +16,57 @@ games again...
 Features in Progress
 --------------------
 
-- Multi-save: when saving, if there are other modified databases,
-  present a checkbox list to offer saving them, as well.  Default is
-  checked for only current database.
+- BUG: switching via menu unsets modified flag
 
-- (Multi-)Revert: discard changes in current database (and offer others
-  with checkboxes as well).  Default is checked for only current
-  database.
+- when form editor changes date formats, read all field values,
+  convert to and from new format before saving the first time.
 
-- Purge: discard all non-visible databases (maybe with checkboxes?)
+- Finish checking for incompatible form changes and dealing with them
 
-- On quit, multi-save as well, but cancel essentially reverts.  Default
-  is checked for all, with Save button as default like current
-  save/cancel dialogs.
+- Document fact that modifying databases due to running command-line
+  queries & templates doesn't save changes or provide any warning
+
+- @: Database name is relative to same path as current database,
+  or, if not there, first one in search path.  Absolute paths
+  are allowed, but should be discouraged (in documentation).
+  By relative I mean absolutely no slashes; I don't want to allow
+  .. or anything like that.
+  
+- I really need to make the dbase/form path keys do a realpath() or
+  the like.  I'm sure it's one of those things that's non-portable
+  and requires use of 16-bit QStrings in "portable" Qt.  Not that
+  realpath() is a panacea.  It's still possible to alias files using
+  mount tricks (bind mounting, remote filesystems, unionfs, etc.).
+  The only thing that might ensure uniqueness would be to use locks, but
+  even that might be bypassed by poorly implemented filesystems.
+
+- The Database menu should reflect multi-database support.  I think
+  the (current) window's menu should have a radio selection showing
+  the currently displayed databse (if it's in the menu at all, since
+  the cmd line can load unsupported databases).  This probably
+  requires storing the canonical path in the menu support structure,
+  as well.  All loaded databases should indicate that by either a
+  plus sign or a star after the name depending on whether or not
+  it's modified (and maybe a third symbol (#?) if it's displayed in
+  another window, and an associated preference to switch to the
+  nearest window of a database if it's already opened when choosing
+  a new database).  In fact, all loaded databases should be in the
+  menu regardless of whether or not they normally would be.  The
+  star in the title bar should also reflect all databases, not just
+  the currently displayed one.
+  
+  As an alternate to having a symbol, use different fonts.  Italic for
+  loaded, and bold for modified (or bold for displayed, and still use
+  a star for modified, since that's also used elsewhere).
 
 - Support multiple views; i.e. multiple main windows.  So far, it's
   possible to have multiple card structures, each of which supports its
   own sort order and query.  For now, don't worry too much about the
   same row being edited in multiple windows at once, although a change
   should probably at least force a refresh in all other windows.
+  
+  Perhaps as a later feature, support use of tabs instead of separate
+  windows.  I don't really care for MDI, so I don't think I'll do that.
 
 - My original plan was to get fkey support into this release, but my
   recent annoyance with Qt combined with the gog winter sale and the
@@ -292,7 +324,8 @@ Important UI improvements
   editor in grok, but if there's already somthing pre-built, such as
   the scintilla support, I'll use it.  Qt's current QTextEdit requires
   work to make it usable.  It doesn't even support control characters
-  in the text, so it's useless for editing "fancy" templates.
+  in the text, so it's useless for editing "fancy" templates.  Also,
+  the editor should query and restore file permissions if possible.
 
 - Support recent export names in combo box.  Also, maybe support a set
   of predefined export names that are permanently stored.  Maybe
@@ -796,50 +829,13 @@ Major Card Features
 Major Feature: Foreign Database References
 ------------------------------------------
 
--    Make an easy way to access fields in other databases.  This is
-     almost a prerequisite for foreign key support.  This makes
-     no auto-save on switch a little more complicated, as
-     multiple modified databases may be in play.  It is also not
-     currently possible to set an alternate sort order or search
-     string.  Only foreach/FOREACH have the ability to alter the
-     search string temporarily, but not the search order.
-     Database name is relative to same path as current database,
-     or, if not there, first one in search path.  Absolute paths
-     are allowed, but should be discouraged.
-
-    - Adding a foreach parameter for the database name conflicts with
-      the array foreach syntax.  I guess I could just add
-      brackets around the variable to resolve this. Alternately,
-      I could add something around the database name, instead,
-      or use some sort of operator.  For example, @ or ::
-      foreach(@"db", "search", "expr).  FOREACH can't parse the
-      db name easily, though.  Either there needs to be a
-      terminator as well, or the dbase expression needs to be
-      limited. I guess I could only allow literal strings and
-      curly brace-enclosed expresions, as long as it's easy
-      enough to skip over it (curly braces can't be anywhere but
-      strings and nested braces, so that might be easier than it
-      sounds).
-
-    - Maybe an additional foreach() parameter gives the sort field and
-      +/- order, like foreach([@"db",] +_field[, +_field2 ...], "search").
-      Supporting more than 1.5 sort fields is necessary for
-      "group by" simulation, as well, so the FOREACH should
-      support sort overrides, as well.
-
-    - Allow importing templates from other databases (and this database)
-      using \\{IMPORT *db* *template* *search*}.  Maybe an optional
-      first parameter is a variable to load template result into for
-      further text mangling.  Once again, some sort of lmits need to
-      be placed on the arguments so that IMPORT can parse them.
-
-    - Switching databases no longer forces a save.  The Save menu item
-      saves if only the currently foremost visible database is modified;
-      otherwise, it pops up a dialog asking which tables to save
-      (default checkmarks on all).  This dialog is also popped up on
-      application exit.  This is sort of unsafe, though, so maybe this
-      feature also needs autosaves of some sort first (at least
-      something similar to editor recovery files).
+- Allow importing templates from other databases (and this database)
+  using \\{IMPORT *db* *template* *search*}.  Maybe an optional
+  first parameter is a variable to load template result into for
+  further text mangling, or auto-mangling with a set of regex
+  parameters and their associated replacements.  Once again, some
+  sort of lmits need to be placed on the arguments so that IMPORT
+  can parse them.
 
 - SQL-style many-to-one foreign key references.  The "child" database
   contains a set of fields which must match a similar set of fields

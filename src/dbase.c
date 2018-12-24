@@ -34,12 +34,15 @@ DBASE *dbase_list;
  * in that row.
  */
 
-DBASE *dbase_create(void)
+DBASE *dbase_create(
+	const FORM	*form)
 {
 	DBASE		*dbase;		/* new dbase */
 
 	/* since even this code assumes success, errors are fatal */
 	dbase = zalloc(0, "database", DBASE, 1);
+	dbase->form = form;
+	dbase->path = mystrdup(db_path(form));
 	return(dbase);
 }
 
@@ -48,12 +51,19 @@ DBASE *dbase_create(void)
  * destroy a dbase struct and all its data.
  */
 
-static void really_delete_dbase(
+void dbase_clear(
 	DBASE		*dbase)		/* dbase to delete */
 {
 	int		r, c;		/* data counter */
 	ROW		*row;		/* row to delete */
+	const FORM	*form = dbase->form;
 
+	dbase->form = NULL;
+	for(FORM *f = form_list; f; f = f->next)
+		if(f == form) {
+			form_delete(f);
+			break;
+		}
 	for (r=0; r < dbase->nsects; r++)
 		zfree(dbase->sect[r].path);
 	zfree(dbase->sect);
@@ -68,7 +78,6 @@ static void really_delete_dbase(
 	zfree(dbase->path);
 	for(r=0; r < 26; r++)
 		zfree(dbase->var[r].string);
-	free(dbase);
 }
 
 
@@ -82,8 +91,10 @@ void dbase_delete(
 	int		n;
 
 	/* If the database has no path, it's not in the list, so delete */
-	if(dbase && !dbase->path)
-		really_delete_dbase(dbase);
+	if(dbase && !dbase->path) {
+		dbase_clear(dbase);
+		free(dbase);
+	}
 	/* but prune databases anyway */
 	for(n = 0, prev = &dbase_list; *prev; prev = &(*prev)->next)
 		if(!(*prev)->modified) {
@@ -93,7 +104,8 @@ void dbase_delete(
 			if(!card && ++n > pref.db_keep) {
 				DBASE *dbase = *prev;
 				*prev = dbase->next;
-				really_delete_dbase(dbase);
+				dbase_clear(dbase);
+				free(dbase);
 				if(!*prev)
 					return;
 			}

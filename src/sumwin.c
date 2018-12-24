@@ -317,8 +317,6 @@ void make_summary_line(
 				}
 				data = allocdata = v;
 			}
-			if (item->type == IT_TIME)
-				data = format_time_data(data, item->timefmt);
 			data_len = BLANK(data) ? 0 : strlen(data);
 		}
 		sumwidth = menu ? menu->sumwidth : item->sumwidth;
@@ -427,8 +425,6 @@ void make_plan_line(
 			    && item->flagtext && item->flagcode && data
 			    && !strcmp(data, item->flagcode))
 			data = item->flagtext;
-		if (item->type == IT_TIME && row >= 0)
-			data = format_time_data(data, item->timefmt);
 		if (data)
 			while (*data) {
 				if (*data=='\\' || *data==':' || *data=='\n')

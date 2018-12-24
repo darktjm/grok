@@ -676,8 +676,9 @@ static const char *eval_command(
 			*word = 0;
 			if(!*db_name || !((form = read_form(db_name))))
 				return "Can't find database";
-			if(!(dbase = read_dbase(form, form->dbase ? form->dbase : db_name)))
-				dbase = dbase_create();
+			if(!(dbase = read_dbase(form, form->dbase)))
+				dbase = dbase_create(form);
+			form->dbpath = dbase->path;
 			other_db = create_card_menu(form, dbase, 0, true);
 			other_db->prev_form = zstrdup(card->form->name);
 			other_db->last_query = -1;
@@ -718,8 +719,11 @@ static const char *eval_command(
 				else
 					query_eval(SM_SEARCH, ncard, q);
 			}
+			nq = ncard->nquery;
+			qu = ncard->query;
+			
 		}
-		if (ncard->nquery) {
+		if (nq) {
 			sp = &forstack[++forlevel];
 			sp->offset = ftell(ifp);
 			sp->nest = n_true_if;
