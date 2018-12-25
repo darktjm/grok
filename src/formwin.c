@@ -1291,8 +1291,34 @@ static int readback_item(
 		      }
 		      {
 			      QString msg;
-			      if(!check_loaded_forms(msg, form))
-				      return(0);
+			      if(check_loaded_forms(msg, form)) {
+				      const char *formpath = resolve_tilde(form->path, "gf");
+				      for(DBASE **prev = &dbase_list; *prev; prev = &(*prev)->next)
+					      if(!strcmp((*prev)->form->path, formpath)) {
+						      DBASE *dbase = *prev;
+						      if(dbase->modified &&
+							 !create_save_popup(mainwindow,
+									    dbase,
+									    "Form configuration changes require reloading database %s\n"
+									    "Discard changes and reload?",
+									    formpath))
+							      return(0);
+						      if(mainwindow->card &&
+							 mainwindow->card->dbase == dbase) {
+							      switch_form(mainwindow->card, 0);
+							      /* switch_form may free dbase */
+							      for(prev = &dbase_list; *prev; prev = &(*prev)->next)
+								      if(*prev == dbase)
+									      break;
+							      if(!*prev)
+								      break;
+						      }
+						      *prev = dbase->next;
+						      dbase_clear(dbase);
+						      free(dbase);
+						      break;
+					      }
+			      }
 		      }
 	  	      destroy_formedit_window();
 		      destroy_canvas_window();

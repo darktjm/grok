@@ -92,16 +92,23 @@ void create_error_popup(QWidget *widget, int error, const char *fmt, ...)
  * If Cancel is pressed, the callback is not called. The widget
  * is some window that the popup goes on top of. The help message is some
  * string that appears in grok.hlp after %%.
+ *
+ * If dbase is non-NULL, add a Save button which is like OK, but saves the
+ * database first.
  */
 
-bool create_query_popup(
+bool create_save_popup(
 	QWidget		*widget,	/* window that caused this */
+	DBASE		*dbase,		/* database to save */
 	const char	*help,		/* help text tag for popup */
 	const char	*fmt, ...)	/* message */
 {
 	va_list		parm;
 	QMessageBox::StandardButtons buttons = QMessageBox::Ok | QMessageBox::Cancel;
 	QMessageBox::StandardButton def = QMessageBox::Cancel;
+
+	if(dbase)
+		buttons |= (def = QMessageBox::Save);
 
 	va_start(parm, fmt);
 	QString msg(QString::vasprintf(fmt, parm));
@@ -118,6 +125,8 @@ bool create_query_popup(
 					     buttons, def)) {
 		    case QMessageBox::Ok:
 			return true;
+		    case QMessageBox::Save:
+			return write_dbase(dbase, false);
 		    case QMessageBox::Help:
 			// this will be immediately pushed to the back
 			// when question() runs again.  <sigh>

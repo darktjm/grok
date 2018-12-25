@@ -815,7 +815,7 @@ void switch_form(
 		FORM  *form;
 		DBASE *dbase = NULL;
 		if ((form = read_form(formname)))
-			dbase = read_dbase(form, form->dbase);
+			dbase = read_dbase(form);
 		/* old code always created form & dbase, even if invalid */
 		/* so for now, this code does, too */
 		if (!form)
@@ -1461,7 +1461,7 @@ static void sect_callback(
 	remake_section_popup(false);
 }
 
-bool multi_save_revert(
+static bool multi_save_revert(
 	bool		is_quit)
 {
 	DBASE *dbase;
@@ -1473,7 +1473,7 @@ bool multi_save_revert(
 	QCheckBox **checkboxes = 0;
 	size_t nrows = 0, checkboxes_size;
 	QLabel *label;
-	/* I used to pass in a flag, but why bother? */
+
 	if(!dbase_list) /* does nothing if no loaded databases */
 		return true;
 	for(dbase = dbase_list; dbase; dbase = dbase->next)

@@ -12,9 +12,12 @@ reports from the data stored in the current database in various
 formats. The format is controlled by a <I>template</I>. A template is
 a file containing the static text framework that should appear in the
 exported file, with embedded expressions that are evaluated as part of
-the export process. These expressions are either standard grok expressions
+the export process.  These expressions are either standard grok expressions
 (see <A HREF="grammar.html">Expression Grammar</A>), or special export
-expressions that are available only in export templates, described below.
+expressions that are available only in export templates, described
+below.  Note that exports should not modify the database.  The results
+of an expression modifying the database may not be saved, and may be
+completely disabled in the future.
 
 <P>If the Export function in the file pulldown is chosen, a dialog
 containing a list of available templates is shown. The list begins with

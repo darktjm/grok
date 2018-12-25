@@ -567,46 +567,86 @@ bool verify_form(
 }
 
 
-bool check_loaded_forms(QString &msg, const FORM *form)
+bool check_loaded_forms(QString &msg, FORM *form)
 {
-	const char *db_path = 0/* construct dbase path */;
-	const char *form_path = 0/* construct form path */;
+	const char *dbpath;
+	const char *formpath = form->path;
+	bool must_unload = false;
 
+	/* form->path has to be valid before db_path */
+	if(!formpath)
+		form->path = (char *)resolve_tilde(form->name, "gf");
+	dbpath = db_path(form);
+	/* but don't fix form's path while still possibly editing */
+	/* also don't accidentally free resolve_tilde results */
+	if(!formpath) {
+		formpath = form->path;
+		form->path = NULL;
+	}
 	for(DBASE *dbase = dbase_list; dbase; dbase = dbase->next) {
-		if(!strcmp(dbase->path, db_path)) {
+		if(!strcmp(dbase->path, dbpath) &&
+		   form->proc == dbase->form->proc &&
+		   (!form->proc || !strcmp(form->name, dbase->form->name))) {
 			if(dbase->form->cdelim != form->cdelim) {
 				msg += "Warning: this form's databse is "
 				       "already loaded using a different "
-				       "column delimiter.  You will be "
-				       "required to unload the database "
-				       "before saving this form.";
+				       "column delimiter.\n"
+				       "You will be required to unload the "
+				       "database before saving this form.\n\n";
+				must_unload = true;
 			}
 			if(dbase->form->syncable != form->syncable) {
 				msg += "Warning: this form's database is "
-				       "already loaded using a different "
-				       "column delimiter.  You will be "
-				       "required to unload the database "
-				       "before saving this form.";
+				       "already loaded with";
+				if(form->syncable)
+					msg += "out";
+				msg += " timestamps.\n"
+				       "They will be ";
+				if(form->syncable)
+					msg += "created";
+				else
+					msg += "deleted";
+				msg += " the first time you save the databse.\n\n";
 			}
-		} else if(!strcmp(dbase->form->path, form_path)) {
+			if(!strcmp(dbase->form->path, formpath)) {
+				/* FIXME:  if any new fields are dates, and old
+				 * field isn't the same date fmt, convert.
+				 * But that's too much trouble; instead just
+				 * purge existing dbase and let loader take
+				 * care of it, since it has to do so, anyway */
+				for(int i = 0; i < form->nitems; i++)
+					if(form->items[i]->type == IT_TIME) {
+						int j;
+						for(j = 0; j < dbase->form->nitems; j++)
+							if(dbase->form->items[j]->type == IT_TIME &&
+							   dbase->form->items[j]->column == form->items[i]->column)
+								break;
+						if(j < dbase->form->nitems &&
+						   dbase->form->items[j]->timefmt != form->items[i]->timefmt) {
+							msg += "Warning:  a field's time format changed. "
+							       "this will require a database reload.";
+							must_unload = true;
+						}
+					}
+			}
+		} else if(!strcmp(dbase->form->path, formpath)) {
 			if(mainwindow->card && dbase == mainwindow->card->dbase)
 				card_readback_texts(mainwindow->card, -1);
 			if(dbase->modified)
 				msg += "Warning: this form's database changed "
 				       "but unsaved changes remain in the old "
-				       "one.\nYou will be required to save or "
+				       "one.\n"
+				       "You will be required to save or "
 				       "discard those changes before saving "
 				       "this form.";
 			else
 				msg += "Warning: this form's databse changed; "
 				       "all previously loaded databases using "
 				       "this form will be unloaded.";
+			must_unload = true;
 		}
 	}
-	/* FIXME: if any new fields are dates, and old field was not
-	 *        a date with same format, convert to new format */
-	/* possibly setting modified flag in the process */
-	return true;
+	return must_unload;
 }
 
 

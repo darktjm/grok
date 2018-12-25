@@ -261,7 +261,7 @@ bool verify_form(
 	QWidget		*shell);	/* error popup parent */
 bool check_loaded_forms(
 	QString		&msg,
-	const FORM	*form);
+	FORM		*form);
 void form_edit_script(
 	FORM		*form,		/* form to edit */
 	QWidget		*shell,		/* error popup parent */
@@ -349,10 +349,12 @@ void create_error_popup(
 	QWidget		*widget,
 	int		error,
 	const char	*fmt, ...);
-bool create_query_popup(
+bool create_save_popup(
 	QWidget		*widget,	/* window that caused this */
+	DBASE		*dbase,		/* database to save */
 	const char	*help,		/* help text tag for popup */
 	const char	*fmt, ...);	/* message */
+#define create_query_popup(w,...) create_save_popup(w, NULL, __VA_ARGS__)
 void create_dbase_info_popup(
 	CARD		*card);
 

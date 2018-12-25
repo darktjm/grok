@@ -11,27 +11,44 @@ long enough to make much of a dent in this list.  I started on grok
 for my game database, and I guess I'd like to get back to playing
 games again...
 
-   -- Thomas J. Moore
+As a side note: I'm starting to hit limits in grok that I can't fix
+without breaking backwards compatibility.  Maybe it's time for 3.0,
+which no longer makes any such guarantees.  I suppose I could provide
+a conversion program to move old databases to 3.0, but nothing for the
+opposite conversion.  Here are some of the issues that i may
+completely break in 3.0:
+
+  - formulas; this is probably the hardest to convert, since foreach()
+    acts as an eval().  I will replace this with Lua or SQL.
+
+  - Date storage, entry and presentation
+
+  - File format.  I may just chuck csv entirely and go for sqlite3, or
+    at least I'll no longer worry about supporting 8-bit character sets
+    (and use UTF-8 or UTF-16 instead).
+    
+    - Sections need to get a reason to live or go.
+    
+    - Dates need to be stored differently, as mentioned above
+    
+    - Sort order of on-disk data no longer matches last sort before
+      save, so I've already got an incompatible change, there (albeit
+      easy to undo).
+
+				-- Thomas J. Moore
 
 Features in Progress
 --------------------
-
-- BUG: switching via menu unsets modified flag
-
-- when form editor changes date formats, read all field values,
-  convert to and from new format before saving the first time.
-
-- Finish checking for incompatible form changes and dealing with them
-
-- Document fact that modifying databases due to running command-line
-  queries & templates doesn't save changes or provide any warning
 
 - @: Database name is relative to same path as current database,
   or, if not there, first one in search path.  Absolute paths
   are allowed, but should be discouraged (in documentation).
   By relative I mean absolutely no slashes; I don't want to allow
   .. or anything like that.
-  
+
+- @: support blank db name == current db, but with different sort
+  order and/or query
+
 - I really need to make the dbase/form path keys do a realpath() or
   the like.  I'm sure it's one of those things that's non-portable
   and requires use of 16-bit QStrings in "portable" Qt.  Not that
@@ -57,7 +74,9 @@ Features in Progress
   
   As an alternate to having a symbol, use different fonts.  Italic for
   loaded, and bold for modified (or bold for displayed, and still use
-  a star for modified, since that's also used elsewhere).
+  a star for modified, since that's also used elsewhere).  Or no special
+  indicator for displayed, and bold for loaded and star for modified (I
+  don't really like italics that much).  Or QSS-speified, I guess.
 
 - Support multiple views; i.e. multiple main windows.  So far, it's
   possible to have multiple card structures, each of which supports its
@@ -441,11 +460,46 @@ Important UI improvements
 Infrastructure Improvements
 ---------------------------
 
-- What are sections good for?  I need to figure that out.  Maybe
-  it's to merge read-only data from another source with your
-  database?  Any other feature I can think of is better handled by
-  search expressions. I'm not sure the section feature is worth
-  keeping in its current state.
+- Change disk storage of dates to number of seconds since epoch.  Main
+  issues I can see are that external tools may depend on the format
+  and that I don't want to have to deal with time zones.  While the
+  original code always used the current time zone, it didn't really
+  matter because it was stored as plain text.  Storing it internally
+  as gmtime shouldn't be an issue, unless the user made formulas that
+  crossed DST boundaries.  I guess grok dates suck in general, and
+  maybe it would be best to rename Time fields to OldTime and start
+  over from scratch.
+
+- What are sections good for?  I need to figure that out.  The HISTORY
+  file entry didn't really say why the feature was added.  Here's a few
+  guesses:
+  
+  - Merging read-only or shared data from another source with your own
+    database.  This is one aspect I can't see a valid replacement for.
+
+  - Large RDMSes have a "partitioning" feature, but that is for
+    storing parts on different disks (not useful for small personal
+    databases) and improved search/sort performance when dealing with
+    data only in a limited number of partitions (not implemented in
+    grok anyway; regardless of the on-disk structure, in-memory is
+    always the entire database as a single array).
+
+  - There are functions which deal with sections, such as section and
+    ssum, but they could be better implmeented as an explicity field
+    in the database.  It has always been possible to do alternate
+    searches using foreach(), and now the dbase prefix means you don't
+    even have to go through the hassle of that.
+
+  - External programs that access the database files directly.  This
+    shouldn't really be supported; instead, people should be encouraged
+    to use templates.  However, there is no equivalent import feature,
+    so maybe I'll wait until I do something about that to wipe this
+    feature.
+
+  None of the above reasons seem compelling for such an invasive
+  feature.  I suppose that I couuld at least hide the section menu
+  if there are no sections, and move the "Add Section" option to the
+  File menu.  That way, people are discouraged from using this.
 
 - Add global pref to support regex patterns in basic search strings,
   since that was apparently part of the original plan wrt regexes.
@@ -617,11 +671,19 @@ Infrastructure Improvements
   a file-by-file smart diff).  Maybe make it zip instead, since nobody
   wants tar these days.
 
-- Import support for formats other than manually copied raw db files.
-  I guess fields would need to be selected as keys, and optionally
-  some way of doing sync-like import based on field mod times (thus
-  making that feature actually useful).  Perhaps rather than using a
-  pair of files for this, have a combined standard export format.
+- Import support for formats other than manually created raw db files.
+  I guess fields would need to be selected as keys (or mass replace
+  the results of a query, including all records).  Sync-like import
+  could be supported as well, but that requires some sort of key as
+  well as a way to specify the import file's time stamps.  Also, add
+  a way to query time stamps in expressions, so they can be exported.
+  I don't think a generic pattern-based importer would be a good idea,
+  as it would be way too much effort and be limited by the kinds of
+  supported patterns.  At worst, fully document the db file format and
+  officially support raw db file access (which would preculde such
+  cnages as storing dates as numbers or other disruptive format
+  changes).  That at least needs to be partially done anyway, as there
+  raw db format is expected to/from procedural databases.
 
 - Support going directly into the form editor for invalid gf files.
   Now that I verify the form on load, there is nothing short of manual

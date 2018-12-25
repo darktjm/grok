@@ -1724,7 +1724,7 @@ CARD *f_db_start(
 
 	/* FIXME: make relative to current form first if relative */
 	if ((form = read_form(formname)))
-		dbase = read_dbase(form, form->dbase ? form->dbase : formname);
+		dbase = read_dbase(form);
 	else {
 		parsererror(g, "Can't find form %s", STR(formname));
 		zfree(formname);

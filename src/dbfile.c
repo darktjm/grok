@@ -2,7 +2,7 @@
  * read and write database files.
  *
  *	write_dbase(path)		write dbase
- *	read_dbase(form, path)		read dbase into empty dbase struct
+ *	read_dbase(form, force)		read dbase into empty dbase struct
  */
 
 #include <unistd.h>
@@ -38,6 +38,7 @@ const char *db_path(
 	static char		*pathbuf = 0;	/* file name with path */
 	static size_t		pathbuflen;
 	const char		*path = form->name;
+	bool			is_pathbuf;
 
 	if (*path != '/' && *path != '~' && form->path) {
 		const char *p;
@@ -50,10 +51,12 @@ const char *db_path(
 		}
 	}
 	path = resolve_tilde(path, 0);
+	is_pathbuf = path == pathbuf;
 	grow(0, "db path", char, pathbuf, strlen(path) + 4, &pathbuflen);
-	if (path == pathbuf)
+	if (is_pathbuf) {
+		path = pathbuf;
 		strcat(pathbuf, ".db");
-	else
+	} else
 		sprintf(pathbuf, "%s.db", path);
 	for(DBASE *dbase = dbase_list; dbase; dbase = dbase->next)
 		if(!strcmp(dbase->path, pathbuf))
@@ -62,7 +65,7 @@ const char *db_path(
 	if (!access(pathbuf, F_OK))
 		/* even if there is nothing in this file, use it */
 		return pathbuf;
-	if (path == pathbuf)
+	if (is_pathbuf)
 		*strrchr(pathbuf, '.') = 0;
 	for(DBASE *dbase = dbase_list; dbase; dbase = dbase->next)
 		if(!strcmp(dbase->path, path))
@@ -71,7 +74,7 @@ const char *db_path(
 		return path;
 	if (form->proc)
 		return path;
-	if(path == pathbuf)
+	if(is_pathbuf)
 		strcat(pathbuf, ".db");
 	return pathbuf;
 }
@@ -227,7 +230,9 @@ DBASE *read_dbase(
 	const char		*path = db_path(form);
 
 	for(dbase = dbase_list; dbase; dbase = dbase->next)
-		if(!strcmp(dbase->path, path)) {
+		if(!strcmp(dbase->path, path) &&
+		   dbase->form->proc == form->proc &&
+		   (!form->proc || !strcmp(form->name, dbase->form->name))) {
 			if(form->cdelim != dbase->form->cdelim ||
 			   form->syncable != dbase->form->syncable ||
 			   strcmp(form->proc ? form->name : "",
@@ -262,6 +267,7 @@ DBASE *read_dbase(
 			tzero(DBASE, dbase, 1);
 			dbase->next = next;
 			dbase->form = form;
+			dbase->path = mystrdup(path);
 			break;
 		}
 	forced = dbase;
@@ -403,11 +409,35 @@ static bool read_file(
 				else		continue;
 			}
 			buf[bindex] = 0;			/* next col */
+								/* .. date? */
+			/* The old code converted the date to a number for
+			 * internal storage, and then back to a string in
+			 * write_dbase(), both using the current date format
+			 * regardless of what the format was when it was
+			 * written.  I prefer to keep internal and
+			 * external representation the same, though.
+			 * This now combines the two, so that if the format
+			 * of the field changed, it is picked up.  The new
+			 * format will not be written until the databse
+			 * is saved.  This is an accurate emulation of the
+			 * old behavior. */
+			const char *val = buf;
+			if(*buf) {
+				const FORM *form = dbase->form;
+				for (i = 0; i < form->nitems; i++)
+					if(form->items[i]->type == IT_TIME &&
+					   form->items[i]->column == col) {
+						TIMEFMT fmt = form->items[i]->timefmt;
+						time_t time = parse_time_data(buf, fmt);
+						val = format_time_data(time, fmt);
+						break;
+					}
+			}
 								/* store str */
 			if (row < 0)
 				if ((error |= !dbase_addrow(&row, dbase)))
 					break;
-			dbase_put(dbase, row, col++, buf);
+			dbase_put(dbase, row, col++, val);
 			dbase->row[row]->mtime  = 0;
 			dbase->row[row]->ctime  = 0;
 			dbase->row[row]->ctimex = dbase->ctimex_next++;

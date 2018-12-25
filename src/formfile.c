@@ -43,11 +43,6 @@ bool write_form(
 	char		*p;		/* for printing help text */
 
 	path = form->path ? form->path : form->name;
-	if (!path || !*path) {
-		create_error_popup(mainwindow, 0,
-			"Form has no name, cannot save to disk");
-		return(false);
-	}
 	if (!form->path) {
 		path = resolve_tilde(path, "gf");
 		if (!(form->path = strdup(path))) {
@@ -56,7 +51,6 @@ bool write_form(
 			return(false);
 		}
 	}
-	/* FIXME: check_loaded_Forms(form, dbase); for each dbase using form */
 	if (!(fp = fopen(path, "w"))) {
 		create_error_popup(mainwindow, errno,
 			"Failed to create form file %s", path);
