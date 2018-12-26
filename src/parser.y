@@ -552,7 +552,9 @@ args	: string			{ $$ = f_addarg(g, 0, $1); check_error; }
 	;
 
 db_prefix
-	: '@' string db_sort ':'	{ $$ = f_db_start(g, $2, NULL, $3); check_error; }
+	: '@' string ':'		{ $$ = f_db_start(g, $2, NULL, NULL); check_error; }
+	| '@' string db_sort ':'	{ $$ = f_db_start(g, $2, NULL, $3); check_error; }
+	| '@' string '/' string ':'	{ $$ = f_db_start(g, $2, $4, NULL); check_error; }
 	| '@' string '/' string db_sort ':'	{ $$ = f_db_start(g, $2, $4, $5); check_error; }
 	;
 

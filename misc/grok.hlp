@@ -1788,9 +1788,10 @@
 
 	  The database prefix returns the value of the string expression
 	  following the colon up to the first unnested semicolon or comma,
-	  parsing that expression as if it appeared in the database named s1,
-	  with the (optional) search s2, sorted by the (optional) field s3.
-	  More than one search field may be appended, and - inverts the order
+	  parsing that expression as if it appeared in the database named
+	  s1, with the search s2, sorted by the field s3. More than one
+	  search field may be appended, and - inverts the order.  All but @s1
+	  and : are optional.  If s1 is blank, the current database is used.
 
 	  @ s1 / s2 + s3 : ... ;
 

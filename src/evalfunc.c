@@ -1719,11 +1719,35 @@ CARD *f_db_start(
 	struct db_sort	*sort)
 {
 	CARD  *ocard = g->card;
-	FORM  *form;
+	FORM  *form = NULL;
 	DBASE *dbase = NULL;
 
-	/* FIXME: make relative to current form first if relative */
-	if ((form = read_form(formname)))
+	if (BLANK(formname))
+		form = g->card->form;
+	else {
+		/* make relative to current form first if relative */
+		const char *lasts, *opath = g->card->form->path;
+		if(!strchr(formname, '/') && (lasts = strrchr(opath, '/'))) {
+			char *fname = (char *)malloc((lasts - opath) + strlen(formname) + 5);
+			if(!fname) {
+				parsererror(g, "No memory for form name");
+				zfree(formname);
+				zfree(search);
+				free_db_sort(sort);
+				return NULL;
+			}
+			memcpy(fname, opath, lasts - opath + 1);
+			strcpy(fname + (lasts - opath + 1), formname);
+			if(!(lasts = strrchr(formname, '.')) || strcmp(lasts, ".gf"))
+				strcat(fname, ".gf");
+			if(!access(fname, R_OK))
+				form = read_form(fname);
+			free(fname);
+		}
+		if(!form)
+			form = read_form(formname);
+	}
+	if (form)
 		dbase = read_dbase(form);
 	else {
 		parsererror(g, "Can't find form %s", STR(formname));

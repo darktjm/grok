@@ -944,7 +944,7 @@ void card_readback_texts(
 {
 	int		nitem;		/* counter for searching text items */
 	int		start, end;	/* first and last item to read back */
-	char		*data;		/* data string to store */
+	const char	*data;		/* data string to store */
 	time_t		time;		/* parsed time */
 	char		buf[40];	/* if numeric time, temp string */
 	ITEM		*item;
@@ -977,6 +977,7 @@ void card_readback_texts(
 			if (item->timewidget) {
 				time = reinterpret_cast<QDateTimeEdit *>
 					(card->items[nitem].w0)->dateTime().toSecsSinceEpoch();
+				data = ""; /* force use of time */
 			} else {
 				data = read_text_button(card->items[nitem].w0, 0);
 				while (*data == ' ' || *data == '\t' || *data == '\n')

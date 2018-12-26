@@ -37,7 +37,7 @@ const char *db_path(
 {
 	static char		*pathbuf = 0;	/* file name with path */
 	static size_t		pathbuflen;
-	const char		*path = form->name;
+	const char		*path = form->dbase;
 	bool			is_pathbuf;
 
 	if (*path != '/' && *path != '~' && form->path) {

@@ -5,17 +5,17 @@ still.  Some of that work could have been done back when xmbase_grok
 was still fresh, but I wasn't interested at the time.  After all (or
 even most) of the below changes, grok will be almost what I wanted to
 do anyway. Most of the other features I had planned were probably
-pointless, anyway. Actually, most of the features I have planned below
+pointless, anyway.  Actually, most of the features I have planned below
 are pointless, as well.  I'm not sure I'll be able to remain motivated
 long enough to make much of a dent in this list.  I started on grok
 for my game database, and I guess I'd like to get back to playing
 games again...
 
 As a side note: I'm starting to hit limits in grok that I can't fix
-without breaking backwards compatibility.  Maybe it's time for 3.0,
-which no longer makes any such guarantees.  I suppose I could provide
-a conversion program to move old databases to 3.0, but nothing for the
-opposite conversion.  Here are some of the issues that i may
+without breaking backwards+forwards compatibility.  Maybe it's time
+for 3.0, which no longer makes any such guarantees.  I suppose I could
+provide a conversion program to move old databases to 3.0, but nothing
+for the opposite conversion.  Here are some of the issues that i may
 completely break in 3.0:
 
   - formulas; this is probably the hardest to convert, since foreach()
@@ -26,11 +26,11 @@ completely break in 3.0:
   - File format.  I may just chuck csv entirely and go for sqlite3, or
     at least I'll no longer worry about supporting 8-bit character sets
     (and use UTF-8 or UTF-16 instead).
-    
+
     - Sections need to get a reason to live or go.
-    
+
     - Dates need to be stored differently, as mentioned above
-    
+
     - Sort order of on-disk data no longer matches last sort before
       save, so I've already got an incompatible change, there (albeit
       easy to undo).
@@ -40,22 +40,29 @@ completely break in 3.0:
 Features in Progress
 --------------------
 
-- @: Database name is relative to same path as current database,
-  or, if not there, first one in search path.  Absolute paths
-  are allowed, but should be discouraged (in documentation).
-  By relative I mean absolutely no slashes; I don't want to allow
-  .. or anything like that.
-
-- @: support blank db name == current db, but with different sort
-  order and/or query
-
 - I really need to make the dbase/form path keys do a realpath() or
   the like.  I'm sure it's one of those things that's non-portable
-  and requires use of 16-bit QStrings in "portable" Qt.  Not that
-  realpath() is a panacea.  It's still possible to alias files using
-  mount tricks (bind mounting, remote filesystems, unionfs, etc.).
-  The only thing that might ensure uniqueness would be to use locks, but
-  even that might be bypassed by poorly implemented filesystems.
+  (POSIX 2008 by the looks of it) and requires use of 16-bit
+  QStrings in "portable" Qt (QFileInfo::canonicalFilePath() by the
+  looks of it).  Not that realpath() is a panacea. It's still
+  possible to alias files using mount tricks (bind mounting, remote
+  filesystems, unionfs, etc.).  The only thing that might ensure
+  uniqueness would be to use locks, but even that might be bypassed
+  by poorly implemented filesystems.
+
+  Part of the problem with that is that symlinks are perfectly valid in
+  some circumstances.  One of the things that aggravates me about many
+  modern programs is that they do realpath() and lose the original path.
+  For grok, this issue could be resolved by storing two paths:  the path
+  to the (possible) symlink, and the path to the file.  The first is
+  basically realpath(dirname(p)) and the second is realpath(p).  In
+  the form list, both are used as the combined key, but when loading a
+  form for which the second key would be the same, just copy the
+  existing one and set a different first key.  The same could be done
+  for databses, I guess, so that the timestamp file comes from the dir
+  the symlink is in, rather than the one the symlink points to.  I
+  don't really like supporting timestamps in different directories,
+  though.
 
 - The Database menu should reflect multi-database support.  I think
   the (current) window's menu should have a radio selection showing
@@ -71,7 +78,7 @@ Features in Progress
   menu regardless of whether or not they normally would be.  The
   star in the title bar should also reflect all databases, not just
   the currently displayed one.
-  
+
   As an alternate to having a symbol, use different fonts.  Italic for
   loaded, and bold for modified (or bold for displayed, and still use
   a star for modified, since that's also used elsewhere).  Or no special
@@ -83,7 +90,7 @@ Features in Progress
   own sort order and query.  For now, don't worry too much about the
   same row being edited in multiple windows at once, although a change
   should probably at least force a refresh in all other windows.
-  
+
   Perhaps as a later feature, support use of tabs instead of separate
   windows.  I don't really care for MDI, so I don't think I'll do that.
 
@@ -109,7 +116,7 @@ Bugs
   window manager issue, though; I'm one of the few people who still
   uses FVWM, which I have been using for over 20 years now.  Some
   weirdnesses only apply to FVWM.
-      
+
   I have debugged the other sizing issues, but have no patience for
   this one.  If anyone else ever complains about it, I might look
   into it again.
@@ -238,30 +245,29 @@ Minor UI Improvements
 
 - Named query editor, Menu editor:
 
-    - Maybe retain column width betwen invocations, or even in prefs.
-      I don't want to do the common Windows thing and make all
-      positions and sizes persistent, though.
+  - Maybe retain column width betwen invocations, or even in
+    prefs. I don't want to do the common Windows thing and make
+    all positions and sizes persistent, though.
 
-    - Add a Sort button (but how to sort?  Just screw it and use Qt's
-      sort?  Or strcasecmp?  Or Unicode's collation sequences?
-      Unless Qt's sort uses the latter (it's undocumented), I
-      might have to pull in a Unicode library.  Probably not my
-      own, though, since I don't really maintain it any more,
-      and building it's a pain.) I guess sorting/collation
-      sequence is an issue I will have to look into in more
-      detail for grok as a whole; strcasecmp probably doesn't
-      cut it. Note that this could be incorporated into the
-      header, as is common.
+  - Add a Sort button (but how to sort?  Just screw it and use
+    Qt's sort?  Or strcasecmp?  Or Unicode's collation sequences?
+    Unless Qt's sort uses the latter (it's undocumented), I might
+    have to pull in a Unicode library.  Probably not my own,
+    though, since I don't really maintain it any more, and
+    building it's a pain.) I guess sorting/collation sequence is
+    an issue I will have to look into in more detail for grok as a
+    whole; strcasecmp probably doesn't cut it. Note that this
+    could be incorporated into the header, as is common.
 
-    - Support drag-move for reordering.
+  - Support drag-move for reordering.
 
 - Actually look into the plan interface.  At the very least reduce its
   footprint on the form editor my making the radio group a menu.
   Maybe even make it a one-liner (i.e., menu & plan_if on one line).
 
-    - Note that -p doesn't support Flag List or Flag Group fields in
-      either mode, really, and probably never will since I don't want
-      to add more fields to the menu table.
+  - Note that -p doesn't support Flag List or Flag Group fields in
+    either mode, really, and probably never will since I don't
+    want to add more fields to the menu table.
 
 Important UI improvements
 -------------------------
@@ -473,9 +479,11 @@ Infrastructure Improvements
 - What are sections good for?  I need to figure that out.  The HISTORY
   file entry didn't really say why the feature was added.  Here's a few
   guesses:
-  
+
   - Merging read-only or shared data from another source with your own
     database.  This is one aspect I can't see a valid replacement for.
+    However, I can see the need being rare enough that procedural
+    databases could perform the merge for you.
 
   - Large RDMSes have a "partitioning" feature, but that is for
     storing parts on different disks (not useful for small personal
@@ -507,7 +515,7 @@ Infrastructure Improvements
   across multiple fields easily like regular searches do.
 
 - Allow preference changes (temporary or permanent) on the command
-  line.  This allows the command line to be somewhat independent on
+  line.  This allows the command line to be somewhat independent of
   GUI preferences.  Full independence would break backwards
   compatibility.
 
@@ -517,100 +525,104 @@ Infrastructure Improvements
   way to select the group (perhaps any field name in the group) and
   then you can step through the possible field names with ?&.
 
-- Support non-mutable expressions.  As mentioned below, it's possible
-  to do mass edits with mutating search expressions.  For example, I
-  could say `(_size = 0)` to alter `size` in every single record
-  (maybe even by accident).  At the very least the search string
-  field should be db-non-mutable, and perhaps also
-  variable-non-mutable.  In fact, only a few places should
-  explicitly allow side effects of any kind in expressions.  One way
-  to keep allowing side effects everywhere else would be to have an
-  explicit command such as mutable to prefix any mutating
-  expression, e.g. `{mutable; _name = "hello"}` or `(mutable, _size
-  = 0)`.  Off the top of my head, the only things which should be
-  mutable by default are the foreach non-condition expression,
-  button actions, and standalone expressions in templates.  It's a
-  saftey feature, not a security feature.
+- Support non-mutable expressions.  As mentioned below, it's
+  possible to do mass edits with mutating search expressions.  For
+  example, I could say `(_size = 0)` to alter `size` in every single
+  record (maybe even by accident).  At the very least the search
+  string field should be db-non-mutable, and perhaps also
+  variable-non-mutable (or semi-variable-non-mutable: you can assign
+  to variables, but they are reverted to the original value after
+  the search).  In fact, only a few places should explicitly allow
+  side effects of any kind in expressions.  One way to keep allowing
+  side effects everywhere else would be to have an explicit command
+  such as mutable to prefix any mutating expression, e.g. `{mutable;
+  _name = "hello"}` or `(mutable, _size = 0)`.  Off the top of my
+  head, the only things which should be mutable by default are the
+  foreach non-condition expression, button actions, and standalone
+  expressions in templates.  It's a saftey feature, not a security
+  feature.
 
 - Make Print widget's name refer to the label text, rather than a
   database column.  Support Print widgets in listing, expressions,
   and anywhere else a column is usually required.
 
--   Support UTF-8.  This was going somewhere in the IUP port, but I have
-    abandoned this and it is at 0% again.  I don't like the idea of
-    using QChar everywhere, and I definitely don't like the idea of
-    converting to/from QByteArrays, but there's not much else I can
-    do.
+- Support UTF-8.  This was going somewhere in the IUP port, but I
+  have abandoned this and it is at 0% again.  I don't like the idea
+  of using QChar everywhere, and I definitely don't like the idea of
+  converting to/from QByteArrays, but there's not much else I can
+  do.
 
-    At the least, if the current locale isn't UTF-8, the current
-    locale should be auto-translated to UTF-8 internally, and
-    converted back before writing out files.  Otherwise, a scan of
-    data should make it obvious if it isn't UTF-8, and an option
-    should be provided to convert to UTF-8 permanently or just
-    in-memory.
+  At the least, if the current locale isn't UTF-8, the current
+  locale should be auto-translated to UTF-8 internally, and
+  converted back before writing out files.  Otherwise, a scan of
+  data should make it obvious if it isn't UTF-8, and an option
+  should be provided to convert to UTF-8 permanently or just
+  in-memory.
 
-    Multi-byte (but not necessarily multi-character, even if the
-    desired multi-character sequence is a single glyph) delimiters
-    must be supported.  Anything that scans one character at a time
-    needs to be re-evaluated.
+  Multi-byte (but not necessarily multi-character, even if the
+  desired multi-character sequence is a single glyph) delimiters
+  must be supported.  Anything that scans one character at a time
+  needs to be re-evaluated.
 
-    My idea of using iconv for auto-conversion will probably not work.
-    iconv expects a charset string, and I can only get such a string
-    from POSIX nl_langinfo(CODESET), which isn't on non-POSIX systems.
-    There are half-assed implementations for Windows, but I don't know
-    if Android is POSIX, and in the end, it's more trouble than it's
-    worth.  Note that although GNU gettext comes with one of those
-    half-assed replacements, it's part of the GPL code, and as such
-    unusable, since I have no intention of making grok GPL.
+  My idea of using iconv for auto-conversion will probably not work.
+  iconv expects a charset string, and I can only get such a string
+  from POSIX nl_langinfo(CODESET), which isn't on non-POSIX systems.
+  There are half-assed implementations for Windows, but I don't know
+  if Android is POSIX, and in the end, it's more trouble than it's
+  worth.  Note that although GNU gettext comes with one of those
+  half-assed replacements, it's part of the GPL code, and as such
+  unusable, since I have no intention of making grok GPL.
 
-    Of course the C library also has mbtowc and wctomb, but it
-    does not define what a wc is (i.e., what encoding), so I don't
-    think that's usable, either.  It's so nice that all the code to do
-    the conversions is there, but it's all unusable.
+  Of course the C library also has mbtowc and wctomb, but it does
+  not define what a wc is (i.e., what encoding), so I don't think
+  that's usable, either.  It's so nice that all the code to do the
+  conversions is there, but it's all unusable.
 
--   Database checks in verify_form().  Right now, it only validates
-    the form definition itself, but not the data in the database.
-    Instead, all incompatible data should be brought up in a single
-    dialog with a checkbox next to each offering to convert, ingore, or
-    abandon changes.  It's important to offer them all at once as some
-    are interdependent.  Plus, it's annoying to have multiple popups.
+- Database checks in verify_form().  Right now, it only validates
+  the form definition itself, but not the data in the database.
+  Instead, all incompatible data should be brought up in a single
+  dialog with a checkbox next to each offering to convert, ingore,
+  or abandon changes.  It's important to offer them all at once as
+  some are interdependent.  Plus, it's annoying to have multiple
+  popups.
 
-    - Changing the array separator/esc should check at least data
-      defined to be array values (currently Flag Lists & Flag Groups)
-      and also maybe check all other data for separator/esc characters.
-      Formulas just can't be checked.
+  - Changing the array separator/esc should check at least data
+    defined to be array values (currently Flag Lists & Flag
+    Groups) and also maybe check all other data for separator/esc
+    characters. Formulas just can't be checked.
 
-    - Changing the field delimiter should offer to convert the
-      existing database to the new delimiter.
+  - Changing the field delimiter should offer to convert the
+    existing database to the new delimiter.
 
-    - Changing the column currently assigned to a variable should
-      offer to move the data around.  All such changes should be
-      offered at once, so that swapping data around works as
-      intended.  Also, all unassigned columns should pop up in
-      the "Debug" warning popup.  Maybe add an "ignore" item
-      type to avoid such warnings.  An 'ignore" item type can be
-      simulated right now using an invisible input field, but
-      prior versions seemed to have wiped out such fields (or at
-      least disabled fields).
+  - Changing the column currently assigned to a variable should
+    offer to move the data around.  All such changes should be
+    offered at once, so that swapping data around works as
+    intended.  Also, all unassigned columns should pop up in the
+    "Debug" warning popup.  Maybe add an "ignore" item type to
+    avoid such warnings.  An 'ignore" item type can be simulated
+    right now using an invisible input field, but prior versions
+    seemed to have wiped out such fields (or at least disabled
+    fields).
 
-    - Changing the type of field assigned to a column should prompt
-      some sort of action, as well.  Especially if the column types
-      are somewhat incompatible.
+  - Changing the type of field assigned to a column should prompt
+    some sort of action, as well.  Especially if the column types
+    are somewhat incompatible.
 
-        - Conversion to a numeric or time/date field should check all
-          values are numbers or blanks, and are in valid range
+    - Conversion to a numeric or time/date field should check
+      all values are numbers or blanks, and are in valid range
 
-        - Conversion to a choice or flag field should, at "Done" time,
-          verify database has correct values.  Same with any edit of
-          codes.  Same with planned menu, radio, multi, flags fields.
+    - Conversion to a choice or flag field should, at "Done"
+      time, verify database has correct values.  Same with any
+      edit of codes.  Same with planned menu, radio, multi,
+      flags fields.
 
-    - Changing formulas should have some way of checking what
-      variables they reference.  This is complicated by nested
-      evals (foreach()), but even they can be checked if they
-      are fixed strings.  This would require either making two
-      versions of the parser or simply running the lexer and
-      detecting foreach().  This sort of thing may be useful,
-      anyway, to make *_if updates faster.
+  - Changing formulas should have some way of checking what
+    variables they reference.  This is complicated by nested evals
+    (foreach()), but even they can be checked if they are fixed
+    strings.  This would require either making two versions of the
+    parser or simply running the lexer and detecting foreach().
+    This sort of thing may be useful, anyway, to make *_if updates
+    faster.
 
 - Support at least some level of undo.  Right now, the best you can do
   is abandon all changes and reload.  Periodic autosave could be
@@ -713,20 +725,20 @@ Infrastructure Improvements
 - Since I'm using Qt anyway, replace UNIXisms with Qt-equivalents
   where possible for portability.  Some more obvious UNIXisms are:
 
-    - Pretty much anything that needs <unistd.h> or any other
-      UNIX-specific headers: <sys/*.h>, <fcntl.h>, <pwd.h>.  This
-      includes the UNIX-specific user, uid and gid, and possibly
-      access.  The system call may be OK, but the actual usages
-      are probably UNIX-specific.
+  - Pretty much anything that needs <unistd.h> or any other
+    UNIX-specific headers: <sys/*.h>, <fcntl.h>, <pwd.h>.  This
+    includes the UNIX-specific user, uid and gid, and possibly
+    access.  The system call may be OK, but the actual usages are
+    probably UNIX-specific.
 
-    - Use of / as a path separator and : as a path list separator.
-      Windows likes using \ and ;, although / is at least
-      supported. Note that the OS/2 changes in 1.5.4 already
-      addressed this a bit, but I didn't copy those changes over.
+  - Use of / as a path separator and : as a path list separator.
+    Windows likes using \ and ;, although / is at least supported.
+    Note that the OS/2 changes in 1.5.4 already addressed this a
+    bit, but I didn't copy those changes over.
 
-    - Installation paths (probably not an issue because the are all
-      configurable in cmake, but macos and android probably require
-      some work to package)
+  - Installation paths (probably not an issue because the are all
+    configurable in cmake, but macos and android probably require
+    some work to package)
 
 - Port to another OS.  Easiest would probably be MacOS, if it weren't
   for the fact that I have no Mac to test on and dropped my Apple
@@ -741,27 +753,26 @@ Infrastructure Improvements
 Card Improvements
 -----------------
 
--   Make Date/Time edit widgets work the way I want them to.  Until
-    these issues are fixed, I have made the use of Qt date/time
-    widgets optional.  The fact that they reduce the display space
-    with the arrow/spinner button(s) and don't support durations
-    larger than 23:59 isn't that big a deal.
+- Make Date/Time edit widgets work the way I want them to.  Until
+  these issues are fixed, I have made the use of Qt date/time
+  widgets optional.  The fact that they reduce the display space
+  with the arrow/spinner button(s) and don't support durations
+  larger than 23:59 isn't that big a deal.
 
-    - Maybe make the "use widgets" switch a global pref, instead
+  - Maybe make the "use widgets" switch a global pref, instead
 
-    - Qt wants to restrict selection and editing to fixed "fields"
-      within the fixed-format date, disallowing entry of special
-      values (like grok and form.cgi's "today"/"tomorrow"/etc.)
-      or values formatted differently (form.cgi ran through a
-      list of recognizable strftime formats, such as ISO
-      YYYY-MM-DD and the locale default).
+  - Qt wants to restrict selection and editing to fixed "fields"
+    within the fixed-format date, disallowing entry of special
+    values (like grok and form.cgi's "today"/"tomorrow"/etc.) or
+    values formatted differently (form.cgi ran through a list of
+    recognizable strftime formats, such as ISO YYYY-MM-DD and the
+    locale default).
 
-    - Also, numbers do not wrap: moving minutes from 59 to 00 or day
-      from max(month) to 1 is simply not allowed, rather than
-      incrementing the next field up.  The only field that
-      partially supports wrapping is hours when in am/pm mode,
-      which allows going from am to pm (but only 11a<->12p, not
-      11p<->12a).
+  - Also, numbers do not wrap: moving minutes from 59 to 00 or day
+    from max(month) to 1 is simply not allowed, rather than
+    incrementing the next field up.  The only field that partially
+    supports wrapping is hours when in am/pm mode, which allows
+    going from am to pm (but only 11a<->12p, not 11p<->12a).
 
 - Optionally display/retain seconds in time fields.  Maybe as a global
   preference rather than per-field, although some fields may be too
@@ -826,38 +837,37 @@ Major Card Features
   that switch to other databases, but it would be nice to make it
   easier.  A few possibilities:
 
-    - Part of the form editor: add a "tab" widget, which works as a
-      tabbed window in the canvas as well.  Widgets added or moved to
-      within the bounds of the tab window are added to the
-      currently selected tab.
+  - Part of the form editor: add a "tab" widget, which works as a
+    tabbed window in the canvas as well.  Widgets added or moved
+    to within the bounds of the tab window are added to the
+    currently selected tab.
 
-        - Alternately, take advantage of invisible_if's now dynamic
-          behavior.  Just add a "hide now" button next to
-	  invisible_if that hides this item and any item
-	  with the exact same hide expression in the canvas.
-	  That way, you can design overlapping widgets
-	  without interference (and, unfortunately, without
-	  guidance).  Alternatevely, add a tearable menu of
-	  all invisible_if expressions for fast switching
-	  between "tabs"
+    - Alternately, take advantage of invisible_if's now dynamic
+      behavior.  Just add a "hide now" button next to
+      invisible_if that hides this item and any item with the
+      exact same hide expression in the canvas. That way, you
+      can design overlapping widgets without interference (and,
+      unfortunately, without guidance).  Alternatevely, add a
+      tearable menu of all invisible_if expressions for fast
+      switching between "tabs"
 
-    - As a special form of the foreign key feature: one-to-one
-      relationships.  Each tab corresponds to a child database, and
-      within is displayed the full edit form of the child database,
-      with parent key reference fields removed.  When a new
-      parent record is created, all one-to-one child records are
-      created at the same time.  This can be enforced by making
-      the foreign key field itself "unique".
+  - As a special form of the foreign key feature: one-to-one
+    relationships.  Each tab corresponds to a child database, and
+    within is displayed the full edit form of the child database,
+    with parent key reference fields removed.  When a new parent
+    record is created, all one-to-one child records are created at
+    the same time.  This can be enforced by making the foreign key
+    field itself "unique".
 
-    - Tabs for the top part to provide alternate summaries, such as
-      graphs and template execution results.  Then again,
-      template execution into a pipe would take care of most of
-      my use cases for this.
+  - Tabs for the top part to provide alternate summaries, such as
+    graphs and template execution results.  Then again, template
+    execution into a pipe would take care of most of my use cases
+    for this.
 
-    The second form is sort of how you do it with buttons, except
-    that you have to make the main table a "tab" as well, sort of.
-    In other words, while visiting children, the parent form's
-    fields are read-only.
+  The second form is sort of how you do it with buttons, except that
+  you have to make the main table a "tab" as well, sort of. In other
+  words, while visiting children, the parent form's fields are
+  read-only.
 
 - Add a media inset widget of some kind.  If we were on X, we could
   just make it a captured application.  I'll look into what Qt has
@@ -884,9 +894,9 @@ Major Card Features
   should be popups, either static or via QChartView in some way,
   rather than forcing them onto the static region of the card.
 
-    - At the very least, document the current chart operation a little
-      better.  The HTML docs don't even cover the chart's item
-      configuration.
+  - At the very least, document the current chart operation a
+    little better.  The HTML docs don't even cover the chart's
+    item configuration.
 
 Major Feature: Foreign Database References
 ------------------------------------------
@@ -917,131 +927,125 @@ Major Feature: Foreign Database References
   child-focused, and parent databases can become parent-focused by
   adding a virtual child reference.
 
-    - The reference is only present in the child database.  An array
-      in the field definition (similar to menu) specifies the
-      list of parent database fields to consider.  Each field
-      may be for storage (i.e. part of the reference key),
-      display, or both. Like form.cgi, a row of popup menus (one
-      for each displayed field) is used to select and display
-      the parent. I suppose there could also be a cutoff, after
-      which selection is not possible, but instead only display
-      as a label, but that adds complexity for no real
-      advantage; it's not like I have to pass the entire
-      database as a javascript table like I did in form.cgi,
-      with cutoffs for form reloading in order to load stuff
-      that didn't fit (these days I'd use AJAX-style server
-      callbacks to do those instead of reloading the page, but
-      that was a different era).  A text field below (optional?)
-      is a search expression applied to the parent database to
-      restrict what parents are selectable (although it never
-      removes the current value, if any).  A button to the left
-      of this text field acts as a link to the parent database,
-      similar to form.cgi's label link. This switches to the
-      parent form (or pops it up in a new window, if that
-      functionality is available), with the child's restriction
-      expression as the default search expression and the
-      child's selected parent, if any, loaded into the card.
-      Naturally, this requires the ability to have multiple
-      forms loaded at once.
+  - The reference is only present in the child database.  An array
+    in the field definition (similar to menu) specifies the list
+    of parent database fields to consider.  Each field may be for
+    storage (i.e. part of the reference key), display, or both.
+    Like form.cgi, a row of popup menus (one for each displayed
+    field) is used to select and display the parent. I suppose
+    there could also be a cutoff, after which selection is not
+    possible, but instead only display as a label, but that adds
+    complexity for no real advantage; it's not like I have to pass
+    the entire database as a javascript table like I did in
+    form.cgi, with cutoffs for form reloading in order to load
+    stuff that didn't fit (these days I'd use AJAX-style server
+    callbacks to do those instead of reloading the page, but that
+    was a different era).  A text field below (optional?) is a
+    search expression applied to the parent database to restrict
+    what parents are selectable (although it never removes the
+    current value, if any).  A button to the left of this text
+    field acts as a link to the parent database, similar to
+    form.cgi's label link. This switches to the parent form (or
+    pops it up in a new window, if that functionality is
+    available), with the child's restriction expression as the
+    default search expression and the child's selected parent, if
+    any, loaded into the card. Naturally, this requires the
+    ability to have multiple forms loaded at once.
 
-      The order of selection in the row of popups doesn't really
-      matter, as long as you don't mind long lists. As with
-      form.cgi, selecting a value in one column restricts the
-      other columns to available values, and a special blank at
-      the top undoes this selection. Note that the row of popups
-      cascades; that is, if you display a foreign key field from
-      the parent database, the parent's line of widgets will be
-      shown instead of a single widget for that field.
+    The order of selection in the row of popups doesn't really
+    matter, as long as you don't mind long lists. As with
+    form.cgi, selecting a value in one column restricts the other
+    columns to available values, and a special blank at the top
+    undoes this selection. Note that the row of popups cascades;
+    that is, if you display a foreign key field from the parent
+    database, the parent's line of widgets will be shown instead
+    of a single widget for that field.
 
-      It wouldn't hurt to have an option to display headers
-      above each column as well, which are the label from the
-      parent database. This makes two features I never got
-      around to implementing in form.cgi, the other being the
-      search field which I only implemented in the search forms,
-      which I am not implementing in grok.
+    It wouldn't hurt to have an option to display headers above
+    each column as well, which are the label from the parent
+    database. This makes two features I never got around to
+    implementing in form.cgi, the other being the search field
+    which I only implemented in the search forms, which I am not
+    implementing in grok.
 
-    - In the parent form, a virtual field may be added which is
-      the list of children currently pointing to it.  This is a
-      scrollable table widget, with buttons below it.  The table
-      widget shows the desired fields of the child database,
-      with or without a header. The buttons below the list are
-      to add ("+") an item or remove ("-") or edit ("=") the
-      selected item in the list.  Adding or editing pops to the
-      child table (or pops up a new window if that feature is
-      available), but in a special parent-restricted mode.  This
-      restricts all searches to include the parent, and makes
-      the parent field read-only for editing and adding (where
-      it is obviously initialized to the parent field value).
-      Alternately, if all of the child form's fields are visible
-      in the widget, the table could become directly editable,
-      much like the query and menu editor tables.  I'm not sure
-      how sorting should work, though.  It would have to be by
-      field, rather than the up/down arrows used by the
-      menu/query editors.  I think it would be best to only
-      support the child form's default search field, in forward
-      order.  Deleting requires thought: do I actually delete
-      the child, or do I just clear out the child's reference?
-      Maybe make that a field option or pop up a question
-      whenever deleting.  Note that this is a feature I had planned
-      for form.cgi as well, but never got around to it.
+  - In the parent form, a virtual field may be added which is the
+    list of children currently pointing to it.  This is a
+    scrollable table widget, with buttons below it.  The table
+    widget shows the desired fields of the child database, with or
+    without a header. The buttons below the list are to add ("+")
+    an item or remove ("-") or edit ("=") the selected item in the
+    list.  Adding or editing pops to the child table (or pops up a
+    new window if that feature is available), but in a special
+    parent-restricted mode.  This restricts all searches to
+    include the parent, and makes the parent field read-only for
+    editing and adding (where it is obviously initialized to the
+    parent field value). Alternately, if all of the child form's
+    fields are visible in the widget, the table could become
+    directly editable, much like the query and menu editor tables.
+    I'm not sure how sorting should work, though.  It would have
+    to be by field, rather than the up/down arrows used by the
+    menu/query editors.  I think it would be best to only support
+    the child form's default search field, in forward order.
+    Deleting requires thought: do I actually delete the child, or
+    do I just clear out the child's reference? Maybe make that a
+    field option or pop up a question whenever deleting.  Note
+    that this is a feature I had planned for form.cgi as well, but
+    never got around to it.
 
-      In addition, the form has a list of "child databases" which is
-      just a way of supporting cascade deletes and other features that
-      need the reverse relationship.  I was going to just require
-      invisible virtual fields like above, but the canvas doesn't
-      really support invisible fields well, and a list of children is
-      easer to store and scan.  Naturally, virtual fields' child
-      databases are automatically in this list.  One way to sort of
-      enforce this list would be to check the parent database in
-      validate_form() of the child and auto-add it if desired.  Also,
-      when removing the parent reference from the child form, offer to
-      remove the parent's child references as well.
+    In addition, the form has a list of "child databases" which is
+    just a way of supporting cascade deletes and other features
+    that need the reverse relationship.  I was going to just
+    require invisible virtual fields like above, but the canvas
+    doesn't really support invisible fields well, and a list of
+    children is easer to store and scan.  Naturally, virtual
+    fields' child databases are automatically in this list.  One
+    way to sort of enforce this list would be to check the parent
+    database in validate_form() of the child and auto-add it if
+    desired.  Also, when removing the parent reference from the
+    child form, offer to remove the parent's child references as
+    well.
 
-      Deleting a record in a parent table (which explicitly
-      lists children, via either of the above two methods) does
-      cascade deletes (i.e., all children referencing this
-      record are deleted as well) and cascade foreign key
-      modification (i.e., changing the key will either delete
-      children or update their reference; this means that all
-      child forms must be loaded at the same time to know what
-      fields are actually being used as a key).  Whether a child
-      is deleted or just has its reference blanked could just
-      depend on whether or not the field is never-blank, or the
-      delete popup gives options for what to do, defaulted to
-      what it thinks is right.  Note that form.cgi disn't
-      support changing the key (the key field was an invisible
-      unique integer id in all tables, anyway) and only
-      supported full cascade deletes (but at least told the user
-      how many children were going to be deleted in the delete
-      confirmation dialog, which doesn't even exist in grok).
-      form.cgi had the advantage of reading the entire schema
-      metadata, so it could mark parents automatically.
+    Deleting a record in a parent table (which explicitly lists
+    children, via either of the above two methods) does cascade
+    deletes (i.e., all children referencing this record are
+    deleted as well) and cascade foreign key modification (i.e.,
+    changing the key will either delete children or update their
+    reference; this means that all child forms must be loaded at
+    the same time to know what fields are actually being used as a
+    key).  Whether a child is deleted or just has its reference
+    blanked could just depend on whether or not the field is
+    never-blank, or the delete popup gives options for what to do,
+    defaulted to what it thinks is right.  Note that form.cgi
+    disn't support changing the key (the key field was an
+    invisible unique integer id in all tables, anyway) and only
+    supported full cascade deletes (but at least told the user how
+    many children were going to be deleted in the delete
+    confirmation dialog, which doesn't even exist in grok).
+    form.cgi had the advantage of reading the entire schema
+    metadata, so it could mark parents automatically.
 
--     Many-to-many foreign key references.  In an SQL database, I
-      would normally create a table containing reference pairs.
-      This is not necessarily the most efficient way to do this
-      in CSV-files like what grok uses.  Instead, the keys are
-      stored as strings-as-sets (or sets of arrays for
-      multi-field keys).  This means there is once again a
-      "child" and "parent" database, where the "parent" knows
-      nothing of the child by default.  The child and/or the
-      parent presents an interface similar to the virtual child
-      reference field for parents above.  The last row of the
-      table is an editable row, though, and is a line of popups
-      similar to the interface for child databases, above, and
-      its search field is presented to the right of the normal
-      virtual field buttons.  In the "parent" database, visible
-      virtual references are presented the same way.  When
-      popping to an edit, there are no restrictions other than
-      applying the restriction, if any, to the initial query.
-      Adding adds the currently selected item in the bottom
-      "editable" row.  For convenience and safety, rather than
-      using virtual references, the "parent" can be given a
-      stored reference like the "child", making them full peers,
-      but duplicating the key list in the inverse direction.
-      This is yet another feature I never got around to supporting
-      correctly in form.cgi, but our product didn't really have any
-      such relationships, so it wasn't a big deal.
+- Many-to-many foreign key references.  In an SQL database, I would
+  normally create a table containing reference pairs. This is not
+  necessarily the most efficient way to do this in CSV-files like
+  what grok uses.  Instead, the keys are stored as strings-as-sets
+  (or sets of arrays for multi-field keys).  This means there is
+  once again a "child" and "parent" database, where the "parent"
+  knows nothing of the child by default.  The child and/or the
+  parent presents an interface similar to the virtual child
+  reference field for parents above.  The last row of the table is
+  an editable row, though, and is a line of popups similar to the
+  interface for child databases, above, and its search field is
+  presented to the right of the normal virtual field buttons.  In
+  the "parent" database, visible virtual references are presented
+  the same way.  When popping to an edit, there are no restrictions
+  other than applying the restriction, if any, to the initial query.
+  Adding adds the currently selected item in the bottom "editable"
+  row.  For convenience and safety, rather than using virtual
+  references, the "parent" can be given a stored reference like the
+  "child", making them full peers, but duplicating the key list in
+  the inverse direction. This is yet another feature I never got
+  around to supporting correctly in form.cgi, but our product didn't
+  really have any such relationships, so it wasn't a big deal.
 
 Major Feature:  SQL Support
 ---------------------------
@@ -1055,28 +1059,28 @@ Major Feature:  SQL Support
   doesn't support altering table definitions, so adding and removing
   fields requires copying the table.
 
-    - Support storing the .gf file in the database as well; if a
-      database connection string is in prefs, look for likely form
-      definition tables and add them to the Database listing.
+  - Support storing the .gf file in the database as well; if a
+    database connection string is in prefs, look for likely form
+    definition tables and add them to the Database listing.
 
-    - Support converting a table into a fairly automatically generated
-      form, as long as field types are understandable.  Similar
-      to my old form.cgi/genform, also read constraints for
-      field type hints.  Of course table definition metadata
-      access is not standardized, so each database will require
-      custom-written support.  For example, genform used
-      Oracle's proprietary metadata tables, and sqlite3 only
-      provides the raw schema defintion.  Also, genform relied
-      on some product-specific schema standards, some of which
-      can't even be enforced, since they relied on Oracle
-      features (like sequences and disabled constraints).  A lot
-      of sqlite and mysql databases are also very sloppily
-      designed, basically using unconstrained TEXT and NUMBER
-      fields liberally, which are hard to handle reasonably.
+  - Support converting a table into a fairly automatically
+    generated form, as long as field types are understandable.
+    Similar to my old form.cgi/genform, also read constraints for
+    field type hints.  Of course table definition metadata access
+    is not standardized, so each database will require
+    custom-written support.  For example, genform used Oracle's
+    proprietary metadata tables, and sqlite3 only provides the raw
+    schema defintion.  Also, genform relied on some
+    product-specific schema standards, some of which can't even be
+    enforced, since they relied on Oracle features (like sequences
+    and disabled constraints).  A lot of sqlite and mysql
+    databases are also very sloppily designed, basically using
+    unconstrained TEXT and NUMBER fields liberally, which are hard
+    to handle reasonably.
 
-    - Support many-to-many references via a helper table.  All
-      reference fields become virtual parent-style fields, with
-      double-indirection to get to the displayed fields.
+  - Support many-to-many references via a helper table.  All
+    reference fields become virtual parent-style fields, with
+    double-indirection to get to the displayed fields.
 
 Stuff that will probably never fly
 ----------------------------------
