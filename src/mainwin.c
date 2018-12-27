@@ -476,6 +476,7 @@ static struct db {
 	char	*name;		/* callback gets an index into this array */
 	char	*path;		/* path where form file was found */
 } db[MAXD];
+static int ndb;
 
 static int append_to_dbase_list(
 	long		nlines,		/* # of databases already in pulldown*/
@@ -491,7 +492,13 @@ static int append_to_dbase_list(
 
 	grow(0, "database pulldown", char, name, 80, &namelen);
 	name[0] = order + '0';
-	path = resolve_tilde(path, 0);
+	path = canonicalize(resolve_tilde(path, 0), false);
+	/* may as well check for path dup right here to skip dir read */
+	/* FIXME: ugh.  need to insert into db using binary insertion */
+	/* and then find dups using binary search. same in loop below */
+	for(i = 0; i < nlines; i++)
+		if(db[i].path && !strcmp(db[i].path, path))
+			return nlines;
 	if (!(dir = opendir(path)))
 		return(nlines);
 	while (nlines < MAXD-!num) {
@@ -501,9 +508,9 @@ static int append_to_dbase_list(
 			continue;
 		*p = 0;
 		for (i=0; i < nlines; i++)
-			if (db[i].path && (pref.uniquedb ||
-					 !strcmp(db[i].path, path))
-				      && !strcmp(db[i].name+1, dp->d_name))
+			/* already eliminated same-path above */
+			if (db[i].name && pref.uniquedb &&
+			    !strcmp(db[i].name+1, dp->d_name))
 			    	break;
 		if (i < nlines)
 			continue;
@@ -523,18 +530,51 @@ static int append_to_dbase_list(
 }
 
 
-static void make_dbase_pulldown(
-	long		nlines)		/* # of databases already in pulldown*/
+static void make_dbase_pulldown(void)
 {
 	int		i;
+	static QActionGroup *ag = 0;
 
-	for (i=0; i < nlines; i++) {
+	dbpulldown->clear();
+	if(!ag)
+		ag = new QActionGroup(dbpulldown);
+	for (i=0; i < ndb; i++) {
 		if (!db[i].path) {
 			dbpulldown->addSeparator();
-		} else {
-			QString n(db[i].name+1);
-			n.replace('&', "&&");
-			dbpulldown->addAction(n, [=](){dbase_pulldown(i);});
+			continue;
+		}
+		bool loaded = false, shown = false, mod = false;
+		for(FORM *form = form_list; form; form = form->next)
+			if(!strcmp(form->dir, db[i].path)) {
+				const char *n = strrchr(form->path, '/');
+				const char *ext = strrchr(form->path, '.');
+				if(!ext || strcmp(ext, ".gf"))
+					continue;
+				if(memcmp(n + 1, db[i].name + 1, ext - n - 1) ||
+				   db[i].name[ext - n])
+					continue;
+				loaded = true;
+				if(mainwindow->card && mainwindow->card->form == form)
+					shown = true;
+				for(DBASE *dbase = dbase_list; dbase; dbase = dbase->next)
+					if(dbase->form == form) {
+						mod = dbase->modified;
+						break;
+					}
+				break;
+			}
+		QString n(db[i].name+1);
+		n.replace('&', "&&");
+		if(mod)
+			n.append('*');
+		QAction *act = dbpulldown->addAction(n, [=](){dbase_pulldown(i);});
+		ag->addAction(act);
+		act->setCheckable(true);
+		act->setChecked(shown);
+		if(loaded) {
+			QFont f = act->font();
+			f.setBold(true);
+			act->setFont(f);
 		}
 	}
 }
@@ -553,7 +593,6 @@ void remake_dbase_pulldown(void)
 	int		n;
 	const char	*env;
 
-	dbpulldown->clear();
 	for (n=0; n < MAXD; n++) {
 		zfree(db[n].path);
 		zfree(db[n].name);
@@ -566,7 +605,8 @@ void remake_dbase_pulldown(void)
 	n = append_to_dbase_list(n, GROKDIR, 2);
 	n = append_to_dbase_list(n, LIB "/grokdir", 3);
 	qsort(db, n, sizeof(struct db), compare_db);
-	make_dbase_pulldown(n);
+	ndb = n;
+	make_dbase_pulldown();
 	// tearoff already enabled above
 }
 
@@ -613,7 +653,7 @@ void remake_section_pulldown()
  */
 
 #define MAXQ	100		/* no more than 100 queries in pulldown */
-static QActionGroup	*qag = 0;	/* for readio-like queries */
+static QActionGroup	*qag = 0;	/* for radio-like queries */
 
 void remake_query_pulldown(void)
 {
@@ -804,7 +844,7 @@ void switch_form(
 		FORM		*oform = card->form;
 		card_readback_texts(card, -1);
 		destroy_card_menu(card);
-		if((oform))
+		if(oform)
 			prev_form = mystrdup(oform->name);
 		free_card(card);
 		form_delete(oform);
@@ -887,6 +927,7 @@ void switch_form(
 		remake_section_pulldown();	/* also sets w_sect, w_del */
 		print_info_line();
 		resize_mainwindow();
+		make_dbase_pulldown();
 		mainwindow->setUpdatesEnabled(true);
 	}
 }
@@ -1039,7 +1080,6 @@ static void dbase_pulldown(
 	     strlen(db[item].path) + strlen(db[item].name+1) + 5, &pathlen);
 	sprintf(path, "%s/%s.gf", db[item].path, db[item].name+1);
 	switch_form(mainwindow->card, path);
-	remake_dbase_pulldown();
 }
 
 
@@ -1548,6 +1588,8 @@ static bool multi_save_revert(
 			checkboxes[nrows * 4 + 3] = reinterpret_cast<QCheckBox *>(dbase);
 			nrows++;
 		}
+		if(is_quit)
+			break;
 	}
 	form->addWidget(mk_separator(), 4 + nrows, 0, 1, 4);
 	QDialogButtonBox *bb = new QDialogButtonBox;

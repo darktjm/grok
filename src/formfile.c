@@ -45,11 +45,8 @@ bool write_form(
 	path = form->path ? form->path : form->name;
 	if (!form->path) {
 		path = resolve_tilde(path, "gf");
-		if (!(form->path = strdup(path))) {
-			create_error_popup(mainwindow, errno,
-				"No memory for form path");
-			return(false);
-		}
+		form->dir = mystrdup(canonicalize(path, true));
+		form->path = mystrdup(canonicalize(path, false));
 	}
 	if (!(fp = fopen(path, "w"))) {
 		create_error_popup(mainwindow, errno,
@@ -200,55 +197,6 @@ bool write_form(
 		}
 	}
 	fclose(fp); /* FIXME: report errors */
-	form->next = form_list;
-	form_list = form;
-	DBASE *new_db = NULL;
-	for (form = form_list->next; form; form = form->next)
-		if(!strcmp(form->path, path))
-			break;
-	if(form) {
-		CARD *card;
-		DBASE *del_db = NULL;
-		for (card = card_list; card; )
-			if(card->form == form) {
-				QWidget *w = card->wform;
-				QWidget *sh = card->shell;
-				if (w || sh) {
-					card_readback_texts(card, -1);
-					destroy_card_menu(card);
-				} if (sh) { /* card was deleted; back to top */
-					card = card_list;
-					continue;
-				}
-				card->form = form_list;
-				if(new_db != card->dbase) {
-					/* FIXME: this isn't an exact match for how it's done in mainwin.c */
-					const char *odb = form->dbase ? form->dbase : form->name;
-					if(!new_db && !strcmp(STR(odb), form_list->dbase)) {
-						new_db = card->dbase;
-						/* ensure all prior ones were set */
-						/* this should actually just be a waste of time */
-						card = card_list;
-						continue;
-					} else {
-						del_db = card->dbase;
-						card->dbase = new_db;
-					}
-				}
-				if (w)
-					build_card_menu(card, w);
-				card = card->next;
-			}
-		if(del_db) {
-			/* if form's db changed, old db will likely never be used again */
-			for(card = card_list; card; card = card->next)
-				if(card->dbase == del_db)
-					break;
-			if(!card)
-				dbase_delete(del_db);
-		}
-		form_delete(form);
-	}
 	remake_dbase_pulldown();
 	path = db_path(form);
 	/* auto-creation of procedurals won't work */
@@ -336,7 +284,8 @@ static char *get_string(FILE *fp, char *val, char *buf, size_t buflen,
 }
 
 FORM *read_form(
-	const char		*path)		/* file to read list from */
+	const char		*path,		/* file to read list from */
+	bool			force)	/* overrwrite loaded forms */
 {
 	FORM			*form;
 	FILE			*fp;		/* open file */
@@ -383,13 +332,33 @@ FORM *read_form(
 			"Failed to open form file %s", path);
 		return NULL;
 	}
-	for(form = form_list; form; form = form->next)
-		if(!strcmp(form->path, path)) {
-			fclose(fp);
-			return form;
-		}
+	p = mystrdup(canonicalize(path, false));
+	char *dir = mystrdup(canonicalize(path, true));
+	if(!force)
+		for(form = form_list; form; form = form->next)
+			if(!strcmp(form->path, p)) {
+				fclose(fp);
+				if(strcmp(form->dir, dir)) {
+					for(FORM *f = form->next; f; f = f->next)
+						if(!strcmp(form->path, p) &&
+						   !strcmp(form->dir, dir)) {
+							free(p);
+							free(dir);
+							return f;
+						}
+					form = form_clone(form);
+					form->path = p;
+					form->dir = dir;
+					verify_form(form, 0, 0); // to create symtab
+				} else {
+					free(p);
+					free(dir);
+				}
+				return form;
+			}
 	form = form_create();
-	form->path = mystrdup(path);
+	form->path = p;
+	form->dir = dir;
 	for (;;) {
 		if (!fgets(line, sizeof(line), fp))
 			break;
@@ -405,6 +374,7 @@ FORM *read_form(
 
 		if (!strcmp(key, "item")) {
 			if (!item_create(form, form->nitems)) {
+				/* this.. isn't really recoverable */
 				form_delete(form);
 				return NULL;
 			}
@@ -632,8 +602,94 @@ FORM *read_form(
 		form_delete(form);
 		return NULL;
 	}
+	if(!force) {
+		form->next = form_list;
+		form_list = form;
+		return form;
+	}
+	/* first pass: replace forms and collect possible dbase replacements */
+	/* replacments will be stored here.  This will sort of screw up the */
+	/* lru order of dbase_list, but I don't care */
+	DBASE *repl_dbase = 0;
+	for(FORM **prev = &form_list; *prev; prev = &(*prev)->next)
+		if(!strcmp((*prev)->path, form->path)) {
+			FORM *nform, *oform = *prev;
+			if(!strcmp((*prev)->dir, form->dir)) {
+				nform = form;
+				*prev = oform->next;
+				if(!*prev)
+					break;
+			} else {
+				nform = form_clone(form);
+				nform->path = oform->path;
+				nform->dir = oform->dir;
+				nform->next = oform->next;
+				verify_form(nform, 0, 0); /* create symtab */
+				*prev = nform;
+				oform->path = oform->dir = NULL;
+			}
+			const char *path = db_path(nform);
+			for(DBASE **dbp = &dbase_list; *dbp; )
+				if((*dbp)->form == oform) {
+					(*dbp)->form = nform;
+					if(!strcmp(path, (*dbp)->path) &&
+					   oform->proc == nform->proc &&
+					   (!oform->proc || !strcmp(oform->name, nform->name))) {
+						dbp = &(*dbp)->next;
+						continue;
+					}
+					/* save db updates for 2nd pass */
+					DBASE *r = *dbp;
+					*dbp = r->next;
+					r->next = repl_dbase;
+					repl_dbase = r;
+				} else
+					dbp = &(*dbp)->next;
+			for(CARD *card = card_list; card; card = card->next)
+				if(card->form == oform) {
+					/* it's unsafe to readback texts with new form */
+					card_readback_texts(card, -1);
+					card->form = nform;
+				}
+			form_delete(oform);
+		}
 	form->next = form_list;
 	form_list = form;
+	/* 2nd pass: update databases if form->dbase/proc/name changed */
+	while(repl_dbase) {
+		DBASE *odbase = repl_dbase;
+		DBASE *dbase = read_dbase(odbase->form);
+		for(CARD *card = card; card; card = card->next)
+			if(card->dbase == odbase)
+				card->dbase = dbase;
+		repl_dbase = odbase->next;
+		dbase_clear(odbase);
+		free(odbase);
+	}
+	/* 3rd pass: reload windows using affected forms */
+	for(CARD *card = card_list; card; card = card->next)
+		if(card->wform && !strcmp(card->form->path, form->path)) {
+			if(card->nitems != form->nitems) {
+				size_t n = sizeof(CARD) + sizeof(struct carditem) * form->nitems;
+				CARD *ncard = (CARD *)realloc(card, n);
+				if(!ncard)
+					fatal("No memory for new form");
+				if(card != ncard) {
+					if(mainwindow->card == card)
+						mainwindow->card = ncard;
+					for(CARD **pc = &card_list; *pc; pc = &(*pc)->next)
+						if(*pc == card) {
+							*pc = ncard;
+							break;
+						}
+				}
+				card->nitems = form->nitems;
+			}
+			QWidget *wform = card->wform;
+			destroy_card_menu(card);
+			build_card_menu(card, wform);
+			fillout_card(card, false);
+		}
 	return form;
 }
 

@@ -110,7 +110,7 @@ CARD *create_card_menu(
 	if (!(card = (CARD *)calloc(n, 1)))
 		return(NULL);
 	card->next = card_list;
-	card_list = card->next;
+	card_list = card;
 	card->form   = form;
 	card->dbase  = dbase;
 	card->row    = -1;

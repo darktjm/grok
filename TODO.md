@@ -40,50 +40,21 @@ completely break in 3.0:
 Features in Progress
 --------------------
 
-- I really need to make the dbase/form path keys do a realpath() or
-  the like.  I'm sure it's one of those things that's non-portable
-  (POSIX 2008 by the looks of it) and requires use of 16-bit
-  QStrings in "portable" Qt (QFileInfo::canonicalFilePath() by the
-  looks of it).  Not that realpath() is a panacea. It's still
-  possible to alias files using mount tricks (bind mounting, remote
-  filesystems, unionfs, etc.).  The only thing that might ensure
-  uniqueness would be to use locks, but even that might be bypassed
-  by poorly implemented filesystems.
+- db manu fixes:
 
-  Part of the problem with that is that symlinks are perfectly valid in
-  some circumstances.  One of the things that aggravates me about many
-  modern programs is that they do realpath() and lose the original path.
-  For grok, this issue could be resolved by storing two paths:  the path
-  to the (possible) symlink, and the path to the file.  The first is
-  basically realpath(dirname(p)) and the second is realpath(p).  In
-  the form list, both are used as the combined key, but when loading a
-  form for which the second key would be the same, just copy the
-  existing one and set a different first key.  The same could be done
-  for databses, I guess, so that the timestamp file comes from the dir
-  the symlink is in, rather than the one the symlink points to.  I
-  don't really like supporting timestamps in different directories,
-  though.
+  - All loaded databases should be in the menu regardless of
+    whether or not they normally would be.  The star in the title
+    bar should also reflect all databases, not just the currently
+    displayed one.
 
-- The Database menu should reflect multi-database support.  I think
-  the (current) window's menu should have a radio selection showing
-  the currently displayed databse (if it's in the menu at all, since
-  the cmd line can load unsupported databases).  This probably
-  requires storing the canonical path in the menu support structure,
-  as well.  All loaded databases should indicate that by either a
-  plus sign or a star after the name depending on whether or not
-  it's modified (and maybe a third symbol (#?) if it's displayed in
-  another window, and an associated preference to switch to the
-  nearest window of a database if it's already opened when choosing
-  a new database).  In fact, all loaded databases should be in the
-  menu regardless of whether or not they normally would be.  The
-  star in the title bar should also reflect all databases, not just
-  the currently displayed one.
+  - Modified flag in db menu needs updating as soon as db is modifed
+    (print_info_line() material, at least)
 
-  As an alternate to having a symbol, use different fonts.  Italic for
-  loaded, and bold for modified (or bold for displayed, and still use
-  a star for modified, since that's also used elsewhere).  Or no special
-  indicator for displayed, and bold for loaded and star for modified (I
-  don't really like italics that much).  Or QSS-speified, I guess.
+  - As soon as a db/form is unloaded, it should be unbolded/removed from
+    menu.
+
+  - As soon as a db/form is loaded via non-interactive means, it should
+    be bolded/added to menu
 
 - Support multiple views; i.e. multiple main windows.  So far, it's
   possible to have multiple card structures, each of which supports its
@@ -93,6 +64,10 @@ Features in Progress
 
   Perhaps as a later feature, support use of tabs instead of separate
   windows.  I don't really care for MDI, so I don't think I'll do that.
+
+  Also, in the style of emacs, retain search and sort criteria of
+  previous view on dbase switch.  Currently, I discard the card, and
+  only retain the dbase & form if the dbase is modified or cached.
 
 - My original plan was to get fkey support into this release, but my
   recent annoyance with Qt combined with the gog winter sale and the
@@ -136,7 +111,10 @@ Bugs
   fortunately seems to have no effect.  Anything which disables
   the close callback like that should probably just be destroy'd.
 
-- The help popup for questions immediately gets pushed behind question popup
+- The help popup for questions immediately gets pushed behind question
+  popup.  The same is true for multi-save and any other modal dialogs.
+  If possible, maybe I should make the help dialog temporarily modal
+  itself.  Or, I could just force a What's This? display, maybe.
 
 - Invalid long options pop up the usage() after the fork.  Fixing this
   without disabling fork entirely is probably never going to happen,
@@ -145,23 +123,9 @@ Bugs
 Code Improvements
 -----------------
 
-- Have form_clone() fail gracefully and free its results on failure,
-  aborting the form edit instead of killing grok.  In general,
-  failures during form editing should just kill the form editor.
-
 - constify *everything*
 
 - protect all file I/O with EAGAIN/EINTR loops
-
-- Since I'm using C++ anyway, convert BOOL, TRUE and FALSE to their
-  C++ lower-case equivalents.  C supports them too, but with too many
-  underscores.
-
-- Identify abortable processes and catch all C++ exceptions to abort
-  the process instead of the entire program.  In particular,
-  expression evaluation and template processing should abort rather than
-  kill grok.  Similarly, the new abort-on-alloc-failure code isn't
-  as forgiving as it should be.
 
 - On all file writes, fflush before fclose, and report on ferror().
   Normally I'd stop writing as soon as an error occurs, but that's too
@@ -170,13 +134,27 @@ Code Improvements
 - Check errors on all file reads, and report/abort if so.  I suppose
   that delaying until just before fclose would be sufficient.
 
+- Have form_clone() fail gracefully and free its results on failure,
+  aborting the form edit instead of killing grok.  In general,
+  failures during form editing should just kill the form editor.
+
+  On the other hand, the form editor should also auto-save and support
+  resuming from auto-save.
+
+- Identify abortable processes and catch all C++ exceptions to abort
+  the process instead of the entire program.  In particular,
+  expression evaluation and template processing should abort rather than
+  kill grok.  Similarly, the new abort-on-alloc-failure code isn't
+  as forgiving as it should be.
+
 - Consistently make blank strings NULL, and stop checking for blanks.
+  In particular, use zstrdup instead of mystrdup in contexts where
+  NULL is acceptable.
 
 - Be more consistent on use of 0 vs NULL for pointers.  Yeah, my own
   additions are probably even more inconsistent than the old code was.
   The advantage of NULL is that it only works in pointer contexts.
-  The advantage of 0 is that it's shorter to write.  In particular,
-  use zstrdup instead of mystrdup in contexts where NULL is acceptable.
+  The advantage of 0 is that it's shorter to write.
 
 - Use specific pointer types instead of base classes to avoid the
   dynamic_cast overhead.  I'm not sure the compiler is smart enough
@@ -190,11 +168,14 @@ Code Improvements
   Windows/MSVC-only issue.
 
 - Use binary searches in lexer (kw and pair_) and other areas that use
-  long lists of strings.  Also, use array sizes rather than
-  0-termination in general.
+  long lists of strings.  Hash tables are too much trouble, though.
+
+- Use static array sizes rather than 0-termination in general.
 
 - Use symbolic names (either enums or strings) instead of cryptic hex
-  action codes.
+  (or, in the case of mainwin.c, decimal) action codes.  In some cases,
+  maybe split callbacks into multiple functions, since they don't really
+  share code.
 
 Minor UI Improvements
 ---------------------
@@ -272,19 +253,19 @@ Minor UI Improvements
 Important UI improvements
 -------------------------
 
--   Do something about the help text.  Converting the built-in text to
-    basic HTML improved the appearance a bit, so at least
-    appearance-related changes can wait. It is not possible to
-    globally override QWhatsThis.  Instead, I'd have to subclass
-    every widget with whatsThis text and override the keyboard and
-    mouse events (probably among others) to call my own routine,
-    instead.  Making a pseudo-what's this cursor would probably be
-    way too much trouble.
+- Do something about the help text.  Converting the built-in text to
+  basic HTML improved the appearance a bit, so at least
+  appearance-related changes can wait. It is not possible to
+  globally override QWhatsThis.  Instead, I'd have to subclass every
+  widget with whatsThis text and override the keyboard and mouse
+  events (probably among others) to call my own routine, instead.
+  Making a pseudo-what's this cursor would probably be way too much
+  trouble.
 
-    For now, verify all help texts are mostly legible, and maybe
-    convert some to HTML.  Also, verify that all help topics are
-    actually present in grok.hlp, and that all topics present in
-    grok.hlp are actually used.
+  For now, verify all help texts are mostly legible, and maybe
+  convert some to HTML.  Also, verify that all help topics are
+  actually present in grok.hlp, and that all topics present in
+  grok.hlp are actually used.
 
 - The manual needs cleaning up as well, but not that desperately.
   I'll probably just leave it for now, and just make sure it's
@@ -298,6 +279,11 @@ Important UI improvements
   searches, maybe have a combo box for selecting search expressions
   that includes the recently used ones (probably difficult given the
   nature of the table editing).
+
+- Support recent export names in combo box.  Also, maybe support a set
+  of predefined export names that are permanently stored.  Maybe
+  combine this with the ability to delete history entries or make them
+  persistent (a checkbox next to each) in the pref editor.
 
 - Sort by expression: add a menu item below sort fields to pop up a
   string requester; last expression is then added to menu.  In fact,
@@ -351,11 +337,6 @@ Important UI improvements
   work to make it usable.  It doesn't even support control characters
   in the text, so it's useless for editing "fancy" templates.  Also,
   the editor should query and restore file permissions if possible.
-
-- Support recent export names in combo box.  Also, maybe support a set
-  of predefined export names that are permanently stored.  Maybe
-  combine this with the ability to delete history entries or make them
-  persistent (a checkbox next to each) in the pref editor.
 
 - Do something about scaling factor.  Either use it to adjust font
   sizes at the same time, or drop it entirely.  Really only relevant
@@ -546,14 +527,15 @@ Infrastructure Improvements
   database column.  Support Print widgets in listing, expressions,
   and anywhere else a column is usually required.
 
-- Support UTF-8.  This was going somewhere in the IUP port, but I
-  have abandoned this and it is at 0% again.  I don't like the idea
-  of using QChar everywhere, and I definitely don't like the idea of
-  converting to/from QByteArrays, but there's not much else I can
-  do.
+- Support UTF-8.  I don't like the idea of using QChar everywhere, and
+  I definitely don't like the idea of converting to/from QByteArrays,
+  but there's not much else I can do.  I don't even know if QChar is
+  32-bit (it/s advertised as 16-bit, but it might still support
+  32-bit values with manual surrogate split/merge; this only matters for
+  data retention and character class checks).
 
-  At the least, if the current locale isn't UTF-8, the current
-  locale should be auto-translated to UTF-8 internally, and
+  At the least, if the current localej's encoding isn't UTF-8, the
+  current encoding should be auto-translated to UTF-8 internally, and
   converted back before writing out files.  Otherwise, a scan of
   data should make it obvious if it isn't UTF-8, and an option
   should be provided to convert to UTF-8 permanently or just
@@ -564,6 +546,12 @@ Infrastructure Improvements
   must be supported.  Anything that scans one character at a time
   needs to be re-evaluated.
 
+  On the other hand, Qt uses 16-bit everywhere, and if I ever start
+  using Qt functions instead of POSIX functions, I'll have to use it
+  anyway, so maybe I'll use UCS-16 internally.  Even if I don't do
+  that, supporting UTF-16 files with an explicit BOM as their first
+  character seems like a good idea.
+
   My idea of using iconv for auto-conversion will probably not work.
   iconv expects a charset string, and I can only get such a string
   from POSIX nl_langinfo(CODESET), which isn't on non-POSIX systems.
@@ -571,7 +559,9 @@ Infrastructure Improvements
   if Android is POSIX, and in the end, it's more trouble than it's
   worth.  Note that although GNU gettext comes with one of those
   half-assed replacements, it's part of the GPL code, and as such
-  unusable, since I have no intention of making grok GPL.
+  unusable, since I have no intention of making grok GPL.  Qt's
+  character set conversion routines don't seem very useful at first
+  glance.
 
   Of course the C library also has mbtowc and wctomb, but it does
   not define what a wc is (i.e., what encoding), so I don't think
@@ -650,6 +640,10 @@ Infrastructure Improvements
   in the GUI as well, which is much harder due to lack of native Qt
   support.  It also doesn't cover HTML, which needs a different line
   break algorithm.
+
+- Have a way to access timestamp information in expressions and
+  templates, including a 't' flag to add them to the auto-generated
+  templates.
 
 - Make a generic RST exporter, and support that for printing.  Maybe
   also md/discount, but I have come to hate md.  Supporting RST for

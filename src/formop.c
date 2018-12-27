@@ -80,6 +80,7 @@ FORM *form_clone(
 	form = alloc(0, "clone form", FORM, 1);
 	*form = *parent;
 	form->path    = NULL;
+	form->dir     = NULL;
 	form->next    = NULL;
 	form->name    = mystrdup(parent->name);
 	form->dbase   = mystrdup(parent->dbase);
@@ -115,6 +116,7 @@ FORM *form_clone(
  * Make sure to remove all windows that display a view of this form first.
  */
 
+
 void form_delete(
 	FORM		*form)		/* form to delete */
 {
@@ -135,9 +137,9 @@ void form_delete(
 
 	zfree(form->items);
 	zfree(form->path);
+	zfree(form->dir);
 	zfree(form->name);
 	zfree(form->dbase);
-	zfree(form->dbpath);
 	zfree(form->comment);
 	zfree(form->help);
 	zfree(form->planquery);
@@ -570,19 +572,22 @@ bool verify_form(
 bool check_loaded_forms(QString &msg, FORM *form)
 {
 	const char *dbpath;
-	const char *formpath = form->path;
+	const char *formpath = form->path, *formdir = form->dir;
+	char *tpath = 0, *tdir = 0;
 	bool must_unload = false;
 
-	/* form->path has to be valid before db_path */
-	if(!formpath)
-		form->path = (char *)resolve_tilde(form->name, "gf");
+	/* form->dir has to be valid before db_path */
+	if(!formpath) {
+		const char *path = resolve_tilde(form->name, "gf");
+		formdir = form->dir = tdir = mystrdup(canonicalize(form->path, true));
+		if(!form->dir)
+			fatal("Cant resolve form path");
+		formpath = form->path = tpath = mystrdup(canonicalize(path, false));
+	}
 	dbpath = db_path(form);
 	/* but don't fix form's path while still possibly editing */
-	/* also don't accidentally free resolve_tilde results */
-	if(!formpath) {
-		formpath = form->path;
-		form->path = NULL;
-	}
+	if(tpath)
+		form->path = form->dir = NULL;
 	for(DBASE *dbase = dbase_list; dbase; dbase = dbase->next) {
 		if(!strcmp(dbase->path, dbpath) &&
 		   form->proc == dbase->form->proc &&
@@ -608,7 +613,8 @@ bool check_loaded_forms(QString &msg, FORM *form)
 					msg += "deleted";
 				msg += " the first time you save the databse.\n\n";
 			}
-			if(!strcmp(dbase->form->path, formpath)) {
+			if(!strcmp(dbase->form->path, formpath) &&
+			   !strcmp(dbase->form->dir, formdir)) {
 				/* FIXME:  if any new fields are dates, and old
 				 * field isn't the same date fmt, convert.
 				 * But that's too much trouble; instead just
@@ -629,7 +635,8 @@ bool check_loaded_forms(QString &msg, FORM *form)
 						}
 					}
 			}
-		} else if(!strcmp(dbase->form->path, formpath)) {
+		} else if(!strcmp(dbase->form->path, formpath) &&
+			  !strcmp(dbase->form->dir, formdir)) {
 			if(mainwindow->card && dbase == mainwindow->card->dbase)
 				card_readback_texts(mainwindow->card, -1);
 			if(dbase->modified)
@@ -646,6 +653,8 @@ bool check_loaded_forms(QString &msg, FORM *form)
 			must_unload = true;
 		}
 	}
+	zfree(tpath);
+	zfree(tdir);
 	return must_unload;
 }
 

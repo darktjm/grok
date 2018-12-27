@@ -246,7 +246,8 @@ void set_var(CARD *card, int v, char *s);
 bool write_form(
 	FORM		*form);		/* form and items to write */
 FORM *read_form(
-	const char	*path);		/* file to read list from */
+	const char	*path,		/* file to read list from */
+	bool		force = false);	/* overrwrite loaded forms */
 
 /*---------------------------------------- formop.c ------------*/
 
@@ -590,6 +591,10 @@ void *abort_malloc(
 	t *tz_pp_ = p; /* type check */ \
 	memset(tz_pp_, 0, (n)*sizeof(t)); \
 } while(0)
+
+const char *canonicalize(
+	const char	*path,
+	bool		dir_only);
 
 void print_button(
 	QWidget		*w,

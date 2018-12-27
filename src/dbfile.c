@@ -38,26 +38,18 @@ const char *db_path(
 	static char		*pathbuf = 0;	/* file name with path */
 	static size_t		pathbuflen;
 	const char		*path = form->dbase;
-	bool			is_pathbuf;
 
-	if (*path != '/' && *path != '~' && form->path) {
-		const char *p;
-		int plen = strlen(path);
-		if((p = strrchr(form->path, '/'))) {
-			grow(0, "db path", char, pathbuf, (int)(p - form->path) + plen + 2, &pathbuflen);
-			memcpy(pathbuf, form->path, p-form->path+1);
-			memcpy(pathbuf + (p-form->path)+1, path, plen + 1);
-			path = pathbuf;
-		}
-	}
-	path = resolve_tilde(path, 0);
-	is_pathbuf = path == pathbuf;
-	grow(0, "db path", char, pathbuf, strlen(path) + 4, &pathbuflen);
-	if (is_pathbuf) {
+	if (*path != '/' && *path != '~' && form->dir) {
+		int dlen = strlen(form->dir), plen = strlen(path);
+		grow(0, "db path", char, pathbuf, plen + dlen + 2, &pathbuflen);
+		memcpy(pathbuf, form->dir, dlen);
+		pathbuf[dlen] = '/';
+		memcpy(pathbuf + dlen + 1, path, plen + 1);
 		path = pathbuf;
-		strcat(pathbuf, ".db");
-	} else
-		sprintf(pathbuf, "%s.db", path);
+	}
+	path = canonicalize(resolve_tilde(path, 0), false);
+	grow(0, "db path", char, pathbuf, strlen(path) + 4, &pathbuflen);
+	sprintf(pathbuf, "%s.db", path);
 	for(DBASE *dbase = dbase_list; dbase; dbase = dbase->next)
 		if(!strcmp(dbase->path, pathbuf))
 			return pathbuf;
@@ -65,17 +57,13 @@ const char *db_path(
 	if (!access(pathbuf, F_OK))
 		/* even if there is nothing in this file, use it */
 		return pathbuf;
-	if (is_pathbuf)
-		*strrchr(pathbuf, '.') = 0;
+	*strrchr(pathbuf, '.') = 0;
 	for(DBASE *dbase = dbase_list; dbase; dbase = dbase->next)
-		if(!strcmp(dbase->path, path))
-			return path;
-	if (!access(path, F_OK))
-		return path;
-	if (form->proc)
-		return path;
-	if(is_pathbuf)
-		strcat(pathbuf, ".db");
+		if(!strcmp(dbase->path, pathbuf))
+			return pathbuf;
+	if (!access(pathbuf, F_OK) || form->proc)
+		return pathbuf;
+	strcat(pathbuf, ".db");
 	return pathbuf;
 }
 

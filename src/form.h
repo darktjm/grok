@@ -327,9 +327,10 @@ typedef struct dquery {
 struct form {
 	FORM	*next;	/* link for all loaded forms */
 	char	*path;		/* complete path name form was read from */
-	char	*name;		/* filename of form */
+	char	*dir;		/* directory form was in, fully resolved */
+	char	*name;		/* filename of form (usually) */
 	char	*dbase;		/* referenced database filename */
-	char	*dbpath;	/* databae path if known/loaded */
+	const char  *dbpath;	/* database path if known/loaded */
 	char	*comment;	/* user-defined comment */
 	char	*help;		/* help text */
 	unsigned char cdelim;	/* column delimiter in database file */

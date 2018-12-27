@@ -1326,7 +1326,13 @@ static int readback_item(
 		      form_sort(form);
 		      if (!write_form(form))
 				return(0);
-		      switch_form(mainwindow->card, form->name);
+		      /* now force a reload of all loaded forms with same path */
+		      /* "delete" so it's only retained if referenced */
+		      form_delete(read_form(form->path, true));
+		      /* FIXME: not form->path, but form->dir/<name> */
+		      /* On the other hand, I don't save name at all */
+		      /* but using form->name as previously is right out */
+		      switch_form(mainwindow->card, form->path);
 		      form_delete(form);
 		      form = 0;
 	 	      return(0);

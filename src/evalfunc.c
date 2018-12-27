@@ -942,6 +942,7 @@ char *f_printf(
 				fmt = ctl;
 		}
 	}
+	free_args(arg);
 	buf[bp] = 0;
 	return buf;
 }

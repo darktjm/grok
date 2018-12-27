@@ -660,3 +660,106 @@ void *abort_malloc(
 		memset((char *)ret + osize, 0, newsize - osize);
 	return ret;
 }
+
+/* realpath is broken pretty much everywhere, at least in how I want to use
+ * it.  None of them seem to be able to handle missing files (including
+ * Qt's FileInfo::canonicalize...() functions).  The standard also doesn't
+ * guarantee behavior I desire, such as removal of duplicate slashes, even
+ * though GNU libc's realpath does remove them. */
+/* On the other hand, this is probably completely broken for mingw */
+/* FIXME: this should be non-fatal; return NULL on errors */
+/* then again, maybe some memory errors should be fatal. */
+const char *canonicalize(const char *path, bool dir_only)
+{
+	static char *cwd = 0;
+	static size_t cwdsize;
+	static char *link_buf = 0;
+	static size_t lbuf_len;
+	static char *full_path = 0;
+	static size_t fpsize;
+	static char *canon_out = 0;
+	static size_t canon_size;
+	size_t canon_len;
+	char *p, *q;
+	int link_loop, nprev;
+	ssize_t link_len;
+
+	if(!path || *path != '/') {
+		if(!cwd) {
+			grow(0, "canonicalize", char, cwd, 10, &cwdsize);
+			while(!getcwd(cwd, cwdsize)) {
+				if(errno != ERANGE)
+					fatal("Can't read current directory");
+				grow(0, "canonicalize", char, cwd, cwdsize * 2, &cwdsize);
+			}
+		}
+		size_t cwd_len = strlen(cwd);
+		grow(0, "canonicalize", char, full_path, cwd_len + strlen(STR(path)) + 2, &fpsize);
+		memcpy(full_path, cwd, cwd_len);
+		full_path[cwd_len] = '/';
+		strcpy(full_path + cwd_len + 1, STR(path));
+	} else {
+		grow(0, "canonicalize", char, full_path, strlen(path) + 1, &fpsize);
+		strcpy(full_path, STR(path));
+	}
+	if(dir_only)
+		*strrchr(full_path, '/') = 0;
+	if(!*full_path)
+		return "/";
+	canon_len = 0;
+	nprev = 0;
+	link_loop = 0;
+	p = full_path + strlen(full_path);
+	while(p > full_path) {
+		while(p > full_path && p[-1] == '/') p--;
+		if(p == full_path)
+			break;
+		if(p[-1] == '.' && p[-2] == '/') {
+			p -= 2;
+			continue;
+		}
+		if(p[-1] == '.' && p[-2] == '.' && p[-3] == '/') {
+			nprev++;
+			p -= 3;
+			continue;
+		}
+		grow(0, "canonicalize", char, link_buf, 10, &lbuf_len);
+		*p = 0;
+		while((link_len = readlink(full_path, link_buf, lbuf_len)) == (ssize_t)lbuf_len)
+			grow(0, "canonicalize", char, link_buf, lbuf_len * 2, &lbuf_len);
+		if(link_len <= 0 && errno != EINVAL && errno != ENOENT)
+			fatal("Can't read sym link");
+		if(link_len > 0) {
+			/* 100 is an arbitrary limit of my patience */
+			if(++link_loop == 100)
+				fatal("sym link loop in path");
+			if(link_buf[0] == '/')
+				p = full_path;
+			else
+				/* assumes getcwd returns an absolute path */
+				while(p[-1] != '/') p--;
+			q = full_path;
+			grow(0, "canonicalize", char, full_path,
+			     link_len + 1 + (int)(p - full_path), &fpsize);
+			memcpy(full_path + (int)(p - q), link_buf, link_len);
+			p = full_path + (int)(p - q) + link_len;
+			continue;
+		}
+		link_loop = 0;
+		for(q = p; q > full_path && *q != '/'; q--);
+		if(nprev) {
+			nprev--;
+			p = q;
+			continue;
+		}
+		grow(0, "canonicalize", char, canon_out, canon_len + (int)(p - q) + 1, &canon_size);
+		memmove(canon_out + (int)(p - q), canon_out, canon_len);
+		memcpy(canon_out, q, (int)(p - q));
+		canon_len += p - q;
+		p = q;
+	}
+	if(!canon_len)
+		canon_out[canon_len++] = '/';
+	canon_out[canon_len] = 0;
+	return canon_out;
+}

@@ -89,5 +89,5 @@ class GrokCanvas : public QDialog {
   private:
     Q_PROPERTY(QColor textcolor MEMBER textcolor)
   public:
-    int curr_item;
+    int curr_item = 0;
 };
