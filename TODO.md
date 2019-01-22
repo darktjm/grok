@@ -43,9 +43,10 @@ Features in Progress
 - db manu fixes:
 
   - All loaded databases should be in the menu regardless of
-    whether or not they normally would be.  The star in the title
-    bar should also reflect all databases, not just the currently
-    displayed one.
+    whether or not they normally would be.
+
+  - The star in the title bar should also reflect all databases,
+    not just the currently displayed one.
 
   - Modified flag in db menu needs updating as soon as db is modifed
     (print_info_line() material, at least)

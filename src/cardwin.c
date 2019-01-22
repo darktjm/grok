@@ -1259,17 +1259,21 @@ void fillout_item(
 				    && !strcmp(data, item->flagcode));
 		break;
 
-	  case IT_MENU:
-		for(int n = 0; n < item->nmenu; n++) {
+	  case IT_MENU: {
+		int n;
+		for(n = 0; n < item->nmenu; n++) {
 			// if(!item->menu[n].flagcode) continue;
 			if(!strcmp(STR(item->menu[n].flagcode), STR(data))) {
 				reinterpret_cast<QComboBox *>(w0)->setCurrentIndex(n);
 				break;
 			}
 		}
-		// if n == item->nmenu, unknown value - this will act strange
+		if(n == item->nmenu)
+			// unknown value - this will act strange
+			// best to set it to blank, but there is no blank
+			reinterpret_cast<QComboBox *>(w0)->setCurrentIndex(-1);
 		break;
-
+	  }
 	  case IT_RADIO:
 	  case IT_FLAGS: {
 		int n = 0;

@@ -152,3 +152,11 @@ Additional changes were made by Thomas J. Moore.  All changes by that
 author, as represented by the SCM changes at
 <https://bitbucket.org/darktjm/grok/> are granted to the public
 domain.
+
+Addendum:
+--------
+
+I got sick a few weeks ago and abandoned all activity for a while.
+Now I can't motivate myself to work on this project at all any more.
+If you care, fork this and make it your own.  If not, well, I don't
+care, either.
