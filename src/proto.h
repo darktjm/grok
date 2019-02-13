@@ -423,6 +423,9 @@ const char *mktemplate_plain(
 const char *mktemplate_fancy(
 	const CARD	*card,
 	FILE		*fp);
+const char *mktemplate_sql(
+	const CARD	*card,
+	FILE		*fp);
 
 /*---------------------------------------- query.c ------------*/
 

@@ -613,3 +613,582 @@ const char *mktemplate_fancy(const CARD *card, FILE *fp)
 {
 	return mktemplate_text(card, fp, true);
 }
+
+static void pr_schar(FILE *fp, char c, char doub = '\'')
+{
+	if(!isprint(c))
+		fprintf(fp, "'||CHAR(%d)||'", (int)c);
+	else
+		putc(c, fp);
+	if(c == doub)
+		putc(doub, fp);
+}
+
+static void pr_dq(FILE *fp, const char *s, char q)
+{
+	/* note: mysql's broken parser needs \ escaped as well */
+	/* but I don't care about mysql */
+	if(!s)
+		return;
+	while(*s)
+		pr_schar(fp, *s++, q);
+}
+
+/*
+ * Unlike the others, this exports part of the schema as well
+ * -d -> exclude summary view
+ * -n -> N/A
+ * -s -> exclude descriptive view
+ * Except for flag fields, data is exported verbatim into database.  Flag
+ * fields are converted to TRUE/FALSE first.  Maybe a future enhancement
+ * would be to add a flag to export non-multicol flags as multicol flags
+ * Table is created and data is exported regardless.
+ * Form name and field names are assumed to be valid SQL
+ */
+const char *mktemplate_sql(const CARD *card, FILE *fp)
+{
+	struct menu_item *itemorder;	/* order of items in summary */
+	int		nitems;		/* number of items in summary */
+	size_t		nalloc;		/* number of allocated items */
+	int		i, j, m;	/* item counter */
+	const ITEM	*item;		/* current item */
+	const MENU	*menu;		/* current menu selection */
+	char		*s;
+	const FORM	*form;
+	bool		didcol;
+
+	if (!card || !card->dbase || !card->form)
+		return("no database");
+	form = card->form;
+	fprintf(fp, "-- grok form/database %s exported \\{date}\n", form->name);
+	fputs("-- note that some databases may need additional editing\n", fp);
+	fprintf(fp,
+		"DROP TABLE IF EXISTS %s;\n"
+		"BEGIN;\n"
+		"CREATE TABLE %s (\n", form->name, form->name);
+	if(form->help) {
+		/* should be COMMENT ('....') but sqlite3 doesn't support it */
+		/* maybe I should toggle support with -c */
+		char *h = form->help;
+		while(1) {
+			s = strchr(h, '\n');
+			if(!s)
+				s = h + strlen(h);
+			printf("  -- %.*s\n", (int)(s - h), h);
+			if(!*s || !s[1])
+				break;
+			h = s + 1;
+		}
+	}
+	for(didcol = false, i = 0; i < form->nitems; i++) {
+		item = form->items[i];
+		if(!IN_DBASE(item->type))
+			continue;
+		if(item->type == IT_CHOICE) {
+			for(j = 0; j < i; j++)
+				if(form->items[j]->type == IT_CHOICE &&
+				   form->items[j]->column == item->column)
+					break;
+			if(j < i)
+				continue;
+		}
+		if(item->multicol) {
+			for(j = 0; j < item->nmenu; j++) {
+				if(didcol)
+					fputs(",\n", fp);
+				didcol = true;
+				fprintf(fp, "  %s BOOLEAN NOT NULL", item->menu[j].name);
+			}
+			continue;
+		}
+		if(didcol)
+			fputs(",\n", fp);
+		didcol = true;
+		fprintf(fp, "  %s ", item->name);
+		switch(item->type) {
+		    case IT_INPUT:
+		    case IT_NOTE:
+			fprintf(fp, "VARCHAR(%d) NOT NULL", item->maxlen);
+			break;
+		    case IT_NUMBER:
+			if(item->digits)
+				/* fprintf(fp, "DECIMAL(15,%d) NOT NULL", item->digits): */
+				/* fputs("REAL NOT NULL", fp); */
+				fputs("FLOAT(15) NOT NULL", fp);
+			else
+				fputs("BIGINT NOT NULL", fp);
+			break;
+		    case IT_TIME:
+			switch(item->timefmt) {
+			    case T_DATE:
+				fputs("DATE NOT NULL", fp);
+				break;
+			    case T_TIME:
+				fputs("TIME NOT NULL", fp);
+				break;
+			    case T_DATETIME:
+				fputs("TIMESTAMP NOT NULL", fp);
+				break;
+			    case T_DURATION:
+				fputs("TIME NOT NULL", fp); /* probably too limiting */
+				break;
+			}
+			break;
+		    case IT_CHOICE: {
+			    int minlen = strlen(item->flagcode), maxlen = minlen;
+			    for(j = i + 1; j < form->nitems; j++)
+				    if(form->items[j]->type == IT_CHOICE &&
+				       form->items[j]->column == item->column) {
+					    int k = strlen(form->items[j]->flagcode);
+					    if(k < minlen)
+						    minlen = k;
+					    if(k > maxlen)
+						    maxlen = k;
+				    }
+			    if(minlen != maxlen)
+				    fputs("VAR", fp);
+			    fprintf(fp, "CHAR(%d) NOT NULL\n", maxlen);
+			    fprintf(fp, "    (CHECK (%s in(", item->name);
+			    for(j = i; j < form->nitems; j++)
+				    if(form->items[j]->type == IT_CHOICE &&
+				       form->items[j]->column == item->column) {
+					    if(j != i)
+						    putc(',', fp);
+					    putc('\'', fp);
+					    pr_dq(fp, form->items[j]->flagcode, '\'');
+					    fputc('\'', fp);
+				    }
+			    fputs("))", fp);
+			    break;
+		    }
+		    case IT_FLAG:
+			fputs("BOOLEAN NOT NULL", fp);
+			break;
+		    case IT_MENU:
+		    case IT_RADIO: {
+			    int minlen = strlen(item->menu->flagcode), maxlen = minlen;
+			    for(j = i; j < item->nmenu; j++) {
+				    int k = strlen(item->menu[j].flagcode);
+				    if(k < minlen)
+					    minlen = k;
+				    if(k > maxlen)
+					    maxlen = k;
+			    }
+			    if(minlen != maxlen)
+				    fputs("VAR", fp);
+			    fprintf(fp, "CHAR(%d) NOT NULL\n", maxlen);
+			    fprintf(fp, "    CHECK (%s in(", item->name);
+			    for(j = 0; j < item->nmenu; j++) {
+				    if(j)
+					    putc(',', fp);
+				    putc('\'', fp);
+				    pr_dq(fp, item->menu[j].flagcode, '\'');
+				    fputc('\'', fp);
+			    }
+			    fputs("))", fp);
+			    break;
+		    }
+		    case IT_MULTI:
+		    case IT_FLAGS:
+			for(j = m = 0; m< item->nmenu; m++)
+				j += strlen(item->menu[j].flagcode);
+			fprintf(fp, "VARCHAR(%d) NOT NULL", j ? j + item->nmenu - 1 : 0);
+			/* a check here would be too complicated */
+			/* making the db slower if it actually enforces */
+		    default: ; /* shut gcc up */
+		}
+	}
+	if(!didcol) {
+		fputs(");\n", fp);
+		return(0);
+	}
+	fprintf(fp,
+		");\n"
+		"\\{IF +d}\n"
+		"CREATE VIEW %s_sum AS SELECT\n", form->name);
+	nalloc = card->form->nitems;
+	itemorder = alloc(0, "summary", struct menu_item, nalloc);
+	nitems = get_summary_cols(&itemorder, &nalloc, card->form);
+	for(i = 0; i < nitems; i++) {
+		item = itemorder[i].item;
+		menu = itemorder[i].menu;
+		const char *label = item->label;
+		if (item->type == IT_CHOICE && i &&
+		    itemorder[i-1].item->type == IT_CHOICE &&
+		    itemorder[i-1].item->column == item->column)
+			continue;
+		if(i)
+			fputs(",\n", fp);
+		/* LEFT(x,y) -> SUBSTR(x,1,y) */
+		fputs("  SUBSTR(", fp);
+		switch(item->type) {
+		    case IT_INPUT:
+		    case IT_NOTE:
+		    case IT_NUMBER:
+		    case IT_TIME:
+			fputs(item->name, fp);
+			break;
+		    case IT_CHOICE:
+			if(i > 0 && form->items[i - 1]->type == IT_LABEL)
+				label = form->items[i - 1]->label;
+			else
+				label = item->name;
+			for(j = i; j < form->nitems; j++)
+				if(form->items[j]->type == IT_CHOICE &&
+				   form->items[j]->column == item->column &&
+				   form->items[j]->flagtext)
+					break;
+			if(j == form->nitems) {
+				fputs(item->name, fp);
+				break;
+			}
+			fprintf(fp, "CASE %s", item->name);
+			for(j = i; j < form->nitems; j++)
+				if(form->items[j]->type == IT_CHOICE &&
+				   form->items[j]->column == item->column &&
+				   form->items[j]->flagtext) {
+					fputs(" WHEN '", fp);
+					pr_dq(fp, form->items[j]->flagcode, '\'');
+					fputs("' THEN '", fp);
+					pr_dq(fp, form->items[j]->flagtext, '\'');
+					fputc('\'', fp);
+				}
+			fprintf(fp, " ELSE %s END", item->name);
+			break;
+		    case IT_FLAG:
+			if(item->flagtext) {
+				fprintf(fp, "CASE WHEN %s THEN '", item->name);
+				pr_dq(fp, item->flagtext, '\'');
+				fputs("' ELSE '' END", fp);
+			} else
+				fputs(item->name, fp);
+			break;
+		    case IT_MENU:
+		    case IT_RADIO:
+			for(j = 0; j < item->nmenu; j++)
+				if(item->menu[j].flagtext)
+					break;
+			if(j == item->nmenu) {
+				fputs(item->name, fp);
+				break;
+			}
+			fprintf(fp, "CASE %s", item->name);
+			for(j = 0; j < item->nmenu; j++) {
+				if(!item->menu[j].flagtext)
+					continue;
+				fputs(" WHEN '", fp);
+				pr_dq(fp, item->menu[j].flagcode, '\'');
+				fputs("' THEN '", fp);
+				pr_dq(fp, item->menu[j].flagtext, '\'');
+				putc('\'', fp);
+			}
+			fprintf(fp, " ELSE %s END", item->name);
+			break;
+		    case IT_MULTI:
+		    case IT_FLAGS:
+			if(menu) {
+				label = menu->label;
+				if(menu->flagtext) {
+					fprintf(fp, "CASE WHEN %s THEN '", menu->name);
+					pr_dq(fp, menu->flagtext, '\'');
+					fputs("' ELSE '' END", fp);
+				} else
+					fputs(menu->name, fp);
+				break;
+			}
+			for(j = 0; j < item->nmenu; j++)
+				if(item->menu[j].flagtext)
+					break;
+			if(j == item->nmenu) {
+				fputs(item->name, fp);
+				break;
+			}
+			fputs("TRIM(", fp);
+			for(j = 0; j < item->nmenu; j++)
+				if(item->menu[j].flagtext)
+					fputs("REPLACE(", fp);
+			putc('\'', fp);
+			pr_schar(fp, form->aesc);
+			fprintf(fp, "'||%s||'", item->name);
+			pr_schar(fp, form->asep);
+			putc('\'', fp);
+			for(j = 0; j < item->nmenu; j++)
+				if(item->menu[j].flagtext) {
+					putc('\'', fp);
+					pr_schar(fp, form->asep);
+					for(s = item->menu[j].flagcode; *s; s++) {
+						if(*s == form->asep ||
+						   *s == form->aesc)
+							pr_schar(fp, form->aesc);
+						pr_schar(fp, *s++);
+					}
+					pr_schar(fp, form->asep);
+					fputs("','", fp);
+					pr_schar(fp, form->asep);
+					pr_dq(fp, item->menu[j].flagtext, '\'');
+					pr_schar(fp, form->asep);
+					fputs("')", fp);
+				}
+			fputs(",'", fp);
+			pr_schar(fp, form->asep);
+			fprintf(fp, "'),1,%d)", item->sumwidth);
+		    default: ; /* shut gcc up */
+		}
+		fprintf(fp, ",1,%d) \"", item->sumwidth);
+		pr_dq(fp, label, '"');
+		putc('"', fp);
+	}
+	free(itemorder);
+	fprintf(fp,
+		"\n  FROM %s;\n"
+		"\\{ENDIF}\n"
+		"\\{IF +s}\n"
+		"CREATE VIEW %s_view AS SELECT\n", form->name, form->name);
+	for(didcol = false, i = 0; i < form->nitems; i++) {
+		item = form->items[i];
+		/* labels are pointless, and print is impossible to translate */
+		/* charts are right out */
+		if(!IN_DBASE(item->type))
+			continue;
+		if(item->type == IT_CHOICE) {
+			for(j = 0; j < i; j++)
+				if(form->items[j]->type == IT_CHOICE &&
+				   form->items[j]->column == item->column)
+					break;
+			if(j < i)
+				continue;
+		}
+		if(item->multicol) {
+			for(j = 0; j < item->nmenu; j++) {
+				if(didcol)
+					fputs(",\n", fp);
+				didcol = true;
+				fprintf(fp, "  %s \"", item->menu[j].name);
+				if(item->label) {
+					pr_dq(fp, item->label, '"');
+					fputs(": ", fp);
+				}
+				pr_dq(fp, item->menu[j].label, '"');
+				putc('"', fp);
+			}
+			continue;
+		}
+		if(didcol)
+			fputs(",\n", fp);
+		didcol = true;
+		switch(item->type) {
+		    case IT_INPUT:
+		    case IT_NOTE:
+		    case IT_NUMBER:
+		    case IT_TIME:
+			fprintf(fp, "  %s \"", item->name);
+			pr_dq(fp, item->label, '"');
+			putc('"', fp);
+			break;
+		    case IT_CHOICE:
+			/* FIXME: if label blank, use flagtext */
+			/*        if both non-blank, append flagtext */
+			/*   label (flagtext) */
+			fprintf(fp, "  CASE %s", item->name);
+			for(j = i; j < form->nitems; j++)
+				if(form->items[j]->type == IT_CHOICE &&
+				   form->items[j]->column == item->column) {
+					fputs(" WHEN '", fp);
+					pr_dq(fp, form->items[j]->flagcode, '\'');
+					fputs("' THEN '", fp);
+					if(form->items[j]->label) {
+						pr_dq(fp, form->items[j]->label, '\'');
+						if(form->items[j]->flagtext &&
+						   strcmp(form->items[j]->flagtext, form->items[j]->label)) {
+							fputs(" (", fp);
+							pr_dq(fp, form->items[j]->flagtext, '\'');
+							putc(')', fp);
+						}
+					} else
+						pr_dq(fp, form->items[j]->flagtext, '\'');
+					fputc('\'', fp);
+				}
+			fprintf(fp, " ELSE %s END \"", item->name);
+			if(i > 0 && form->items[i - 1]->type == IT_LABEL)
+				pr_dq(fp, form->items[i - 1]->label, '"');
+			else
+				pr_dq(fp, item->name, '"');
+			putc('"', fp);
+			break;
+		    case IT_FLAG:
+			if(item->flagtext) {
+				fprintf(fp, "  CASE WHEN %s THEN '", item->name);
+				pr_dq(fp, item->flagtext, '\'');
+				fputs("' ELSE '' END \"", fp);
+				putc('\'', fp);
+			} else
+				fprintf(fp, "  %s \"", item->name);
+			pr_dq(fp, item->label, '"');
+			putc('"', fp);
+			break;
+		    case IT_MENU:
+		    case IT_RADIO:
+			for(j = 0; j < item->nmenu; j++)
+				if(strcmp(item->menu[j].label,
+					  item->menu[j].flagcode) ||
+				   (item->menu[j].flagtext &&
+					   strcmp(item->menu[j].flagtext,
+						  item->menu[j].label)))
+					break;
+			if(j == item->nmenu) {
+				fprintf(fp, "  %s \"", item->name);
+				pr_dq(fp, item->label, '"');
+				putc('"', fp);
+				break;
+			}
+			fprintf(fp, "  CASE %s", item->name);
+			for(j = 0; j < item->nmenu; j++) {
+				if(!strcmp(item->menu[j].label,
+					   item->menu[j].flagcode) &&
+				   (!item->menu[j].flagtext ||
+					   !strcmp(item->menu[j].flagtext,
+						   item->menu[j].label)))
+					continue;
+				fputs(" WHEN '", fp);
+				pr_dq(fp, item->menu[j].flagcode, '\'');
+				fputs("' THEN '", fp);
+				pr_dq(fp, item->menu[j].label, '\'');
+				if(item->menu[j].flagtext &&
+				   strcmp(item->menu[j].flagtext, item->menu[j].label)) {
+					fputs(" (", fp);
+					pr_dq(fp, item->menu[j].flagtext, '\'');
+					putc(')', fp);
+				}
+				putc('\'', fp);
+			}
+			fprintf(fp, " ELSE %s END", item->name);
+			break;
+		    case IT_MULTI:
+		    case IT_FLAGS:
+			/* this is bound to fail in some cases */
+			/* that's at least one reason why I suggest
+			 * manual editing in the header comment */
+			fputs("  REPLACE(REPLACE(TRIM(", fp);
+			for(j = 0; j < item->nmenu; j++)
+				if(strcmp(item->menu[j].label,
+					  item->menu[j].flagcode) ||
+				   strchr(item->menu[j].flagcode, form->aesc) ||
+				   strchr(item->menu[j].flagcode, form->asep) ||
+				   (item->menu[j].flagtext &&
+					   strcmp(item->menu[j].flagtext,
+						  item->menu[j].label)))
+					fputs("REPLACE(", fp);
+			putc('\'', fp);
+			pr_schar(fp, form->asep);
+			fprintf(fp, "'||%s||'", item->name);
+			pr_schar(fp, form->asep);
+			putc('\'', fp);
+			for(j = 0; j < item->nmenu; j++)
+				if(strcmp(item->menu[j].label,
+					  item->menu[j].flagcode) ||
+				   strchr(item->menu[j].flagcode, form->aesc) ||
+				   strchr(item->menu[j].flagcode, form->asep) ||
+				   (item->menu[j].flagtext &&
+					   strcmp(item->menu[j].flagtext,
+						  item->menu[j].label))) {
+					putc('\'', fp);
+					pr_schar(fp, form->asep);
+					for(s = item->menu[j].flagcode; *s; s++) {
+						if(*s == form->asep ||
+						   *s == form->aesc)
+							pr_schar(fp, form->aesc);
+						pr_schar(fp, *s++);
+					}
+					pr_schar(fp, form->asep);
+					fputs("','", fp);
+					pr_schar(fp, form->asep);
+					pr_dq(fp, item->menu[j].label, '\'');
+					if(item->menu[j].flagtext &&
+					   strcmp(item->menu[j].flagtext,
+						  item->menu[j].label)) {
+						fputs(" (", fp);
+						pr_dq(fp, item->menu[j].flagtext, '\'');
+						putc(')', fp);
+					}
+					pr_schar(fp, form->asep);
+					fputs("')", fp);
+				}
+			fputs(",'", fp);
+			pr_schar(fp, form->asep);
+			fputs("'),'", fp);
+			pr_schar(fp, form->asep);
+			fputs("',', '),'", fp);
+			pr_schar(fp, form->aesc);
+			fputs(", ','", fp);
+			pr_schar(fp, form->asep);
+			fputs("')", fp);
+		    default: ; /* shut gcc up */
+		}
+	}
+	fprintf(fp,
+		"\n  FROM %s;\n"
+		"\\{ENDIF}\n"
+		"\\{SUBST '=''}\\{FOREACH}\n"
+		"INSERT INTO %s (\n", form->name, form->name);
+	for(didcol = false, i = 0; i < form->nitems; i++) {
+		item = form->items[i];
+		if(!IN_DBASE(item->type))
+			continue;
+		if(item->type == IT_CHOICE) {
+			for(j = 0; j < i; j++)
+				if(form->items[j]->type == IT_CHOICE &&
+				   form->items[j]->column == item->column)
+					break;
+			if(j < i)
+				continue;
+		}
+		if(item->multicol) {
+			for(j = 0; j < item->nmenu; j++) {
+				if(didcol)
+					fputs(",\n", fp);
+				didcol = true;
+				fprintf(fp, "   %s", item->menu[j].name);
+			}
+		} else {
+			if(didcol)
+				fputs(",\n", fp);
+			didcol = true;
+			fprintf(fp, "   %s", item->name);
+		}
+	}
+	fputs("\n  ) VALUES (\n", fp);
+	for(didcol = false, i = 0; i < form->nitems; i++) {
+		item = form->items[i];
+		if(!IN_DBASE(item->type))
+			continue;
+		if(item->type == IT_CHOICE) {
+			for(j = 0; j < i; j++)
+				if(form->items[j]->type == IT_CHOICE &&
+				   form->items[j]->column == item->column)
+					break;
+			if(j < i)
+				continue;
+		}
+		if(item->multicol) {
+			for(j = 0; j < item->nmenu; j++) {
+				if(didcol)
+					fputs(",\n", fp);
+				didcol = true;
+				fprintf(fp, "   \\{_%s?\"FALSE\":\"TRUE\"}", item->menu[j].name);
+			}
+		} else {
+			if(didcol)
+				fputs(",\n", fp);
+			didcol = true;
+			if(item->type == IT_NUMBER)
+				fprintf(fp, "   \\{(_%s?_%s:0)}", item->name, item->name);
+			else if(item->type == IT_FLAG)
+				fprintf(fp, "   \\{_%s?\"FALSE\":\"TRUE\"}", item->name);
+			else
+				fprintf(fp, "   '\\{_%s}'", item->name);
+		}
+	}
+	fputs("\n  );\n\\{END}\nCOMMIT;\n", fp);
+	fflush(fp);
+	return(0);
+}

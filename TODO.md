@@ -263,11 +263,6 @@ Important UI improvements
   Making a pseudo-what's this cursor would probably be way too much
   trouble.
 
-  For now, verify all help texts are mostly legible, and maybe
-  convert some to HTML.  Also, verify that all help topics are
-  actually present in grok.hlp, and that all topics present in
-  grok.hlp are actually used.
-
 - The manual needs cleaning up as well, but not that desperately.
   I'll probably just leave it for now, and just make sure it's
   relatively complete.  Running tidy on it causes more problems than
@@ -291,7 +286,7 @@ Important UI improvements
   keep a history of expressions, and have a preference window popup
   that allows assigning names to them for permanent presence in the
   menu, and in any case keep 5-10 last expressions in the <name>.ru
-  file described above.  Also, in the new @db stuff, if the string
+  file described above.  Also, in the new @db stuff, if the sort field
   starts with ( or { interpret as a string/numeric expression.
 
 - Add list of field names to expression grammar help text, similar to
@@ -475,7 +470,7 @@ Infrastructure Improvements
     always the entire database as a single array).
 
   - There are functions which deal with sections, such as section and
-    ssum, but they could be better implmeented as an explicity field
+    ssum, but they could be better implmeented as an explicit field
     in the database.  It has always been possible to do alternate
     searches using foreach(), and now the dbase prefix means you don't
     even have to go through the hassle of that.
@@ -535,7 +530,7 @@ Infrastructure Improvements
   32-bit values with manual surrogate split/merge; this only matters for
   data retention and character class checks).
 
-  At the least, if the current localej's encoding isn't UTF-8, the
+  At the least, if the current locale's encoding isn't UTF-8, the
   current encoding should be auto-translated to UTF-8 internally, and
   converted back before writing out files.  Otherwise, a scan of
   data should make it obvious if it isn't UTF-8, and an option
@@ -635,7 +630,7 @@ Infrastructure Improvements
   have to figure out what exactly tidy wants anchors to look like,
   since it barfs on grok's HTML documentation's anchors.
 
-- Make text/facnytext templates take a "w" flag to enable wrapping
+- Make text/fancytext templates take a "w" flag to enable wrapping
   instead of clipping at max line length.  Note that this encroaches
   on the "probably won't fly" task of multi-line listings, but I meant
   in the GUI as well, which is much harder due to lack of native Qt
@@ -652,12 +647,13 @@ Infrastructure Improvements
   command to convert it to HTML, since I don't want to parse it
   internally.
 
-- Have a generic SQL exporter similar to the HTML one.  This may also
-  involve cascading if foreign keys are in.  This is much easier to do
-  and almost eliminates the need for the SQL support feature below.  It
-  can be combined with a sample sqlite script to produce a grok
-  database file directly, like what I used to convert my old GCStar
-  database to grok.
+- Have a flag for the SQL exporter to split or merge
+  multicol(-capable) fields.
+
+- Generate an sqlite3 script to convert the databse created by the
+  automatic exporter into a grok database file directly (or via an
+  additional sed script, if needed), similar to how I initially
+  imported my games db from GCStar.
 
 - Make a generic R exporter, for easier creation of graphs & such.
   Interactivity can wait for dbus support.  See <http://www.iplots.org>
@@ -689,7 +685,7 @@ Infrastructure Improvements
   supported patterns.  At worst, fully document the db file format and
   officially support raw db file access (which would preculde such
   cnages as storing dates as numbers or other disruptive format
-  changes).  That at least needs to be partially done anyway, as there
+  changes).  That at least needs to be partially done anyway, as the
   raw db format is expected to/from procedural databases.
 
 - Support going directly into the form editor for invalid gf files.
@@ -901,7 +897,7 @@ Major Feature: Foreign Database References
   first parameter is a variable to load template result into for
   further text mangling, or auto-mangling with a set of regex
   parameters and their associated replacements.  Once again, some
-  sort of lmits need to be placed on the arguments so that IMPORT
+  sort of limits need to be placed on the arguments so that IMPORT
   can parse them.
 
 - SQL-style many-to-one foreign key references.  The "child" database

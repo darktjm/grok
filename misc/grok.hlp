@@ -571,12 +571,11 @@
 	    summary window in the upper half of the main menu, and All
 	    prints all cards.
 
-	Next, select an intermediate file format.  This will be converted to
-	    graphics on your printer.  Presently, text-only printers are not
-	    supported.  The top three entries are the built-in HTML, plain
-	    text, and fancy text output formats.  Other entries are custom
-	    formats created for the database.  See the full on-line documentation
-	    for details on this, and the buttons immediately below the list.
+	Next, select an output file format.  The top four entries are the built-in
+	    HTML, plain text, fancy text and SQL output formats whech are generated
+	    based on the database  Other entries are custom formats created for the
+	    database.  See the full on-line documentation for details on this, and
+	    the buttons immediately below the list.
 
 	Next, select flags for the file format.  The built-in file formats
 	    support the Summary, Notes, and Cards flags.  Summary prints

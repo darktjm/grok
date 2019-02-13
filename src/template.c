@@ -36,6 +36,7 @@ static struct builtins {
 	{ "html",	"(auto HTML)",		mktemplate_html },
 	{ "text",	"(auto text)",		mktemplate_plain },
 	{ "fancytext",	"(auto fancy text)",	mktemplate_fancy },
+	{ "sql",	"(auto SQL)",		mktemplate_sql }
 };
 
 int get_template_nbuiltins(void) { return(NBUILTINS); }

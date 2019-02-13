@@ -62,6 +62,21 @@ user-created templates, and Delete deletes them (with no undo).
 	The fancytext template produces almost identical output to the
 	text template, except that overstrike is used to apply bolding
 	and underlining to parts of the output.
+<LI><B>sql</B><BR>
+	The sql template produces a standard SQL script to create a table with
+	a similar structure to the form.  The database name and field names
+	are assumed to be valid SQL.  Some manual editing may still be
+	needed to adjust data types to your target database and perform
+	any other desired tweaks.  The table is created with the same
+	name as the grok database.  If the summary listing is enabled,
+	a vew is created with the same name, but with <TT>_sum</TT>
+	appended.  If data listing is enabled, a view is created with
+	the same name, but with <TT>_view</TT> appended.  The views
+	name their columns using the labels, rather than the raw field
+	names, and attempt to adjust the data to look more user-friendly.
+	Except for Flag and multi-column fields, data is exported verbatim.
+	Flags and multi-column fields are exported as booleans (TRUE or
+	FALSE) rather than the raw flag codes.
 </UL>
 
 <P>Some templates may also support flags; setting these can be
@@ -79,7 +94,7 @@ flags:
 <LI> <B>-d</B> disables the summary listing ("data only").  Note that
 if both -s and -d are specified, neither listing will be included.
 <LI> <B>-n</B> includes non-blank Note field contents into the
-summary listing, if present.
+summary listing, if present.  This does not affect the sql template.
 </UL>
 
 <P>In the GUI, the above three flags are exposed through checkboxes.

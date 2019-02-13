@@ -371,6 +371,7 @@ Version 2.4 (in progress)
    * @"dbase"/"search"+"field"-"field": prefixes expr to work on other db
    * @dbase on FOREACH switches to alternate database
  * FOREACH supports changing the sort order for foreign or same database
+ * Generic SQL exporter (create table & views, import data into table).
 
 Compatibility Issues:
 
