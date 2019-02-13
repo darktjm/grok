@@ -805,7 +805,8 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 	fprintf(fp,
 		");\n"
 		"\\{IF +d}\n"
-		"CREATE VIEW %s_sum AS SELECT\n", form->name);
+		"DROP VIEW IF EXISTS %s_sum;\n"
+		"CREATE VIEW %s_sum AS SELECT\n", form->name, form->name);
 	nalloc = card->form->nitems;
 	itemorder = alloc(0, "summary", struct menu_item, nalloc);
 	nitems = get_summary_cols(&itemorder, &nalloc, card->form);
@@ -934,7 +935,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			fprintf(fp, "'),1,%d)", item->sumwidth);
 		    default: ; /* shut gcc up */
 		}
-		fprintf(fp, ",1,%d) \"", item->sumwidth);
+		fprintf(fp, ",1,%d) \"", menu ? menu->sumwidth : item->sumwidth);
 		pr_dq(fp, label, '"');
 		putc('"', fp);
 	}
@@ -943,7 +944,8 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		"\n  FROM %s;\n"
 		"\\{ENDIF}\n"
 		"\\{IF +s}\n"
-		"CREATE VIEW %s_view AS SELECT\n", form->name, form->name);
+		"DROP VIEW IF EXISTS %s_view;\n"
+		"CREATE VIEW %s_view AS SELECT\n", form->name, form->name, form->name);
 	for(didcol = false, i = 0; i < form->nitems; i++) {
 		item = form->items[i];
 		/* labels are pointless, and print is impossible to translate */
@@ -1174,7 +1176,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 				if(didcol)
 					fputs(",\n", fp);
 				didcol = true;
-				fprintf(fp, "   \\{_%s?\"FALSE\":\"TRUE\"}", item->menu[j].name);
+				fprintf(fp, "   \\{_%s?\"TRUE\":\"FALSE\"}", item->menu[j].name);
 			}
 		} else {
 			if(didcol)
@@ -1183,7 +1185,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			if(item->type == IT_NUMBER)
 				fprintf(fp, "   \\{(_%s?_%s:0)}", item->name, item->name);
 			else if(item->type == IT_FLAG)
-				fprintf(fp, "   \\{_%s?\"FALSE\":\"TRUE\"}", item->name);
+				fprintf(fp, "   \\{_%s?\"TRUE\":\"FALSE\"}", item->name);
 			else
 				fprintf(fp, "   '\\{_%s}'", item->name);
 		}
