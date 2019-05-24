@@ -659,7 +659,7 @@ FORM *read_form(
 	while(repl_dbase) {
 		DBASE *odbase = repl_dbase;
 		DBASE *dbase = read_dbase(odbase->form);
-		for(CARD *card = card; card; card = card->next)
+		for(CARD *card = card_list; card; card = card->next)
 			if(card->dbase == odbase)
 				card->dbase = dbase;
 		repl_dbase = odbase->next;
