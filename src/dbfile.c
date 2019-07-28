@@ -251,6 +251,9 @@ DBASE *read_dbase(
 			if(!force || !dbase->modified)
 				return dbase;
 			next = dbase->next;
+			/* dbase_clear will auto-delete form */
+			/* but it doesn't need form for anything else */
+			dbase->form = NULL;
 			dbase_clear(dbase);
 			tzero(DBASE, dbase, 1);
 			dbase->next = next;

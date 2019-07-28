@@ -981,9 +981,10 @@ static void file_pulldown(
 	switch (item) {
 	  case 0: {						/* find&sel */
 		char *string = qstrdup(w_search->text());
-		if (*string)
+		if (string) {
 			find_and_select(string);
-		free(string);
+			free(string);
+		}
 		break; }
 
 	  case 1:						/* print */

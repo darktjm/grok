@@ -40,7 +40,7 @@ completely break in 3.0:
 Features in Progress
 --------------------
 
-- db manu fixes:
+- db menu fixes:
 
   - All loaded databases should be in the menu regardless of
     whether or not they normally would be.
@@ -78,6 +78,12 @@ Features in Progress
 
 Bugs
 ----
+
+- Modification by just viewing?
+
+- Click on list with card update changes selection
+
+- Sometimes displayed card and selected summary line mismatch, still
 
 - Sometimes 1st widget of card appears even though no record is
   selected in main card window display.  Speaking of which, the static
@@ -125,6 +131,8 @@ Code Improvements
 -----------------
 
 - constify *everything*
+
+  - remove cheats, and at the very least use C++'s cumbersome const_cast.
 
 - protect all file I/O with EAGAIN/EINTR loops
 
