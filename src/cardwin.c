@@ -596,7 +596,7 @@ static void create_item_widgets(
 		unsigned int *colwidth = zalloc(0, "layout", unsigned int, item.nmenu);
 		QGridLayout *l = new QGridLayout(carditem->w0);
 		l->setSpacing(0); // default; qss may override
-		l->setMargin(0);
+		l->setContentsMargins(0, 0, 0, 0);
 		add_layout_qss(l, "buttongroup");
 		unsigned int ncol = item.nmenu, col = 0, row = 0, curwidth = 0, n, bw;
 		unsigned int mwidth = carditem->w0->contentsRect().width();
@@ -1217,7 +1217,7 @@ void fillout_item(
 				while(iter.hasNext())
 					set.remove(iter.next());
 				QStringList &l = cb->c_dynamic;
-				l = set.toList();
+				l = set.values();
 				// sorting is probably useful regardless
 				// but I won't sort the statics
 				l.sort();

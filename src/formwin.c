@@ -527,17 +527,14 @@ void create_formedit_window(
         chart = new QFrame;
 	chart_l = new QVBoxLayout(chart);
 	add_layout_qss(chart_l, "chartform");
-	int chart_margin = chart_l->margin();
-	int ml, mr, mt, mb;
-	chart->getContentsMargins(&ml, &mr, &mt, &mb);
-	chart_margin += ml;
+	int chart_margin = chart_l->contentsMargins().left();
+	chart_margin += chart->contentsMargins().left();
 
 	scroll_w = w = new QWidget;
 	scroll_l = new QVBoxLayout(w);
 	add_layout_qss(scroll_l, "escrform");
-	int scroll_margin = scroll_l->margin();
-	scroll->getContentsMargins(&ml, &mr, &mt, &mb);
-	scroll_margin += ml;
+	int scroll_margin = scroll_l->contentsMargins().left();
+	scroll_margin += scroll->contentsMargins().left();
 
 	for (off=len=0, tp=tmpl; tp->type; tp++) {
 		if (tp->type == 'L') {
@@ -588,7 +585,7 @@ void create_formedit_window(
 			w = new QWidget;
 			hform->addWidget(w, 2);
 			QVBoxLayout *v = new QVBoxLayout(w);
-			v->setMargin(0);
+			v->setContentsMargins(0,0,0,0);
 			menu_w = new QTableWidget;
 			// copied from querywin.c
 			menu_w->setShowGrid(false);

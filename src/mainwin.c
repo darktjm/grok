@@ -323,9 +323,8 @@ void create_mainwindow()
 	  sprintf(buf, i < 26 ? "%c" : i==26 ? "misc" : "all", (int)i+'A');
 	  w = new QPushButton(buf);
 	  w->setMinimumWidth(strlen_in_pixels(w, buf)+4/*border?*/);
-	  int l, r, t, b;
-	  w->getContentsMargins(&l, &r, &t, &b);
-	  w->setContentsMargins(2, 2, t, b);
+	  const QMargins &m = w->contentsMargins();
+	  w->setContentsMargins(2, 2, m.top(), m.bottom());
 	  hb->addWidget(w);
 	  set_button_cb(w, letter_callback(i));
 	  bind_help(w, "letters");
