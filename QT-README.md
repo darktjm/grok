@@ -241,3 +241,10 @@ program.
   - Qt's date widgets are awful, and even popping up a calendar
     requires tons of boilerplate, you guessed it, hidden inside the
     widget code.
+
+  - Qt makes what feels like gratuitous changes to the API sometimes.
+    For example, 5.14 removed several functions I called in 5.12.  I
+    compile with full warnings, and I thought I had deprecation warnings
+    on, but I received no warnings in 5.12 that they were going to be
+    removed.
+

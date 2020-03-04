@@ -65,7 +65,7 @@ Building:
 
 Before starting, install C++ development tools (C++-11 minimum; tested
 with gcc and clang), cmake (tested with 3.13.1), Qt 5 (tested with
-5.11.3; make sure to include the "private" headers, e.g.
+5.14.1; make sure to include the "private" headers, e.g.
 qtbase5-private-dev on Debian) and GNU Bison (tested with 3.2.2):
 
 >     cmake . && make
