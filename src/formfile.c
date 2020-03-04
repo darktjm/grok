@@ -617,8 +617,6 @@ FORM *read_form(
 			if(!strcmp((*prev)->dir, form->dir)) {
 				nform = form;
 				*prev = oform->next;
-				if(!*prev)
-					break;
 			} else {
 				nform = form_clone(form);
 				nform->path = oform->path;
@@ -652,6 +650,8 @@ FORM *read_form(
 					card->form = nform;
 				}
 			form_delete(oform);
+			if(!*prev)
+				break;
 		}
 	form->next = form_list;
 	form_list = form;
@@ -670,10 +670,8 @@ FORM *read_form(
 	for(CARD *card = card_list; card; card = card->next)
 		if(card->wform && !strcmp(card->form->path, form->path)) {
 			if(card->nitems != form->nitems) {
-				size_t n = sizeof(CARD) + sizeof(struct carditem) * form->nitems;
-				CARD *ncard = (CARD *)realloc(card, n);
-				if(!ncard)
-					fatal("No memory for new form");
+				CARD *ncard = card;
+				bgrow(0, "new form", CARD, card, items, form->nitems, NULL);
 				if(card != ncard) {
 					if(mainwindow->card == card)
 						mainwindow->card = ncard;
@@ -682,6 +680,7 @@ FORM *read_form(
 							*pc = ncard;
 							break;
 						}
+				        card = ncard;
 				}
 				card->nitems = form->nitems;
 			}

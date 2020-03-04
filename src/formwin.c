@@ -95,6 +95,7 @@ static const struct {
     { offsetof(MENU, sumwidth), true },
     { offsetof(MENU, flagtext) }
 };
+#define MENU_FIELD_COLUMN 2
 
 #define MENU_COMBO  (1<<0)			/* only label */
 #define MENU_SINGLE (1<<0 | 1<<3 | 1<<6)	/* label, flagcode, flagtext */
@@ -1065,6 +1066,8 @@ static void menu_callback(QTableWidget *w, int x, int y)
 		} else { // dup
 			grow(0, "new menu item", MENU, item->menu, ++item->nmenu, NULL);
 			memmove(item->menu + row + 1, item->menu + row, (item->nmenu - row - 1) * sizeof(MENU));
+			if (item->multicol)
+				item->menu[row + 1].column = avail_column(form, NULL);
 			menu_clone(&item->menu[row]);
 			w->insertRow(row + 1);
 			w->setCurrentCell(row + 1, w->currentColumn());
@@ -1090,6 +1093,10 @@ static void menu_callback(QTableWidget *w, int x, int y)
 			// yeah, maybe one day I'll alloc in chunks
 			zgrow(0, "new menu item", MENU, item->menu, item->nmenu,
 			      item->nmenu + 1, NULL);
+			if(item->multicol && x != MENU_FIELD_COLUMN) {
+				item->menu[item->nmenu].column = avail_column(form, NULL);
+				w->item(row, MENU_FIELD_COLUMN)->setText(qsprintf("%d", item->menu[item->nmenu].column));
+			}
 			item->nmenu++;
 			w->insertRow(item->nmenu);
 			fill_menu_row(w, item, item->nmenu);
@@ -1202,6 +1209,8 @@ static int readback_item(
 		item  = form->items[canvas->curr_item];
 		chart = &item->ch_comp[item->ch_curr];
 	}
+	if ((tp->code < 0x100 || tp->code > 0x107) && !item)
+		return(0);
 	if (!chart && (tp->code & 0x300) == 0x300)
 		return(0);
 	if (item && item == filling_item)
@@ -1364,7 +1373,7 @@ static int readback_item(
 				for (i=0; i < form->nitems; i++)
 				    if (i != canvas->curr_item) {
 					ip = form->items[i];
-					ip->defsort = !strcmp(item->name,
+					ip->defsort = ip->name && !strcmp(item->name,
 					     ip->name) ? item->defsort : false;
 				}
 		      break;
@@ -1378,7 +1387,19 @@ static int readback_item(
 		      for (code=0x23b; code <= 0x23d; code++)
 				fillout_formedit_widget_by_code(code);
 		       break;
-	  case 0x23e:  item->multicol ^= true;	sensitize_formedit(); fill_menu_table(menu_w);	break;
+	  case 0x23e:  item->multicol ^= true;
+		       if (item->multicol && item->nmenu) {
+			       int had_0 = avail_column(form, item);
+			       for (i=0; i < item->nmenu; i++)
+				       if (!item->menu[i].column) {
+					       if(!had_0)
+						       had_0 = true;
+					       else
+						       item->menu[i].column = avail_column(form, NULL);
+				       }
+		       }
+		       sensitize_formedit(); fill_menu_table(menu_w);
+	               break;
 
 	  case 0x210:
 	  case 0x211:
@@ -1547,7 +1568,6 @@ static int readback_item(
 				ip->defsort  = item->defsort;
 	  			ip->sumcol   = item->sumcol;
 				ip->sumwidth = item->sumwidth;
-				ip->column   = item->column;
 				if (item->idefault) {
 					zfree(ip->idefault);
 	  				ip->idefault =mystrdup(item->idefault);

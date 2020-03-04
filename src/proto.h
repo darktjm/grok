@@ -274,6 +274,9 @@ void item_deselect(
 bool item_create(
 	FORM		*form,		/* describes form and all items in it*/
 	int		nitem);		/* the current item, insert point */
+int avail_column(
+	const FORM *form,
+	const ITEM *item);		/* item to skip in search, or NULL */
 void item_delete(
 	FORM		*form,		/* describes form and all items in it*/
 	int		nitem);		/* the current item, insert point */
@@ -577,6 +580,21 @@ void *abort_malloc(
 	size_t zg_len_ = len, zg_olen_ = olen; \
 	a = talloc(w, p, t, a, zg_len_, track, AM_REALLOC); \
 	azero(t, a, zg_olen_, zg_len_ - zg_olen_); \
+} while(0)
+/* same as above but for "built-in" array-at-end-of-struct "e": */
+#define btalloc(w, p, t, o, e, len, mlen, flags) \
+    (t *)abort_malloc(w, p, o, offsetof(t,e)+(len)*sizeof(((t*)0)->e[0]), mlen, flags)
+#define balloc(w, p, t, e, len) btalloc(w, p, t, NULL, e, len, NULL, 0)
+#define bzalloc(w, p, t, e, len) btalloc(w, p, t, NULL, e, len, NULL, AM_ZERO)
+#define bgrow(w, p, t, a, e, len, track) \
+	a = btalloc(w, p, t, a, e, len, track, AM_REALLOC)
+#define bfgrow(w, p, t, a, e, len, track) \
+	a = btalloc(w, p, t, a, e, len, track, 0)
+#define bazero(t, a, e, l, cnt) memset((a)->e+(l), 0, (cnt)*sizeof(((t*)0)->e[0]))
+#define bzgrow(w, p, t, a, e, olen, len, track) do { \
+	size_t zg_len_ = len, zg_olen_ = olen; \
+	a = btalloc(w, p, t, a, e, zg_len_, track, AM_REALLOC); \
+	bazero(t, a, e, zg_olen_, zg_len_ - zg_olen_); \
 } while(0)
 
 /* type-safe memcpy/memmove/memset */

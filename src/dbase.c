@@ -150,7 +150,7 @@ bool dbase_addrow(
 	dbase_to_top(dbase);
 	newsect = dbase->nsects<2 || dbase->currsect<0 ? 0 : dbase->currsect;
 	if (dbase->nrows+1 >= (int)dbase->size) {
-		i = (dbase->size + CHUNK) * sizeof(ROW);
+		i = (dbase->size + CHUNK) * sizeof(ROW *);
 		if (!(dbase->row = (ROW **)(dbase->row ? realloc(dbase->row, i)
 						       : malloc(i))))
 			return(false);
@@ -158,7 +158,6 @@ bool dbase_addrow(
 	}
 	n = dbase->maxcolumns ? dbase->maxcolumns : 1;
 	i = sizeof(ROW) + (n-1) * sizeof(char *);
-	if (i == 0) i = 1;
 	if (!(row = dbase->row[dbase->nrows] = (ROW *)malloc(i)))
 		return(false);
 	memset(row, 0, i);
@@ -271,10 +270,8 @@ bool dbase_put(
 	if (ncolumn >= dbase->maxcolumns)
 		dbase->maxcolumns = ncolumn + 1;
 	if (ncolumn >= row->ncolumns) {
-		/* old code used maxolumns-1.  Why did that not die? */
-		/* I'm guessing this code never gets called */
-		zgrow(0, "update database", ROW, row, row->ncolumns,
-		      dbase->maxcolumns, 0);
+		bzgrow(0, "update database", ROW, row, data, row->ncolumns,
+		       dbase->maxcolumns, 0);
 		dbase->row[nrow] = row;
 		row->ncolumns = dbase->maxcolumns;
 	}

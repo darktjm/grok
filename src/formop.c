@@ -217,6 +217,7 @@ static void verify_col(const FORM *form, const char *type, int **acol,
 			add_field_name(msg, form, id);
 			msg += qsprintf(" uses same %s column as field ", type);
 			add_field_name(msg, form, oid);
+			msg += qsprintf(" (try %d)", avail_column(form, NULL));
 			msg += '\n';
 			return;
 		}
@@ -754,7 +755,7 @@ bool item_create(
 {
 	ITEM		*item;		/* new item struct */
 	ITEM		*prev;		/* prev item, plundered for defaults */
-	int		i, j, n, t;	/* various counters */
+	int		i, j;		/* various counters */
 	char		buf[40];	/* temp for default strings */
 
 							/* allocate array */
@@ -763,28 +764,17 @@ bool item_create(
 	/* this also uses the 32/double method rather than CHUNK */
 	grow(0, "form field", ITEM *, form->items, form->nitems + 1, &form->size);
 
-							/* allocate item */
-	/* again, recovery is pointless */
-	item = alloc(0, "form field", ITEM, 1);
 	for (i=form->nitems-1; i >= nitem; i--)
 		form->items[i+1] = form->items[i];
-	form->items[nitem] = item;
 	form->nitems++;
 							/* defaults */
 	if (nitem < form->nitems-1) {
-		(void)memcpy(item, form->items[nitem+1], sizeof(ITEM));
-		item->name	   = mystrdup(item->name);
-		item->flagcode	   = mystrdup(item->flagcode);
-		item->flagtext	   = mystrdup(item->flagtext);
-		item->label	   = mystrdup(item->label);
-		item->gray_if	   = mystrdup(item->gray_if);
-		item->freeze_if	   = mystrdup(item->freeze_if);
-		item->invisible_if = mystrdup(item->invisible_if);
-		item->skip_if	   = mystrdup(item->skip_if);
-		item->idefault	   = mystrdup(item->idefault);
-		item->pressed	   = mystrdup(item->pressed);
+		item = item_clone(form->items[nitem+1]);
+		form->items[nitem] = item;
 	} else {
-		memset(item, 0, sizeof(ITEM));
+		/* again, recovery is pointless */
+		item = zalloc(0, "form field", ITEM, 1);
+		form->items[nitem] = item;
 		item->type	   = IT_INPUT;
 		item->selected	   = true;
 		item->labeljust	   = J_LEFT;
@@ -821,8 +811,6 @@ bool item_create(
 		if (i != nitem && j > item->y)
 			item->y = j;
 	}
-							/* find unused column*/
-	item->column = 0;
 	if (item->type == IT_CHOICE || item->type == IT_FLAG) {
 		if (item->flagcode)
 			free(item->flagcode);
@@ -831,26 +819,54 @@ bool item_create(
 			free(item->flagtext);
 		item->flagtext = 0;
 	} else {
-		if (IN_DBASE(item->type)) {
-			n = form->nitems;
-			for (i=0; i < n; i++)
-				for (j=0; j < n; j++) {
-					t = form->items[j]->type;
-					if (IN_DBASE(t) &&
-					    form->items[j] != item &&
-					    form->items[j]->column ==
-					   		 item->column) {
-						item->column++;
-						break;
-					}
-				}
+		if (IN_DBASE(item->type) && !item->multicol)
+			item->column = avail_column(form, item);
+		else if(item->multicol) {
+			for(i = 0; i < item->nmenu; i++)
+				item->menu[i].column = avail_column(form, i ? NULL : item);
 		}
+		zfree(item->name);
 		sprintf(buf, "item%ld", item->column);
 		item->name = mystrdup(buf);
 	}
 	return(true);
 }
 
+
+int avail_column(const FORM *form, const ITEM *item)
+{
+    int n = form->nitems, col = 0, t, i, j, k, m;
+    for (i=m=0; i < n; i++) {
+	if(form->items[i]->multicol) {
+	    if(m < form->items[i]->nmenu) {
+		m++;
+		i--;
+	    } else {
+		m = 0;
+		continue;
+	    }
+	}
+	for (j=0; j < n; j++) {
+	    t = form->items[j]->type;
+	    if (form->items[j] == item)
+		continue;
+	    if (IN_DBASE(t) && !form->items[j]->multicol &&
+		form->items[j]->column == col) {
+		col++;
+		break;
+	    } else if (form->items[j]->multicol) {
+		for (k = 0; k < form->items[j]->nmenu; k++) {
+		    if (form->items[j]->menu[k].column == col) {
+			col++;
+			j--;
+			break;
+		    }
+		   }
+	    }
+	}
+    }
+    return col;
+}
 
 /*
  * delete a field from the form definition.
