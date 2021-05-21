@@ -286,13 +286,86 @@ struct CardComboBox : public QComboBox {
 	OVERRIDE_FOCUS(QComboBox)
 };
 
+/* QCalandarWidget which reverts to today if the date is 0 */
+struct myCalendarWidget : public QCalendarWidget {
+/* setSelected Date isn't virtual, so this is convoluted */
+#if 0
+	myCalendarWidget(QWidget *p = nullptr) : QCalendarWidget(p) {};
+	void setSelectedDate(const QDate &date) {
+		QDate d = date;
+		if((QDateTime(date, QTime()).toSecsSinceEpoch()) <= 0)
+			d = QDate::currentDate();
+		QCalendarWidget::setSelectedDate(d);
+	}
+#else
+	myCalendarWidget(QWidget *p = nullptr) : QCalendarWidget(p) {
+		QObject::connect(this, &QCalendarWidget::selectionChanged,
+				 this, &myCalendarWidget::valChanged);
+	};
+	void valChanged() {
+		QDate d = selectedDate();
+		if((QDateTime(d, QTime()).toSecsSinceEpoch()) <= 0)
+			setSelectedDate(QDate::currentDate());
+	}
+#endif
+};
+
 struct CardDateTimeEdit : public QDateTimeEdit {
-	CardDateTimeEdit(CARD *c, int i, QWidget *p) : QDateTimeEdit(p) OVERRIDE_INIT(c,i)
+	CardDateTimeEdit(CARD *c, int i, QWidget *p) : QDateTimeEdit(p) {
+		OVERRIDE_INIT(c,i)
+		setCalendarPopup(true);
+		cw = new myCalendarWidget();
+		setCalendarWidget(cw);
+		setFormat();
+		/* setDateTime isn't virtual, so signal is used to set format */
+		QObject::connect(this, &QDateTimeEdit::dateTimeChanged,
+				 this, &CardDateTimeEdit::setFormat);
+	}
+	void setFormat() {
+#if 0
+		if(dateTime().toSecsSinceEpoch() <= 0) {
+			/* FIXME:  there is no way to remove the date */
+			setDisplayFormat(" ");
+			return;
+		}
+#endif
+		setDisplayFormat(pref.mmddyy ?
+				       (pref.ampm ? "M/dd/yy  H:mma" :
+				                    "M/dd/yy  HH:mm") :
+				       (pref.ampm ? "d.MM.yy  H:mma" :
+					            "d.MM.yy  HH:mm"));
+	}
+        myCalendarWidget *cw;
+	~CardDateTimeEdit() { delete cw; }
 	OVERRIDE_FOCUS(QDateTimeEdit)
 };
 
 struct CardDateEdit : public QDateEdit {
-	CardDateEdit(CARD *c, int i, QWidget *p) : QDateEdit(p) OVERRIDE_INIT(c,i)
+	CardDateEdit(CARD *c, int i, QWidget *p) : QDateEdit(p) {
+		OVERRIDE_INIT(c,i)
+		setCalendarPopup(true);
+		cw = new myCalendarWidget();
+		setCalendarWidget(cw);
+		setFormat();
+		/* setDateTime isn't virtual, so signal is used to set format */
+		QObject::connect(this, &QDateEdit::dateTimeChanged,
+				 this, &CardDateEdit::setFormat);
+	}
+	void setFormat() {
+#if 0
+		QDateTime d(dateTime());
+		d.setTime(QTime());
+		if(d.toSecsSinceEpoch() <= 0) {
+			/* FIXME:  there is no way to remove the date */
+			setDisplayFormat(" ");
+			return;
+		}
+#endif
+		setDisplayFormat(pref.mmddyy ? "M/dd/yy" :
+				     "d.MM.yy");
+	}
+        myCalendarWidget *cw;
+	~CardDateEdit() { delete cw; }
 	OVERRIDE_FOCUS(QDateEdit)
 };
 
@@ -401,9 +474,7 @@ static void create_item_widgets(
 			switch(item.timefmt) {
 			    case T_DATE:
 				dt = new CardDateEdit(card, nitem, wform);
-				dt->setDisplayFormat(pref.mmddyy ? "M/dd/yy" :
-						                   "d.MM.yy");
-				dt->setCalendarPopup(true);
+//				dt->setTimeSpec(Qt::UTC);
 				break;
 			    case T_TIME:
 			    case T_DURATION:
@@ -413,12 +484,7 @@ static void create_item_widgets(
 				break;
 			    case T_DATETIME:
 				dt = new CardDateTimeEdit(card, nitem, wform);
-				dt->setDisplayFormat(pref.mmddyy ?
-						       (pref.ampm ? "M/dd/yy  H:mma" :
-						                    "M/dd/yy  HH:mm") :
-						       (pref.ampm ? "d.MM.yy  H:mma" :
-							            "d.MM.yy  HH:mm"));
-				dt->setCalendarPopup(true);
+//				dt->setTimeSpec(Qt::UTC);
 				break;
 			}
 			w = dt;
@@ -975,8 +1041,13 @@ void card_readback_texts(
 
 		  case IT_TIME:
 			if (item->timewidget) {
-				time = reinterpret_cast<QDateTimeEdit *>
-					(card->items[nitem].w0)->dateTime().toSecsSinceEpoch();
+				QDateTime dt = reinterpret_cast<QDateTimeEdit *>
+					(card->items[nitem].w0)->dateTime();
+//				if(item->timefmt == T_DATE)
+//					dt.setTime(QTime(0, 0));
+				time = dt.toSecsSinceEpoch();
+				if(time < 0)
+					time = 0;
 				data = ""; /* force use of time */
 			} else {
 				data = read_text_button(card->items[nitem].w0, 0);
@@ -1180,10 +1251,21 @@ void fillout_item(
 		/* It's safer to keep in-memory form same as on-disk */
 		if (item->timewidget) {
 			if (!deps) {
-				QDateTime dt;
-				dt.setSecsSinceEpoch(parse_time_data(data, item->timefmt));
+				QDateTime dt = QDateTime();
+				time_t t = parse_time_data(data, item->timefmt);
+				/* if(t > 0) */ /* can't set to invalid date */
+					dt.setSecsSinceEpoch(t);
 				reinterpret_cast<QDateTimeEdit *>(w0)->
 					setDateTime(dt);
+#if 0 // this doesn't do anything useful
+				/* signal isn't actually sent, so update fmt */
+				if(item->timefmt == T_DATE)
+					reinterpret_cast<CardDateEdit *>(w0)->
+					         setFormat();
+				else if (item->timefmt == T_DATETIME)
+					reinterpret_cast<CardDateTimeEdit *>(w0)->
+					         setFormat();
+#endif
 			}
 			break;
 		}

@@ -82,6 +82,8 @@ const char *mkdatetimestring(time_t time)
 {
 	static char buf[40]; /* max is 15, actually */
 
+	if (!time)
+		return "";
 	sprintf(buf, "%s %s", mkdatestring(time), mktimestring(time, 0));
 	return buf;
 }
@@ -106,6 +108,8 @@ time_t parse_datestring(
 	char		buf[10];	/* lowercase weekday name */
 	bool		mmddyy = pref.mmddyy;
 
+	if (!text)
+		return 0;
 	today = time(0);				/* today's date */
 	tm = localtime(&today);
 	tm->tm_hour = tm->tm_min = tm->tm_sec = 0;
