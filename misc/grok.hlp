@@ -1412,6 +1412,13 @@
 	hours, reduces the amount of space for display, and disallows entry
 	of several grok-supported special values, such as "tomorrow".
 
+	If all you want is the calendar popup, select the Calendar checkbox.
+	It is ignored for Widget fields (always enabled) and time-only fields
+	(always disabled), but otherwise adds a button for the popup.  This
+	popup may not be as robust as the Widget built-in popup.  Note that
+	the popup will not change the date field unless the enter key is
+	pressed or a date is double-clicked.
+
 	Note that internal calculations are always done in seconds. If the
 	result is not in the range used by the time format (such as numbers
 	greater than 24*60*60 for Time, or numbers not dividable by 24*60*60

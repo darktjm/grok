@@ -369,6 +369,86 @@ struct CardDateEdit : public QDateEdit {
 	OVERRIDE_FOCUS(QDateEdit)
 };
 
+/* Given how broken the above is, maybe allow a plain text box w/ calendar */
+struct CardInputCalendar : public QComboBox {
+	CardInputCalendar(CARD *c, int i, QWidget *p, bool t) : QComboBox(p) {
+		OVERRIDE_INIT(c,i)
+		setEditable(true);
+		setInsertPolicy(NoInsert);
+		addItem("");
+		has_time = t;
+		cw = new QCalendarWidget();
+		cw->hide();
+		/* keep cw in sync w/ text */
+		QObject::connect(this, &QComboBox::currentTextChanged,
+				 this, &CardInputCalendar::setCalendar);
+#if 0
+		/* toggle calendar off w/ combo sel -- isn't ever called */
+		/* instead, showPopup is called on every press */
+		QObject::connect(this, &QComboBox::activated,
+				 this, &CardInputCalendar::togCalendar);
+#endif
+#if 0
+		/* any date selection changes field */
+		QObject::connect(cw, &QCalendarWidget::selectionChanged,
+				 this, &CardInputCalendar::calDate);
+#endif
+		/* double-click or enter closes widget */
+		QObject::connect(cw, &QCalendarWidget::activated,
+				 this, &CardInputCalendar::doneCalendar);
+	}
+	void doneCalendar() {
+		calDate();
+		hidePopup();
+	}
+	void calDate() {
+		const QDate &date = cw->selectedDate();
+		if(!has_time)
+			setCurrentText(date.toString(pref.mmddyy ? "M/dd/yy" :
+						     "d.MM.yy"));
+		else {
+			std::string s = currentText().toStdString();
+			time_t sec = parse_datetimestring(s.c_str());
+			QDateTime d;
+			d.setSecsSinceEpoch(sec);
+			d.setDate(date);
+			setCurrentText(date.toString(pref.mmddyy ?
+				       (pref.ampm ? "M/dd/yy  H:mma" :
+				                    "M/dd/yy  HH:mm") :
+				       (pref.ampm ? "d.MM.yy  H:mma" :
+					            "d.MM.yy  HH:mm")));
+		}
+	}
+	void showPopup() {
+		if(!cw->isHidden()) {
+			hidePopup();
+			return;
+		}
+		QPoint pos = (this->layoutDirection() == Qt::RightToLeft) ? this->rect().bottomRight() : this->rect().bottomLeft();
+		pos = this->mapToGlobal(pos);
+		/* no way to handle popup falling "off screen" w/o qt private */
+		cw->move(pos);
+		cw->show();
+	}
+	void hidePopup() {
+		cw->hide();
+		QComboBox::hidePopup();
+	}
+	/* move currentText into calendar */
+	void setCalendar() {
+		std::string s = currentText().toStdString();
+		time_t sec = has_time ? parse_datetimestring(s.c_str()) :
+			                parse_datestring(s.c_str());
+		QDateTime d;
+		d.setSecsSinceEpoch(sec);
+		cw->setSelectedDate(d.date());
+	}
+	OVERRIDE_FOCUS(QComboBox)
+	bool has_time;
+	QCalendarWidget *cw;
+	~CardInputCalendar() { delete cw; }
+};
+
 struct CardTimeEdit : public QTimeEdit {
 	CardTimeEdit(CARD *c, int i, QWidget *p) : QTimeEdit(p) OVERRIDE_INIT(c,i)
 	OVERRIDE_FOCUS(QTimeEdit)
@@ -470,7 +550,7 @@ static void create_item_widgets(
 		  CardInputComboBox *cb = NULL;
 		  QDateTimeEdit *dt = NULL;
 		  QWidget *w;
-		  if (item.type == IT_TIME && item.timewidget) {
+		  if (item.type == IT_TIME && (item.timewidget & 1)) {
 			switch(item.timefmt) {
 			    case T_DATE:
 				dt = new CardDateEdit(card, nitem, wform);
@@ -489,6 +569,12 @@ static void create_item_widgets(
 			}
 			w = dt;
 		  	// le = dt->lineEdit();  // protected, of course.  I hate Qt.
+		  } else if (item.type == IT_TIME && (item.timewidget & 2) &&
+			     (item.timefmt == T_DATE || item.timefmt == T_DATETIME)) {
+			  CardInputCalendar *cic;
+			  w = cic = new CardInputCalendar(card, nitem, wform,
+							  item.timefmt == T_DATETIME);
+			  le = cic->lineEdit();
 		  } else if (item.type != IT_INPUT || (!item.nmenu && !item.dcombo) || !editable) {
 			le = new CardLineEdit(card, nitem, wform);
 			w = le;
@@ -1040,7 +1126,7 @@ void card_readback_texts(
 			break;
 
 		  case IT_TIME:
-			if (item->timewidget) {
+			if (item->timewidget & 1) {
 				QDateTime dt = reinterpret_cast<QDateTimeEdit *>
 					(card->items[nitem].w0)->dateTime();
 //				if(item->timefmt == T_DATE)
@@ -1249,7 +1335,7 @@ void fillout_item(
 		/* this used to parse time as a number */
 		/* but that was converted from timefmt on read_dbase */
 		/* It's safer to keep in-memory form same as on-disk */
-		if (item->timewidget) {
+		if (item->timewidget & 1) {
 			if (!deps) {
 				QDateTime dt = QDateTime();
 				time_t t = parse_time_data(data, item->timefmt);

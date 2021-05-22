@@ -238,7 +238,7 @@ typedef struct item {
 	int	labelfont;	/* label font, F_* */
 				/*----- TIME */
 	TIMEFMT	timefmt;	/* one of T_DATE..T_DURATION */
-	bool	timewidget;	/* use special widget? */
+	int	timewidget;	/* use special widget? */
 				/*----- CHOICE, FLAG */
 	char	*flagcode;	/* dbase column value if on */
 	char	*flagtext;	/* text shown in summary if on */

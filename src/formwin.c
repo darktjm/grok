@@ -199,7 +199,7 @@ static void resize_menu_table(QTableWidget *tw)
 }
 
 /*
- * next free: 10a,114 (global), 240 (field), 30b (chart component)
+ * next free: 10a,114 (global), 241 (field), 30b (chart component)
  */
 
 static struct _template {
@@ -275,6 +275,7 @@ static struct _template {
 	{ TIM, 'r',	0x20b,	"Date+time",		"fe_time",	},
 	{ TIM, 'r',	0x20c,	"Duration",		"fe_time",	},
 	{ TIM, 'f',	0x23f,	"Widget",		"fe_time",	},
+	{ TIM, 'f',	0x240,	"Calendar",		"fe_time",	},
 	{ ANY, '-',	 0,	" ",			0,		},
 
 	{ ANY, 'L',	 0,	"Label Justification:",	"fe_ljust",	},
@@ -950,7 +951,8 @@ static void fillout_formedit_widget(
 	  case 0x20a: set_toggle(w, item->timefmt == T_TIME);		break;
 	  case 0x20b: set_toggle(w, item->timefmt == T_DATETIME);	break;
 	  case 0x20c: set_toggle(w, item->timefmt == T_DURATION);	break;
-	  case 0x23f: set_toggle(w, item->timewidget);			break;
+	  case 0x23f: set_toggle(w, item->timewidget & 1);		break;
+	  case 0x240: set_toggle(w, item->timewidget & 2);			break;
 
 	  case 0x260:
 	  case 0x261:
@@ -970,7 +972,7 @@ static void fillout_formedit_widget(
 
 	  case 0x237: set_dsb_value(w, item->min);			break;
 	  case 0x238: set_dsb_value(w, item->max);			break;
-	  case 0x230: set_sb_value(w, item->digits); set_digits(item->digits);			break;
+	  case 0x239: set_sb_value(w, item->digits); set_digits(item->digits);			break;
 	  case 0x23b:
 	  case 0x23c:
 	  case 0x23d: set_toggle(w, item->dcombo == tp->code - 0x23b);	break;
@@ -1464,7 +1466,8 @@ static int readback_item(
 	  case 0x20a: item->timefmt = T_TIME;		all = true;	break;
 	  case 0x20b: item->timefmt = T_DATETIME;	all = true;	break;
 	  case 0x20c: item->timefmt = T_DURATION;	all = true;	break;
-	  case 0x23f: item->timewidget ^= true;				break;
+	  case 0x23f: item->timewidget ^= 1;				break;
+	  case 0x240: item->timewidget ^= 2;				break;
 
 	  case 0x21f: item->maxlen   = get_sb_value(w);			break;
 	  case 0x206: item->sumcol   = get_sb_value(w);			break;
