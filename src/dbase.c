@@ -304,7 +304,8 @@ bool dbase_put(
 static int compare_one(
 	const ROW	*ru,
 	const ROW	*rv,
-	int		col)
+	int		col,
+	int		date_type)
 {
 	char		*cu;
 	char		*cv;
@@ -314,6 +315,12 @@ static int compare_one(
 	cv = col < rv->ncolumns ? rv->data[col] : 0;
 	if (!cu || !cv)
 		return(!cv - !cu);
+	if(date_type >= 0) {
+	    du = parse_time_data(cu, (TIMEFMT)date_type);
+	    dv = parse_time_data(cv, (TIMEFMT)date_type);
+	    if (du != dv)
+		return(du < dv ? -1 : du == dv ? 0 : 1);
+	}
 	while (*cu == ' ' || *cu == '\t') cu++;
 	while (*cv == ' ' || *cv == '\t') cv++;
 	if ((isdigit(*cu) || *cu == '.') &&
@@ -336,10 +343,11 @@ static int compare_one(
 struct db_comp {
 	const ROW * const *rows;
 	int col_sorted_by;
+	int date_type;
 	bool reverse;
 	bool operator() (int u, int v)
 	{
-		int diff = compare_one(rows[u], rows[v], col_sorted_by);
+		int diff = compare_one(rows[u], rows[v], col_sorted_by, date_type);
 		return(reverse ? diff > 0 : diff < 0);
 	}
 };
@@ -366,6 +374,14 @@ void dbase_sort(
 
 	cmp.reverse = rev;
 	card->col_sorted_by = cmp.col_sorted_by = col;
+	/* <sigh> don't know which item to use */
+	cmp.date_type = -1; 
+	for (i = 0; i < form->nitems; i++)
+		if (form->items[i]->column == col) {
+			if (form->items[i]->type == IT_TIME)
+				cmp.date_type = form->items[i]->timefmt;
+			break;
+		}
 	cmp.rows = dbase->row;
 	if (!noinit) {
 		grow(0, "dbase sort order", int, card->sorted, dbase->nrows, 0);
