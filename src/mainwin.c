@@ -803,7 +803,8 @@ void remake_sort_pulldown(void)
 				break;
 		if (j < n)
 			continue;
-		sprintf(buf, "by %.100s", item->type==IT_CHOICE ? item->name
+		sprintf(buf, "by %.100s",
+			(item->type==IT_CHOICE || !item->label) ? item->name
 								: item->label);
 		if (buf[j = strlen(buf)-1] == ':')
 			buf[j] = 0;
