@@ -21,6 +21,8 @@
 /* Yet more bison-specific code */
 /* This makes yyparse more reentrant */
 %code requires {
+struct fitem { CARD *card; const ITEM *item; };
+typedef std::vector<fitem> fitem_stack;
 typedef struct {
 	char	*ret;		/* returned string */
 	CARD	*card;		/* database for which to evaluate */
@@ -30,13 +32,14 @@ typedef struct {
 	bool	assigned;	/* did a field assignment */
 	char	*expr;		/* first char read by lexer */
 	char	*text;		/* next char to be read by lexer */
+	fitem_stack fitem;		/* current fkey context */
 	char	errormsg[1000];	/* error message if any, or "" */
 	char	*errormsg_full;	/* full message if too big for above */
 } PARSE_GLOBALS;
 #define PG PARSE_GLOBALS *g
 #define eval_error (!!g->errormsg[0])
 void parsererror(
-	PARSE_GLOBALS	*g,
+	PG,
 	const char	*msg, ...);
 }
 %param {PARSE_GLOBALS *g}
@@ -139,6 +142,8 @@ static char *f_concat(PG, char *a, char *b)
 
 }
 
+%code requires { struct fkey_field { CARD *card; int column; int row; }; }
+
 %code requires {
 /*---------------------------------------- eval.c ------------*/
 
@@ -159,61 +164,58 @@ double f_num(
 	char		*s);
 double f_sum(				/* sum */
 	PG,
-	int		column);	/* number of column to average */
+	int		field);	/* number of column to average */
 double f_avg(				/* average */
 	PG,
-	int		column);	/* number of column to average */
+	int		field);	/* number of column to average */
 double f_dev(				/* standard deviation */
 	PG,
-	int		column);	/* number of column to average */
+	int		field);	/* number of column to average */
 double f_min(				/* minimum */
 	PG,
-	int		column);	/* number of column to average */
+	int		field);	/* number of column to average */
 double f_max(				/* maximum */
 	PG,
-	int		column);	/* number of column to average */
+	int		field);	/* number of column to average */
 double f_qsum(				/* sum */
 	PG,
-	int		column);	/* number of column to average */
+	int		field);	/* number of column to average */
 double f_qavg(				/* average */
 	PG,
-	int		column);	/* number of column to average */
+	int		field);	/* number of column to average */
 double f_qdev(				/* standard deviation */
 	PG,
-	int		column);	/* number of column to average */
+	int		field);	/* number of column to average */
 double f_qmin(				/* minimum */
 	PG,
-	int		column);	/* number of column to average */
+	int		field);	/* number of column to average */
 double f_qmax(				/* maximum */
 	PG,
-	int		column);	/* number of column to average */
+	int		field);	/* number of column to average */
 double f_ssum(				/* sum */
 	PG,
-	int		column);	/* number of column to average */
+	int		field);	/* number of column to average */
 double f_savg(				/* average */
 	PG,
-	int		column);	/* number of column to average */
+	int		field);	/* number of column to average */
 double f_sdev(				/* standard deviation */
 	PG,
-	int		column);	/* number of column to average */
+	int		field);	/* number of column to average */
 double f_smin(				/* minimum */
 	PG,
-	int		column);	/* number of column to average */
+	int		field);	/* number of column to average */
 double f_smax(				/* maximum */
 	PG,
-	int		column);	/* number of column to average */
+	int		field);	/* number of column to average */
 char *f_field(
 	PG,
-	int		column,
-	int		row);
+	fkey_field	field);
 char *f_expand(
 	PG,
-	int		column,
-	int		row);
+	fkey_field	field);
 char *f_assign(
 	PG,
-	int		column,
-	int		row,
+	fkey_field	field,
 	char		*data);
 int f_section(
 	PG,
@@ -323,6 +325,15 @@ struct db_sort *new_db_sort(
 	char		*field);
 void free_db_sort(
 	struct db_sort	*sort);
+char *f_deref(
+	PG,
+	fkey_field field,
+	char *fsep,
+	char *rsep);
+#define nzs(s) ((s) ? (s) : strdup(""))
+char *f_dereff(
+	PG,
+	fkey_field field);
 }
 
 /*
@@ -340,6 +351,7 @@ void free_db_sort(
 	char *sval;
 	struct arg *aval;
 	CARD *cval;
+	struct fkey_field fval;
 	struct db_sort *Sval;
 }
 /* These destructors should wipe out any memory leaks on error, but they
@@ -348,15 +360,18 @@ void free_db_sort(
 %destructor { free_args($$); } <aval>
 %destructor { free_db_sort($$); } <Sval>
 %destructor { f_db_end(g, $$); } <cval>
+%destructor { free_fkey_card($$.card); } <fval>
 
 %type	<dval>	number numarg
 %type	<sval>	string
 %type	<aval>	args
 %type	<cval>	db_prefix
 %type	<Sval>	db_sort
+%type	<fval>	field
 %token	<dval>	NUMBER
 %token	<sval>	STRING SYMBOL
-%token	<ival>	FIELD VAR
+%token	<ival>	VAR
+%token	<fval>	FIELD
 %token		EQ NEQ LE GE SHR SHL AND OR IN UNION INTERSECT DIFF REQ RNEQ
 %token		PLA MIA MUA MOA DVA ANA ORA INC DEC_ APP AAS ALEN_ DOTDOT
 %token		AVG DEV AMIN AMAX SUM
@@ -368,7 +383,7 @@ void free_db_sort(
 %token		YEAR MONTH DAY HOUR MINUTE SECOND LEAP JULIAN
 %token		SECTION_ DBASE_ FORM_ PREVFORM SWITCH THIS LAST DISP FOREACH
 %token		HOST USER UID GID SYSTEM ACCESS BEEP ERROR PRINTF MATCH SUB
-%token		GSUB BSUB ESC TOSET DETAB ALIGN
+%token		GSUB BSUB ESC TOSET DETAB ALIGN DEREF DEREFF
 
 %left 's' /* Force a shift; i.e., prefer longer versions */
 %left ',' ';'
@@ -445,12 +460,8 @@ string	: STRING			{ $$ = $1; }
 	| ALIGN '(' string ',' numarg ')'		{ $$ = f_align(g, $3, NULL, $5, -1); check_error; }
 	| ALIGN '(' string ',' numarg ',' string ')'	{ $$ = f_align(g, $3, $7, $5, -1); check_error; }
 	| ALIGN '(' string ',' numarg ',' string ',' number ')'	{ $$ = f_align(g, $3, $7, $5, $9); check_error; }
-	| FIELD %prec 's'			{ $$ = f_field(g, $1, g->card->row); check_error; }
-	| FIELD '[' number ']' 		{ $$ = f_field(g, $1, $3); check_error; }
-	| FIELD '=' string		{ $$ = f_assign(g, $1, g->card->row, $3);
-					  g->assigned = 1; } /* if this fails, it's fatal */
-	| FIELD '[' number ']' '=' string 
-					{ $$ = f_assign(g, $1, $3, $6);
+	| field				{ $$ = f_field(g, $1); check_error; }
+	| field '=' string		{ $$ = f_assign(g, $1, $3);
 					  g->assigned = 1; } /* if this fails, it's fatal */
 	| SYSTEM '(' string ')'		{ $$ = f_system(g, $3); check_error; }
 	| '$' SYMBOL			{ yystrdup($$, getenv($2)); }
@@ -533,9 +544,7 @@ string	: STRING			{ $$ = $1; }
 						((time_t)$3)); }
 	| DURATION '(' number ')'	{ yystrdup($$, mktimestring
 						((time_t)$3, true)); }
-	| EXPAND '(' FIELD ')'		{ $$ = f_expand(g, $3, g->card->row); check_error; }
-	| EXPAND '(' FIELD '[' number ']' ')'
-					{ $$ = f_expand(g, $3, $5); check_error; }
+	| EXPAND '(' field ')'		{ $$ = f_expand(g, $3); check_error; }
 	| PRINTF '(' args ')'		{ $$ = f_printf(g, $3); check_error; }
 	| MATCH '(' string ',' string ')' { $$ = f_str(g, f_re_match(g, $3, $5)); check_error; }
 	| SUB '(' string ',' string ',' string ')' { $$ = f_re_sub(g, $3, $5, $7, false); check_error; }
@@ -545,6 +554,18 @@ string	: STRING			{ $$ = $1; }
 	| ERROR '(' args ')'		{ char *s = f_printf(g, $3); check_error;
 					  create_error_popup(mainwindow, 0, s);
 					  zfree(s); $$ = 0; }
+	| DEREF '(' field ')'		{ $$ = f_deref(g, $3, 0, 0); check_error; }
+	| DEREF '(' field ',' ')'	{ $$ = f_deref(g, $3, 0, 0); check_error; }
+	| DEREF '(' field ',' string ')'	{ $$ = f_deref(g, $3, nzs($5), 0); check_error; }
+	| DEREF '(' field ',' ',' string ')'	{ $$ = f_deref(g, $3, 0, nzs($6)); check_error; }
+	| DEREF '(' field ',' string ',' string')'		{ $$ = f_deref(g, $3, nzs($5), nzs($7)); check_error; }
+	| DEREFF '(' field ')'		{ $$ = f_dereff(g, $3); check_error; }
+	;
+
+field	: FIELD %prec 's'		{ $$ = $1; }
+	| FIELD '[' number ']'		{ $$ = $1; $$.row = $3; }
+	| field FIELD %prec 's'		{ $1.card = 0; $$ = $2; }
+/*	| field FIELD '[' number ']'	{ $$ = $2; $$.row = $4; } */
 	;
 
 args	: string			{ $$ = f_addarg(g, 0, $1); check_error; }
@@ -571,13 +592,9 @@ number	: numarg			{ $$ = $1; }
 numarg	: NUMBER			{ $$ = $1; }
 	| '{' string '}'		{ $$ = f_num($2); }
 	| '(' number ')'		{ $$ = $2; }
-	| FIELD				{ $$ = f_num(f_field(g, $1,g->card->row));}
-	| FIELD '[' number ']'		{ $$ = f_num(f_field(g, $1, $3)); }
-	| FIELD '=' numarg		{ zfree(f_assign(g, $1, g->card->row,
+	| field				{ $$ = f_num(f_field(g, $1));}
+	| field '=' numarg		{ zfree(f_assign(g, $1,
 					  f_str(g, $$ = $3))); g->assigned = 1; check_error; }
-	| FIELD '[' number ']' '=' numarg
-					{ zfree(f_assign(g, $1, $3,
-					  f_str(g, $$ = $6))); g->assigned = 1; check_error; }
 	| VAR				{ $$ = getnvar(g, $1); }
 	| VAR '=' numarg		{ $$ = setnvar(g, $1, $3); }
 	| VAR PLA numarg		{ int v = $1;
@@ -633,26 +650,29 @@ numarg	: NUMBER			{ $$ = $1; }
 					       g->card->row : 0; }
 	| LAST				{ $$ = g->card && g->card->dbase ?
 					       g->card->dbase->nrows - 1 : -1; }
+	| field THIS				{ $$ = $1.row; }
+	| field LAST				{ DBASE *db = $1.card->dbase; $$ = db ?
+						db->nrows - 1 : -1; }
 	| DISP				{ $$ = g->card && g->card->dbase
 						      && g->card->disprow >= 0
 						      && g->card->disprow <
 							 g->card->dbase->nrows ?
 					       g->card->disprow : -1; }
-	| AVG   '(' FIELD ')'		{ $$ = f_avg(g, $3); }
-	| DEV   '(' FIELD ')'		{ $$ = f_dev(g, $3); }
-	| AMIN  '(' FIELD ')'		{ $$ = f_min(g, $3); }
-	| AMAX  '(' FIELD ')'		{ $$ = f_max(g, $3); }
-	| SUM   '(' FIELD ')'		{ $$ = f_sum(g, $3); }
-	| QAVG  '(' FIELD ')'		{ $$ = f_qavg(g, $3); }
-	| QDEV  '(' FIELD ')'		{ $$ = f_qdev(g, $3); }
-	| QMIN  '(' FIELD ')'		{ $$ = f_qmin(g, $3); }
-	| QMAX  '(' FIELD ')'		{ $$ = f_qmax(g, $3); }
-	| QSUM  '(' FIELD ')'		{ $$ = f_qsum(g, $3); }
-	| SAVG  '(' FIELD ')'		{ $$ = f_savg(g, $3); }
-	| SDEV  '(' FIELD ')'		{ $$ = f_sdev(g, $3); }
-	| SMIN  '(' FIELD ')'		{ $$ = f_smin(g, $3); }
-	| SMAX  '(' FIELD ')'		{ $$ = f_smax(g, $3); }
-	| SSUM  '(' FIELD ')'		{ $$ = f_ssum(g, $3); }
+	| AVG   '(' FIELD ')'		{ $$ = f_avg(g, $3.column); }
+	| DEV   '(' FIELD ')'		{ $$ = f_dev(g, $3.column); }
+	| AMIN  '(' FIELD ')'		{ $$ = f_min(g, $3.column); }
+	| AMAX  '(' FIELD ')'		{ $$ = f_max(g, $3.column); }
+	| SUM   '(' FIELD ')'		{ $$ = f_sum(g, $3.column); }
+	| QAVG  '(' FIELD ')'		{ $$ = f_qavg(g, $3.column); }
+	| QDEV  '(' FIELD ')'		{ $$ = f_qdev(g, $3.column); }
+	| QMIN  '(' FIELD ')'		{ $$ = f_qmin(g, $3.column); }
+	| QMAX  '(' FIELD ')'		{ $$ = f_qmax(g, $3.column); }
+	| QSUM  '(' FIELD ')'		{ $$ = f_qsum(g, $3.column); }
+	| SAVG  '(' FIELD ')'		{ $$ = f_savg(g, $3.column); }
+	| SDEV  '(' FIELD ')'		{ $$ = f_sdev(g, $3.column); }
+	| SMIN  '(' FIELD ')'		{ $$ = f_smin(g, $3.column); }
+	| SMAX  '(' FIELD ')'		{ $$ = f_smax(g, $3.column); }
+	| SSUM  '(' FIELD ')'		{ $$ = f_ssum(g, $3.column); }
 	| ABS   '(' number ')'		{ $$ = abs($3); }
 	| INT   '(' number ')'		{ $$ = (long long)($3); }
 	| BOUND '(' numarg ',' numarg ',' number ')'

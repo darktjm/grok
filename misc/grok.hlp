@@ -1014,7 +1014,7 @@
 	interpretation is used for some item properties and field
 	interpretations.  Changing this in a database with array values
 	or array item properties is not supported at this time.
-%% fe_ref
+%% fe_cmt
 	COMMENT
 
 	This comment should give the name of the author of the form, or
@@ -1201,6 +1201,13 @@
 
 	Chart:  chart fields display statistics in a bar chart. No input is
 	        possible.
+
+	Reference:  show fields from another database, whose "key" fields
+	        match the value(s) stored in this field
+
+	Referenced:  show fields from another database, which has a Reference
+		field referencing this database, and whose reference key matches
+		this specific card.  No value is stored in this field.
 
 	When the type of an existing field is changed, attributes not
 	applicable to the new field type will disappear from the menu but
@@ -1519,6 +1526,66 @@
 	adds Field Name, DB Col, Sum Col and Sum Width columns
 	corresponding to the Internal field name, Database Column,
 	Summary column and Width in summary fields, respectively.
+%% fe_ref
+	REFERENCES
+
+	Fields which reference another database store a key, which must be
+	non-blank and match the values in the other database's key fields.
+	The other database is also referred to as the Foreign DB.
+	Key and other specified fields from the other database are displayed
+	for the card which matches the key.  The label for this field is
+	displayed as an HTML-style link; pressing this will switch to the
+	foreign db.
+
+	The displayed fields are drop-down menus which allow selection of a
+	specific item in the referred-to database.  Selecting an entry in
+	one drop-down filters the values in the other drop-downs to valid
+	values.  If the Headers flag is set, the label for each field is
+	shown above the drop-down.  If Subsearch is enabled, a text field
+	below the drop-downs allows further limiting of drop-down values using
+	the given search string on the foreign db.
+
+	If the Multi-Ref flag is set, then this field can hold multiple keys,
+	and all cards from the referred-to database which match the keys will
+	be displayed in a scrollable table listing.  Buttons are below the
+	table:  + (Add), - (Delete) and = (Edit).  As with single references,
+	Headers and Subsearch display headers in the table and a subsearch
+	text field to the right of the buttons, respectively.  The last row
+	of the table is a line of drop-down menus which operate similarly to
+	the single-reference UI, except that the selected entry is only added
+	if the + (Add) button is pressed.  Selecting an entry and pressing
+	- (Delete) will prompt for confirmation, and then delete the reference.
+	If desired, the referenced card can be deleted at the same time.  Selecting
+	an entry and pressing the = (Edit) button will switch to the referred-to
+	database with the selected card loaded for editing.
+
+	Deleting a card referred to by this field will cause cascade deletes
+	(i.e., deletes of referers) only if the referred-to database knows that
+	such references exist.  Changing the key values will also only affect
+	known referers, which may change or remove their reference, or even be
+	deleted.  The list of know referers is edited using the	Referers button
+	in the main action button row.
+
+	An alternate way to edit references is to show referers.  The only effect
+	this has on the form which includes a Referers field is to automatically
+	add the selected table to the form's list of referers; i.e., no data is
+	stored.  Instead, the foreign db must have a Reference field which refers
+	to this database; this is the one and only key field for referers.  When
+	the card is displayed, a table similar to the Multi-Ref field is shown,
+	using the values in displayed fields from the referring database.  The
+	key field may not be displayed (it is redundant:  the key field refers
+	to the displayed card).  As with Multi-Ref fields, Headers and Subsearch
+	are supported.  In the latter case, this limits which foreign cards are
+	displayed.  If Editable is enabled, the displayed fields themselves
+	may be edited directly in the interface, and new entries may be added via
+	a blank row at the bottom and the + (Add) button.  Otherwise, pressing +
+	(Add) switches to the foreign db in a special restricted mode which sets or
+	retains the referred-to card.  This mode is also used when switching for
+	the = (Edit) button and using the label link.  The - (Delete) button will
+	prompt to either delete the reference or delete the entire referring card.
+	
+	To only provide a link to a foreign db, make the height of the Referers widget
+	equal to the height of the label.  No visible fields are needed or allowed.
 %% fe_def
 	INPUT DEFAULT
 
@@ -1708,7 +1775,7 @@
 			If n is larger than ## s1, blanks are inserted
 			If n is negative, append.  Note that appending to
 			an empty string will set element 1, not element 0.
-	  foreach ( var, s1, s2 )	Evaluate s2 for each element in array s1, seeting
+	  foreach ( var, s1, s2 )	Evaluate s2 for each element in array s1, setting
 			var to the current element before evaluation.
 	  foreach ( var, + s1, s2 )	The same as above, but only for non-blank elements
 	  foreach ( var, s1, s2, s3 )
@@ -1754,10 +1821,22 @@
 
 	Database Access
 
-	  _field		database field of current card, field is number or name
-	  _field [n]		database field from any card
+	  _field ...		database field of current card, field is number or name
+	  _field [n] ...	database field from any card
+	  		The ... part may be _field if the preceding field is a Reference.
+			In this case, the field number or name comes from the databasae being referred
+			to, and the value is that of the first card matching the reference,
+			or blank otherwise.
+	  _field ... = s	assign string to database field of current card
+	  _field [n] ... = s	assign string to database field from any card
+	  _field ... = n	assign number to database field of current card
+	  _field [n] ... = n	assign number to database field from any card
 	  this		number of current card, 0 is first
+	  _field ... this	number of card referred to by reference field
+	  _field [n] ... this	number of card referred to by reference field
 	  last		number of last card
+	  _field ... last	number of last card in database referred to by reference field
+	  _field [n] ... last	number of last card in database referred to by reference field
 	  avg (_field)		average of field in all cards
 	  qavg (_field)	average of field in current query result
 	  savg (_field)	average of field in all cards of this section
@@ -1776,8 +1855,13 @@
 	  dbase		name of current database file
 	  form		name of the current file
 	  prevform		name of the previous form file
-	  expand (_field)	returns the mnemonic value of choice and flag fields
-	  expand (_field[n])	same for card n
+	  expand (_field ...)	returns the mnemonic value of choice and flag fields
+	  expand (_field[n] ...)	same for card n
+	  deref (_field ...[, [s][, s])	expand reference field to visible value
+	  		visible values are separated by the first string (" " if unspecified)
+			multi-references are separated by the second string ("\n" if unspecified)
+	  deref (_field[n] ...)		same for card n
+	  dereff (_field)	expand reference field to visible field reference array
 	  section		the current card's section
 			this is a section number if in numeric context,
 			and a name in string context

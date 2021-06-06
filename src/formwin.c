@@ -26,6 +26,7 @@ class QDialogNoClose : public QDialog {
 
 static void formedit_callback(int);
 static void menu_callback(QTableWidget *w, int x, int y);
+static void key_callback(int x, int y, int c = 0);
 static int readback_item(int);
 
 static bool		have_shell = false;	/* message popup exists if true */
@@ -34,6 +35,7 @@ static FORM		*form;		/* current form definition */
 static QWidget		*scroll_w;	/* the widget inside the scroll area */
 static QFrame		*chart;		/* the widget for chart options */
 static QTableWidget	*menu_w;	/* the menu editor widget */
+static QTableWidget	*key_w;		/* the reference field editor widget */
 static GrokCanvas	*canvas;
 
 const char		plan_code[] = "tlwWrecnmsSTA";	/* code 0x260..0x26c */
@@ -52,11 +54,13 @@ const char		plan_code[] = "tlwWrecnmsSTA";	/* code 0x260..0x26c */
 #define SNG 1U<<IT_MENU | 1U<<IT_RADIO
 #define MUL 1U<<IT_MULTI | 1U<<IT_FLAGS
 #define MNU INP  | SNG | MUL
-#define BAS ITX | FLG | SNG | MUL
+#define BAS ITX | FLG | SNG | MUL | FKY
 #define PLN ITX | FLG | SNG
 #define IDF TXT | FLG | SNG | MUL
 #define BUT 1U<<IT_BUTTON
 #define CHA 1U<<IT_CHART
+#define FKY 1U<<IT_FKEY
+#define AFK FKY | 1U<<IT_INV_FKEY
 
 static const struct {
     int type;
@@ -75,7 +79,9 @@ static const struct {
 	{ IT_FLAGS,  "Flag Group"	},
 	{ IT_MULTI,  "Flag List"	},
 	{ IT_BUTTON, "Button"		},
-	{ IT_CHART,  "Chart"		}
+	{ IT_CHART,  "Chart"		},
+	{ IT_FKEY,   "Reference"	},
+	{ IT_INV_FKEY, "Referers"	},
 	
 };
 
@@ -105,7 +111,7 @@ static int menu_col_mask(const ITEM *item)
 {
 	if(item->type == IT_INPUT)
 		return MENU_COMBO;
-	else if(item->type == IT_MENU || item->type == IT_RADIO || !item->multicol)
+	else if(item->type == IT_MENU || item->type == IT_RADIO || !IFL(item->,MULTICOL))
 		return MENU_SINGLE;
 	else
 		return MENU_MULTI;
@@ -198,8 +204,172 @@ static void resize_menu_table(QTableWidget *tw)
 	tw->updateGeometry();
 }
 
+static int fkey_index(const FORM *f, int item, int menu) {
+	int sel = 0;
+	for (int i=0; i < f->nitems; i++) {
+		const ITEM *it = f->items[i];
+		if (!IN_DBASE(it->type))
+			continue;
+		if (IFL(it->,MULTICOL)) {
+			for (int m=0; m < it->nmenu; m++, sel++)
+				if (i == item && m == menu)
+					return sel;
+		} else {
+			if (i == item)
+				return sel;
+			sel++;
+		}
+	}
+	return -1;
+}
+
+static void fkey_at(const FORM *f, int idx, int &item, int &menu) {
+	item = -1;
+	if (idx < 0)
+		return;
+	for (int i=0; i < f->nitems; i++) {
+		const ITEM *it = f->items[i];
+		if (!IN_DBASE(it->type))
+			continue;
+		if (IFL(it->,MULTICOL)) {
+			if (it->nmenu)
+				item++;
+			for (menu=0; menu < it->nmenu; menu++)
+				if (!idx--)
+					return;
+		} else {
+			item++;
+			if (!idx--)
+				return;
+		}
+	}
+}
+
+static QString fkey_name(const FORM *f, int item, int menu) {
+	const ITEM *fitem = f->items[item];
+	QString s = fitem->label ? fitem->label : fitem->name ? fitem->name : "";
+	if (IFL(fitem->,MULTICOL)) {
+		const MENU *m = &fitem->menu[menu];
+		if (!s.isEmpty())
+			s += '/';
+		s += m->label ? m->label : m->name ? m->name : QString::number(m->column);
+	} else if (s.isEmpty())
+		s = QString::number(fitem->column);
+	return s;
+}
+
+static QStringList key_col_labels = {
+	"Key", "Display", "Field" };
+
+enum {
+	KEY_FIELD_KEY, KEY_FIELD_DISPLAY, KEY_FIELD_FIELD };
+
+static void fill_key_row(QTableWidget *tw, ITEM *item, int row)
+{
+	bool blank = row >= item->nfkey;
+	FKEY *fk = &item->keys[row];
+	QComboBox *cb = new QComboBox;
+	cb->addItem("");
+	if (item->fkey_db) {
+		for (int i=0; i < item->fkey_db->nitems; i++) {
+			const ITEM *it = item->fkey_db->items[i];
+			if (!IN_DBASE(it->type))
+				continue;
+			if (IFL(it->,MULTICOL)) {
+				for (int m=0; m < it->nmenu; m++)
+					cb->addItem(fkey_name(item->fkey_db,
+							      i, m));
+			} else
+				cb->addItem(fkey_name(item->fkey_db, i, 0));
+		}
+	}
+	if (blank)
+		cb->setCurrentIndex(0);
+	else if (!item->fkey_db) {
+		cb->setCurrentText(QString::number(fk->item) + '/' + QString::number(fk->menu));
+	} else
+		cb->setCurrentIndex(fkey_index(item->fkey_db, fk->item, fk->menu) + 1);
+	tw->setCellWidget(row, KEY_FIELD_FIELD, cb);
+	set_popup_cb(cb, key_callback(KEY_FIELD_FIELD, row, c), int, c);
+	QCheckBox *chk = new QCheckBox;
+	chk->setCheckState(blank || !fk->key ? Qt::Unchecked : Qt::Checked);
+	chk->setEnabled(!blank);
+	tw->setCellWidget(row, KEY_FIELD_KEY, chk);
+	set_button_cb(chk, key_callback(KEY_FIELD_KEY, row, c), bool c);
+	chk = new QCheckBox;
+	chk->setCheckState(blank || !fk->display ? Qt::Unchecked : Qt::Checked);
+	chk->setEnabled(!blank);
+	tw->setCellWidget(row, KEY_FIELD_DISPLAY, chk);
+	set_button_cb(chk, key_callback(KEY_FIELD_DISPLAY, row, c), bool c);
+}
+
+static void resize_key_table(QTableWidget *tw);
+static void fill_key_table(QTableWidget *tw)
+{
+	QSignalBlocker sb(tw);
+	if(!canvas || canvas->curr_item >= form->nitems) {
+		tw->setRowCount(0);
+		return;
+	}
+	ITEM *item = form->items[canvas->curr_item];
+	if(!((1U<<item->type) & (AFK))) {
+		tw->setRowCount(8);
+		return;
+	}
+	int row, col;
+	if(tw->rowCount()) {
+		row = tw->currentRow();
+		col = tw->currentColumn();
+	} else
+		row = col = -1;
+	tw->horizontalHeader()->setVisible(true);
+	tw->setRowCount(item->nfkey + 1);
+	for(int i = 0; i <= item->nfkey; i++)
+	    fill_key_row(tw, item, i);
+	resize_key_table(tw);
+	if(row >= 0)
+		tw->setCurrentCell(row, col);
+}
+
+static void resize_key_table(QTableWidget *tw)
+{
+	// FIXME:  How do I determine the grid line width?  It's there
+	// whether the grid is drawn or not.
+	if(!canvas || canvas->curr_item >= form->nitems)
+		return;
+	const ITEM *item = form->items[canvas->curr_item];
+	tw->ensurePolished();
+	int w = 0;
+	tw->horizontalHeader()->setStretchLastSection(false);
+	for(int i = 0; i < key_col_labels.length(); i++) {
+		int min = i > 0 ? 40 : 100;
+		tw->resizeColumnToContents(i);
+		if(tw->columnWidth(i) < min)
+			tw->setColumnWidth(i, min);
+		w += tw->columnWidth(i);
+		// not sure if grid is included above; probably not
+		w++;
+	}
+	// 1 too many grid lines, in any case
+	w--;
+	tw->horizontalHeader()->setStretchLastSection(true);
+	// this resize probably isn't necessary, but better to be safe
+	tw->resizeRowsToContents();
+	int h = tw->rowHeight(0) * (item->nfkey + 1);
+	// actually, I guess the grid isn't an issue
+	// h += item->nfkey; // assume 1-pixel grid
+	// however, I do observe a 2-pixel shortage.  I have no idea why.
+	h+=2;
+	h += tw->horizontalHeader()->sizeHint().height();
+	if(w > tw->width())
+		h += tw->horizontalScrollBar()->height();
+	tw->setMaximumHeight(h);
+	tw->setMinimumHeight(h);
+	tw->updateGeometry();
+}
+
 /*
- * next free: 10a,114 (global), 241 (field), 30b (chart component)
+ * next free: 10a,115 (global), 245 (field), 30b (chart component)
  */
 
 static struct _template {
@@ -228,11 +398,12 @@ static struct _template {
 	{ ALL, 'l',	 0,	"Array elt escape:",	"fe_adelim",	},
 	{ ALL, 't',     0x109,  " ",			"fe_adelim",	},
 	{   0, 'F',	 0,	" ",			0,		},
-	{ ALL, 'L',	 0,	"Comment:",		"fe_ref",	},
-	{ ALL, 'T',	0x107,	" ",			"fe_ref",	},
+	{ ALL, 'L',	 0,	"Comment:",		"fe_cmt",	},
+	{ ALL, 'T',	0x107,	" ",			"fe_cmt",	},
 
 	{ ALL, 'L',	 0,	"Form",			0,		},
 	{ ALL, 'B',	0x10c,	"Queries",		"fe_query",	},
+	{ ALL, 'B',	0x10a,	"Referers",		"fe_ref",	},
 	{ ALL, 'B',	0x10b,	"Def Help",		"fe_defhelp",	},
 	{ ALL, 'B',	0x10d,	"Debug",		"fe_debug",	},
 	{ ALL, 'B',	0x10e,	"Preview",		"fe_preview",	},
@@ -254,6 +425,12 @@ static struct _template {
 	{ BAS, 'f',	0x202,	"Not sortable",		"fe_flags",	},
 	{ BAS, 'f',	0x203,	"Default sort",		"fe_flags",	},
 	{ MUL, 'f',	0x23e,	"Multi-field",		"fe_menu",	},
+	{   0, 'F',	 0,	" ",			0,		},
+	{ FKY, 'L',	 0,	" ",			0,		},
+	{ FKY, 'f',	0x241,	"Headers",		"fe_ref",	},
+	{ FKY, 'f',	0x242,	"Subsearch",		"fe_ref",	},
+	{ FKY, 'f',	0x243,	"Multi-Ref",		"fe_ref",	},
+	{   0, 'F',	 0,	" ",			0,		},
 	{ ANY, 'L',	 0,	"Internal field name:",	"fe_int",	},
 	{ ANY, 't',	0x204,	" ",			"fe_int",	},
 	{ BAS, 'L',	 0,	"Database column:",	"fe_column",	},
@@ -322,6 +499,10 @@ static struct _template {
 	{ INP, 'r',	0x23b,	"Static",		"fe_menu",	},
 	{ INP, 'r',	0x23c,	"Dynamic",		"fe_menu",	},
 	{ INP, 'r',	0x23d,	"All",			"fe_menu",	},
+	{ AFK, 'L',	 0,	"Foreign DB:",		"fe_ref",	},
+	{ AFK, 'D',	0x244,	" ",			"fe_ref",	},
+	{ AFK, 'L',	 0,	"Foreign Fields",	"fe_ref",	},
+	{ AFK, 'K',	 0,	" ",			"fe_ref",	},
 	{ TXT, '-',	 0,	" ",			0,		},
 
 	{ PLN, 'L',	 0,	"Calendar interface:",	"fe_plan",	},
@@ -583,7 +764,8 @@ void create_formedit_window(
 			if (tp->type == 't')
 				w->setMinimumWidth(100);
 			break;
-		    case 'M': {
+		    case 'M': {  /* editable table of menu entries */
+			/* modeled after query window */
 			w = new QWidget;
 			hform->addWidget(w, 2);
 			QVBoxLayout *v = new QVBoxLayout(w);
@@ -636,6 +818,60 @@ void create_formedit_window(
 			bind_help(b, tp->help);
 			break;
 		    }
+		    case 'K': { /* Editable key field table; like 'M' */
+			w = new QWidget;
+			hform->addWidget(w, 2);
+			QVBoxLayout *v = new QVBoxLayout(w);
+			v->setContentsMargins(0,0,0,0);
+			key_w = new QTableWidget;
+			// copied from querywin.c
+			key_w->setShowGrid(false);
+			key_w->setWordWrap(false);
+			key_w->setEditTriggers(QAbstractItemView::NoEditTriggers);
+			key_w->setSelectionBehavior(QAbstractItemView::SelectRows);
+			key_w->setColumnCount(key_col_labels.length());
+			for(int i = 0; i < key_col_labels.length(); i++)
+				    key_w->setColumnWidth(i, i > 0 ? 40 : 100);
+			key_w->setHorizontalHeaderLabels(key_col_labels);
+			key_w->horizontalHeader()->setStretchLastSection(true);
+			// key_w->setDragDropMode(QAbstractItemView::InternalMove);
+			// key_w->setDropIndicatorShown(true);
+			key_w->verticalHeader()->hide();
+			key_w->setMinimumWidth(150);
+			v->addWidget(key_w);
+			// This needs a more specific callback
+			//set_qt_cb(QTableWidget, cellChanged, key_w,
+			//	  key_callback(c, r), int r, int c);
+			//set_qt_cb(QTableWidget, currentCellChanged, key_w,
+			//	  key_callback(c, r), int r, int c);
+			QDialogButtonBox *bb = new QDialogButtonBox;
+			v->addWidget(bb);
+			QPushButton *b;
+			b = new QPushButton(QIcon::fromTheme("go-up"), "");
+			bb->addButton(b, dbbr(Action));
+			b->setObjectName("up");
+			b->setEnabled(false);
+			set_button_cb(b, key_callback(-1, -1));
+			bind_help(b, tp->help);
+			b = new QPushButton(QIcon::fromTheme("go-down"), "");
+			bb->addButton(b, dbbr(Action));
+			b->setObjectName("down");
+			b->setEnabled(false);
+			set_button_cb(b, key_callback(1, -1));
+			bind_help(b, tp->help);
+			b = mk_button(bb, "Delete", dbbr(Action));
+			b->setObjectName("del");
+			b->setEnabled(false);
+			set_button_cb(b, key_callback(-1, -2));
+			bind_help(b, tp->help);
+			b = mk_button(bb, "Duplicate", dbbr(Action));
+			b->setObjectName("dup");
+			b->setEnabled(false);
+			set_button_cb(b, key_callback(1, -2));
+			bind_help(b, tp->help);
+			break;
+		    }
+		    case 'D':
 		    case 'C': {
 			QComboBox *cb = new QComboBox;
 			cb->setEditable(true);
@@ -750,7 +986,7 @@ void create_formedit_window(
 			set_button_cb(w, formedit_callback(t));
 		else if(tp->type == 'I')
 			set_popup_cb(w, formedit_callback(t), int, i);
-		else if(tp->type == 'C')
+		else if(tp->type == 'C' || tp->type == 'D')
 			set_combo_cb(w, formedit_callback(t));
 
 		if(w && tp->help)
@@ -800,10 +1036,12 @@ void sensitize_formedit(void)
 			// hand, setting it for all newly visible widgets
 			// does nothing but revert this fix.
 			menu_w->updateGeometry();
+		if (tp->type == 'K')
+			key_w->updateGeometry();
 		if ((mask & (MUL)) &&
 		    ((tp->code >= 0x204 && tp->code <= 0x207) || tp->code == 0x236)) {
-			tp->widget->setEnabled(!item->multicol);
-			tp[-1].widget->setEnabled(!item->multicol);
+			tp->widget->setEnabled(!IFL(item->,MULTICOL));
+			tp[-1].widget->setEnabled(!IFL(item->,MULTICOL));
 		}
 		if (tp->type == 'C') {
 			QStringList sl;
@@ -818,7 +1056,17 @@ void sensitize_formedit(void)
 			cb->clear();
 			cb->addItems(sl);
 			cb->setEditText(s);
-		    }
+		}
+		if (tp->type == 'D') {
+			QStringList sl;
+			QComboBox *cb = reinterpret_cast<QComboBox *>(tp->widget);
+			add_dbase_list(sl);
+			QString s = cb->currentText();
+			cb->clear();
+			cb->addItem("");
+			cb->addItems(sl);
+			cb->setEditText(s);
+		}
 	}
 	// Without explicit adjustSize(), there may be huge gaps in form
 	if(chart->isVisible())
@@ -848,6 +1096,7 @@ void fillout_formedit(void)
 	for (tp=tmpl; tp->type; tp++)
 		fillout_formedit_widget(tp);
 	fill_menu_table(menu_w);
+	fill_key_table(key_w);
 }
 
 
@@ -892,7 +1141,7 @@ static void fillout_formedit_widget(
 		    !(tp->sensitive & (1 << form->items[canvas->curr_item]->type))) {
 			if (tp->type == 'T' || tp->type == 't' ||
 			    tp->type == 'i' || tp->type == 'd' ||
-			    tp->type == 'C')
+			    tp->type == 'C' || tp->type == 'D')
 				print_text_button_s(w, "");
 			return;
 		}
@@ -943,10 +1192,10 @@ static void fillout_formedit_widget(
 	  case 0x21c: set_toggle(w, item->inputjust == J_CENTER);	break;
 	  case 0x21d: set_toggle(w, item->inputjust == J_RIGHT);	break;
 
-	  case 0x200: set_toggle(w, item->search);			break;
-	  case 0x201: set_toggle(w, item->rdonly);			break;
-	  case 0x202: set_toggle(w, item->nosort);			break;
-	  case 0x203: set_toggle(w, item->defsort);			break;
+	  case 0x200: set_toggle(w, IFL(item->,SEARCH));		break;
+	  case 0x201: set_toggle(w, IFL(item->,RDONLY));		break;
+	  case 0x202: set_toggle(w, IFL(item->,NOSORT));		break;
+	  case 0x203: set_toggle(w, IFL(item->,DEFSORT));		break;
 	  case 0x209: set_toggle(w, item->timefmt == T_DATE);		break;
 	  case 0x20a: set_toggle(w, item->timefmt == T_TIME);		break;
 	  case 0x20b: set_toggle(w, item->timefmt == T_DATETIME);	break;
@@ -976,7 +1225,26 @@ static void fillout_formedit_widget(
 	  case 0x23b:
 	  case 0x23c:
 	  case 0x23d: set_toggle(w, item->dcombo == tp->code - 0x23b);	break;
-	  case 0x23e: set_toggle(w, item->multicol);			break;
+	  case 0x244:
+		  if (!item->fkey_db)
+			  print_text_button_s(w, "");
+		  else {
+			  const char *p = canonicalize(item->fkey_db->path, false);
+			  if (!strcmp(p, canonicalize(resolve_tilde(GROKDIR, 0), 0)) ||
+			      !strcmp(p, canonicalize(resolve_tilde(LIB "/grokdir", 0), 0)))
+				  print_text_button_s(w, item->fkey_db->name);
+			  else {
+				  char *lab = qstrdup(QString(p) + '/' + item->fkey_db->name);
+				  print_text_button_s(w, lab);
+				  free(lab);
+			  }
+		  }
+		  fill_key_table(key_w);
+		  break;
+	  case 0x23e: set_toggle(w, IFL(item->,MULTICOL));		break;
+	  case 0x241: set_toggle(w, IFL(item->,FKEY_HEADER));		break;
+	  case 0x242: set_toggle(w, IFL(item->,FKEY_SEARCH));		break;
+	  case 0x243: set_toggle(w, IFL(item->,FKEY_MULTI));		break;
 	  case 0x21f: set_sb_value(w, item->maxlen);			break;
 	  case 0x206: set_sb_value(w, item->sumcol);			break;
 	  case 0x207: set_sb_value(w, item->sumwidth);			break;
@@ -1004,8 +1272,8 @@ static void fillout_formedit_widget(
 	  case 0x285: set_dsb_value(w, item->ch_ygrid);			break;
 	  case 0x286: set_dsb_value(w, item->ch_xsnap);			break;
 	  case 0x287: set_dsb_value(w, item->ch_ysnap);			break;
-	  case 0x28c: set_toggle(w, item->ch_xauto);			break;
-	  case 0x28d: set_toggle(w, item->ch_yauto);			break;
+	  case 0x28c: set_toggle(w, IFL(item->,CH_XAUTO));		break;
+	  case 0x28d: set_toggle(w, IFL(item->,CH_YAUTO));		break;
 	  case 0x294: print_button(w, item->ch_ncomp ? "%d of %d" : "none",
 				    item->ch_curr+1, item->ch_ncomp);	break;
 
@@ -1059,16 +1327,17 @@ static void menu_callback(QTableWidget *w, int x, int y)
 	if(y == -2) {
 		if(x < 0) { // del
 			menu_delete(&item->menu[row]);
-			if(!--item->nmenu)
+			if(!--item->nmenu) {
 				free(item->menu);
-			else
+				item->menu = 0;
+			} else
 				memmove(item->menu + row, item->menu + row + 1, (item->nmenu - row) * sizeof(MENU));
 			w->removeRow(row);
 			do_resize = true;
 		} else { // dup
 			grow(0, "new menu item", MENU, item->menu, ++item->nmenu, NULL);
 			memmove(item->menu + row + 1, item->menu + row, (item->nmenu - row - 1) * sizeof(MENU));
-			if (item->multicol)
+			if (IFL(item->,MULTICOL))
 				item->menu[row + 1].column = avail_column(form, NULL);
 			menu_clone(&item->menu[row]);
 			w->insertRow(row + 1);
@@ -1085,6 +1354,7 @@ static void menu_callback(QTableWidget *w, int x, int y)
 		fill_menu_row(w, item, row);
 		fill_menu_row(w, item, row + x);
 		w->setCurrentCell(row + x, w->currentColumn());
+		row += x;
 	} else { // cell widget
 		QTableWidgetItem *twi = w->item(row, x);
 		const QString &qs = twi->text();
@@ -1095,7 +1365,7 @@ static void menu_callback(QTableWidget *w, int x, int y)
 			// yeah, maybe one day I'll alloc in chunks
 			zgrow(0, "new menu item", MENU, item->menu, item->nmenu,
 			      item->nmenu + 1, NULL);
-			if(item->multicol && x != MENU_FIELD_COLUMN) {
+			if(IFL(item->,MULTICOL) && x != MENU_FIELD_COLUMN) {
 				item->menu[item->nmenu].column = avail_column(form, NULL);
 				w->item(row, MENU_FIELD_COLUMN)->setText(qsprintf("%d", item->menu[item->nmenu].column));
 			}
@@ -1145,6 +1415,96 @@ static void menu_callback(QTableWidget *w, int x, int y)
 	b->setEnabled(row < item->nmenu);
 }
 
+
+static void key_callback(int x, int y, int c)
+{
+	int row = y < 0 ? key_w->currentRow() : y;
+	bool do_resize = false;
+
+	if (canvas->curr_item >= form->nitems)
+		return;
+	QSignalBlocker sb(key_w);
+	ITEM *item = form->items[canvas->curr_item];
+	if(y < 0 && row == item->nfkey)
+		return;
+	if(y == -2) {
+		if(x < 0) { // del
+			if(!--item->nfkey) {
+				free(item->keys);
+				item->keys = 0;
+			} else
+				memmove(item->keys + row, item->keys + row + 1, (item->nfkey - row) * sizeof(FKEY));
+			key_w->removeRow(row);
+			do_resize = true;
+		} else { // dup
+			grow(0, "new fkey item", FKEY, item->keys, ++item->nfkey, NULL);
+			memmove(item->keys + row + 1, item->keys + row, (item->nfkey - row - 1) * sizeof(FKEY));
+			key_w->insertRow(row + 1);
+			key_w->setCurrentCell(row + 1, key_w->currentColumn());
+			fill_key_row(key_w, item, row + 1);
+			do_resize = true;
+		}
+	} else if(y == -1) { // up/down
+		if(x + row < 0 || x + row >= item->nfkey)
+			return;
+		FKEY t = item->keys[row];
+		item->keys[row] = item->keys[row + x];		item->keys[row + x] = t;
+		fill_key_row(key_w, item, row);
+		fill_key_row(key_w, item, row + x);
+		key_w->setCurrentCell(row + x, key_w->currentColumn());
+		row += x;
+	} else { // cell widget
+		if(c > 0 && x == KEY_FIELD_FIELD && row == item->nfkey) { // unblank a blank
+			// yeah, maybe one day I'll alloc in chunks
+			zgrow(0, "new key item", FKEY, item->keys, item->nfkey,
+			      item->nfkey + 1, NULL);
+			item->nfkey++;
+			key_w->insertRow(item->nfkey);
+			key_w->cellWidget(y, KEY_FIELD_KEY)->setEnabled(true);
+			key_w->cellWidget(y, KEY_FIELD_DISPLAY)->setEnabled(true);
+			fill_key_row(key_w, item, item->nfkey);
+			do_resize = true;
+		}
+		if(row < item->nfkey) {
+			switch (x) {
+			    case KEY_FIELD_FIELD:
+				fkey_at(item->fkey_db, c - 1, item->keys[y].item,
+					item->keys[y].menu);
+				break;
+			    case KEY_FIELD_KEY:
+				item->keys[y].key = c;
+				if (c && item->type == IT_INV_FKEY)
+					for (int n=0; n < item->nfkey; n++)
+						if (n != y && item->keys[n].key) {
+							item->keys[n].key = 0;
+							fill_key_row(key_w, item, n);
+							break;
+						}
+				break;
+			    case KEY_FIELD_DISPLAY:
+				item->keys[y].display = c;
+				break;
+			}
+			key_w->setCurrentCell(y, x);
+			if (x == KEY_FIELD_FIELD && !c) { // newly blank; auto-del
+				key_callback(-1, -2);
+				return;
+			}
+		}
+	}
+	if(do_resize)
+		resize_key_table(key_w);
+	QPushButton *b;
+	b = key_w->parent()->findChild<QPushButton *>("up");
+	b->setEnabled(row);
+	b = key_w->parent()->findChild<QPushButton *>("down");
+	b->setEnabled(row < item->nfkey - 1);
+	b = key_w->parent()->findChild<QPushButton *>("dup");
+	b->setEnabled(row < item->nfkey);
+	b = key_w->parent()->findChild<QPushButton *>("del");
+	b->setEnabled(row < item->nfkey);
+}
+
 /*
  * some item in one of the menu bar pulldowns was pressed. All of these
  * routines are direct X callbacks.
@@ -1182,7 +1542,7 @@ void readback_formedit(void)
 		for (t=0, tp=tmpl; tp->type; tp++, t++)
 			if (tp->type == 'T' || tp->type == 't' ||
 			    tp->type == 'i' || tp->type == 'd' ||
-			    tp->type == 'C')
+			    tp->type == 'C' || tp->type == 'D')
 				(void)readback_item(t);
 }
 
@@ -1239,7 +1599,7 @@ static int readback_item(
 	  case 0x112: readback_formedit();
 		      item_deselect(form);
 		      (void)item_create(form, canvas->curr_item);
-		      form->items[canvas->curr_item]->selected = true;
+		      IFS(form->items[canvas->curr_item]->,SELECTED);
 		      item = 0; // skip item adjustment below
 		      all = true;
 		      break;
@@ -1263,10 +1623,13 @@ static int readback_item(
 	  case 0x10c: create_query_window(form);
 		      break;
 
+	  case 0x10a: create_refby_window(form);
+		      break;
+
 	  case 0x10d: if (!verify_form(form, &i, shell) && i < form->nitems) {
 				item_deselect(form);
 				canvas->curr_item = i;
-				form->items[i]->selected = true;
+				IFS(form->items[i]->,SELECTED);
 				redraw_canvas_item(form->items[i]);
 				fillout_formedit();
 				sensitize_formedit();
@@ -1287,7 +1650,7 @@ static int readback_item(
 				if (i < form->nitems) {
 					item_deselect(form);
 					canvas->curr_item = i;
-					form->items[i]->selected = true;
+					IFS(form->items[i]->,SELECTED);
 					redraw_canvas_item(form->items[i]);
 					fillout_formedit();
 					sensitize_formedit();
@@ -1360,23 +1723,25 @@ static int readback_item(
 		      all = true;
 		      break;
 
-	  case 0x202: item->nosort ^= true;
+	  case 0x202: IFS(item->,NOSORT);
 		      if (item->name)
 				for (i=0; i < form->nitems; i++) {
 					ip = form->items[i];
 					if (ip->name &&
 					    !strcmp(item->name, ip->name))
-						ip->nosort = item->nosort;
+						IFX(ip->,item->,NOSORT);
 				}
 		      break;
 
-	  case 0x203: item->defsort ^= true;
+	  case 0x203: IFT(item->,DEFSORT);
 		      if (item->name)
 				for (i=0; i < form->nitems; i++)
 				    if (i != canvas->curr_item) {
 					ip = form->items[i];
-					ip->defsort = ip->name && !strcmp(item->name,
-					     ip->name) ? item->defsort : false;
+					if (ip->name && !strcmp(item->name, ip->name))
+					    IFX(ip->,item->,DEFSORT);
+					else
+					    IFC(ip->,DEFSORT);
 				}
 		      break;
 
@@ -1389,8 +1754,18 @@ static int readback_item(
 		      for (code=0x23b; code <= 0x23d; code++)
 				fillout_formedit_widget_by_code(code);
 		       break;
-	  case 0x23e:  item->multicol ^= true;
-		       if (item->multicol && item->nmenu) {
+	  case 0x244: {
+		  const char *s = read_text_button(w, 0);
+		  if (s && *s)
+			  item->fkey_db = read_form(s);
+		  else if(item->fkey_db) {
+			  form_delete((FORM *)item->fkey_db);
+			  item->fkey_db = NULL;
+		  }
+		  }
+		  break;
+	  case 0x23e:  IFT(item->,MULTICOL);
+		       if (IFL(item->,MULTICOL) && item->nmenu) {
 			       int had_0 = avail_column(form, item);
 			       for (i=0; i < item->nmenu; i++)
 				       if (!item->menu[i].column) {
@@ -1402,6 +1777,10 @@ static int readback_item(
 		       }
 		       sensitize_formedit(); fill_menu_table(menu_w);
 	               break;
+
+	  case 0x241: IFT(item->,FKEY_HEADER);		break;
+	  case 0x242: IFT(item->,FKEY_SEARCH);		break;
+	  case 0x243: IFT(item->,FKEY_MULTI);		break;
 
 	  case 0x210:
 	  case 0x211:
@@ -1460,8 +1839,8 @@ static int readback_item(
 		      fillout_formedit_widget_by_code(0x21b);
 		      fillout_formedit_widget_by_code(0x21c);		break;
 
-	  case 0x200: item->search ^= true;				break;
-	  case 0x201: item->rdonly ^= true;				break;
+	  case 0x200: IFT(item->,SEARCH);				break;
+	  case 0x201: IFT(item->,RDONLY);				break;
 	  case 0x209: item->timefmt = T_DATE;		all = true;	break;
 	  case 0x20a: item->timefmt = T_TIME;		all = true;	break;
 	  case 0x20b: item->timefmt = T_DATETIME;	all = true;	break;
@@ -1496,8 +1875,8 @@ static int readback_item(
 	  case 0x285: item->ch_ygrid  = get_dsb_value(w);			break;
 	  case 0x286: item->ch_xsnap  = get_dsb_value(w);			break;
 	  case 0x287: item->ch_ysnap  = get_dsb_value(w);			break;
-	  case 0x28c: item->ch_xauto ^= true;				break;
-	  case 0x28d: item->ch_yauto ^= true;				break;
+	  case 0x28c: IFT(item->,CH_XAUTO);				break;
+	  case 0x28d: IFT(item->,CH_YAUTO);				break;
 
 	  case 0x290: add_chart_component(item); all = true;		break;
 	  case 0x291: del_chart_component(item); all = true;		break;
@@ -1565,10 +1944,10 @@ static int readback_item(
 					   && ip->name
 					   && !strcmp(ip->name, item->name)) {
 				ip->column   = item->column;
-				ip->search   = item->search;
-				ip->rdonly   = item->rdonly;
-				ip->nosort   = item->nosort;
-				ip->defsort  = item->defsort;
+				IFX(ip->,item->,SEARCH);
+				IFX(ip->,item->,RDONLY);
+				IFX(ip->,item->,NOSORT);
+				IFX(ip->,item->,DEFSORT);
 	  			ip->sumcol   = item->sumcol;
 				ip->sumwidth = item->sumwidth;
 				if (item->idefault) {

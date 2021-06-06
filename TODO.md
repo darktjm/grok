@@ -40,7 +40,42 @@ completely break in 3.0:
 Features in Progress
 --------------------
 
-- db menu fixes:
+- fkey issues:
+  - no way to display virtual fields (Print, Referers, Chart, etc)
+
+  - no form validity check:  1 key in inv, 1+ in fkey; 1+ visible, key
+    inv in fkey, no self-ref/ref loop @ field level
+
+  - no data validity check:  all refs resolves to exactly 1,
+    referred-to table lists all referrers, fkey_multi value is a set
+
+  - no dealing w/ missing db on load/form edit
+  
+  - no auto-add of referred-to table to ref by list in form editor for inv
+
+  - no auto-adjust of key field names if changed in foreign db (form
+    def and multi-field key order, requiring data adjustment as well)
+
+  - no parent-restricted mode
+
+  - no testing of inv_fkey or fkey_multi
+  
+  - in dlc's purchase selector, one or more widgets go blank when
+    specific item selected
+
+  - date fields are sorted by text
+
+  - no testing of summary
+  
+  - no testing (or coding, really) of template output
+  
+  - searches don't search visible fields instead of fkey
+  
+  - search restriction text field does nothing
+  
+  - templmk: just doing a deref() is insufficent
+
+ db menu fixes:
 
   - All loaded databases should be in the menu regardless of
     whether or not they normally would be.
@@ -69,6 +104,7 @@ Features in Progress
   Also, in the style of emacs, retain search and sort criteria of
   previous view on dbase switch.  Currently, I discard the card, and
   only retain the dbase & form if the dbase is modified or cached.
+
 
 - My original plan was to get fkey support into this release, but my
   recent annoyance with Qt combined with the gog winter sale and the
@@ -908,64 +944,20 @@ Major Feature: Foreign Database References
   sort of limits need to be placed on the arguments so that IMPORT
   can parse them.
 
-- SQL-style many-to-one foreign key references.  The "child" database
-  contains a set of fields which must match a similar set of fields
-  in the "parent" database.  Both for storage in the databse and in
-  expressions, the value of the reference field is an array of the
-  values of the referenced fields if the number of fields is more
-  than one; otherwise, it is the plain value of the referenced
-  field. Either way, a blank value indicates no reference, rather
-  than a reference to a blank key; i.e., keys must be Never Empty
-  (although multi-field references can have empty values).  Unlike
-  SQL, no guarantee can be made of validity.  A menu option is
+- A menu option is
   provided to check a "child" database for bad references, with
   automatic resolution either blanking the reference or removing the
   child entirely.  Cascade deletes are only possible if the parent
-  expliclitly lists child databases.  I used to want two modes:
-  child-focused and parent-focused, but inatead, all children are
-  child-focused, and parent databases can become parent-focused by
-  adding a virtual child reference.
+  expliclitly lists child databases.
 
-  - The reference is only present in the child database.  An array
-    in the field definition (similar to menu) specifies the list
-    of parent database fields to consider.  Each field may be for
-    storage (i.e. part of the reference key), display, or both.
-    Like form.cgi, a row of popup menus (one for each displayed
-    field) is used to select and display the parent. I suppose
-    there could also be a cutoff, after which selection is not
-    possible, but instead only display as a label, but that adds
-    complexity for no real advantage; it's not like I have to pass
-    the entire database as a javascript table like I did in
-    form.cgi, with cutoffs for form reloading in order to load
-    stuff that didn't fit (these days I'd use AJAX-style server
-    callbacks to do those instead of reloading the page, but that
-    was a different era).  A text field below (optional?) is a
+  - A text field below (optional?) is a
     search expression applied to the parent database to restrict
     what parents are selectable (although it never removes the
-    current value, if any).  A button to the left of this text
-    field acts as a link to the parent database, similar to
-    form.cgi's label link. This switches to the parent form (or
+    current value, if any).  The label link switches to the parent form (or
     pops it up in a new window, if that functionality is
     available), with the child's restriction expression as the
     default search expression and the child's selected parent, if
-    any, loaded into the card. Naturally, this requires the
-    ability to have multiple forms loaded at once.
-
-    The order of selection in the row of popups doesn't really
-    matter, as long as you don't mind long lists. As with
-    form.cgi, selecting a value in one column restricts the other
-    columns to available values, and a special blank at the top
-    undoes this selection. Note that the row of popups cascades;
-    that is, if you display a foreign key field from the parent
-    database, the parent's line of widgets will be shown instead
-    of a single widget for that field.
-
-    It wouldn't hurt to have an option to display headers above
-    each column as well, which are the label from the parent
-    database. This makes two features I never got around to
-    implementing in form.cgi, the other being the search field
-    which I only implemented in the search forms, which I am not
-    implementing in grok.
+    any, loaded into the card.
 
   - In the parent form, a virtual field may be added which is the
     list of children currently pointing to it.  This is a
@@ -987,25 +979,10 @@ Major Feature: Foreign Database References
     the child form's default search field, in forward order.
     Deleting requires thought: do I actually delete the child, or
     do I just clear out the child's reference? Maybe make that a
-    field option or pop up a question whenever deleting.  Note
-    that this is a feature I had planned for form.cgi as well, but
-    never got around to it.
-
-    In addition, the form has a list of "child databases" which is
-    just a way of supporting cascade deletes and other features
-    that need the reverse relationship.  I was going to just
-    require invisible virtual fields like above, but the canvas
-    doesn't really support invisible fields well, and a list of
-    children is easer to store and scan.  Naturally, virtual
-    fields' child databases are automatically in this list.  One
-    way to sort of enforce this list would be to check the parent
-    database in validate_form() of the child and auto-add it if
-    desired.  Also, when removing the parent reference from the
-    child form, offer to remove the parent's child references as
-    well.
+    field option or pop up a question whenever deleting.
 
     Deleting a record in a parent table (which explicitly lists
-    children, via either of the above two methods) does cascade
+    children via inv_fkey or explicit listing) does cascade
     deletes (i.e., all children referencing this record are
     deleted as well) and cascade foreign key modification (i.e.,
     changing the key will either delete children or update their
@@ -1014,37 +991,12 @@ Major Feature: Foreign Database References
     key).  Whether a child is deleted or just has its reference
     blanked could just depend on whether or not the field is
     never-blank, or the delete popup gives options for what to do,
-    defaulted to what it thinks is right.  Note that form.cgi
-    disn't support changing the key (the key field was an
-    invisible unique integer id in all tables, anyway) and only
-    supported full cascade deletes (but at least told the user how
-    many children were going to be deleted in the delete
-    confirmation dialog, which doesn't even exist in grok).
-    form.cgi had the advantage of reading the entire schema
-    metadata, so it could mark parents automatically.
+    defaulted to what it thinks is right.
 
-- Many-to-many foreign key references.  In an SQL database, I would
-  normally create a table containing reference pairs. This is not
-  necessarily the most efficient way to do this in CSV-files like
-  what grok uses.  Instead, the keys are stored as strings-as-sets
-  (or sets of arrays for multi-field keys).  This means there is
-  once again a "child" and "parent" database, where the "parent"
-  knows nothing of the child by default.  The child and/or the
-  parent presents an interface similar to the virtual child
-  reference field for parents above.  The last row of the table is
-  an editable row, though, and is a line of popups similar to the
-  interface for child databases, above, and its search field is
-  presented to the right of the normal virtual field buttons.  In
-  the "parent" database, visible virtual references are presented
-  the same way.  When popping to an edit, there are no restrictions
-  other than applying the restriction, if any, to the initial query.
-  Adding adds the currently selected item in the bottom "editable"
-  row.  For convenience and safety, rather than using virtual
+- For convenience and safety, rather than using virtual
   references, the "parent" can be given a stored reference like the
   "child", making them full peers, but duplicating the key list in
-  the inverse direction. This is yet another feature I never got
-  around to supporting correctly in form.cgi, but our product didn't
-  really have any such relationships, so it wasn't a big deal.
+  the inverse direction.
 
 Major Feature:  SQL Support
 ---------------------------

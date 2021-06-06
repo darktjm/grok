@@ -154,7 +154,7 @@ void GrokChart::paintEvent(QPaintEvent *)
 				ymax = bar->value[1] + bar->value[3];
 		}
 	}
-	if (!item->ch_xauto) {
+	if (!IFL(item->,CH_XAUTO)) {
 		xmin = item->ch_xmin;
 		xmax = item->ch_xmax;
 	} else {
@@ -163,7 +163,7 @@ void GrokChart::paintEvent(QPaintEvent *)
 		if (xmax > 0)
 			xmax += (xmax - xmin) * .05;
 	}
-	if (!item->ch_yauto) {
+	if (!IFL(item->,CH_YAUTO)) {
 		ymin = item->ch_ymin;
 		ymax = item->ch_ymax;
 	} else {

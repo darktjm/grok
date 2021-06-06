@@ -369,10 +369,11 @@ static bool search_matches_card(
 
 	for (i=0; i < card->form->nitems; i++) {
 		item = card->form->items[i];
-		if (!IN_DBASE(item->type) || !item->search)
+		if (!IN_DBASE(item->type) || !IFL(item->,SEARCH))
 			continue;
 		if (!(data = dbase_get(card->dbase, card->row, item->column)))
 			continue;
+		/* FIXME:  if item is fkey, search visible/searchble foreign vals instead */
 		for (p=data; *p; p++) {
 			if ((*p | 0x20) != *search)
 				continue;

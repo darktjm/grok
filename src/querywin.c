@@ -81,8 +81,6 @@ void create_query_window(
 	QWidget			*w;
 
 	destroy_query_window();
-	if (have_shell)
-		return;
 	form = newform;
 	// The proper way to ignore delete is to override QWindow::closeEvent()
 	// Instead, I'll do nothing.  It makes more sense to issue a reject
@@ -341,7 +339,7 @@ void print_query_info(void)
 
 		  case IT_FLAGS:
 		  case IT_MULTI:
-			if(!ip->multicol) {
+			if(!IFL(ip->,MULTICOL)) {
 				if(++mi == ip->nmenu) {
 					mi = -1;
 					continue;
@@ -361,7 +359,7 @@ void print_query_info(void)
 				continue;
 			}
 			msg.append_comma;
-			msg.append(ip->multicol ? ip->menu[mi].name : ip->name);
+			msg.append(IFL(ip->,MULTICOL) ? ip->menu[mi].name : ip->name);
 			msg.append('=');
 			msg.append(ip->menu[mi].flagcode);
 			--item;

@@ -42,6 +42,7 @@ struct card {
 	char	    *letter_mask; /* letters search within last results */
 	int	    lm_size;	/* size of letter_mask */
 	QTreeWidget *wsummary;	/* summary list widget, for destroying */
+	CARD	    *fkey_next;	/* foreign key related links */
 				/****** card window **************************/
 	QDialog	    *shell;	/* if nonzero, card has its own window */
 	QWidget	    *wform;	/* form widget card is drawn into */
@@ -138,6 +139,8 @@ typedef enum {			/*----- item type */
 	IT_RADIO,		/* radio groups as a single widget */
 	IT_MULTI,		/* flags as a multiselect list */
 	IT_FLAGS,		/* flags as a group of checkboxes */
+	IT_FKEY,		/* reference to other database */
+	IT_INV_FKEY,		/* references from other database */
 	NITEMS
 } ITYPE;
 
@@ -216,6 +219,49 @@ typedef struct {
 	int	sumwidth;
 } MENU;
 
+typedef struct {
+	int	item;		/* item # in dbase form */
+	int	menu;		/* if item is multi, which menu entry */
+	bool	key;		/* part of key, or just display? */
+	bool	display;	/* if key, display value? */
+} FKEY;
+
+enum {
+	/* General */
+	IF_SEARCH,		/* queries search this item */
+	IF_RDONLY,		/* user cannot change this field */
+	IF_NOSORT,		/* user can sort by this field */
+	IF_DEFSORT,		/* sort by this field when loading file */
+
+	/* Menu */
+	IF_MULTICOL,		/* true if menu[] has multiple column defs */
+
+	/* Chart */
+	IF_CH_XAUTO,		/* automatic xmin/xmax */
+	IF_CH_YAUTO,		/* automatic ymin/ymax */
+
+	/* Reference */
+	IF_FKEY_HEADER,		/* display headers? */
+	IF_FKEY_SEARCH,		/* parent restriction search field? */
+	IF_FKEY_MULTI,		/* key field is array of parents */
+
+	/* not part of form definition */
+	IF_SELECTED,		/* box is selected in form editor */
+
+};
+/* IFL should return same as bool did */
+#define IFL(i,x) ((i flags & (1U<<IF_##x)) ? true : false)
+#define IFT(i,x) i flags ^= 1U<<IF_##x
+#define IFS(i,x) i flags |= 1U<<IF_##x
+#define IFC(i,x) i flags &= ~(1U<<IF_##x)
+#define IFV(i,x,v) do { \
+	if(v) \
+		IFS(i,x); \
+	else \
+		IFC(i,x); \
+} while(0)
+#define IFX(i,j,x) i flags = ((i flags) & ~(1U<<IF_##x)) | (j flags & (1U<<IF_##x))
+
 typedef struct item {
 	ITYPE	type;		/* one of IT_* */
 	char	*name;		/* field name, used in expressions */
@@ -226,11 +272,7 @@ typedef struct item {
 	int	sumcol;		/* column # in summary listing if IN_DBASE */
 	char	*sumprint;	/* if nz, show this in summary if IN_DBASE */
 	long	column;		/* database column #, 0 is first */
-	bool	search;		/* queries search this item */
-	bool	rdonly;		/* user cannot change this field */
-	bool	nosort;		/* user can sort by this field */
-	bool	defsort;	/* sort by this field when loading file */
-	bool	selected;	/* box is selected in form editor */
+	int	flags;		/* misc flags; see IF_* above */
 	char	plan_if;	/* plan interface field type (t=time, ...) */
 				/*----- common */
 	char	*label;		/* label string */
@@ -254,7 +296,6 @@ typedef struct item {
 	int	digits;		/* NUMBER digits past decimal */
 	int	nmenu;		/* number of items in menu array */
 	MENU	*menu;		/* combo box static entries & multi-item config */
-	bool	multicol;	/* true if menu[] has multiple column defs */
 	DCOMBO	dcombo;		/* INPUT combo box dynamic entry type */
 	JUST	inputjust;	/* input field justification */
 	int	inputfont;	/* input font, F_* */
@@ -265,8 +306,6 @@ typedef struct item {
 	double	ch_xmax;	/* coord of right edge */
 	double	ch_ymin;	/* coord of bottom edge */
 	double	ch_ymax;	/* coord of top edge */
-	bool	ch_xauto;	/* automatic xmin/xmax */
-	bool	ch_yauto;	/* automatic ymin/ymax */
 	double	ch_xgrid;	/* vert grid lines every xgrid units */
 	double	ch_ygrid;	/* horz grid lines every ygrid units */
 	double	ch_xsnap;	/* snap X to nearest xsnap */
@@ -276,6 +315,10 @@ typedef struct item {
 	CHART	*ch_comp;	/* component array */
 	BAR	*ch_bar;	/* nrows * ncomp bars, ncomp-major order */
 	int	ch_nbars;	/* number of bars in ch_bar array */
+				/*----- for FKEY */
+	FORM	*fkey_db;	/* parent database */
+	int	nfkey;		/* number of items in fkey field array */
+	FKEY	*keys;		/* key field[s] */
 } ITEM;
 
 
@@ -290,7 +333,7 @@ typedef struct item {
 /* true if the item type accesses some database field */
 
 #define IN_DBASE(t) (t==IT_TIME  || t==IT_NUMBER || IS_MENU(t) ||\
-		     t==IT_NOTE  || t==IT_CHOICE || t==IT_FLAG)
+		     t==IT_NOTE  || t==IT_CHOICE || t==IT_FLAG || t == IT_FKEY)
 
 
 /*
@@ -349,6 +392,8 @@ struct form {
 	DQUERY	*query;		/* default queries for query pulldown */
 	char	*planquery;	/* default query for -p option */
 	FIELDS	*fields;	/* map fields to item#/menu# */
+	int	nchild;		/* number of databases referencing this */
+	char	**children;	/* databases probably referencing this */
 };
 
 extern FORM *form_list;

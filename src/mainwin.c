@@ -29,7 +29,6 @@
 #define LIB "/usr/local/lib"
 #endif
 
-static void append_search_string(char *);
 static void file_pulldown	(int);
 static void newform_pulldown	(int);
 static void dbase_pulldown	(int);
@@ -610,6 +609,26 @@ void remake_dbase_pulldown(void)
 }
 
 
+void add_dbase_list(QStringList &l)
+{
+	int		n;
+	char		*gd = mystrdup(canonicalize(resolve_tilde(GROKDIR, 0), 0));
+	char		*ld = mystrdup(canonicalize(resolve_tilde(LIB "/grokdir", 0), 0));
+
+	for (n=0; n < ndb; n++) {
+		if (!db[n].path)
+			continue;
+		const char *p = canonicalize(db[n].path, false);
+		if (!strcmp(p, gd) || !strcmp(p, ld))
+			l.append(db[n].name + 1);
+		else
+			l.append(QString(p) + '/' + (db[n].name + 1));
+	}
+	free(gd);
+	free(ld);
+}
+
+
 /*
  * After a database was loaded, there is a section list in the dbase struct.
  * Present it in a pulldown if there are at least two sections.
@@ -796,7 +815,7 @@ void remake_sort_pulldown(void)
 
 	for (n=1, i=0; i < card->form->nitems; i++) {
 		item = card->form->items[i];
-		if (!IN_DBASE(item->type) || item->nosort)
+		if (!IN_DBASE(item->type) || IFL(item->,NOSORT))
 			continue;
 		for (j=1; j < n; j++)
 			if (item->column == sort_col[j])
@@ -874,7 +893,7 @@ void switch_form(
 		card->last_query = -1;
 		card->col_sorted_by = 0;
 		for (i=0; i < form->nitems; i++)
-			if (form->items[i]->defsort) {
+			if (IFL(form->items[i]->,DEFSORT)) {
 				pref.sortcol = form->items[i]->column;
 				pref.revsort = false;
 				dbase_sort(card, pref.sortcol, 0);
@@ -938,7 +957,7 @@ void switch_form(
  * contents, and select it. (Ctrl-F)
  */
 
-static void find_and_select(
+void find_and_select(
 	char		*string)	/* contents of search text widget */
 {
 	CARD				*card = mainwindow->card;
@@ -1276,7 +1295,7 @@ static void requery_callback(void)
 }
 
 
-static void append_search_string(
+void append_search_string(
 	char		*text)
 {
 	if (text) {

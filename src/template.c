@@ -858,7 +858,7 @@ static const char *sort_foreach_db(char *&word, CARD *card, CARD *ocard, bool fi
 		if(first) {
 			const FORM *form = card->form;
 			for (int i=0; i < form->nitems; i++)
-				if (form->items[i]->defsort) {
+				if (IFL(form->items[i]->,DEFSORT)) {
 					dbase_sort(card, form->items[i]->column, 0);
 					break;
 				}
@@ -885,7 +885,7 @@ static const char *sort_foreach_db(char *&word, CARD *card, CARD *ocard, bool fi
 		if(it != s->end()) {
 			int i = it->second % form->nitems;
 			int m = it->second / form->nitems;
-			fn = form->items[i]->multicol ?
+			fn = IFL(form->items[i]->,MULTICOL)?
 				form->items[i]->menu[m].column :
 				form->items[i]->column;
 		} else

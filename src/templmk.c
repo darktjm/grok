@@ -37,7 +37,7 @@ static void print_data_expr(
 
 	  case IT_MULTI:
 	  case IT_FLAGS:
-		fprintf(fp, "expand(_%s)", item->multicol ? menu->name : item->name);
+		fprintf(fp, "expand(_%s)", IFL(item->,MULTICOL) ? menu->name : item->name);
 		break;
 
 	  case IT_TIME:
@@ -59,6 +59,14 @@ static void print_data_expr(
 
 	  case IT_PRINT:
 		fputs(item->idefault, fp);
+		break;
+
+	  case IT_FKEY:
+	  case IT_INV_FKEY:
+		/* FIXME: INV_FKEY has no name */
+		/* FIXME: option to do / or </TD><TD> as field sep */
+		/* FIXME: option to do </TR><TR> as multi-item sep */
+		fprintf(fp, "deref(_%s)", item->name);
 		break;
 
 	  default:
@@ -170,7 +178,7 @@ const char *mktemplate_html(
 				  item->type == IT_TIME ||
 				  item->type == IT_NUMBER)) /* maybe add PRINT? */
 			primary_i = item;
-		if(item->defsort) {
+		if(IFL(item->,DEFSORT)) {
 			primary_i = item;
 			break;
 		}
@@ -179,7 +187,7 @@ const char *mktemplate_html(
 	/* if all are multicol, then there won't be a primary_i.  Tough. */
 	if(!primary_i) {
 		for(i=0; i < nitems; i++)
-			if(!itemorder[i].item->multicol) {
+			if(!IFL(itemorder[i].item->,MULTICOL)) {
 				primary_i = itemorder[i].item;
 				break;
 			}
@@ -236,7 +244,7 @@ const char *mktemplate_html(
 			if (j < i)
 				continue;
 		}
-		if (item->multicol) {
+		if (IFL(item->,MULTICOL)) {
 			if(++m == item->nmenu) {
 				m = -1;
 				continue;
@@ -483,7 +491,7 @@ static const char *mktemplate_text(
 				continue;
 			}
 			menu = &item->menu[m];
-			if(item->multicol)
+			if(IFL(item->,MULTICOL))
 				name = menu->name;
 			if(item->type == IT_FLAGS || item->type == IT_MULTI)
 				label = menu->label;
@@ -567,10 +575,10 @@ static const char *mktemplate_text(
 			/* double-escaping is too much of a pain, even though */
 			/* it executes more efficiently than calling esc() */
 			fprintf(fp, "_%s%s\"",
-				name, item->multicol ? "|*esc(" : "==");
+				name, IFL(item->,MULTICOL) ? "|*esc(" : "==");
 			pr_escaped(fp, menu->flagcode, -1, ESC_QUOTE);
 			fprintf(fp, "\"%s?\"%.*s\":\"%.*s\"",
-				item->multicol ? ")!=\"\"" : "",
+				IFL(item->,MULTICOL) ? ")!=\"\"" : "",
 				pref.linelen - label_len, "yes",
 				pref.linelen - label_len, "no");
 			break;
@@ -692,7 +700,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			if(j < i)
 				continue;
 		}
-		if(item->multicol) {
+		if(IFL(item->,MULTICOL)) {
 			for(j = 0; j < item->nmenu; j++) {
 				if(didcol)
 					fputs(",\n", fp);
@@ -960,7 +968,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			if(j < i)
 				continue;
 		}
-		if(item->multicol) {
+		if(IFL(item->,MULTICOL)) {
 			for(j = 0; j < item->nmenu; j++) {
 				if(didcol)
 					fputs(",\n", fp);
@@ -1144,7 +1152,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			if(j < i)
 				continue;
 		}
-		if(item->multicol) {
+		if(IFL(item->,MULTICOL)) {
 			for(j = 0; j < item->nmenu; j++) {
 				if(didcol)
 					fputs(",\n", fp);
@@ -1171,7 +1179,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			if(j < i)
 				continue;
 		}
-		if(item->multicol) {
+		if(IFL(item->,MULTICOL)) {
 			for(j = 0; j < item->nmenu; j++) {
 				if(didcol)
 					fputs(",\n", fp);

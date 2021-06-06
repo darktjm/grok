@@ -21,6 +21,8 @@ void destroy_card_menu(
 	CARD		*card);		/* card to destroy */
 void free_card(
 	CARD		*card);		/* card to destroy */
+void free_fkey_card(
+	CARD		*card);		/* card to destroy */
 CARD *create_card_menu(
 	FORM		*form,		/* form that controls layout */
 	DBASE		*dbase,		/* database for callbacks, or 0 */
@@ -112,6 +114,24 @@ void dbase_sort(
 	int		col,		/* column to sort by */
 	bool		rev,		/* reverse if nonzero */
 	bool		noinit = false);/* multi-field sort */
+int fkey_lookup(
+	DBASE		*dbase,		/* database to search */
+	const FORM	*form,		/* fkey origin */
+	const ITEM	*item,		/* fkey definition */
+	const char	*val,		/* reference value */
+	int		keyno);		/* multi: array elt (ret. -2 if oob */
+char *fkey_of(
+	DBASE		*dbase,		/* database to search */
+	int		row,		/* row */
+	const FORM	*form,		/* fkey origin */
+	const ITEM	*item);		/* fkey definition */
+int keylen_of(
+	const ITEM	*item);		/* fkey definition; must be IT_*FKEY */
+void sort_fkey(
+	const ITEM	*item,		/* fkey definition; must be IT_*FKEY */
+	int		keylen,		/* computed by keylen_of */
+	int		*keys);		/* array of length keylen; filled in
+					   with indeces into item->keys */
 
 /*---------------------------------------- dbfile.c ------------*/
 
@@ -200,18 +220,27 @@ void elt_at(
 	int		*after,		/* return: char after extracted element */
 	char		sep,
 	char		esc);
+/* get and unescape array element n, allocating result if non-empty */
+char *unesc_elt_at(
+	const FORM	*form,		/* form context (sep, esc) */
+	const char	*array,		/* array to traverse */
+	int		n);		/* element # to extract */
+/* split array into allocated array of allocated unescaped elements */
+/* returns NULL on completely empty value */
+char **split_array(
+	const FORM	*form,		/* form context (sep, esc) */
+	const char	*array,		/* array to traverse */
+	int		*len);		/* return: length of array */
 /* set element n to val.  */
 /* array and val can be NULL */
-/* non-NULL array and val assumed to be malloced, and will be freed or reused */
+/* non-NULL array assumed to be malloced, and will be freed or reused */
 /* return value is NULL or malloc'ed result */
-/* all trailing empty values will be removed */
 /* array will auto-expand by adding empties if n > array len */
-/* array will auto-shrink by stripping all blanks off end */
 /* returns true if successful, false on memory allocation errors */
 bool set_elt(
 	char		**array,	/* array to modify */
 	int		n,		/* element to set */
-	char		*val,		/* value to set */
+	const char	*val,		/* value to set */
 	const FORM	*form);		/* where to get sep/esc */
 // convert a to a set in-place (false == memory alloc failure)
 bool toset(char *a, char sep, char esc);
@@ -323,7 +352,9 @@ extern bool		restricted;	/* restricted mode, no form editor */
 void create_mainwindow(void);
 void resize_mainwindow(void);
 void print_info_line(void);
+void find_and_select(char *string);
 void remake_dbase_pulldown(void);
+void add_dbase_list(QStringList &l);
 void remake_section_pulldown(void);
 void remake_section_popup(
 	bool);
@@ -336,6 +367,8 @@ void search_cards(
 	Searchmode	mode,		/* search, narrow, widen, ... */
 	CARD		*card,
 	char		*string);
+void append_search_string(
+	char		*text);
 void do_query(
 	int		qmode);		/* -1=all, or query number */
 
@@ -464,6 +497,12 @@ void create_query_window(
 	FORM		*newform);	/*form whose queries are chgd*/
 void print_query_info(void);
 
+/*---------------------------------------- refwin.c ------------*/
+
+void destroy_refby_window(void);
+void create_refby_window(
+	FORM		*newform);	/*form whose referers are chgd*/
+
 /*---------------------------------------- sectwin.c ------------*/
 
 void destroy_newsect_popup(void);
@@ -482,6 +521,8 @@ void create_summary_menu(
 struct menu_item {
 	const ITEM	*item;
 	const MENU	*menu;
+	const FORM	*form;
+	int		sumcol, sumoff;
 };
 int get_summary_cols(
 	struct menu_item**res,
@@ -685,7 +726,7 @@ void add_layout_qss(
 	                                         _w, _f, const QString &_v)
 #define set_popup_cb(_w, _f, _t, _v) \
     set_qt_cb_ov1(QComboBox, currentIndexChanged, _t, _w, _f, UNUSED _t _v)
-#define set_combo_cb(_w, _f) set_qt_cb(QComboBox, currentTextChanged, _w, _f)
+#define set_combo_cb(_w, _f, ...) set_qt_cb(QComboBox, currentTextChanged, _w, _f, __VA_ARGS__)
 // Make the calls needed to pop up a non-modal dialog (use exec for modal)
 void popup_nonmodal(
 	QDialog		*d);

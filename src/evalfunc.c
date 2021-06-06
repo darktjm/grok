@@ -77,8 +77,9 @@ double f_avg(				/* average */
 	PG,
 	int		column)		/* number of column to average */
 {
+	DBASE		*dbase = g->card->dbase;
 	double		sum = f_sum(g, column);
-	return(g->card->dbase->nrows ? sum / g->card->dbase->nrows : 0);
+	return(dbase->nrows ? sum / dbase->nrows : 0);
 }
 
 
@@ -180,14 +181,15 @@ double f_qdev(				/* standard deviation */
 	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = g->card->dbase;
+	DBASE		*dbase;
 	double		sum = 0, avg, val;
 	int		row;
 
-	if (!dbase || column < 0)
-		return(0);
 	if (!g->card->query)
 		return(f_dev(g, column));
+	dbase = g->card->dbase;
+	if (!dbase || column < 0)
+		return(0);
 	if (!g->card->nquery)
 		return(0);
 	avg = f_qavg(g, column);
@@ -380,10 +382,9 @@ double f_smax(				/* maximum */
 
 char *f_field(
 	PG,
-	int		column,
-	int		row)
+	fkey_field	field)
 {
-	const char *v = dbase_get(g->card->dbase, row, column);
+	const char *v = dbase_get(field.card->dbase, field.row, field.column);
 	char *res;
 	char buf[20];
 	if(BLANK(v))
@@ -392,7 +393,7 @@ char *f_field(
 	/* but I don't want internal rep different from external */
 	for(int i = g->card->form->nitems - 1; i >= 0; i--) {
 		const ITEM *item = g->card->form->items[i];
-		if(item->type == IT_TIME && item->column == column) {
+		if(item->type == IT_TIME && item->column == field.column) {
 			const char *p;
 
 			for (p=v; *p; p++)
@@ -418,20 +419,19 @@ char *f_field(
 
 char *f_expand(
 	PG,
-	int		column,
-	int		row)
+	fkey_field	field)
 {
-	char		*value = dbase_get(g->card->dbase, row, column), *ret;
+	char		*value = dbase_get(field.card->dbase, field.row, field.column), *ret;
 	int		i;
 
 	if (!value)
 		return(0);
 	for (i=0; i < g->card->form->nitems; i++) {
 		ITEM *item = g->card->form->items[i];
-		if(item->multicol) {
+		if(IFL(item->,MULTICOL)) {
 			int m;
 			for(m = 0; m < item->nmenu; m++)
-				if(item->menu[m].column == column) {
+				if(item->menu[m].column == field.column) {
 					if(item->menu[m].flagtext &&
 					   !strcmp(value, item->menu[m].flagcode)) {
 						ret = strdup(item->menu[m].flagtext);
@@ -444,7 +444,7 @@ char *f_expand(
 			if(m < item->nmenu)
 				break;
 		}
-		if (item->column != column)
+		if (item->column != field.column)
 			continue;
 		if ((item->type == IT_CHOICE || item->type == IT_FLAG) &&
 		    item->flagcode &&
@@ -509,21 +509,20 @@ char *f_expand(
  */
 
 char *f_assign(
-	PG,
-	int		column,
-	int		row,
+	UNUSED PG,
+	fkey_field	field,
 	char		*data)
 {
 	const char *v = data;
 
 	/* following used to be handled in write_dbase() */
 	/* but I don't want internal rep different from external */
-	for (int i = g->card->form->nitems - 1; i >= 0; i--) {
-		const ITEM *item = g->card->form->items[i];
-		if (item->type == IT_TIME && item->column == column)
+	for (int i = field.card->form->nitems - 1; i >= 0; i--) {
+		const ITEM *item = field.card->form->items[i];
+		if (item->type == IT_TIME && item->column == field.column)
 			v = format_time_data(atol(data), item->timefmt);
 	}
-	dbase_put(g->card->dbase, row, column, v);
+	dbase_put(field.card->dbase, field.row, field.column, v);
 	return(data);
 }
 
@@ -1126,6 +1125,44 @@ char *unescape(char *d, const char *s, int len, char esc)
     return d;
 }
 
+char *unesc_elt_at(const FORM *form, const char *array, int n)
+{
+    char sep, esc;
+    int b, a;
+    get_form_arraysep(form, &sep, &esc);
+    elt_at(array, n, &b, &a, sep, esc);
+    if (b == a)
+	return 0;
+    char *ret = alloc(0, "aelt", char, b - a + 1);
+    *unescape(ret, array + b, a - b, esc) = 0;
+    return ret;
+}
+
+char **split_array(const FORM *form, const char *array, int *len)
+{
+    *len = 0;
+    if(!array || !*array)
+	return 0;
+    char sep, esc;
+    get_form_arraysep(form, &sep, &esc);
+    int begin, after = -1;
+    size_t rsz;
+    char **ret = alloc(0, "split array", char *, rsz = 10);
+    while(1) {
+	next_aelt(array, &begin, &after, sep, esc);
+	if(after < 0)
+	    break;
+	zgrow(0, "split array", char *, ret, *len, *len + 1, &rsz);
+	if(after == begin)
+	    ret[(*len)++] = 0;
+	else {
+	    ret[*len] = alloc(0, "split array", char, after - begin + 1);
+	    *unescape(ret[(*len)++], array + begin, begin - after, esc) = 0;
+	}
+    }
+    return ret;
+}
+
 char *f_elt(PG, char *array, int n)
 {
     char sep, esc;
@@ -1235,7 +1272,7 @@ char *escape(char *d, const char *s, int len, char esc, const char *toesc)
 }
 
 // modifies array in-place; assumes array has been malloc'd
-bool set_elt(char **array, int n, char *val, const FORM *form)
+bool set_elt(char **array, int n, const char *val, const FORM *form)
 {
     int b, a, vlen = val ? strlen(val) : 0, alen = *array ? strlen(*array) : 0;
     char toesc[3];
@@ -1255,7 +1292,7 @@ bool set_elt(char **array, int n, char *val, const FORM *form)
 	    escape(*array + b, val, vlen, esc, toesc + 1);
 	} else if(!alen && !vesc) { // bigger, but completely replace array
 	    zfree(*array);
-	    *array = val;
+	    *array = zstrdup(val);
 	    return true;
 	} else { // bigger
 	    char *oarray = *array;
@@ -1764,16 +1801,22 @@ CARD *f_db_start(
 	g->card = create_card_menu(form, dbase, 0, true);
 	g->card->prev_form = zstrdup(ocard->form->name);
 	g->card->last_query = -1;
+	/* searching may be by expr, so save state */
+	PARSE_GLOBALS pgs = *g;
+	g->ret = 0;
+	/* FIXME:  cache this somehow, so it doesn't get run too often */
 	if(search)
 		query_any(SM_SEARCH, g->card, search);
 	else if (form->autoquery >= 0 && form->autoquery < form->nqueries)
 		query_any(SM_SEARCH, g->card, form->query[form->autoquery].query);
 	else
 		query_all(g->card);
+	zfree(g->ret);
+	*g = pgs;
 	zfree(search);
 	if(!sort) {
 		for (int i=0; i < form->nitems; i++)
-			if (form->items[i]->defsort) {
+			if (IFL(form->items[i]->,DEFSORT)) {
 				dbase_sort(g->card, form->items[i]->column, 0);
 				break;
 			}
@@ -1796,7 +1839,7 @@ CARD *f_db_start(
 				if(it != s->end()) {
 					int i = it->second % form->nitems;
 					int m = it->second / form->nitems;
-					fn = form->items[i]->multicol ?
+					fn = IFL(form->items[i]->,MULTICOL) ?
 						form->items[i]->menu[m].column :
 						form->items[i]->column;
 				}
@@ -1859,4 +1902,164 @@ void free_db_sort(
 		free(sort);
 		sort = next;
 	}
+}
+
+static void add_deref(const char *key, const FORM *form, const ITEM *item,
+		      char *&ret, size_t *retalloc, int &retlen,
+		      const char *fsep, const char *rsep,
+		      int name_prefix_off, int nplen)
+{
+	DBASE *dbase = 0;
+	if (key)
+		dbase = read_dbase(item->fkey_db);
+	for (int keyno = 0; ; keyno++) {
+		int r = 0;
+		if (key) {
+			r = fkey_lookup(dbase, form, item, key, keyno);
+			if (r == -2)
+				break;
+			if (keyno > 0 && *rsep) {
+				int rslen = strlen(rsep);
+				grow(0, "deref", char, ret, retlen + rslen + 1, retalloc);
+				memcpy(ret + retlen, rsep, rslen + 1);
+				retlen += rslen;
+			}
+		} else {
+			/* FIXME: esc(item->name, *fsep, *rsep) */
+			/* also escape ' ' and '_' if needed */
+			int nlen = strlen(item->name);
+			grow(0, "dereff", char, ret, retlen + nlen + 3, retalloc);
+			memcpy(ret + retlen, ret + name_prefix_off, nplen);
+			if(nplen) {
+				ret[retlen++] = ' ';
+				nplen++;
+			}
+			ret[retlen++] = '_';
+			memcpy(ret + retlen, item->name, nlen + 1);
+			retlen += nlen;
+			nplen += nlen + 1;
+		}
+		bool first = true;
+		for (int i = 0; i < item->nfkey; i++) {
+			const FKEY &fk = item->keys[i];
+			if (!fk.display)
+				continue;
+			const ITEM *fit = item->fkey_db->items[fk.item];
+			const char *value = dbase_get(dbase, r, fit->column);
+			if (fit->type == IT_FKEY)
+				add_deref(value, fit->fkey_db, fit,
+					  ret, retalloc, retlen,
+					  fsep, rsep, name_prefix_off, nplen);
+			else if (key) {
+				if (!first && *fsep) {
+					int fslen = strlen(fsep);
+					grow(0, "deref", char, ret,
+					     retlen + fslen + 1, retalloc);
+					memcpy(ret + retlen, fsep, fslen + 1);
+					retlen += fslen;
+				}
+				if (!BLANK(value)) {
+					int vlen = strlen(value);
+					grow(0, "deref", char, ret,
+					     retlen + vlen + 1, retalloc);
+					memcpy(ret + retlen, value, vlen + 1);
+					retlen += vlen;
+				}
+			} else {
+				/* FIXME: esc(fit->name, *fsep, *rsep) */
+				/* also escape ' ' and '_' if needed */
+				int nlen = strlen(fit->name);
+				if (!first) {
+					grow(0, "dreff", char, ret,
+					     retlen + nplen + nlen + 3, retalloc);
+					ret[retlen++] = *fsep;
+					memcpy(ret + retlen, ret + name_prefix_off, nplen);
+					retlen += nplen;
+					ret[retlen++] = ' ';
+				} else
+					grow(0, "dreff", char, ret,
+					     retlen + nlen + 2, retalloc);
+				ret[retlen++] = '_';
+				memcpy(ret + retlen, fit->name, nlen + 1);
+			}
+			first = false;
+		}
+	}
+}
+
+/* expand fkey reference to visible fields */
+char *f_deref(
+	UNUSED PG,
+	fkey_field field,
+	char *fsep,
+	char *rsep)
+{
+	const char	*value = dbase_get(field.card->dbase, field.row, field.column);
+	char		*ret = 0;
+	int		retlen = 0;
+	size_t		retalloc = 0;
+	int		i;
+	const FORM	*form = field.card->form;
+
+	if (!value)
+		return(0);
+	for (i=0; i < form->nitems; i++) {
+		const ITEM *item = form->items[i];
+		if (item->column != field.column || item->type != IT_FKEY)
+			continue;
+		add_deref(value, form, item, ret, &retalloc, retlen,
+			  fsep ? fsep : " ", rsep ? rsep : "\n", 0, 0);
+		zfree(fsep);
+		zfree(rsep);
+		return ret;
+	}
+	zfree(fsep);
+	zfree(rsep);
+	return zstrdup(value);
+}
+
+/* expand fkey reference to visible field names */
+char *f_dereff(
+	UNUSED PG,
+	fkey_field field)
+{
+	char		*ret = 0;
+	int		retlen = 0;
+	size_t		retalloc = 0;
+	int		i;
+	const FORM	*form = field.card->form;
+	char		sep, esc;
+
+	get_form_arraysep(form, &sep, &esc);
+	for (i=0; i < form->nitems; i++) {
+		const ITEM *item = form->items[i];
+		if (!IN_DBASE(item->type))
+			continue;
+		if (item->type == IT_FKEY && item->column == field.column) {
+			add_deref(0, form, item, ret, &retalloc, retlen,
+				  &sep, &esc, 0, 0);
+			return ret;
+		}
+		const MENU *m = 0;
+		if (IFL(item->,MULTICOL)) {
+			m = item->menu;
+			for (int n = 0; n < item->nmenu; n++, m++) {
+				if (m->column == field.column)
+					break;
+			}
+			if (m == item->menu + item->nmenu)
+				m = 0;
+		}
+		if (m || item->column == field.column) {
+			int nlen = strlen(m ? m->name : item->name);
+			grow(0, "dereff", char, ret, retlen + nlen + 3, &retalloc);
+			if (retlen)
+				ret[retlen++] = ' ';
+			memcpy(ret + retlen, m ? m->name : item->name, nlen + 1);
+			retlen += nlen;
+			return ret;
+		}
+	}
+	/* should never get here */
+	return 0;
 }

@@ -234,7 +234,7 @@ void GrokCanvas::canvas_callback(
 		}
 		item = form->items[nitem];
 		for (nsel=i=0; i < form->nitems; i++)
-			nsel += form->items[i]->selected;
+			nsel += IFL(form->items[i]->,SELECTED);
 		if (moving) {					/* moved */
 			item->x  = x;
 			item->y  = y;
@@ -246,12 +246,12 @@ void GrokCanvas::canvas_callback(
 		} else {					/* selected */
 			readback_formedit();
 			if (state & Qt::ShiftModifier) {
-				item->selected ^= true;		/*... multi */
+				IFT(item->,SELECTED);
 				curr_item = nitem;
 			} else {
-				if (!item->selected || nsel > 1) {
+				if (!IFL(item->,SELECTED) || nsel > 1) {
 					item_deselect(form);	/*... sel */
-					item->selected = true;
+					IFS(item->,SELECTED);
 					curr_item = nitem;
 				} else {
 					item_deselect(form);	/*... unsel */
@@ -279,14 +279,17 @@ void GrokCanvas::canvas_callback(
 	item->type == IT_NUMBER || \
 	item->type == IT_PRINT || \
 	item->type == IT_TIME || \
-	item->type == IT_MENU)
+	item->type == IT_MENU || \
+	(item->type == IT_FKEY && !IFL(item->,FKEY_MULTI)))
 
 #define TOP_LABELED ( \
 	item->type == IT_CHART || \
 	item->type == IT_NOTE || \
 	item->type == IT_MULTI || \
 	item->type == IT_RADIO || \
-	item->type == IT_FLAGS)
+	item->type == IT_FLAGS || \
+	(item->type == IT_FKEY && IFL(item->,FKEY_MULTI)) || \
+	item->type == IT_INV_FKEY)
 
 static MOUSE locate_item(
 	int		*nitem_p,	/* set to the located item */
@@ -443,7 +446,7 @@ void GrokCanvas:: redraw_canvas_item(
 
 	if (!clip.intersects(QRect(item->x, item->y, item->xs, item->ys)))
 		return;
-	painter.setPen(item->selected ? selcolor : boxcolor);
+	painter.setPen(IFL(item->,SELECTED) ? selcolor : boxcolor);
 	fillrect(item->x, item->y, item->xs, item->ys);
 
 	painter.setPen(fgcolor());

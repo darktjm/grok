@@ -78,10 +78,15 @@ const char *evaluate(
 		return 0;
 	}
 	pg.card = card;
+	pg.fitem.push_back({});
 
 	(void)parserparse(&pg);
 
 	free(pg.expr);
+	while (pg.fitem.size() > 0) {
+		free_fkey_card(pg.fitem.back().card);
+		pg.fitem.pop_back();
+	}
 	if (*pg.errormsg) {
 		create_error_popup(mainwindow, 0,
 				   pg.errormsg_full ? pg.errormsg_full
@@ -108,6 +113,7 @@ const char *subeval(
 {
 	char		*saved_text = g->text;
 	char		*saved_expr = g->expr;
+	fitem_stack	fist(g->fitem);
 
 	if (!exp || *g->errormsg) // refuse to continue on errors
 		return(0);
@@ -125,12 +131,16 @@ const char *subeval(
 		parsererror(g, "No memory for expression");
 		return 0;
 	}
+	g->fitem.clear();
+	g->fitem.push_back({});
 
 	(void)parserparse(g);
 
 	free(g->expr);
 	g->expr = saved_expr;
 	g->text = saved_text;
+	g->fitem.clear();
+	g->fitem = fist;
 	return(STR(g->ret));
 }
 
@@ -274,6 +284,8 @@ static const struct symtab { const char *name; int token; } symtab[] = {
 			{ "toset",	TOSET	},
 			{ "detab",	DETAB	},
 			{ "align",	ALIGN	},
+			{ "deref",	DEREF	},
+			{ "dereff",	DEREFF	},
 			{ 0,		0	}
 };
 
@@ -307,7 +319,6 @@ int Xparserlex(YYSTYPE *lvalp, PG)
 {
 	int			i;
 	const struct symtab	*sym;
-	ITEM			**item;
 	char			msg[100];
 	static char *		token = 0;
 	static size_t		tokenlen;
@@ -315,8 +326,17 @@ int Xparserlex(YYSTYPE *lvalp, PG)
 
 	while (*g->text == ' ' || *g->text == '\t' || *g->text == '\n')		/* blanks */
 		g->text++;
+	/* fkey context only valid for next token iff field */
+	if (*g->text == '[')
+		g->fitem.push_back({});
+	else if (*g->text == ']') {
+		/* card will be freed when field is used */
+		g->fitem.pop_back();
+	} else if (*g->text != '_')
+		g->fitem.back() = {};
 	if (!*g->text)						/* eof */
 		return(0);
+	
 								/* number */
 	if (ISDIGIT(*g->text) || (*g->text == '.' && ISDIGIT(g->text[1]))) {
 		char *ptr;
@@ -355,17 +375,58 @@ int Xparserlex(YYSTYPE *lvalp, PG)
 		}
 		token[tp] = 0;
 		if (g->card && g->card->form) {
-			item = g->card->form->items;
+			CARD *c = g->card;
+			FORM *form = g->card->form;
+			fitem &fit = g->fitem.back();
+			int row = -1;
+			if (!fit.card)
+				row = g->card->row;
+			if (fit.card) {
+				form = fit.item->fkey_db;
+				c = create_card_menu(form, read_dbase(form), 0, true);
+				c->fkey_next = fit.card;
+				row = fit.card->row;
+			}
+			ITEM **item = form->items;
+			lvalp->fval.card = c;
+			if (fit.card) {
+				DBASE *db = fit.card->dbase;
+				if (row < 0 || row >= db->nrows)
+					lvalp->fval.row = fit.card->qcurr = fit.card->row = -1;
+				else {
+					DBASE *fdb = c->dbase;
+					g->card->qcurr = lvalp->fval.row =
+						fkey_lookup(fdb, db->form, fit.item,
+							    dbase_get(db, row,
+								      fit.item->column),
+							   0);
+				}
+			} else
+				lvalp->fval.row = g->card->row;
+			fit = {};
 			if (ISDIGIT(*token)) {			/* ...numeric*/
-				lvalp->ival = atoi(token);
+				lvalp->fval.column = atoi(token);
+				for (i = 0; i < form->nitems; i++)
+					if (item[i]->type == IT_FKEY &&
+					    item[i]->column == lvalp->ival) {
+						fit.item = item[i];
+						fit.card = c;
+						c->row = lvalp->fval.row;
+						break;
+					}
 				return(FIELD);
 			} else if(g->card->form->fields) {	/* ...name */
-				FIELDS *s = g->card->form->fields;
-				int n = g->card->form->nitems;
+				FIELDS *s = form->fields;
+				int n = form->nitems;
 				auto it = s->find(token);
 				if(it != s->end()) {
 					i = it->second % n;
-					lvalp->ival = item[i]->multicol ?
+					if (item[i]->type == IT_FKEY) {
+						fit.item = item[i];
+						fit.card = c;
+						c->row = lvalp->fval.row;
+					}
+					lvalp->fval.column = IFL(item[i]->,MULTICOL) ?
 						item[i]->menu[it->second / n].column :
 						item[i]->column;
 					return(FIELD);

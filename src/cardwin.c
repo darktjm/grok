@@ -54,6 +54,18 @@ void free_card(
 	free(card);
 }
 
+void free_fkey_card(
+	CARD		*card)		/* card to destroy */
+{
+	if (!card)
+		return;
+	CARD *next;
+	while ((next = card->fkey_next)) {
+		free_card(card);
+		card = next;
+	}
+}
+
 /*
  * Read back any unread text widgets. Next, destroy the card widgets, and
  * the window if there is one (there is one if create_card_menu() was called
@@ -501,16 +513,174 @@ struct CardPushButton : public QPushButton {
 	OVERRIDE_FOCUS(QPushButton)
 };
 
+struct FKeySelector : public CardComboBox {
+	FKeySelector(CARD *c, int i, QWidget *p, CARD *fc, ITEM *fit, int n) :
+		CardComboBox(c, i, p), fcard(fc), next(this), item(fit), fkey(n) {}
+
+	void AddGroup(FKeySelector *f) {
+		FKeySelector **prev = &f->next;
+		next = f;
+		while(*prev != f)
+			prev = &(*prev)->next;
+		*prev = this;
+	}
+	void fcard_from(const FKeySelector *fk) {
+		fcard = fk->fcard;
+	}
+	/* refilter all widgets and return row (>= 0) if only one matches */
+	int refilter() {
+		int r = set_filter();
+		for(FKeySelector *f = next; f != this; f = f->next)
+			f->set_filter();
+		return r;
+	}
+    private:
+	typedef std::vector<bool> rowrestrict;
+	void row_restrict(const CARD *c, int col, const char *val, rowrestrict &restrict,
+			  int &br, bool br_only = false)
+	{
+		for (int r = 0; r < c->dbase->nrows; r++)
+			if (!restrict[r]) {
+				const char *dv = dbase_get(c->dbase, r, col);
+				bool is_ok = !strcmp(STR(dv), STR(val));
+				if (!br_only)
+					restrict[r] = !is_ok;
+				if (is_ok && !c->fkey_next)
+					br = br == -1 ? r : -2;
+			}
+	}
+
+	void fkey_restrict(const CARD *fc, const ITEM *item, rowrestrict &restrict,
+			   rowrestrict frestrict, int &br)
+	{
+		const CARD *c = fc->fkey_next;
+		for (int r = 0; r < fc->dbase->nrows; fc++)
+			if (!frestrict[r]) {
+				char *v = fkey_of(fc->dbase, r, c->form, item);
+				row_restrict(c, item->column, v, restrict, br);
+				zfree(v);
+			}
+						  
+	}
+
+	void restrict(const FKeySelector *fk, const CARD *fc, rowrestrict &ret,
+		      int &br, bool recurse = false) {
+		rowrestrict tmp;
+		rowrestrict &cur = fc == fk->fcard ? ret : tmp;
+		/* first, restrict based on current value */
+		cur.resize(fcard->dbase->nrows, false);
+		if (fk->currentIndex() > 0) {
+			char *val = qstrdup(fk->currentText());
+			const ITEM *fit = fk->fcard->form->items[fk->item->keys[fk->fkey].item];
+			int col = fit->column;
+			if (IFL(fit->,MULTICOL))
+				col = fit->menu[fk->item->keys[fk->fkey].menu].column;
+			/* but actually only restrict on recurse */
+			row_restrict(fcard, col, val, cur, br, !recurse);
+			free(val);
+			if (br >= 0)
+				return;
+		}
+		/* then, restrict based on peers */
+		if (!recurse)
+			for (FKeySelector *ofk = fk->next; ofk != fk; ofk = ofk->next) {
+				if (ofk->currentIndex() <= 0)
+					continue;
+				const CARD *c;
+				for (c = ofk->fcard; c; c = c->fkey_next)
+					if (c == fk->fcard)
+						break;
+				if (!c)
+					continue;
+				br = -1;
+				restrict(ofk, c, cur, br, true);
+				if (br >= 0)
+					return;
+			}
+		/* then, restrict downwards if needed */
+		if (fk->fcard != fc) {
+			const ITEM *fit = fk->item;
+			const CARD *c;
+			
+			for (c = fk->fcard; ; c = c->fkey_next) {
+				rowrestrict frestrict = cur;
+				cur = c == fc ? ret : tmp;
+				cur.resize(c->fkey_next->dbase->nrows, false);
+				br = -1;
+				fkey_restrict(c, fit, cur, frestrict, br);
+				if (br >= 0)
+					return;
+				/* continue all the way down to set br */
+#if 0
+				if (c == fc)
+#else
+				if (!c->fkey_next)
+#endif
+					break;
+				tmp.clear();
+			        fit = c->fkey_next->form->items[c->qcurr];
+			}
+		}
+	}
+
+	int set_filter() {
+		int br = -1;
+		rowrestrict filter;
+		restrict(this, fcard, filter, br);
+		QStringList sl;
+		/* const */ DBASE *dbase = fcard->dbase;
+
+		const ITEM *fit = fcard->form->items[item->keys[fkey].item];
+		int col = fit->column;
+		if (IFL(fit->,MULTICOL))
+			col = fit->menu[item->keys[fkey].menu].column;
+		for (int r = 0; r < dbase->nrows; r++) {
+			if (!filter[r]) {
+				char *val = dbase_get(dbase, r, col);
+				sl.append(STR(val));
+			}
+		}
+		sl.sort(Qt::CaseInsensitive);
+		sl.removeDuplicates();
+		QString sel = currentText();
+		bool blank = currentIndex() <= 0;
+		QSignalBlocker sb(this);
+		clear();
+		addItem("");
+		addItems(sl);
+		if (count() == 2)
+			setCurrentIndex(1);
+		else if (blank)
+			setCurrentIndex(0);
+		else
+			setCurrentIndex(sl.indexOf(sel) + 1);
+		return br < 0 ? -1 : br;
+	}
+
+    public:
+	CARD *fcard;
+    private:
+	FKeySelector *next;
+	ITEM *item;
+	int fkey;
+};
+
+static FKeySelector *add_fkey_field(
+	QWidget *p, CARD *card, int nitem, /* widget & callback info */
+	QString toplab, FKeySelector *prev, /* context */
+	QGridLayout *l, QTableWidget *mw, int row, int &col,  /* where to put it */
+	ITEM &item, CARD *fcard, int n,    /* fkey info */
+	int ncol); /* ncol is set to # of cols if row > 0 (for callback) */
 static void create_item_widgets(
 	CARD		*card,		/* card the item is added to */
 	int		nitem)		/* number of item being added */
 {
-	ITEM		item;		/* describes type and geometry */
+	// ITEM		&item;		/* describes type and geometry */
 	struct carditem	*carditem;	/* widget pointers stored here */
 	QWidget		*wform;		/* static part form, or card form */
 	bool		editable;
 
-	item = *card->form->items[nitem];
+	ITEM &item = *card->form->items[nitem];
 	if (item.y < card->form->ydiv) {		/* static or card? */
 		wform  = card->wstat;
 	} else {
@@ -532,7 +702,7 @@ static void create_item_widgets(
 	editable = item.type != IT_PRINT
 			&& (!card->dbase || !card->dbase->rdonly)
 			&& !card->form->rdonly
-			&& !item.rdonly
+			&& !IFL(item.,RDONLY)
 			&& !evalbool(card, item.freeze_if);
 
 	switch(item.type) {
@@ -714,7 +884,7 @@ static void create_item_widgets(
 		  list->setSelectionMode(QAbstractItemView::MultiSelection);
 		  for(int n = 0; n < item.nmenu; n++) {
 			list->addItem(item.menu[n].label);
-			if(!item.multicol) {
+			if(!IFL(item.,MULTICOL)) {
 				char *val = item.menu[n].flagcode;
 				int nesc = countchars(val, desc);
 				if(nesc) {
@@ -854,7 +1024,7 @@ static void create_item_widgets(
 		  b->setObjectName("label");
 		  if (card->dbase && !card->dbase->rdonly
 				&& !card->form->rdonly
-				&& !item.rdonly)
+				&& !IFL(item.,RDONLY))
 			set_button_cb(b, card_callback(nitem, card, c), bool c);
 	  }
 		break;
@@ -867,6 +1037,92 @@ static void create_item_widgets(
 		b->setProperty(font_prop[item.labelfont], true);
 		b->setObjectName("button");
 		set_button_cb(b, card_callback(nitem, card));
+		break;
+	  }
+
+	  case IT_INV_FKEY:
+	  case IT_FKEY: {
+		int n;
+		bool multi = item.type == IT_INV_FKEY || IFL(item.,FKEY_MULTI);
+		QLabel *lw = 0;
+		if (multi) {
+			if (item.ym > 6)
+				carditem->w1 = lw = mk_label(wform, item, item.xs, item.ym);
+		} else {
+			if (item.xm > 6)
+				carditem->w1 = lw = mk_label(wform, item, item.xm - 6, item.ys);
+		}
+		if(lw) {
+			QString lab = "<a href=\"" + QString::number(nitem) + "\">";
+			// The default label text is AutoText, so respect that
+			if (Qt::mightBeRichText(lw->text()))
+				lab += lw->text();
+			else
+				lab += lw->text().toHtmlEscaped();
+			lab += "</a>";
+			lw->setText(lab);
+			set_qt_cb(QLabel, linkActivated, lw, card_callback(nitem, card, true));
+		}
+		/* allow pure table link similar to "see also" in form.cgi */
+		if (item.type == IT_INV_FKEY && item.ys - item.ym <= 4)
+			  break;
+		carditem->w0 = new QFrame(wform);
+		carditem->w0->move(item.x + (multi ? 0 : item.xm),
+				   item.y + (multi ? item.ym : 0));
+		carditem->w0->resize(item.xs - (multi ? 0 : item.xm),
+				     item.ys - (multi ? item.ym : 0));
+		carditem->w0->setObjectName("fkeygroup");
+		QGridLayout *l = new QGridLayout(carditem->w0);
+		l->setSpacing(0); // default; qss may override
+		l->setContentsMargins(0, 0, 0, 0);
+		add_layout_qss(l, "fkeygroup");
+		int nvis = 0;
+		for (n = 0; n < item.nfkey; n++)
+			  if(item.keys[n].display)
+				  nvis++;
+		CARD *fcard = create_card_menu(item.fkey_db, read_dbase(item.fkey_db), 0, true);
+		int col = 0;
+		FKeySelector *fks = 0;
+		QTableWidget *mw = multi ? new QTableWidget(carditem->w0) : 0;
+		if (multi)
+			  l->addWidget(mw, 0, 0);
+		for (n = 0; n < item.nfkey; n++)
+			if (item.keys[n].display)
+				  fks = add_fkey_field(carditem->w0, card, nitem,
+						       "", fks,
+						       l, mw, 0, col,
+						       item, fcard, n,
+						       0);
+		QBoxLayout *bb = 0;
+		if (item.type == IT_INV_FKEY) {
+			// I originally added these to any multi, but
+			// all FKEY_MULTI funcitions can be done w/o buttons
+			bb = new QBoxLayout(QBoxLayout::RightToLeft);
+			l->addLayout(bb, 1, 0);
+			QPushButton *b;
+			b = new QPushButton("=");
+			b->setMinimumWidth(1);
+			set_button_cb(b, card_callback(nitem, card, false, -4));
+			bb->addWidget(b, 1);
+			b = new QPushButton("-");
+			b->setMinimumWidth(1);
+			set_button_cb(b, card_callback(nitem, card, false, -3));
+			bb->addWidget(b, 1);
+			b = new QPushButton("+");
+			b->setMinimumWidth(1);
+			set_button_cb(b, card_callback(nitem, card, false, -2));
+			bb->addWidget(b, 1);
+		}
+		if (IFL(item.,FKEY_SEARCH)) {
+			CardLineEdit *le = new CardLineEdit(card, nitem, carditem->w0);
+			set_text_cb(le, card_callback(nitem, card, false, -1));
+			if (item.type == IT_INV_FKEY) {
+				bb->addWidget(le);
+				bb->setStretchFactor(le, 5);
+			} else
+				l->addWidget(le, IFL(item.,FKEY_HEADER) ? 2 : 1, 0,
+					     1, col);
+		}
 		break;
 	  }
 
@@ -885,6 +1141,61 @@ static void create_item_widgets(
 	}
 }
 
+static FKeySelector *add_fkey_field(
+	QWidget *p, CARD *card, int nitem, /* widget & callback info */
+	QString toplab, FKeySelector *prev, /* context */
+	QGridLayout *l, QTableWidget *mw, int row, int &col,  /* where to put it */
+	ITEM &item, CARD *fcard, int n,    /* fkey info */
+	int ncol) /* ncol is set to # of cols if row > 0 (for callback) */
+{
+	ITEM &fit = *item.fkey_db->items[item.keys[n].item];
+	MENU *fm = IFL(fit.,MULTICOL) ? &fit.menu[item.keys[n].menu] : 0;
+	if (fit.type == IT_FKEY) {
+		QString lab;
+		CARD *nfcard = 0;
+		if (!row) {
+			if (fit.label) {
+				if (toplab.isEmpty())
+					lab = fit.label;
+				else
+					lab = toplab + '/' + fit.label;
+			}
+			nfcard = create_card_menu(fit.fkey_db, read_dbase(fit.fkey_db), 0, true);
+			nfcard->fkey_next = fcard;
+			nfcard->qcurr = item.keys[n].item;
+		}
+		for (n = 0; n < fit.nfkey; n++)
+			if (fit.keys[n].display)
+				prev = add_fkey_field(p, card, nitem,
+						      lab, prev,
+						      l, mw, row, col,
+						      fit, nfcard, n,
+						      ncol);
+		return prev;
+	}
+	bool multi = item.type == IT_INV_FKEY || IFL(item.,FKEY_MULTI);
+	if (!row && IFL(item.,FKEY_HEADER)) {
+		const char *lab = fm ? (fm->label ? fm->label : "") :
+					 fit.label ? fit.label : "";
+		if (multi)
+			mw->setHorizontalHeaderItem(col, new QTableWidgetItem(lab));
+		else
+			l->addWidget(new QLabel(lab), 0, col);
+	}
+	FKeySelector *w = new FKeySelector(card, nitem, multi ? 0 : p, fcard,
+					   &item, n);
+	if (multi) {
+		mw->setCellWidget(row, col, w);
+		if (row > 0)
+			w->fcard_from(static_cast<FKeySelector *>(mw->cellWidget(row - 1, col)));
+	} else
+		l->addWidget(w, IFL(item.,FKEY_HEADER) ? 1 : 0, col);
+	set_popup_cb(w, card_callback(nitem, card, false, row * ncol + col), int,);
+	if (prev)
+		w->AddGroup(prev);
+	++col;
+	return w;
+}
 
 /*-------------------------------------------------- callbacks --------------*/
 
@@ -956,7 +1267,7 @@ static void card_callback(
 		break;
 
 	   case IT_FLAGS: {			/* square in group on/off */
-		if (item->multicol) {
+		if (IFL(item->,MULTICOL)) {
 			if (!store(card, nitem,
 				   flag ? item->menu[index].flagcode : NULL,
 				   index))
@@ -1032,7 +1343,7 @@ static void card_callback(
 		/* Since there is no single element change like above, */
 		/* rebuild from scratch every time */
 		QListWidget *lw = reinterpret_cast<QListWidget *>(card->items[nitem].w0);
-		if(item->multicol) {
+		if(IFL(item->,MULTICOL)) {
 			for(int m = 0; m < item->nmenu; m++) {
 				char *val = NULL;
 				if(lw->item(m)->checkState() == Qt::Checked)
@@ -1075,6 +1386,152 @@ static void card_callback(
 			}
 		}
 		break;
+	  case IT_FKEY:
+	  case IT_INV_FKEY: {
+		if (flag) { /* label click */
+			card_readback_texts(card, -1);
+			int sel = card->row;
+			// maybe someday I'll strip leading path if unnecessary
+			QString fpath = card->form->path;
+			bool blank = BLANK(dbase_get(card->dbase, card->row, item->column));
+			/* FIXME: INV_FKEY selects parent-restrict mode */
+			switch_form(mainwindow->card, item->fkey_db->path);
+			if (item->type == IT_INV_FKEY || sel < 0 || blank)
+				return;
+			/*  {r="";foreach(k,+@"origdb":_ref[row],"_key1==k[0]&&..","(r=1)");r} */
+			/*  for single, just {k=@"origdb":_ref[row];_key1==k[0]&&..} */
+			/* multi clobbers r and k; single only k */
+			QString q;
+			if (IFL(item->,FKEY_MULTI))
+				q = "{r=\"\";foreach(k,+";
+			else
+				q = "{k=";
+			q += "@\"";
+			q += fpath.replace(QRegularExpression("([\\\\\"])"),
+						"\\\\\\1");
+			// maybe someday I'll replace numeric field with name
+			q += "\":_"+ QString::number(item->column) +
+				"[" + QString::number(sel) +
+				"]";
+			if (IFL(item->,FKEY_MULTI))
+				q += ",\"";
+			else
+				q += ';';
+			int keylen = keylen_of(item);
+			int keys[keylen];
+			sort_fkey(item, keylen, keys);
+			for (int i = 0; i < keylen; i++) {
+				const FKEY &fk = item->keys[keys[i]];
+				ITEM *fit = item->fkey_db->items[fk.item];
+				// maybe someday I'll replace numeric field with name
+				int col = IFL(fit->,MULTICOL) ?
+					fit->menu[fk.menu].column :
+					fit->column;
+				if (i > 0)
+					q += "&&";
+				q += '_' + QString::number(col) + "==k";
+				if (keylen > 1)
+					q += '[' + QString::number(i) + ']';
+			}
+			if (IFL(item->,FKEY_MULTI))
+				q += "\",\"(r=1)\");r}";
+			else
+				q += '}';
+			char *str = qstrdup(q);
+			if (IFL(item->,FKEY_MULTI))
+				query_eval(SM_SEARCH, mainwindow->card, str);
+			else
+				find_and_select(str);
+			if (pref.query2search)
+				append_search_string(str);
+			else
+				free(str);
+			return;
+		}
+		switch(index) {
+		    case -1: /* search */
+			// FIXME: filter fkey db
+		    case -2: /* + */
+			// FIXME: pop to child table w/ empty new record
+		    case -3: /* - */
+			// FIXME: del selected row (ask: clear ref or del?)
+		    case -4: /* = */
+			// FIXME: pop to child table w/ selected record
+			break;
+		}
+		bool multi = IFL(item->,FKEY_MULTI) || item->type == IT_INV_FKEY;
+		FKeySelector *w = 0;
+		QListIterator<QObject *>iter(card->items[nitem].w0->children());
+		int elt = 0;
+		bool endrow = false;
+		QTableWidget *tw = 0;
+		if (multi) {
+			while(iter.hasNext()) {
+				tw = dynamic_cast<QTableWidget *>(iter.next());
+				if(tw) {
+					int nvis = tw->columnCount();
+					elt = index / nvis;
+					index %= nvis;
+					w = static_cast<FKeySelector *>(
+					    tw->cellWidget(elt, index));
+					endrow = elt == tw->rowCount() - 1;
+					break;
+				}
+			}
+		} else {
+			while(iter.hasNext()) {
+				w = dynamic_cast<FKeySelector *>(iter.next());
+				if(!w)
+					continue;
+				if(!index--)
+					break;
+				w = 0;
+			}
+		}
+		int dbrow = w->refilter();
+		char *v = dbrow < 0 ? 0 : fkey_of(read_dbase(item->fkey_db),
+						  dbrow, item->fkey_db, item);
+		if (multi) {
+			char *a = dbase_get(card->dbase, card->row, item->column);
+			if (!v) {
+				char sep, esc;
+				int beg, aft;
+				get_form_arraysep(card->form, &sep, &esc);
+				elt_at(a, elt, &beg, &aft, sep, esc);
+				if (beg == aft)
+					return; // already blank
+				if (!beg && !a[aft]) {
+					free(a);
+					a = 0;
+				} else if (!a[aft])
+					a[beg - 1] = 0;
+				else
+					memmove(a + beg, a + aft + 1, strlen(a + aft));
+				tw->removeRow(elt);
+				if (!store(card, nitem, a))
+					return;
+			} else {
+				a = zstrdup(a);
+				set_elt(&a, elt, v, card->form);
+				FKeySelector *fks = 0;
+				int col = 0;
+				for (int n = 0; n < item->nfkey; n++)
+					if (item->keys[n].display)
+						fks = add_fkey_field(card->items[nitem].w0,
+								     card, nitem,
+								     "", fks,
+								     0, tw, elt + 1, col,
+								     *item, 0, n,
+								     0);
+				
+				if (!store(card, nitem, a))
+					return;
+			}
+		} else
+			  if (!store(card, nitem, v))
+				  return;
+		break;
+	  }
 	  default: ;
 	}
 	if (redraw)
@@ -1111,7 +1568,7 @@ void card_readback_texts(
 	for (nitem=start; nitem <= end; nitem++) {
 		item = card->form->items[nitem];
 		if (!card->items[nitem].w0		||
-		    card->form->items[nitem]->rdonly)
+		    IFL(card->form->items[nitem]->,RDONLY))
 			continue;
 		switch(item->type) {
 		  case IT_INPUT:
@@ -1187,11 +1644,11 @@ static bool store(
 	if (nitem >= card->nitems		||
 	    card->dbase == 0			||
 	    card->dbase->rdonly			||
-	    card->form->items[nitem]->rdonly || card->form->rdonly)
+	    IFL(card->form->items[nitem]->,RDONLY) || card->form->rdonly)
 		return(false);
 
 	item = card->form->items[nitem];
-	col = item->multicol ? item->menu[menu].column : item->column;
+	col = IFL(item->,MULTICOL) ? item->menu[menu].column : item->column;
 	if (!dbase_put(card->dbase, card->row, col, string))
 		return(true);
 
@@ -1324,7 +1781,7 @@ void fillout_item(
 	       (card->dbase && card->row >= 0
 			    && card->row < card->dbase->nrows
 			    && !evalbool(card, item->gray_if));
-	if(!item->multicol)
+	if(!IFL(item->,MULTICOL))
 		data = dbase_get(card->dbase, card->row, item->column);
 
 	if (w0) w0->setEnabled(sens);
@@ -1456,7 +1913,7 @@ void fillout_item(
 			char *code = item->menu[n].flagcode;
 			if(item->type == IT_RADIO)
 				w->setChecked(!strcmp(STR(code), STR(data)));
-			else if(item->multicol) {
+			else if(IFL(item->,MULTICOL)) {
 				data = dbase_get(card->dbase, card->row,
 						 item->menu[n].column);
 				w->setChecked(!strcmp(STR(data), code));
@@ -1474,7 +1931,7 @@ void fillout_item(
 
 	  case IT_MULTI: {
 		QListWidget *l = reinterpret_cast<QListWidget *>(w0);
-		if(item->multicol) {
+		if(IFL(item->,MULTICOL)) {
 			for(int n = 0; n < item->nmenu; n++) {
 				data = dbase_get(card->dbase, card->row,
 						 item->menu[n].column);
@@ -1496,6 +1953,118 @@ void fillout_item(
 						       sep, esc));
 			}
 		}
+		break;
+	  }
+
+	  case IT_FKEY: {
+		bool multi = IFL(item->,FKEY_MULTI);
+		QListIterator<QObject *>iter(w0->children());
+		if (BLANK(data)) {
+			/* if non-specific selected, leave alone */
+			/* otherwise blank out all widgets */
+			if (multi) {
+				while(iter.hasNext()) {
+					QTableWidget *tw = dynamic_cast<QTableWidget *>(iter.next());
+					if(tw) {
+						// FIXME:  readonly deletes all
+						while (tw->rowCount() > 1)
+							tw->removeRow(0);
+						break;
+					}
+				}
+				break;
+			} else {
+				const FKEY *fk = item->keys;
+				FKeySelector *w = 0;
+				while(iter.hasNext()) {
+					w = dynamic_cast<FKeySelector *>(iter.next());
+					if(!w)
+						continue;
+					while (!fk->display)
+						fk++;
+					if (w->currentIndex() <= 0)
+						break;
+					w = 0;
+				}
+				if(!w) {
+					/* blank if none of the widgets are blank */
+					iter = w0->children();
+					while(iter.hasNext())
+						if ((w = dynamic_cast<FKeySelector *>(iter.next()))) {
+							QSignalBlocker sb(w);
+							w->setCurrentIndex(0);
+						}
+					iter = w0->children();
+					while(iter.hasNext())
+						if ((w = dynamic_cast<FKeySelector *>(iter.next())))
+							break;
+				}
+				w->refilter();
+			}
+			break;
+		}
+		/* FIXME:  get from a widget */
+		DBASE *fdbase = read_dbase(item->fkey_db);
+		if (multi) {
+			QTableWidget *tw = 0;
+			while(iter.hasNext()) {
+				tw = dynamic_cast<QTableWidget *>(iter.next());
+				if(tw)
+					break;
+			}
+			if (!tw)
+				break; // invalid form??
+			for(int n = 0;;n++) {
+				int row = fkey_lookup(fdbase, card->form, item, data, n);
+				if(row < 0)
+					break;
+				// FIXME:
+				// scan table to see if row already in
+				// if not, append row before last/blank row
+			}
+			break;
+		} else {
+			const FKEY *fk = item->keys;
+			FKeySelector *w = 0, *first = 0;
+			int row = fkey_lookup(fdbase, card->form, item, data, 0);
+			while(iter.hasNext()) {
+				w = dynamic_cast<FKeySelector *>(iter.next());
+				if(!w)
+					continue;
+				if(!first)
+					first = w;
+				while (!fk->display)
+					fk++;
+				ITEM *fitem = item->fkey_db->items[fk->item];
+				MENU *menu = &fitem->menu[fk->menu];
+				int col = IFL(fitem->,MULTICOL) ? menu->column :
+					                          fitem->column;
+				QSignalBlocker sb(w);
+				w->clear();
+				w->addItem("");
+				w->addItem(dbase_get(fdbase, row, col));
+				w->setCurrentIndex(1);
+			}
+			first->refilter();
+		}
+		/* FIXME: */
+		/* disable single if read-only; remove multi last blank row */
+		break;
+	  }
+
+	  case IT_INV_FKEY: {
+		if (!w0) /* label-only: nothing to do */
+			  return;
+		QListIterator<QObject *>iter(w0->children());
+		QTableWidget *tw = 0;
+		while(iter.hasNext()) {
+			tw = dynamic_cast<QTableWidget *>(iter.next());
+			if(tw)
+				break;
+		}
+		if (!tw)
+			break; // invalid form??
+		/* FIXME: fill table */
 		break;
 	  }
 

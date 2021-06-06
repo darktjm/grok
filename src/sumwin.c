@@ -175,9 +175,31 @@ static int compare(
 {
 	const struct menu_item *mi0 = (const struct menu_item *)u;
 	const struct menu_item *mi1 = (const struct menu_item *)v;
-	int col0 = mi0->menu ? mi0->menu->sumcol : mi0->item->sumcol;
-	int col1 = mi1->menu ? mi1->menu->sumcol : mi1->item->sumcol;
-	return col0 - col1;
+	if (mi0->sumcol != mi1->sumcol)
+		return mi0->sumcol - mi1->sumcol;
+	return mi0->sumoff - mi1->sumoff;
+}
+
+static void add_fkey_summary(struct menu_item **res, size_t *nres,
+			     const ITEM *item, int sumcol, int &ncol)
+{
+	for (int i = 0; i < item->nfkey; i++) {
+		if (!item->keys[i].display)
+			continue;
+		const FKEY &fk = item->keys[i];
+		const ITEM *fit = item->fkey_db->items[fk.item];
+		if (fit->type == IT_FKEY) {
+			add_fkey_summary(res, nres, fit, sumcol, ncol);
+			continue;
+		}
+		grow(0, "summary", struct menu_item, *res, ncol + 1, nres);
+		(*res)[ncol].form = item->fkey_db;
+		(*res)[ncol].sumcol = IFL(fit->,MULTICOL) ? fit->menu[fk.menu].sumcol :
+							    fit->sumcol;
+		(*res)[ncol].sumoff = ncol;
+		(*res)[ncol].item = fit;
+		(*res)[ncol++].menu = IFL(fit->,MULTICOL) ? &fit->menu[fk.menu] : NULL;
+	}
 }
 
 int get_summary_cols(struct menu_item **res, size_t *nres, const FORM *form)
@@ -188,9 +210,9 @@ int get_summary_cols(struct menu_item **res, size_t *nres, const FORM *form)
 		const ITEM *item = form->items[i];
 		if (!IN_DBASE(item->type)) // FIXME: allow Print in summary
 			continue;
-		if (!item->multicol && item->sumwidth <= 0)
+		if (!IFL(item->,MULTICOL) && item->sumwidth <= 0)
 			continue;
-		if (item->multicol) {
+		if (IFL(item->,MULTICOL)) {
 			for(m++; m < item->nmenu; m++)
 				if(item->menu[m].sumwidth > 0)
 					break;
@@ -200,9 +222,17 @@ int get_summary_cols(struct menu_item **res, size_t *nres, const FORM *form)
 			}
 			i--; // keep processing same item
 		}
+		if (item->type == IT_FKEY) {
+			add_fkey_summary(res, nres, item, item->sumcol, ncol);
+			continue;
+		}
 		grow(0, "summary", struct menu_item, *res, ncol + 1, nres);
+		(*res)[ncol].form = form;
+		(*res)[ncol].sumcol = IFL(item->,MULTICOL) ? item->menu[m].sumcol :
+							     item->sumcol;
+		(*res)[ncol].sumoff = -1;
 		(*res)[ncol].item = item;
-		(*res)[ncol++].menu = item->multicol ? &item->menu[m] : NULL;
+		(*res)[ncol++].menu = IFL(item->,MULTICOL) ? &item->menu[m] : NULL;
 	}
 	qsort(*res, ncol, sizeof(struct menu_item), compare);
 	return ncol;
@@ -296,7 +326,7 @@ void make_summary_line(
 			if (menu && !BLANK(menu->flagtext) &&
 			    !strcmp(STR(data), menu->flagcode))
 				data = menu->flagtext;
-			if (!item->multicol && (item->type == IT_FLAGS || item->type == IT_MULTI)) {
+			if (!IFL(item->,MULTICOL) && (item->type == IT_FLAGS || item->type == IT_MULTI)) {
 				int qbegin, qafter;
 				char sep, esc;
 				char *v = NULL;

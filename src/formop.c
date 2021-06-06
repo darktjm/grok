@@ -131,6 +131,13 @@ void form_delete(
 			break;
 	if (dbase)
 		return;
+	for (FORM *f = form_list; f; f = f->next) {
+		if (f == form)
+			continue;
+		for (i = 0; i < f->nitems; i++)
+			if (f->items[i]->fkey_db == form)
+				return;
+	}
 	/* a card can't have a form without a dbase, so no point in checking */
 	for (i=form->nitems - 1; i >= 0; --i)
 		item_delete(form, i);
@@ -177,7 +184,7 @@ static void add_field_name(QString &msg, const FORM *form, int id)
 	const ITEM *item = form->items[id % form->nitems];
 	if(!IN_DBASE(item->type))
 		msg += qsprintf("\"%s\" (#%d)", STR(item->label), id);
-	else if(!item->multicol)
+	else if(!IFL(item->,MULTICOL))
 		msg += qsprintf("\"%s\" (#%d)",
 			!BLANK(item->label) ? item->label : STR(item->name), id);
 	else
@@ -289,10 +296,10 @@ bool verify_form(
 		i0 = msg.size();
 		item = form->items[nitem];
 		if (!IS_MULTI(item->type))
-			item->multicol = false; // silent fix
-		if(!item->multicol)
+			IFC(item->, MULTICOL); // silent fix
+		if(!IFL(item->,MULTICOL))
 			sumwidth += item->sumwidth;
-		if (IN_DBASE(item->type) && !item->multicol && BLANK(item->name)) {
+		if (IN_DBASE(item->type) && !IFL(item->,MULTICOL) && BLANK(item->name)) {
 			if(!BLANK(item->label)) {
 				item->name = mystrdup(item->label);
 				for(char *s = item->name; *s; s++) {
@@ -314,7 +321,7 @@ bool verify_form(
 								item->name);
 		}
 		// FIXME: also check for other invalid characters
-		if (IN_DBASE(item->type) && !item->multicol &&
+		if (IN_DBASE(item->type) && !IFL(item->,MULTICOL) &&
 		    isdigit(*item->name)) {
 			*item->name += 'A' - '0';
 			msg += "Field ";
@@ -352,24 +359,24 @@ bool verify_form(
 			add_field_name(msg, form, nitem);
 			msg += " has no button action\n";
 		}
-		if (item->multicol) {
+		if (IFL(item->,MULTICOL)) {
 			// FIXME: enforce this in GUI as well
 			//  that way this will never be an error
 			//  either that, or add these flags to the table (ugh)
-			if(!item->nosort || item->defsort) {
+			if(!IFL(item->,NOSORT) || IFL(item->,DEFSORT)) {
 				msg += "Field ";
-				item->multicol = false; // don't give menu item name
+				IFC(item->,MULTICOL); // don't give menu item name
 				add_field_name(msg, form, nitem);
-				item->multicol = true;
+				IFS(item->,MULTICOL);
 				msg += " does not support sorting; disabled\n";
 			}
-			item->nosort = true;
-			item->defsort = false;
+			IFS(item->,NOSORT);
+			IFC(item->,DEFSORT);
 		}
 		if (item->nmenu && IS_MENU(item->type)) {
 			for(int m = 0; m < item->nmenu; m++) {
 				MENU *menu = &item->menu[m];
-				if(item->multicol)
+				if(IFL(item->,MULTICOL))
 					sumwidth += menu->sumwidth;
 				if(!menu->label) {
 					msg += "Field ";
@@ -377,7 +384,7 @@ bool verify_form(
 					msg += " has a blank label";
 					if(item->type == IT_INPUT ||
 					   (!menu->flagcode && !menu->flagtext &&
-					    (!item->multicol ||
+					    (!IFL(item->,MULTICOL) ||
 					     (!menu->name && !menu->column)))) {
 						memmove(item->menu + m,
 							item->menu + m + 1,
@@ -386,7 +393,7 @@ bool verify_form(
 						item->nmenu--;
 						--m;
 						continue;
-					} else if(item->multicol) {
+					} else if(IFL(item->,MULTICOL)) {
 						if(menu->name)
 							menu->label = mystrdup(menu->name);
 						else {
@@ -399,7 +406,7 @@ bool verify_form(
 					} else
 						msg += '\n';
 				}
-				if(item->multicol && !menu->name) {
+				if(IFL(item->,MULTICOL) && !menu->name) {
 					char newname[40], *pref = item->label;
 					if(BLANK(pref)) {
 						sprintf(newname, "item%d", nitem);
@@ -423,7 +430,7 @@ bool verify_form(
 							menu->name);
 				}
 				if(item->type != IT_INPUT && BLANK(menu->flagcode)) {
-					menu->flagcode = mystrdup(item->multicol ? "1" : menu->label);
+					menu->flagcode = mystrdup(IFL(item->,MULTICOL) ? "1" : menu->label);
 					msg += "Field ";
 					add_field_name(msg, form, nitem + m * form->nitems);
 					msg += qsprintf(" has blank code;"
@@ -455,7 +462,7 @@ bool verify_form(
 					}
 					// multicol name/col dups are found below
 					if(item->type != IT_INPUT && 
-					   !item->multicol &&
+					   !IFL(item->,MULTICOL) &&
 					   !strcmp(STR(menu->flagcode),
 						   STR(omenu->flagcode))) {
 					    msg += "Field ";
@@ -467,7 +474,7 @@ bool verify_form(
 			}
 		}
 		if(IN_DBASE(item->type)) {
-			if(!item->multicol) {
+			if(!IFL(item->,MULTICOL)) {
 				ITEM *oitem = NULL;
 				auto it = sym->find(item->name);
 				if(it != sym->end())
@@ -732,8 +739,8 @@ void item_deselect(
 
 	for (i=0; i < form->nitems; i++) {
 		item = form->items[i];
-		if (item->selected) {
-			item->selected = false;
+		if (IFL(item->,SELECTED)) {
+			IFC(item->,SELECTED);
 			redraw_canvas_item(item);
 		}
 	}
@@ -776,7 +783,7 @@ bool item_create(
 		item = zalloc(0, "form field", ITEM, 1);
 		form->items[nitem] = item;
 		item->type	   = IT_INPUT;
-		item->selected	   = true;
+		IFS(item->,SELECTED);
 		item->labeljust	   = J_LEFT;
 		item->inputjust	   = J_LEFT;
 		item->column       = 1;
@@ -819,9 +826,9 @@ bool item_create(
 			free(item->flagtext);
 		item->flagtext = 0;
 	} else {
-		if (IN_DBASE(item->type) && !item->multicol)
+		if (IN_DBASE(item->type) && !IFL(item->,MULTICOL))
 			item->column = avail_column(form, item);
-		else if(item->multicol) {
+		else if(IFL(item->,MULTICOL)) {
 			for(i = 0; i < item->nmenu; i++)
 				item->menu[i].column = avail_column(form, i ? NULL : item);
 		}
@@ -837,7 +844,7 @@ int avail_column(const FORM *form, const ITEM *item)
 {
     int n = form->nitems, col = 0, t, i, j, k, m;
     for (i=m=0; i < n; i++) {
-	if(form->items[i]->multicol) {
+	if(IFL(form->items[i]->,MULTICOL)) {
 	    if(m < form->items[i]->nmenu) {
 		m++;
 		i--;
@@ -850,11 +857,11 @@ int avail_column(const FORM *form, const ITEM *item)
 	    t = form->items[j]->type;
 	    if (form->items[j] == item)
 		continue;
-	    if (IN_DBASE(t) && !form->items[j]->multicol &&
+	    if (IN_DBASE(t) && !IFL(form->items[j]->,MULTICOL) &&
 		form->items[j]->column == col) {
 		col++;
 		break;
-	    } else if (form->items[j]->multicol) {
+	    } else if (IFL(form->items[j]->,MULTICOL)) {
 		for (k = 0; k < form->items[j]->nmenu; k++) {
 		    if (form->items[j]->menu[k].column == col) {
 			col++;
@@ -957,6 +964,14 @@ ITEM *item_clone(
 		for (i=0; i < item->ch_ncomp; i++)
 			clone_chart_component(&item->ch_comp[i],
 					    &parent->ch_comp[i]);
+	}
+	if (item->nfkey) {
+		item->keys = alloc(0, "clone form field", FKEY, item->nfkey);
+		tmemcpy(FKEY, item->keys, parent->keys, item->nfkey);
+		for(i=0; i < item->nmenu; i++) {
+			item->menu[i] = parent->menu[i];
+			menu_clone(&item->menu[i]);
+		}
 	}
 	return(item);
 }

@@ -403,3 +403,125 @@ void dbase_sort(
 				}
 	}
 }
+
+int keylen_of(const ITEM *item)
+{
+	int n, keylen = 0;
+	for (n = 0; n < item->nfkey; n++)
+		if (item->keys[n].key)
+			++keylen;
+	return keylen;
+}
+
+static const ITEM *fitem;
+static int cmp_fname(const void *_a, const void *_b)
+{
+	const FKEY *ka = &fitem->keys[*(const int *)_a],
+		   *kb = &fitem->keys[*(const int *)_b];
+	const ITEM *ia = fitem->fkey_db->items[ka->item],
+	           *ib = fitem->fkey_db->items[kb->item];
+	const MENU *ma = IFL(ia->,MULTICOL) ? &ia->menu[ka->menu] : 0,
+		   *mb = IFL(ib->,MULTICOL) ? &ib->menu[kb->menu] : 0;
+	const char *a = ma ? ma->name : ia->name,
+		   *b = mb ? mb->name : ib->name;
+	return strcmp(a, b);
+}
+
+void sort_fkey(const ITEM *item, int keylen, int *keys)
+{
+	for (int n = keylen = 0; n < item->nfkey; n++)
+		if (item->keys[n].key)
+			keys[keylen++] = n;
+	fitem = item;
+	qsort(keys, keylen, sizeof(int), cmp_fname);
+}
+
+int fkey_lookup(
+	DBASE		*dbase,		/* database to search */
+	const FORM	*form,		/* fkey origin */
+	const ITEM	*item,		/* fkey definition */
+	const char	*val,		/* reference value */
+	int		keyno)		/* multi: array elt (ret. -2 if oob */
+{
+	/* no blank keys */
+	if (!val || !*val)
+		return -1;
+	char *vbuf = 0;
+
+	if (IFL(item->,FKEY_MULTI)) {
+		val = vbuf = unesc_elt_at(form, val, keyno);
+		/* no blank keys */
+		if (!vbuf)
+			return -2;
+	} else if(keyno)
+		return -2;
+	int n;
+	QString keyf;
+	/* each key may be an array */
+	int keylen = keylen_of(item);
+	/* ??? invalid form */
+	if (!keylen)
+		return -1;
+	int keys[keylen];
+	sort_fkey(item, keylen, keys);
+	char **vals;
+	if(keylen == 1)
+		vals = (char **)&val;
+	else {
+		int vlen;
+		vals = split_array(form, val, &vlen);
+		if(vlen != keylen) {
+			/* invalid data */
+			for(n = 0; n < vlen; n++)
+				zfree(vals[n]);
+			zfree(vals);
+			return -1;
+		}
+	}
+	int r;
+	for (r = 0; r < dbase->nrows; r++) {
+		for (n = 0; n < keylen; n++) {
+			const FKEY *k = &fitem->keys[keys[n]];
+			const ITEM *i = fitem->fkey_db->items[k->item];
+			const MENU *m = IFL(i->,MULTICOL) ? &i->menu[k->menu] : 0;
+			int col = m ? m->column : i->column;
+			const char *fval = dbase_get(dbase, r, col);
+			if (strcmp(fval, vals[n]))
+				break;
+		}
+		if (n == keylen)
+			break;
+	}
+	if (keylen > 1) {
+		for(n = 0; n < keylen; n++)
+			zfree(vals[n]);
+		zfree(vals);
+	}
+	return r == dbase->nrows ? -1 : r;
+}
+
+char *fkey_of(
+	DBASE		*dbase,		/* database to search */
+	int		row,		/* row */
+	const FORM	*form,		/* fkey origin */
+	const ITEM	*item)		/* fkey definition */
+{
+	int n, keylen = keylen_of(item);
+	/* ??? invalid form */
+	if (!keylen)
+		return 0;
+	int keys[keylen];
+	sort_fkey(item, keylen, keys);
+	char *ret = 0;
+	for (n = 0; n < keylen; n++) {
+		const FKEY *k = &fitem->keys[keys[n]];
+		const ITEM *i = fitem->fkey_db->items[k->item];
+		const MENU *m = IFL(i->,MULTICOL) ? &i->menu[k->menu] : 0;
+		int col = m ? m->column : i->column;
+		const char *fval = dbase_get(dbase, row, col);
+		if (keylen == 1)
+			return zstrdup(fval);
+		set_elt(&ret, n, fval, form);
+	}
+	return ret;
+}

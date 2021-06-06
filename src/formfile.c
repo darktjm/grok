@@ -16,10 +16,13 @@
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
+#include <set>
+#include <vector>
 
 static const char * const itemname[NITEMS] = {
 	"None", "Label", "Print", "Input", "Time", "Note", "Choice", "Flag",
-	"Button", "Chart", "Number", "Menu", "Radio", "Multi", "Flags" };
+	"Button", "Chart", "Number", "Menu", "Radio", "Multi", "Flags",
+	"Reference", "Referers"};
 
 
 /*
@@ -115,10 +118,10 @@ bool write_form(
 		write_int("sumcol     ", item->sumcol);
 		write_str("sumprint   ", item->sumprint);
 		write_int("column     ", item->column, || true); /* dynamic default */
-		write_int("search     ", item->search);
-		write_int("rdonly     ", item->rdonly);
-		write_int("nosort     ", item->nosort);
-		write_int("defsort    ", item->defsort);
+		write_int("search     ", IFL(item->,SEARCH));
+		write_int("rdonly     ", IFL(item->,RDONLY));
+		write_int("nosort     ", IFL(item->,NOSORT));
+		write_int("defsort    ", IFL(item->,DEFSORT));
 		write_int("timefmt    ", item->timefmt);
 		write_int("timewidget ", item->timewidget);
 		write_str("code       ", item->flagcode);
@@ -131,7 +134,7 @@ bool write_form(
 		write_str("invis      ", item->invisible_if);
 		write_str("skip       ", item->skip_if);
 		if(IS_MENU(item->type)) {
-			write_int("mcol       ", item->multicol);
+			write_int("mcol       ", IFL(item->,MULTICOL));
 			write_int("nmenu      ", item->nmenu);
 			for(int n = 0; n < item->nmenu; n++) {
 				MENU &m = item->menu[n];
@@ -163,8 +166,8 @@ bool write_form(
 						     item->ch_xmax, != 1.0);
 			write_2floatc("ch_yrange  ", item->ch_ymin,,
 						     item->ch_ymax, != 1.0);
-			write_2int("ch_auto    ", item->ch_xauto,
-						  item->ch_yauto);
+			write_2int("ch_auto    ", IFL(item->,CH_XAUTO),
+						  IFL(item->,CH_YAUTO));
 			write_2float("ch_grid    ",	item->ch_xgrid,
 							item->ch_ygrid);
 			write_2float("ch_snap    ",	item->ch_xsnap,
@@ -193,6 +196,29 @@ bool write_form(
 				write_chflt(mul);
 				write_chflt(add);
 			    }
+			}
+		}
+		if (item->type == IT_FKEY || item->type == IT_INV_FKEY) {
+			const FORM *f = item->fkey_db;
+			const char *gd = resolve_tilde(GROKDIR, 0);
+			int gdl = strlen(gd);
+			if (strncmp(gd, item->fkey_db->path, gdl) ||
+			    item->fkey_db->path[gdl] != '/')
+				gdl = 0;
+			else
+				gdl++;
+			write_str("fk_db      ", item->fkey_db->path + gdl);
+			write_int("fk_header  ", IFL(item->,FKEY_HEADER));
+			write_int("fk_search  ", IFL(item->,FKEY_SEARCH));
+			write_int("fk_multi   ", IFL(item->,FKEY_MULTI));
+			write_int("nfkey      ", item->nfkey);
+			for (int n = 0; n < item->nfkey; n++) {
+				if (IS_MULTI(f->items[item->keys[n].item]->type))
+					write_str("fkey       ", f->items[item->keys[n].item]->menu[item->keys[n].menu].name);
+				else
+					write_str("fkey       ", f->items[item->keys[n].item]->name);
+				write_int("_fk_key    ", item->keys[n].key);
+				write_int("_fk_disp   ", item->keys[n].display);
 			}
 		}
 	}
@@ -283,9 +309,34 @@ static char *get_string(FILE *fp, char *val, char *buf, size_t buflen,
 	}
 }
 
+struct tab_loading {
+	const char *path;
+	const char *dir;
+};
+
+static bool operator<(tab_loading a, tab_loading b) {
+	int c = strcmp(a.dir, b.dir);
+	if(c)
+		return c < 0 ? true : false;
+	return strcmp(a.path, b.path) < 0;
+}
+
+static std::set<tab_loading> loading_forms;
+
+struct fkey_resolve {
+	char *dbname;
+	char *fname;
+	FKEY *fkey;
+	ITEM *item;
+};
+
+static std::vector<fkey_resolve> keys_to_resolve;
+
+static void fix_fkey_refs(void);
+
 FORM *read_form(
 	const char		*path,		/* file to read list from */
-	bool			force)	/* overrwrite loaded forms */
+	bool			force)		/* overrwrite loaded forms */
 {
 	FORM			*form;
 	FILE			*fp;		/* open file */
@@ -296,6 +347,9 @@ FORM *read_form(
 	int			i;		/* item counter */
 	CHART			*chart = 0;	/* next chart component */
 	MENU			*menu = 0;	/* next menu item */
+	FKEY			*fkey = 0;	/* next fkey key field */
+	const FORM		*fkey_form = 0;	/* fkey's form def */
+	char			*fkey_db_name = 0; /* if not loaded */
 
 	/* Use same path as the GUI for relative names */
 	if(!strchr(path, '/')) {
@@ -334,8 +388,14 @@ FORM *read_form(
 	}
 	p = mystrdup(canonicalize(path, false));
 	char *dir = mystrdup(canonicalize(path, true));
+	tab_loading tl = { p, dir };
+	if (loading_forms.find(tl) != loading_forms.end()) {
+		zfree(dir);
+		zfree(p);
+		return 0;
+	}
 	if(!force)
-		for(form = form_list; form; form = form->next)
+		for(form = form_list; form; form = form->next) {
 			if(!strcmp(form->path, p)) {
 				fclose(fp);
 				if(strcmp(form->dir, dir)) {
@@ -356,6 +416,8 @@ FORM *read_form(
 				}
 				return form;
 			}
+		}
+	loading_forms.insert(tl);
 	form = form_create();
 	form->path = p;
 	form->dir = dir;
@@ -380,8 +442,9 @@ FORM *read_form(
 			}
 			chart = NULL;
 			menu = NULL;
+			fkey = NULL;
 			item  = form->items[form->nitems-1];
-			item->selected = false;
+			IFC(item->,SELECTED);
 			item->ch_curr  = 0;
 								/* header */
 		} else if (!item) {
@@ -469,13 +532,13 @@ FORM *read_form(
 			else if (!strcmp(key, "column"))
 					item->column = atoi(p);
 			else if (!strcmp(key, "search"))
-					item->search = atoi(p) ? true : false;
+					IFV(item->,SEARCH,atoi(p));
 			else if (!strcmp(key, "rdonly"))
-					item->rdonly = atoi(p) ? true : false;
+					IFV(item->,RDONLY, atoi(p));
 			else if (!strcmp(key, "nosort"))
-					item->nosort = atoi(p) ? true : false;
+					IFV(item->,NOSORT, atoi(p));
 			else if (!strcmp(key, "defsort"))
-					item->defsort = atoi(p) ? true : false;
+					IFV(item->,DEFSORT, atoi(p));
 			else if (!strcmp(key, "timefmt"))
 					item->timefmt = (TIMEFMT)atoi(p);
 			else if (!strcmp(key, "timewidget"))
@@ -499,7 +562,7 @@ FORM *read_form(
 			else if (!strcmp(key, "skip"))
 					STORE(item->skip_if, p);
 			else if (!strcmp(key, "mcol"))
-				 	item->multicol = atoi(p);
+				 	IFV(item->,MULTICOL, atoi(p));
 			else if (!strcmp(key, "nmenu"))
 					item->menu = zalloc(0, "form file",
 							    MENU, (item->nmenu = atoi(p)));
@@ -550,8 +613,8 @@ FORM *read_form(
 			else if (!strcmp(key, "ch_auto")) {
 					int xauto, yauto;
 					sscanf(p, "%d %d", &xauto, &yauto);
-					item->ch_xauto = xauto;
-					item->ch_yauto = yauto;
+					IFV(item->,CH_XAUTO, xauto);
+					IFV(item->,CH_YAUTO, yauto);
 			}
 			else if (!strcmp(key, "ch_grid"))
 					sscanf(p, "%lg %lg", &item->ch_xgrid,
@@ -590,6 +653,58 @@ FORM *read_form(
 					chart->value[key[7]-'0'].add = atof(p);
 			else if (chart && !strncmp(key, "_ch_expr", 8))
 					STORE(chart->value[key[8]-'0'].expr,p);
+			else if (!strcmp(key, "fk_db")) {
+					fkey_form = item->fkey_db = read_form(p);
+					if (!fkey_form) {
+						zfree(fkey_db_name);
+						fkey_db_name = mystrdup(p);
+					}
+			} else if (!strcmp(key, "fk_header"))
+					IFV(item->,FKEY_HEADER, atoi(p));
+			else if (!strcmp(key, "fk_search"))
+					IFV(item->,FKEY_SEARCH, atoi(p));
+			else if (!strcmp(key, "fk_multi"))
+					IFV(item->,FKEY_MULTI, atoi(p));
+			else if (!strcmp(key, "nfkey"))
+					item->keys = zalloc(0, "form file",
+							    FKEY, (item->nfkey = atoi(p)));
+			else if (!strcmp(key, "fkey")) {
+					fkey = !fkey ?
+						item->keys : fkey+1;
+					fkey->item = -1;
+					if (!fkey) {
+						fprintf(stderr, "no nkey space; fkey ignored");
+						continue;
+					}
+					if (!fkey_form) { // still loading
+						fkey_resolve fr;
+						fr.dbname = mystrdup(fkey_db_name);
+						fr.fname = mystrdup(p);
+						fr.fkey = fkey; // no reallocs
+						fr.item = item; // no reallocs
+						keys_to_resolve.push_back(fr);
+					}
+					if(fkey && fkey_form) 
+						for (int n = 0; n < fkey_form->nitems; n++) {
+							ITEM *it = fkey_form->items[n];
+							if (it->name && !strcmp(it->name, p)) {
+								fkey->item = n;
+								break;
+							}
+							if (IS_MULTI(it->type))
+								for (int m = 0; m < it->nmenu; m++)
+									if (it->menu[m].name &&
+									    !strcmp(it->menu[m].name, p)) {
+										fkey->item = n;
+										fkey->menu = m;
+										break;
+									}
+						}
+			}
+			else if (fkey && !strcmp(key, "_fk_key"))
+					fkey->key = atoi(p) ? true : false;
+			else if (fkey && !strcmp(key, "_fk_disp"))
+					fkey->display = atoi(p) ? true : false;
 			else
 				fprintf(stderr,
 					"%s: %s: ignored item keyword %s\n",
@@ -597,6 +712,8 @@ FORM *read_form(
 		}
 	}
 	fclose(fp);
+	zfree(fkey_db_name);
+	loading_forms.erase(tl);
 	/* verify_form() will also create the symtab */
 	if(!verify_form(form, NULL, mainwindow)) {
 		form_delete(form);
@@ -605,6 +722,7 @@ FORM *read_form(
 	if(!force) {
 		form->next = form_list;
 		form_list = form;
+		fix_fkey_refs();
 		return form;
 	}
 	/* first pass: replace forms and collect possible dbase replacements */
@@ -648,6 +766,7 @@ FORM *read_form(
 					/* it's unsafe to readback texts with new form */
 					card_readback_texts(card, -1);
 					card->form = nform;
+					/* FIXME:  adjust fkey refs */
 				}
 			form_delete(oform);
 			if(!*prev)
@@ -655,6 +774,7 @@ FORM *read_form(
 		}
 	form->next = form_list;
 	form_list = form;
+	fix_fkey_refs();
 	/* 2nd pass: update databases if form->dbase/proc/name changed */
 	while(repl_dbase) {
 		DBASE *odbase = repl_dbase;
@@ -675,6 +795,7 @@ FORM *read_form(
 				if(card != ncard) {
 					if(mainwindow->card == card)
 						mainwindow->card = ncard;
+					/* FIXME: adjust FKey ptrs to cards as well */
 					for(CARD **pc = &card_list; *pc; pc = &(*pc)->next)
 						if(*pc == card) {
 							*pc = ncard;
@@ -692,3 +813,31 @@ FORM *read_form(
 	return form;
 }
 
+static void fix_fkey_refs(void)
+{
+	for(auto i = keys_to_resolve.begin(); i != keys_to_resolve.end(); ) {
+		FORM *f = read_form(i->dbname);
+		if(!f) {
+			while(++i != keys_to_resolve.end() &&
+			      !strcmp(i->dbname, i[-1].dbname));
+			continue;
+		}
+		i->item->fkey_db = f;
+		for (int n = 0; n < f->nitems; n++) {
+			ITEM *it = f->items[n];
+			if (it->name && !strcmp(it->name, i->fname)) {
+				i->fkey->item = n;
+				break;
+			}
+			if (IS_MULTI(it->type))
+				for (int m = 0; m < it->nmenu; m++)
+					if (it->menu[m].name &&
+					    !strcmp(it->menu[m].name, i->fname)) {
+						i->fkey->item = n;
+						i->fkey->menu = m;
+						break;
+					}
+		}
+		keys_to_resolve.erase(i);
+	}
+}

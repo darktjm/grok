@@ -50,8 +50,8 @@ set_property(SOURCE ${BISON_parser_OUTPUTS} PROPERTY SKIP_AUTOMOC ON)
 set(grok_SRCS
 	canvdraw.c cardwin.c chart.c chartdrw.c convert.c dbase.c dbfile.c
         editwin.c eval.c evalfunc.c formfile.c formop.c formwin.c help.c
-	main.c mainwin.c popup.c prefwin.c query.c
-	querywin.c sectwin.c sumwin.c template.c templmk.c templwin.c
+	main.c mainwin.c popup.c prefwin.c query.c querywin.c refwin.c
+	sectwin.c sumwin.c template.c templmk.c templwin.c
 	util.c HtmlCssUtils.cpp saveprint.c ${BISON_parser_OUTPUT_SOURCE}
 	canv-widget.h chart-widget.h layout-qss.h
 #	grok-res.qrc
