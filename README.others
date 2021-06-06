@@ -1,0 +1,265 @@
+Grok is not the only application of its kind.  It's not even the first
+one I ever encountered.  To give a little perspective, here are a few
+of its competitors.
+
+Fiasco
+------
+
+Fiasco (http://aminet.net/search?query=fiasco) was the first such
+application I encountered.  I used Fiasco to make a data entry
+application for my mother's book collection fairly easily.  I haven't
+tried Fiasco in years, and, in fact, I never tried 2.22, the latest
+version on Aminet.  However, I have read the documentation for 2.22,
+and summarize some of its features here.
+
+Like grok, it includes a simple UI builder to create both the database
+schema and its primary user interface.  In fact, Fiasco's main window
+consists entirely of the form (Amiga's menus are in the title bar),
+and the UI builder is not a separate window, but the main window
+switched to edit mode.  The controls below the card in grok and the
+status line above the summary are presented in a separate window,
+called the Service Window, which can be toggled on and off (and may
+always pop up on startup).  The search functionality is all in
+separate popups invoked from keyboard or memory.  The summary list is
+another separate window, which just shows all fields by default (with
+their field names as headers); the columns can be hidden/shown,
+dragged for resizing, and dragged and dropped to reorder.
+
+The service window has next, prev, first, last, add, delete buttons
+and the database title and record number/count when in normal mode
+(Record Mode).  Fiasco also supports navigation to a specific record
+number and simple single-record cut/copy/paste via the menu/keyboard.
+In UI edit mode (called Mask Mode; Fiasco calls the UI design a mask),
+the service window has the database name, coordinates, delete and add
+(with the field type menu as well).  Simple placement, sizing and
+field naming is done in the main window. Advanced configuration of
+fields in Mask Mode is via a separate popup accessed from the
+menu/keyboard.
+
+The default search function is similar to grok's "Find and select"
+mode, since the listing is not presumed present.  There are also menu
+items with key bindings to find the previous and next item (grok may
+require extra keypresses for next, and has no previous).  Searching
+supports Amiga-style wildcards (superceded in grok by regular
+expressions, eventually).  It also supports fuzzy searching. 
+Basically the search form allows selection of fields to search, rather
+than requirng the user to know the field name(s) and entering simple
+expressions directly.  On the other hand, it also provides a way to
+enter complex expression directly, via a combo box-like GUI with
+built-in functions, operators and field names available for quick
+selection.  Then there is a Filter function that is more akin to
+grok's main search mode: it limits the navigation (and presumably the
+listing) to matching records.  The Replace function allows
+single-field mass editing, possibly with a formula for the replacement
+value.  You can also simply get a count of search results, if desired.
+Finally, fields can be individally "marked" for later mass operations,
+and can do mass marking via a search.  Marked records are highlighted
+in the list, selected for printing, and may be queried by expressions.
+
+Sorting is done by creating an in-database/on-disk sort index, rather
+than resorting the records.  A special global action must be performed
+on occasion to remove empties and regenerate the indices.  In fact,
+records are deleted by modifying the index, so it might be possible to
+undo a record deletion, even if written to disk, if the global
+Reogranize action hasn't been performed.  When grok saves, it saves
+everything, including the sort reordering.  It has an equivalent of
+the sort index in the query result array, but it only uses that for
+query results, and always sorts the rows directly.
+
+Import and Export are only supported for CSV-style files.  In fact,
+due to its binary file formats, that is the only way to deal with the
+data outside of Fiasco.  Printing is the only feature that sort of
+supports templates.  Rather than a template language, Fiasco has three
+"masks" for printing, which define the header, the record(s) and the
+footer.  The masks can be copied from the record mask or the current
+list window's format.  Basically, it trades of GUI ease of
+configurability with text editing at a level slightly higher than
+grok's old print mechanism.  However, there is a special hook/hack
+that allows one to execute an AREXX script instead of doing the usual
+method to produce the file to print.  This is a more complex, but more
+powerful way of providing flexible templates.  Fiasco comes with a TeX
+output AREXX "template".
+
+Editing the database in Mask mode is on a character grid, so it is
+possible to just use the keyboard for navigation, selection, and
+sizing.  Everything resizes when you choose a new font (but only one
+font is supported for the entire database).  There is no configuration
+of the database file format (e.g. field separator or column number);
+that is all managed internally.  In fact, it uses a binary format for
+both definition and data, so direct manipulation outside of Fiasco is
+not practical.  The advantage is that when fields are changed, added
+or removed, the database is immediately updated, converting data to
+conform to the new mask as losslessly as possible (then again, I may
+be misremembering: it may be necessary to do this manually, but grok
+1.5 didn't support this at all).  It is also possible to have fileds
+which are hidden in the UI, and are only editable by editing a field
+by name in the menu.
+
+Simple single-line fields include String (with a maximum width, so
+like Input), Integer, Float, Date, and Time (with optional range
+constraints on Integer and Float).  All of these are simple text-entry
+boxes with nothing extra except a form-defined default value, which
+can also be a formula (using Fiasco's own language, much like grok's).
+Booleans are checkbox fields; I don't think radio selection is
+possible.  Var String is like Note in that it supports any data
+length, and also multi-line text editing.  Cycle-type fields are like
+my new Choice Menu fields. Sliders are representations for integers,
+only.  Labels (called Text) and decoration in the form of solid lines
+(Bar) are also provided (unlike grok, fields do not have integrated
+labels).  Virtual fields are the equivalent of Print fields, I guess,
+except that they support both internal expressions and AREXX.  Externs
+are basically file names with the ability to invoke an external
+program, and Datatypes are media inset widgets supporting the Amiga
+Datatype facility for mutlimedia display.  Buttons are almost exactly
+like grok buttons in that they are just there to invoke external
+actions.
+
+Fiasco uses gropuing to group related widgets together.  They are
+moved as a group in the Mask Mode, and some kind of fields become
+interlocked.  Listview fields all select the same index, and sliders
+match their grouped integer widget.  In fact, the former is how you do
+multi-field foreign key displays; instead of a single widget which is
+a line of lists, the line is constructed manually.
+
+More complicated is the support for multiple values in a single field,
+as well as foreign keys.  The Listview attribute can be applied to any
+simple field, and it turns that field into a multi-value field with a
+generic string adder and a selection box to select and delete values,
+similar to grok's newer menu/query editors.  The foreign key support
+is awkward at best: the field you want to display has to be separately
+defined in the referring table; it takes three parameters: the ID
+field in the referring table (i.e., the reference itself, which
+apparently isn't the field you're editing; I guess you're editing a
+virtual version of the foreign table's field to display), the matching
+ID field in the foreign table, and the field to actually retrieve from
+the foreign table.  These can then be managed in one of four ways:
+direct editing and displaying of the foreign field, assuming a single
+matching foreign row (1:N), displaing of a sum of all values in the
+foreign field matching the key (1:Sum), and the listview variants that
+I'd have to experiment with to understand how they are meant to work.
+The 1:L method seems to support adding multiple foreign keys into the
+key field, simulating a side-table allowing many-to-many
+relationships. The N:L seems to support multi-editing child table
+values, although I don't know how.
+
+Fiasco also has an AREXX port, allowing remote control during
+operation, as well as data pulling for more advanced text formatting. 
+Scripts are executed at program startup, program shutdown, database
+load, database unload, and as button actions.  There is also a way to
+add ARexx scripts and other commands as per-database menu items,
+rather than requiring buttons.  In addition, Fiasco's built-in
+language is more powerful than grok's.  It supports user-defined
+functions, constants, and variables, and has a GUI for formula entry
+that provides much better and more immediate hints than a help dialog.
+
+Fiasco has a number of obvious flaws.  It is bound to the Amiga.  It
+can't be ported by a third party, because source is not available.  In
+fact, it is shareware ($25, but that was in 1999, and yes, I did not
+pay it even though I used it).  It hasn't been updated since 1999.  It
+uses an undocumented binary format for both the form definitions and
+the data files, although CSV import/export can at least be used to
+move to a different database.  Its methods of managing foreign keys
+are awkward at best.  Its expressions and data types are all
+home-made, although they are more than adequate for most purposes.
+
+GCStar
+------
+
+GCStar (gcstar.org) is the most modern, up-to-date program which comes
+close to what I'm doing here.  Nonetheless, it is not part of a major
+desktop environment, and development is likely slowed.  The
+documentation is only on-line, and hasn't been updated since 2007
+(since which a new field type has been added, for example).
+
+GCStar supports short text (single-line), long text (multi-line),
+number (with possible min/max.incr; if given, arrows can be used to
+adjust), boolean (checkbox), Pre-Defined Values list (radio group
+presented as drop-down menu), Image (file name presented as an image),
+File (just a file name with a button to select a file from FS), Simple
+List (a variable text value that is presented as a list with
+add/remove buttons; stored as separated value).  In addition, various
+fields can use a "history" to make value selection of values already
+in the database easier.  File names can also be accompanied by a Play
+button if it is a supported file format.  Numeric values can also be
+displayed as a row of stars (for ratings) if given constraints.
+Fields can be given a group, and when there are multiple groups, each
+group becomes a separate tab.  In addition, a field may be selected as
+a grouping aid for the hierarchical listing to the left.
+
+GCStar has flaws, as well.  It is a collection manager, and has many
+features tailored to that use that make it more awkward as a personal
+information manager.  Searching and sorting setup are awkward.  There
+is no simple listing; the only way to get a listing is to export in a
+viewable format (and even then, there is no really good report
+format).  The borrowing and tagging features are probably not that
+useful.  Also, while the entry form adjusts to font sizes well enough,
+it does so at the expense of being entirely vertical with fixed widths
+for everything.
+
+form.cgi
+--------
+
+form.cgi (no reference; written by me for a commercial entity
+1998-2001) was a program that provided an HTML GUI for selected tables
+in our product automatically generated from the schema.
+
+It had its own table containing form definitions, which was filled by
+reading the schema (which is non-standard, so the program was tied to
+Oracle) and constraints, with many assumptions due to the product's
+database design conventions.  For exmaple, a CHAR(1) field constrained
+to 'Y' and 'N' was considered a boolean, and a field ending with
+[[_ID]] was considered a numeric primary or foreign key.  It generated
+three main HTML pages: an Edit form, which displayed a single record
+with HTML widgets appropriate to the field type for creation or
+editing, a Search form, which presented each field in a more
+multi-valued form for searching, and a List form, for presentation of
+query results and selection for deletion and editing.  A sort of mass
+edit was possible with slight changes to the Edit form, as well as a
+quick multi-record edit by changing listing text into edit widgets.
+Supported fields included short text, integers and floats with
+possible constraints, long text (multi-line editable fields), radio
+groups (text with an in(...) constraint), foreign key fields, which
+displayed and allowed selection using the logical key (i.e., the first
+unique constraint, even if it contained multiple fields).  It also
+supported import and export of a query result and all its dependent
+children in a CGI-encoded logical format and automatically generated
+help text from field and table comments. For foreign key references,
+it also supported filling in search criteria for the child or parent
+and then going to the search form for the parent or child table, with
+the previous search criteria constrating the new table's search.
+
+The disadvantages of form.cgi are many:  only Oracle support (although
+the program that converted the schema to the form definition could
+probably have been rewritten for another database easily enough),
+old-style HTML3 and javascript interface (no node.js or modern CSS and
+document tree, with special hacks for various browsers).  I also never
+finished formulaic update of fields, and an associated mass copy and
+improvied mass edit feature.  I also felt that having child and parent
+tables in separate forms made some of the tables harder to manage than
+they should be.  Finallhy, as commercial software, I can't use any of
+it, and I no longer have access to the source code, and it's been
+nearly 20 years, so I don't really remember it that well.
+
+SQL Database tools
+------------------
+
+Most other GUI database tools don't really lessen the burden to
+average users on table and constraint creation, and only present data
+in a listing with editable text fields (to be verified upon insertion,
+rather than while entering data).  Of the ones I tried, sqliteman and
+sqlitebrowser are both too simplistic in the allowable column
+attributes and too much of a pain to actually do it in a GUI.  Of
+these two, sqlitebrowser is only slightly better.  The sqlitestudio
+program supports for features for columsn (more datatypes and
+constraints), but still provides no assistance for constraint entry.
+Data entry can also be done via a "form" view, which just presents
+columsn as large text areas, one per row (but that's still a better
+way to edit actual multi-line text fields than the single listing row).
+
+LibreOffice DBase
+-----------------
+
+Libreoffice DBase (libreoffice.org) combines awkward schema creation
+with an overly complex form editor.  However, once you've done both,
+it's probably fairly usable.  I gave up trying to convert my games
+database to LibreOffice, so I'll leave it at that.

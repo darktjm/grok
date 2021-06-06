@@ -1,0 +1,169 @@
+Prior to version 2.0, grok/xmbase_grok supported local character sets
+via 8-bit locale encodings, such as ISO Latin 1.  While it is possible
+that version 2.0 supported this as well, it is untested.  The
+advantage of this approach is easy character manipulation:  as long as
+you handle integer conversions correctly, it is as easy to handle as
+ASCII.  There are a few important disadvantages, though.  One obvious
+disadvantage is that some locales require more than 256 characters,
+such as most East Asian locales.  When breaking up a string
+charcter-by-character, multi-byte encodings that were deisgned to work
+around that limitation are broken, as are multi-byte encodings which
+do not uniquely encode important characters such as the database field
+delimiter.  Another issue is that many applications, including grok, do
+not store the encoding with the data.  The user's enviornment is the
+only place the encoding is stored.  This makes sharing data outside of
+a community that regularly uses the same encoding difficult.  The only
+way to have a portable 8-bit encoding is to use a system where only
+one such encoding is supported, like the Amiga with ISO Latin 1.
+
+The most popular multi-byte encoding in use today is Unicode,
+sometimes referred to as ISO 10646, but the ISO standard merely tracks
+Unicode, rather than specifying it.  Unicode is a 21-bit encoding,
+which normally requires 4-byte integers to store (although 3 would be
+sufficient, storage is always done in powers of two).  There are also
+standard methods for storing these as 2-byte integers, called UTF-16
+(system byte order), UTF-16LE (low byte first), and UTF-16BE (high
+byte first), with the caveats that file byte order must be
+auto-detected, and that some of the integers are in unbreakable pairs.
+There is also a standard method for storing these as 1-byte integers,
+called UTF-8, with the caveat that some of them are in unbreakable
+groups of up to four bytes.  Both of these encodings have the
+desirable properties that the unbreakable groups are easy to identify,
+and encodings are all unique (i.e., single-integer encodings are not
+used in multi-integer encodings, and multi-integer encodings have
+unique start and end encodings, so it is not possible to match a
+different character mid-string).  The Qt library that is used for the
+GUI chose to use UTF-16 internally for strings, and UTF-32 for
+characters, with all string manipulation functions correctly managing
+unbreakable pairs.  The choice is mostly one of personal preference,
+as the files need not be encoded the same way. The problem with UTF-16
+is that most Western languages require nearly twice as much storage
+space on average as with UTF-8.  The problem with UTF-8 is that some
+languages require 50% more storage on average than UTF-16.  The use of
+32-bit integers (sometimes called UTF-32 with various byte order
+variants) trades the use of even more storage space for the efficiency
+of not needing to deal with combining adjacent values for a single
+character, but see below for why this advantage is not so useful.  As
+someone from a Western locale, I prefer UTF-8, and while some
+processing is needed to convert to and from Qt, it isn't bad enough to
+convince me otherwise, so grok uses UTF-8 whenever Qt isn't directly
+involved.
+
+Unicode supports a large character set, but sometimes this is not
+large enough.  For this reason, Unicode also has special modifier
+characters, which modify the next character by adding accents or other
+features.  My terminology is a bit sloppy:  Unicode calls individual
+integers code points, and what constitutes a character depends on your
+point of view.  The combination of a code point and all of its
+modifiers is what normally maps to a single displayable character
+(glyph).  This combination is called a grapheme cluster in Unicode.
+There are also control code points (like tab and newline, but more)
+which don't correspond to a glyph at all.  Even when considering only
+visible grapheme clusters as characters, it is not always possible to
+manipulate a character outside of its context. There are control
+sequences which apply special meaning to all subsequent characters,
+and must be included everywhere the character is displayed.  All of
+these issues should be taken care of by the underlying display
+mechanisms, such as Qt or the operating system.  The reason it is
+important to understand this is that grok's templates and expressions
+operate on a per-code-point basis, not a per-grapheme or higher basis.
+The only functions that understand any of Unicode are the regular
+expression functions.  No additional functions will likely ever be
+included in grok's built-in expressions:  grok is not the master of
+text manipulation, and never will be.  For an example of how to at
+least partly deal with grapheme clusters in regular expressions, see
+the fancytext template, which does bolding and underlining by adding
+backspaces after visible grapheme clusters and either duplicating the
+cluster (bolding) or adding an underscore (underlining).
+
+While the encoding choice for internal usage is a matter of programmer
+preference, the encoding of I/O is not.  This means that files, export
+outputs, and standard output must be encoded, possibly in different
+ways.  The form definition and database files only support UTF-8 and
+UTF-16 with a mandatory initial Byte Order Mark character (U+FEFF).
+The format to write is either what was read or a preference-specified
+default;  the default for the preference itself is from the current
+locale if UTF-8 or UTF-16, and UTF-8 otherwise.  The safest way to
+handle old database and form definition files in other encodings is to
+convert to one of these manually.  UTF-8 is easiest, since it does not
+require a Byte Order Mark.  For example, the following converts ISO
+Latin 9 (ISO 8859-15, Latin 1 with EURO SIGN) to UTF-8:
+
+    find ~/.grok -type f | while read -r x; do
+       iconv -f ISO_8859-15 -t UTF-8 "$x" >/tmp/iconv.$$
+       cat /tmp/iconv.$$ >"$x"
+       rm /tmp/iconv.$$
+    done
+
+Use iconv -l to list available formats for iconv, or just leave out
+the -f option if your current locale (e.g. LANG=de_DE.iso885915@euro)
+specifies the source encoding.  There is no real portable way of adding
+a Byte Order Mark, but some versions of printf may be usable:
+
+    find ~/.grok -type f | while read -r x; do
+       printf '\xFF\xFE' >/tmp/iconv.$$
+       iconv -f ISO_8859-15 -t UTF-16LE "$x" >>/tmp/iconv.$$
+       cat /tmp/iconv.$$ >"$x"
+       rm /tmp/iconv.$$
+    done
+
+    find ~/.grok -type f | while read -r x; do
+       printf '\xFE\xFF' >/tmp/iconv.$$
+       iconv -f ISO_8859-15 -t UTF-16BE "$x" >>/tmp/iconv.$$
+       cat /tmp/iconv.$$ >"$x"
+       rm /tmp/iconv.$$
+    done
+
+A less safe way is to rely on automatic detection of alternate
+encodings.  The only way at present is to rely on encoding errors.
+The only 8-bit encoding errors detected are zeroes and characters with
+their high bit set which are not also correctly encoded UTF-8 (which
+is very likely with most such characters due to UTF-8's unnatural
+encoding).  Files will only be considered 16-bit if the first
+character is a Byte Order Mark; in that case, the only encoding errors
+are out-of-order surrogate characters (the ones that make up
+unbrekable pairs).  If such a file is detected, it is handled
+differently depending on whether or not the interactive GUI is
+present.  If not, the file will be handled as if it were encoded in
+ISO Latin 1 (which maps directly to the first 256 characters of
+Unicode) on input, will never be saved, and will be assumed to be the
+correct local encoding on standard output.  In interactive mode, a
+popup will ask what the encoding is, which defaults to the current
+locale if it isn't UTF-8, and ISO Latin 1 otherwise, and the file will
+immediately be saved using the preferred Unicode encoding.  The
+available formats for input are usually the same as for the iconv
+command-line utility; read the iconv_open manual page for details.  If
+you are unable to provide an encoding that is supported for conversion
+to UTF-8 using your system's iconv routine, the GUI will simply reject
+the file entirely and abort the load.
+
+Template files are handled the same way:  exports from the comand line
+treat encoding errors as ISO Latin 1, and GUI exports or attempts to
+edit template files will prompt for the format.  Procedural database
+scripts are executed by the operating system, so grok technically
+doesn't care about their encoding.  However, they may be edited by the
+internal editor, in which case the input encoding is assumed to be ISO
+Latin 1 on read, and is always output as UTF-8.  If this behavior is
+unacceptable, you must edit these files using an external editor.
+
+Templates should always assume that they are exporting Unicode.  This
+is always converted to the current locale on output using the C
+library's iconv function; no other output formats are supported.  If
+you want a different encoding, you will have to change your locale
+(usually by setting LC_ALL or LANG in the enviroment) before running
+grok.  The same applies to non-export command-line output using -h,
+-d, -v, -t, -T, or -p.  Command-line options such as the form name,
+template name, and query are similarly converted from the current
+locale to Unicode.  As a special exception to template file processing
+above, reading a template from standard input is also always converted
+from the current locale.
+
+One final note:  if your system does not have a capable iconv, or grok
+was compiled without iconv support, or the nl_langinfo function is not
+available, conversion behavior is different. The GUI will warn about
+invalid encodings, but will assume ISO Latin 1 like the command line
+would (and may even write the files back that way: beware!).
+Command-line options, standard input, and standard output are all
+converted using the C library's wctomb and mbtowc function, which may
+or may not do the right thing, since it's affected by the locale's
+LC_CTYPE/CODESET information.
