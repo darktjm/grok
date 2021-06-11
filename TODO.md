@@ -59,21 +59,25 @@ Features in Progress
   - no parent-restricted mode
 
   - no testing of inv_fkey or fkey_multi
-  
-  - in dlc's purchase selector, one or more widgets go blank when
-    specific item selected
 
-  - date fields are sorted by text
+  - clearing title field of purchase in dlc always clears other 2
 
-  - no testing of summary
-  
+  - only summary testing is of single-level single-field fkey
+
+  - make_summary_line() leaks CARDs
+
   - no testing (or coding, really) of template output
   
   - searches don't search visible fields instead of fkey
   
   - search restriction text field does nothing
   
-  - templmk: just doing a deref() is insufficent
+  - templmk: just doing a deref() is insufficent: summary should use
+    juxt. fields to display just one value, for example
+    
+  - I probably ought to disallow single fkey references to display multi
+    fkey references, or make such a reference auto-convert the widget to
+    a multi-reference widget
 
  db menu fixes:
 

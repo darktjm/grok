@@ -527,44 +527,70 @@ struct FKeySelector : public CardComboBox {
 	void fcard_from(const FKeySelector *fk) {
 		fcard = fk->fcard;
 	}
-	/* refilter all widgets and return row (>= 0) if only one matches */
-	int refilter() {
-		int r = set_filter();
+	/* refilter all widgets */
+	void refilter() {
+		set_filter();
 		for(FKeySelector *f = next; f != this; f = f->next)
 			f->set_filter();
-		return r;
+	}
+	/* look up row in fcard->dbase corresponding to given row in base table */
+	int lookup(const char *key, int keyno, CARD *fc = 0)
+	{
+		if (!fc)
+			fc = fcard;
+		CARD *oc = fc->fkey_next;
+		if (oc->fkey_next) {
+			int r = lookup(key, keyno, oc);
+			if (r < 0)
+				return r;
+			key = dbase_get(fc->dbase, r, fc->form->items[fc->qcurr]->column);
+			keyno = 0; /* no way to handle multi here */
+		}
+		return fkey_lookup(fc->dbase, oc->form, oc->form->items[fc->qcurr],
+				   key, 0);
+	}
+	void clear_group(FKeySelector *end = 0) {
+		if (end == this)
+			return;
+		base_row = -1;
+		QSignalBlocker sb(this);
+		setCurrentIndex(0);
+		next->clear_group(end ? end : this);
 	}
     private:
 	typedef std::vector<bool> rowrestrict;
 	void row_restrict(const CARD *c, int col, const char *val, rowrestrict &restrict,
-			  int &br, bool br_only = false)
+			  bool br_only = false)
 	{
+		base_row = -1;
 		for (int r = 0; r < c->dbase->nrows; r++)
 			if (!restrict[r]) {
 				const char *dv = dbase_get(c->dbase, r, col);
 				bool is_ok = !strcmp(STR(dv), STR(val));
 				if (!br_only)
 					restrict[r] = !is_ok;
-				if (is_ok && !c->fkey_next)
-					br = br == -1 ? r : -2;
+				if (is_ok && !c->fkey_next->fkey_next)
+					base_row = base_row == -1 ? r : -2;
+				if (br_only && base_row == -2)
+					return;
 			}
 	}
 
 	void fkey_restrict(const CARD *fc, const ITEM *item, rowrestrict &restrict,
-			   rowrestrict frestrict, int &br)
+			   rowrestrict frestrict)
 	{
 		const CARD *c = fc->fkey_next;
 		for (int r = 0; r < fc->dbase->nrows; fc++)
 			if (!frestrict[r]) {
 				char *v = fkey_of(fc->dbase, r, c->form, item);
-				row_restrict(c, item->column, v, restrict, br);
+				row_restrict(c, item->column, v, restrict);
 				zfree(v);
 			}
-						  
 	}
 
 	void restrict(const FKeySelector *fk, const CARD *fc, rowrestrict &ret,
-		      int &br, bool recurse = false) {
+		      bool recurse = false) {
+		base_row = -1;
 		rowrestrict tmp;
 		rowrestrict &cur = fc == fk->fcard ? ret : tmp;
 		/* first, restrict based on current value */
@@ -576,9 +602,9 @@ struct FKeySelector : public CardComboBox {
 			if (IFL(fit->,MULTICOL))
 				col = fit->menu[fk->item->keys[fk->fkey].menu].column;
 			/* but actually only restrict on recurse */
-			row_restrict(fcard, col, val, cur, br, !recurse);
+			row_restrict(fcard, col, val, cur, !recurse);
 			free(val);
-			if (br >= 0)
+			if (base_row >= 0)
 				return;
 		}
 		/* then, restrict based on peers */
@@ -592,9 +618,9 @@ struct FKeySelector : public CardComboBox {
 						break;
 				if (!c)
 					continue;
-				br = -1;
-				restrict(ofk, c, cur, br, true);
-				if (br >= 0)
+				base_row = -1;
+				restrict(ofk, c, cur, true);
+				if (base_row >= 0)
 					return;
 			}
 		/* then, restrict downwards if needed */
@@ -602,19 +628,17 @@ struct FKeySelector : public CardComboBox {
 			const ITEM *fit = fk->item;
 			const CARD *c;
 			
-			for (c = fk->fcard; ; c = c->fkey_next) {
+			for (c = fk->fcard; /* c->fkey_next */; c = c->fkey_next) {
 				rowrestrict frestrict = cur;
 				cur = c == fc ? ret : tmp;
 				cur.resize(c->fkey_next->dbase->nrows, false);
-				br = -1;
-				fkey_restrict(c, fit, cur, frestrict, br);
-				if (br >= 0)
+				fkey_restrict(c, fit, cur, frestrict);
+				if (base_row >= 0)
 					return;
-				/* continue all the way down to set br */
-#if 0
+#if 0 /* continue all the way down to set base_row */
 				if (c == fc)
-#else
-				if (!c->fkey_next)
+#else /* but skip next 2 lines instead of relying on loop end condition */
+				if (!c->fkey_next->fkey_next)
 #endif
 					break;
 				tmp.clear();
@@ -623,10 +647,9 @@ struct FKeySelector : public CardComboBox {
 		}
 	}
 
-	int set_filter() {
-		int br = -1;
+	void set_filter() {
 		rowrestrict filter;
-		restrict(this, fcard, filter, br);
+		restrict(this, fcard, filter);
 		QStringList sl;
 		/* const */ DBASE *dbase = fcard->dbase;
 
@@ -640,7 +663,33 @@ struct FKeySelector : public CardComboBox {
 				sl.append(STR(val));
 			}
 		}
-		sl.sort(Qt::CaseInsensitive);
+		switch (fit->type) {
+		    case IT_TIME:
+			std::sort(sl.begin(), sl.end(),
+				  [&](const QString &a, const QString &b) {
+					  if (b.isEmpty())
+						  return false;
+					  if (a.isEmpty())
+						  return true;
+					  char *as = qstrdup(a);
+					  char *bs = qstrdup(b);
+					  time_t at = parse_time_data(as, fit->timefmt);
+					  time_t bt = parse_time_data(bs, fit->timefmt);
+					  zfree(as);
+					  zfree(bs);
+					  return at < bt;
+				  });
+			break;
+		    case IT_NUMBER:
+			std::sort(sl.begin(), sl.end(),
+				  [&](const QString &a, const QString &b) {
+					  return a.toDouble() < b.toDouble();
+				  });
+			break;
+		    default:
+			sl.sort(Qt::CaseInsensitive);
+		}
+		/* FIXME: replace w/ version that knows list is sorted */
 		sl.removeDuplicates();
 		QString sel = currentText();
 		bool blank = currentIndex() <= 0;
@@ -654,11 +703,12 @@ struct FKeySelector : public CardComboBox {
 			setCurrentIndex(0);
 		else
 			setCurrentIndex(sl.indexOf(sel) + 1);
-		return br < 0 ? -1 : br;
+		return;
 	}
 
     public:
 	CARD *fcard;
+	int base_row = -1;
     private:
 	FKeySelector *next;
 	ITEM *item;
@@ -1081,6 +1131,8 @@ static void create_item_widgets(
 			  if(item.keys[n].display)
 				  nvis++;
 		CARD *fcard = create_card_menu(item.fkey_db, read_dbase(item.fkey_db), 0, true);
+		fcard->fkey_next = card;
+		fcard->qcurr = nitem;
 		int col = 0;
 		FKeySelector *fks = 0;
 		QTableWidget *mw = multi ? new QTableWidget(carditem->w0) : 0;
@@ -1488,7 +1540,16 @@ static void card_callback(
 				w = 0;
 			}
 		}
-		int dbrow = w->refilter();
+		bool blank = w->currentIndex() <= 0;
+		if (blank && multi && !endrow) {
+			tw->removeRow(elt);
+			break;
+		}
+		w->refilter();
+		if (blank && w->base_row)
+			/* need to clear out all widgets to ensure blank remains */
+			w->clear_group();
+		int dbrow = w->base_row;
 		char *v = dbrow < 0 ? 0 : fkey_of(read_dbase(item->fkey_db),
 						  dbrow, item->fkey_db, item);
 		if (multi) {
@@ -1974,14 +2035,11 @@ void fillout_item(
 				}
 				break;
 			} else {
-				const FKEY *fk = item->keys;
 				FKeySelector *w = 0;
 				while(iter.hasNext()) {
 					w = dynamic_cast<FKeySelector *>(iter.next());
 					if(!w)
 						continue;
-					while (!fk->display)
-						fk++;
 					if (w->currentIndex() <= 0)
 						break;
 					w = 0;
@@ -2003,8 +2061,7 @@ void fillout_item(
 			}
 			break;
 		}
-		/* FIXME:  get from a widget */
-		DBASE *fdbase = read_dbase(item->fkey_db);
+		DBASE *fdbase = 0;
 		if (multi) {
 			QTableWidget *tw = 0;
 			while(iter.hasNext()) {
@@ -2014,6 +2071,7 @@ void fillout_item(
 			}
 			if (!tw)
 				break; // invalid form??
+			fdbase = static_cast<FKeySelector *>(tw->cellWidget(0, 0))->fcard->dbase;
 			for(int n = 0;;n++) {
 				int row = fkey_lookup(fdbase, card->form, item, data, n);
 				if(row < 0)
@@ -2026,7 +2084,6 @@ void fillout_item(
 		} else {
 			const FKEY *fk = item->keys;
 			FKeySelector *w = 0, *first = 0;
-			int row = fkey_lookup(fdbase, card->form, item, data, 0);
 			while(iter.hasNext()) {
 				w = dynamic_cast<FKeySelector *>(iter.next());
 				if(!w)
@@ -2037,18 +2094,21 @@ void fillout_item(
 					fk++;
 				ITEM *fitem = item->fkey_db->items[fk->item];
 				MENU *menu = &fitem->menu[fk->menu];
+				fk++;
 				int col = IFL(fitem->,MULTICOL) ? menu->column :
 					                          fitem->column;
 				QSignalBlocker sb(w);
 				w->clear();
 				w->addItem("");
+				int row = w->lookup(data, 0);
+				fdbase = w->fcard->dbase;
 				w->addItem(dbase_get(fdbase, row, col));
 				w->setCurrentIndex(1);
 			}
 			first->refilter();
 		}
 		/* FIXME: */
-		/* disable single if read-only; remove multi last blank row */
+		/* disable all widgets if read-only; remove multi last blank row */
 		break;
 	  }
 

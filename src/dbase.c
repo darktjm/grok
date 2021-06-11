@@ -486,7 +486,7 @@ int fkey_lookup(
 			const MENU *m = IFL(i->,MULTICOL) ? &i->menu[k->menu] : 0;
 			int col = m ? m->column : i->column;
 			const char *fval = dbase_get(dbase, r, col);
-			if (strcmp(fval, vals[n]))
+			if (strcmp(STR(fval), vals[n]))
 				break;
 		}
 		if (n == keylen)

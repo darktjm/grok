@@ -125,7 +125,7 @@ const char *mktemplate_html(
 	const CARD	*card,
 	FILE		*fp)		/* output file */
 {
-	struct menu_item *itemorder;	/* order of items in summary */
+	struct sum_item *itemorder;	/* order of items in summary */
 	int		nitems;		/* number of items in summary */
 	size_t		nalloc;		/* number of allocated items */
 	int		i, j, m;	/* item counter */
@@ -149,8 +149,8 @@ const char *mktemplate_html(
 	fprintf(fp, "<H2>Summary:</H2>\n<TABLE BORDER=0 CELLSPACING=3 "
 		"CELLPADDING=4 BGCOLOR=#e0e0e0>\n<TR>");
 	nalloc = card->form->nitems;
-	itemorder = alloc(0, "summary", struct menu_item, nalloc);
-	nitems = get_summary_cols(&itemorder, &nalloc, card->form);
+	itemorder = alloc(0, "summary", struct sum_item, nalloc);
+	nitems = get_summary_cols(&itemorder, &nalloc, const_cast<CARD *>(card));
 	for (i=0; i < nitems; i++) {
 		item = itemorder[i].item;
 		menu = itemorder[i].menu;
@@ -223,7 +223,7 @@ const char *mktemplate_html(
 	}
 	fputs("\\{ENDIF}\n", fp);
 	fprintf(fp, "\\{END}\n</TABLE>\n");
-	free(itemorder);
+	free_summary_cols(itemorder, nitems);
 	fputs("\\{ENDIF}\n", fp);
 							/*--- data list ---*/
 	fputs("\\{IF +s}\n", fp);
@@ -300,7 +300,7 @@ static const char *mktemplate_text(
 	FILE		*fp,		/* output file */
 	bool		overstrike)	/* fancy mode? */
 {
-	struct menu_item *itemorder;	/* order of items in summary */
+	struct sum_item *itemorder;	/* order of items in summary */
 	int		nitems;		/* number of items in summary */
 	size_t		nalloc;		/* number of allocated items */
 	int		i, j, m;	/* item counter */
@@ -365,8 +365,8 @@ static const char *mktemplate_text(
 	len = 0;
 	/* but recompute everything sumwin did to display the data */
 	nalloc = card->form->nitems;
-	itemorder = alloc(0, "summary", struct menu_item, nalloc);
-	nitems = get_summary_cols(&itemorder, &nalloc, card->form);
+	itemorder = alloc(0, "summary", struct sum_item, nalloc);
+	nitems = get_summary_cols(&itemorder, &nalloc, const_cast<CARD *>(card));
 	fputs("\n\\{FOREACH}\n", fp);
 	for (i=0; i < nitems; i++) {
 		item = itemorder[i].item;
@@ -435,7 +435,7 @@ static const char *mktemplate_text(
 			len += sumwidth;
 		}
 	}
-	free(itemorder);
+	free_summary_cols(itemorder, nitems);
 	fputs("\n\\{IF -n}\n", fp);
 	for (i=0; i < card->nitems; i++) {
 		item = card->form->items[i];
@@ -655,7 +655,7 @@ static void pr_dq(FILE *fp, const char *s, char q)
  */
 const char *mktemplate_sql(const CARD *card, FILE *fp)
 {
-	struct menu_item *itemorder;	/* order of items in summary */
+	struct sum_item *itemorder;	/* order of items in summary */
 	int		nitems;		/* number of items in summary */
 	size_t		nalloc;		/* number of allocated items */
 	int		i, j, m;	/* item counter */
@@ -816,8 +816,8 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		"DROP VIEW IF EXISTS %s_sum;\n"
 		"CREATE VIEW %s_sum AS SELECT\n", form->name, form->name);
 	nalloc = card->form->nitems;
-	itemorder = alloc(0, "summary", struct menu_item, nalloc);
-	nitems = get_summary_cols(&itemorder, &nalloc, card->form);
+	itemorder = alloc(0, "summary", struct sum_item, nalloc);
+	nitems = get_summary_cols(&itemorder, &nalloc, card);
 	for(i = 0; i < nitems; i++) {
 		item = itemorder[i].item;
 		menu = itemorder[i].menu;
@@ -947,7 +947,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		pr_dq(fp, label, '"');
 		putc('"', fp);
 	}
-	free(itemorder);
+	free_summary_cols(itemorder, nitems);
 	fprintf(fp,
 		"\n  FROM %s;\n"
 		"\\{ENDIF}\n"

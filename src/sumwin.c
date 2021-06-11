@@ -173,38 +173,49 @@ static int compare(
 	const void *u,
 	const void *v)
 {
-	const struct menu_item *mi0 = (const struct menu_item *)u;
-	const struct menu_item *mi1 = (const struct menu_item *)v;
+	const struct sum_item *mi0 = (const struct sum_item *)u;
+	const struct sum_item *mi1 = (const struct sum_item *)v;
 	if (mi0->sumcol != mi1->sumcol)
 		return mi0->sumcol - mi1->sumcol;
 	return mi0->sumoff - mi1->sumoff;
 }
 
-static void add_fkey_summary(struct menu_item **res, size_t *nres,
-			     const ITEM *item, int sumcol, int &ncol)
+static void add_fkey_summary(struct sum_item **res, size_t *nres,
+			     int itemno, int sumcol, int &ncol,
+			     CARD *rcard)
 {
+	const ITEM *item = rcard->form->items[itemno];
+	CARD *card = create_card_menu(item->fkey_db, read_dbase(item->fkey_db), 0, true);
+	card->fkey_next = rcard;
+	card->qcurr = itemno;
 	for (int i = 0; i < item->nfkey; i++) {
 		if (!item->keys[i].display)
 			continue;
 		const FKEY &fk = item->keys[i];
 		const ITEM *fit = item->fkey_db->items[fk.item];
 		if (fit->type == IT_FKEY) {
-			add_fkey_summary(res, nres, fit, sumcol, ncol);
+			add_fkey_summary(res, nres, fk.item, sumcol, ncol, card);
 			continue;
 		}
-		grow(0, "summary", struct menu_item, *res, ncol + 1, nres);
-		(*res)[ncol].form = item->fkey_db;
-		(*res)[ncol].sumcol = IFL(fit->,MULTICOL) ? fit->menu[fk.menu].sumcol :
+		grow(0, "summary", struct sum_item, *res, ncol + 1, nres);
+		(*res)[ncol].fcard = card;
+		
+		(*res)[ncol].sumcol = sumcol;
+#if 0
+		(*res)[ncol].sumoff = IFL(fit->,MULTICOL) ? fit->menu[fk.menu].sumcol :
 							    fit->sumcol;
+#else
 		(*res)[ncol].sumoff = ncol;
+#endif
 		(*res)[ncol].item = fit;
 		(*res)[ncol++].menu = IFL(fit->,MULTICOL) ? &fit->menu[fk.menu] : NULL;
 	}
 }
 
-int get_summary_cols(struct menu_item **res, size_t *nres, const FORM *form)
+int get_summary_cols(struct sum_item **res, size_t *nres, const CARD *card)
 {
 	int i, ncol, m;
+	const FORM *form = card->form;
 
 	for(i=ncol=0,m=-1; i < form->nitems; i++) {
 		const ITEM *item = form->items[i];
@@ -223,31 +234,74 @@ int get_summary_cols(struct menu_item **res, size_t *nres, const FORM *form)
 			i--; // keep processing same item
 		}
 		if (item->type == IT_FKEY) {
-			add_fkey_summary(res, nres, item, item->sumcol, ncol);
+			add_fkey_summary(res, nres, i, item->sumcol, ncol,
+					 const_cast<CARD *>(card));
 			continue;
 		}
-		grow(0, "summary", struct menu_item, *res, ncol + 1, nres);
-		(*res)[ncol].form = form;
+		grow(0, "summary", struct sum_item, *res, ncol + 1, nres);
+		(*res)[ncol].fcard = const_cast<CARD *>(card);
 		(*res)[ncol].sumcol = IFL(item->,MULTICOL) ? item->menu[m].sumcol :
 							     item->sumcol;
 		(*res)[ncol].sumoff = -1;
 		(*res)[ncol].item = item;
 		(*res)[ncol++].menu = IFL(item->,MULTICOL) ? &item->menu[m] : NULL;
 	}
-	qsort(*res, ncol, sizeof(struct menu_item), compare);
+	qsort(*res, ncol, sizeof(struct sum_item), compare);
 	return ncol;
+}
+
+void free_summary_cols(
+	struct sum_item	*cols,
+	size_t		ncols)
+{
+	for (size_t i = 0; i < ncols; i++)
+		if(cols[i].fcard->fkey_next) {
+			CARD *p = cols[i].fcard;
+			do {
+				for (size_t j = i + 1; j < ncols; j++)
+					if (cols[j].fcard->fkey_next) {
+						CARD **q = &cols[j].fcard;
+						while (*q != p && (*q)->fkey_next)
+							q = &(*q)->fkey_next;
+						if ((*q)->fkey_next) {
+							CARD *p2;
+							for (p2 = *q; p->fkey_next; p = p->fkey_next);
+							*q = p2;
+						}
+					}
+			} while ((p = p->fkey_next));
+			for (p = cols[i].fcard; p->fkey_next; ) {
+				CARD *q = p->fkey_next;
+				free_card(p);
+				p = q;
+			}
+		}
+	free(cols);
+}
+
+static int get_fkey_field(const CARD *fcard, int r)
+{
+	if (!fcard->fkey_next)
+		return r;
+	if (r < 0)
+		return -1;
+	r = get_fkey_field(fcard->fkey_next, r);
+	const ITEM *fitem = fcard->fkey_next->form->items[fcard->qcurr];
+	const char *key = dbase_get(fcard->fkey_next->dbase, r, fitem->column);
+	/* FIXME:  Somehow generate multiple rows if keyno can be > 0 */
+	return fkey_lookup(fcard->dbase, fcard->fkey_next->form, fitem, key, 0);
 }
 
 void make_summary_line(
 	char		**buf,		/* text buffer for result line */
 	size_t		*buf_len,	/* allocated length of *buf */
-	CARD		*card,		/* card with query results */
+	const CARD	*card,		/* card with query results */
 	int		row,		/* database row */
 	QTreeWidget	*w,		/* non-0: add line to table widget */
 	int		lrow)		/* >=0: replace row #lrow */
 {
 	static size_t	nsorted = 0;	/* size of <sorted> array */
-	static struct menu_item	*sorted = 0;	/* sorted item pointer list */
+	static struct sum_item	*sorted = 0;	/* sorted item pointer list */
 	const char	*data;		/* data string from the database */
 	int		data_len;
 	const ITEM	*item;		/* contains info about formatting */
@@ -266,18 +320,27 @@ void make_summary_line(
 	**buf = 0;
 	if (!card || !card->dbase || !card->form || row >= card->dbase->nrows)
 		return;
-	ncol = get_summary_cols(&sorted, &nsorted, card->form);
+	/* FIXME:  only reuse sorted if it's the same */
+	/*         otherwise call free_summary_cols() */
+	ncol = get_summary_cols(&sorted, &nsorted, card);
 
 	for (i=0; i < ncol; i++) {
 		item = sorted[i].item;
 		menu = sorted[i].menu;
-		if (row >= 0 && item->sumprint) {
-			int saved_row = card->row;
-			card->row = row;
-			data = evaluate(card, item->sumprint);
-			card->row = saved_row;
+		int r = row;
+		if (r >= 0 && sorted[i].fcard->fkey_next)
+			r = get_fkey_field(sorted[i].fcard, r);
+		if (r >= 0 && item->sumprint) {
+			CARD *c = sorted[i].fcard;
+			int saved_row = c->row;
+			c->row = r;
+			data = evaluate(c, item->sumprint);
+			c->row = saved_row;
 			data_len = BLANK(data) ? 0 : strlen(data);
-		} else if(row < 0) {
+		} else if(r < 0 && row >= 0) {
+			data = 0;
+			data_len = 0;
+		} else if(r < 0) {
 			data = item->type==IT_CHOICE ? item->name : item->label;
 			if(menu)
 				data = menu->label;
@@ -289,12 +352,13 @@ void make_summary_line(
 			if (item->type == IT_CHOICE) {
 				for(i++; i < ncol; i++)
 					if(sorted[i].item->type != IT_CHOICE ||
-					   sorted[i].item->sumcol != item->sumcol)
+					   sorted[i].item->sumcol != item->sumcol ||
+					   sorted[i].fcard != sorted[i - 1].fcard)
 						break;
 				i--;
 			}
 		} else {
-			data = dbase_get(card->dbase,row, menu?
+			data = dbase_get(sorted[i].fcard->dbase,r, menu?
 						    menu->column :
 						    item->column);
 			// skip over rest of IT_CHOICE group
@@ -302,7 +366,8 @@ void make_summary_line(
 			if (item->type == IT_CHOICE) {
 				for(i++; i < ncol; i++) {
 					if(sorted[i].item->type != IT_CHOICE ||
-					   sorted[i].item->sumcol != item->sumcol)
+					   sorted[i].item->sumcol != item->sumcol ||
+					   sorted[i].fcard != sorted[i - 1].fcard)
 						break;
 					if(!BLANK(data) &&
 					   !strcmp(data, STR(sorted[i].item->flagcode)))
@@ -331,7 +396,7 @@ void make_summary_line(
 				char sep, esc;
 				char *v = NULL;
 				int nv = 0;
-				get_form_arraysep(card->form, &sep, &esc);
+				get_form_arraysep(sorted[i].fcard->form, &sep, &esc);
 				for(j = 0; j < item->nmenu; j++) {
 					MENU *menu = &item->menu[j];
 					if(find_unesc_elt(data, menu->flagcode,

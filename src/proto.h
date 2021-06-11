@@ -518,26 +518,29 @@ void create_summary_menu(
 /* get_summary_cols() fills (*res)[] with sorted list of summary columns */
 /* nres is alloced size of res, and return value is # of filled entries */
 /* menu is non-NULL for multi-column fields */
-struct menu_item {
+struct sum_item {
 	const ITEM	*item;
 	const MENU	*menu;
-	const FORM	*form;
+	CARD		*fcard;
 	int		sumcol, sumoff;
 };
 int get_summary_cols(
-	struct menu_item**res,
+	struct sum_item	**res,
 	size_t		*nres,
-	const FORM	*form);
+	const CARD	*card);
+void free_summary_cols(
+	struct sum_item	*cols,
+	size_t		ncols);
 void make_summary_line(
 	char		**buf,		/* text buffer for result line */
 	size_t		*buf_len,	/* allocated length of *buf */
-	CARD		*card,		/* card with query results */
+	const CARD	*card,		/* card with query results */
 	int		row,		/* database row */
 	QTreeWidget	*w = 0,		/* non-0: add line to table widget */
 	int		lrow = -1);	/* >=0: replace row #lrow */
 /* setting the header will never modify card */
 #define make_summary_header(b, l, c, w) \
-	make_summary_line(b, l, const_cast<CARD *>(c), -1, w)
+	make_summary_line(b, l, c, -1, w)
 void make_plan_line(
 	CARD		*card,		/* card with query results */
 	int		row);		/* database row */
