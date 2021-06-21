@@ -233,9 +233,31 @@ static void verify_col(const FORM *form, const char *type, int **acol,
 	return;
 }
 
+static bool fkey_loop(const FORM *form, const ITEM *item,
+		      const FORM *oform, const ITEM *oitem)
+{
+	if (item->type != IT_FKEY && item->type != IT_INV_FKEY)
+		return false;
+	if (!item->fkey_db)
+		return false; /* actually, can't check */
+	bool sform = !strcmp(item->fkey_db->name, oform->name);
+	for (int n = 0; n < item->nfkey; n++) {
+		/* FIXME: should probably check fkey_db & such instead */
+		if (sform && oform->items[item->keys[n].item] == oitem)
+			return true;
+		if (fkey_loop(item->fkey_db, item->fkey_db->items[item->keys[n].item],
+			      oform, oitem))
+			return true;
+		if (fkey_loop(item->fkey_db, item->fkey_db->items[item->keys[n].item],
+			      form, item))
+			return true;
+	}
+	return false;
+}
+
 bool verify_form(
 	FORM		*form,		/* form to verify */
-	int		*bug,		/* retuirned buggy item # */
+	int		*bug,		/* returned buggy item # */
 	QWidget		*shell)		/* error popup parent */
 {
 	int		nitem, ni;	/* item counter */
@@ -358,6 +380,75 @@ bool verify_form(
 			msg += "Field ";
 			add_field_name(msg, form, nitem);
 			msg += " has no button action\n";
+		}
+		if ((item->type == IT_FKEY || item->type == IT_INV_FKEY) &&
+		    item->fkey_db) { /* can't check if fkey_db not yet loaded */
+			int nvis = 0, nkey = 0;
+			for (int n = 0; n < item->nfkey; n++) {
+				int itid = item->keys[n].item;
+				if (itid < 0) {
+					nvis = nkey = -99999;
+					continue;
+				}
+				const ITEM *fitem = item->fkey_db->items[itid];
+				if (IFL(fitem->,MULTICOL))
+					itid += item->keys[n].menu * item->fkey_db->nitems;
+				if (item->keys[n].key) {
+					nkey++;
+					if (item->type == IT_INV_FKEY &&
+					    fitem->fkey_db &&
+					    (fitem->type != IT_FKEY ||
+					     strcmp(fitem->fkey_db->name,
+						    form->name))) {
+						/* FIXME:  enforce in editor */
+						msg += "Field ";
+						add_field_name(msg, form, nitem);
+						msg += " key ";
+						add_field_name(msg, item->fkey_db, itid);
+						msg += " is not a valid key field";
+					}
+				}
+				if (item->keys[n].display) {
+					nvis++;
+					if (item->type == IT_INV_FKEY &&
+					    item->keys[n].key) {
+						msg += "Field ";
+						add_field_name(msg, form, nitem);
+						msg += " displays key ";
+						add_field_name(msg, item->fkey_db, itid);
+						msg += "; setting invisible\n";
+						nvis--;
+						item->keys[n].display = false;
+					}
+				}
+				if (fkey_loop(item->fkey_db, fitem, form, item)) {
+					msg += "Field ";
+					add_field_name(msg, form, nitem);
+					msg += " has a reference loop.\n";
+				}
+			}
+			if (!nvis && (item->type != IT_INV_FKEY || item->ys - item->ym > 4)) {
+				msg += "Field ";
+				add_field_name(msg, form, nitem);
+				msg += " displays no data.\n";
+			}
+			/* FIXME:  enforce this in GUI as well */
+			if (nvis && item->type == IT_INV_FKEY && item->ys - item->ym <= 4) {
+				msg += "Field ";
+				add_field_name(msg, form, nitem);
+				msg += ": displayed data ignored.\n";
+			}
+			if (!nkey) {
+				msg += "Field ";
+				add_field_name(msg, form, nitem);
+				msg += " has no matching key.\n";
+			}
+			/* FIXME:  enforce this in GUI as well */
+			if (nkey > 1 && item->type == IT_INV_FKEY) {
+				msg += "Field ";
+				add_field_name(msg, form, nitem);
+				msg += " must specify only one key.\n";
+			}
 		}
 		if (IFL(item->,MULTICOL)) {
 			// FIXME: enforce this in GUI as well
@@ -567,7 +658,8 @@ bool verify_form(
 				STR(item->name), nitem,
 				item->maxlen);
 	}
-	check_loaded_forms(msg, form);
+	if (form->dbase)
+		check_loaded_forms(msg, form);
 	if(msg.size()) {
 		char *s = qstrdup(msg);
 		create_error_popup(shell, 0, s);

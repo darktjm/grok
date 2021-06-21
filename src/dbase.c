@@ -413,27 +413,12 @@ int keylen_of(const ITEM *item)
 	return keylen;
 }
 
-static const ITEM *fitem;
-static int cmp_fname(const void *_a, const void *_b)
+void copy_fkey(const ITEM *item, int *keys)
 {
-	const FKEY *ka = &fitem->keys[*(const int *)_a],
-		   *kb = &fitem->keys[*(const int *)_b];
-	const ITEM *ia = fitem->fkey_db->items[ka->item],
-	           *ib = fitem->fkey_db->items[kb->item];
-	const MENU *ma = IFL(ia->,MULTICOL) ? &ia->menu[ka->menu] : 0,
-		   *mb = IFL(ib->,MULTICOL) ? &ib->menu[kb->menu] : 0;
-	const char *a = ma ? ma->name : ia->name,
-		   *b = mb ? mb->name : ib->name;
-	return strcmp(a, b);
-}
-
-void sort_fkey(const ITEM *item, int keylen, int *keys)
-{
+	int keylen;
 	for (int n = keylen = 0; n < item->nfkey; n++)
 		if (item->keys[n].key)
 			keys[keylen++] = n;
-	fitem = item;
-	qsort(keys, keylen, sizeof(int), cmp_fname);
 }
 
 int fkey_lookup(
@@ -460,10 +445,12 @@ int fkey_lookup(
 	/* each key may be an array */
 	int keylen = keylen_of(item);
 	/* ??? invalid form */
-	if (!keylen)
+	if (!keylen) {
+		zfree(vbuf);
 		return -1;
+	}
 	int keys[keylen];
-	sort_fkey(item, keylen, keys);
+	copy_fkey(item, keys);
 	char **vals;
 	if(keylen == 1)
 		vals = (char **)&val;
@@ -475,14 +462,15 @@ int fkey_lookup(
 			for(n = 0; n < vlen; n++)
 				zfree(vals[n]);
 			zfree(vals);
+			zfree(vbuf);
 			return -1;
 		}
 	}
 	int r;
 	for (r = 0; r < dbase->nrows; r++) {
 		for (n = 0; n < keylen; n++) {
-			const FKEY *k = &fitem->keys[keys[n]];
-			const ITEM *i = fitem->fkey_db->items[k->item];
+			const FKEY *k = &item->keys[keys[n]];
+			const ITEM *i = item->fkey_db->items[k->item];
 			const MENU *m = IFL(i->,MULTICOL) ? &i->menu[k->menu] : 0;
 			int col = m ? m->column : i->column;
 			const char *fval = dbase_get(dbase, r, col);
@@ -497,6 +485,7 @@ int fkey_lookup(
 			zfree(vals[n]);
 		zfree(vals);
 	}
+	zfree(vbuf);
 	return r == dbase->nrows ? -1 : r;
 }
 
@@ -511,11 +500,11 @@ char *fkey_of(
 	if (!keylen)
 		return 0;
 	int keys[keylen];
-	sort_fkey(item, keylen, keys);
+	copy_fkey(item, keys);
 	char *ret = 0;
 	for (n = 0; n < keylen; n++) {
-		const FKEY *k = &fitem->keys[keys[n]];
-		const ITEM *i = fitem->fkey_db->items[k->item];
+		const FKEY *k = &item->keys[keys[n]];
+		const ITEM *i = item->fkey_db->items[k->item];
 		const MENU *m = IFL(i->,MULTICOL) ? &i->menu[k->menu] : 0;
 		int col = m ? m->column : i->column;
 		const char *fval = dbase_get(dbase, row, col);

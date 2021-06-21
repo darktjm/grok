@@ -663,6 +663,14 @@ struct FKeySelector : public CardComboBox {
 				sl.append(STR(val));
 			}
 		}
+		if (sl.count() == 0) {
+			/* either foreign db empty or invalid key */
+			/* in any case, add all possible values */
+			for (int r = 0; r < dbase->nrows; r++) {
+				char *val = dbase_get(dbase, r, col);
+				sl.append(STR(val));
+			}
+		}
 		switch (fit->type) {
 		    case IT_TIME:
 			std::sort(sl.begin(), sl.end(),
@@ -1136,8 +1144,12 @@ static void create_item_widgets(
 		int col = 0;
 		FKeySelector *fks = 0;
 		QTableWidget *mw = multi ? new QTableWidget(carditem->w0) : 0;
-		if (multi)
-			  l->addWidget(mw, 0, 0);
+		if (multi) {
+			l->addWidget(mw, 0, 0);
+			if (!IFL(item.,FKEY_HEADER))
+				mw->horizontalHeader()->setVisible(false);
+			mw->verticalHeader()->setVisible(false);
+		}
 		for (n = 0; n < item.nfkey; n++)
 			if (item.keys[n].display)
 				  fks = add_fkey_field(carditem->w0, card, nitem,
@@ -1152,17 +1164,24 @@ static void create_item_widgets(
 			bb = new QBoxLayout(QBoxLayout::RightToLeft);
 			l->addLayout(bb, 1, 0);
 			QPushButton *b;
-			b = new QPushButton("=");
+			// b = new QPushButton("=");
+			b = new QPushButton(QIcon::fromTheme("document-open"), "");
 			b->setMinimumWidth(1);
 			set_button_cb(b, card_callback(nitem, card, false, -4));
 			bb->addWidget(b, 1);
-			b = new QPushButton("-");
+			// b = new QPushButton("-");
+			b = new QPushButton(QIcon::fromTheme("list-remove"), "");
 			b->setMinimumWidth(1);
 			set_button_cb(b, card_callback(nitem, card, false, -3));
 			bb->addWidget(b, 1);
-			b = new QPushButton("+");
+			// b = new QPushButton("+");
+			b = new QPushButton(QIcon::fromTheme("list-add"), "");
 			b->setMinimumWidth(1);
 			set_button_cb(b, card_callback(nitem, card, false, -2));
+			bb->addWidget(b, 1);
+			b = new QPushButton(QIcon::fromTheme("view-refresh"), "");
+			b->setMinimumWidth(1);
+			set_button_cb(b, card_callback(nitem, card, false, -5));
 			bb->addWidget(b, 1);
 		}
 		if (IFL(item.,FKEY_SEARCH)) {
@@ -1225,6 +1244,8 @@ static FKeySelector *add_fkey_field(
 						      ncol);
 		return prev;
 	}
+	if (!row && mw && mw->columnCount() <= col)
+		mw->setColumnCount(col + 1);
 	bool multi = item.type == IT_INV_FKEY || IFL(item.,FKEY_MULTI);
 	if (!row && IFL(item.,FKEY_HEADER)) {
 		const char *lab = fm ? (fm->label ? fm->label : "") :
@@ -1237,6 +1258,9 @@ static FKeySelector *add_fkey_field(
 	FKeySelector *w = new FKeySelector(card, nitem, multi ? 0 : p, fcard,
 					   &item, n);
 	if (multi) {
+		/* FIXME:  only add row if not read-only */
+		if (row >= mw->rowCount())
+			mw->setRowCount(row + 1);
 		mw->setCellWidget(row, col, w);
 		if (row > 0)
 			w->fcard_from(static_cast<FKeySelector *>(mw->cellWidget(row - 1, col)));
@@ -1471,7 +1495,7 @@ static void card_callback(
 				q += ';';
 			int keylen = keylen_of(item);
 			int keys[keylen];
-			sort_fkey(item, keylen, keys);
+			copy_fkey(item, keys);
 			for (int i = 0; i < keylen; i++) {
 				const FKEY &fk = item->keys[keys[i]];
 				ITEM *fit = item->fkey_db->items[fk.item];
@@ -2101,9 +2125,14 @@ void fillout_item(
 				w->clear();
 				w->addItem("");
 				int row = w->lookup(data, 0);
-				fdbase = w->fcard->dbase;
-				w->addItem(dbase_get(fdbase, row, col));
-				w->setCurrentIndex(1);
+				if (row < 0 ) {
+					/* invalid key: ignore for now */
+					w->setCurrentIndex(0);
+				} else {
+					fdbase = w->fcard->dbase;
+					w->addItem(dbase_get(fdbase, row, col));
+					w->setCurrentIndex(1);
+				}
 			}
 			first->refilter();
 		}
@@ -2125,6 +2154,53 @@ void fillout_item(
 		if (!tw)
 			break; // invalid form??
 		/* FIXME: fill table */
+		/* FIXME:  just setRowCount(0) if read-only */
+		while(tw->rowCount() > 1)
+			  tw->removeRow(0);
+		const ITEM *fit = 0;
+		for (int n = 0; n < item->nfkey; n++)
+			if (item->keys[n].key) {
+				fit = item->fkey_db->items[item->keys[n].item];
+				break;
+			}
+		char *key = fkey_of(card->dbase, card->row, item->fkey_db, fit);
+		if (!key)
+			  break;
+		char sep, esc;
+		get_form_arraysep(item->fkey_db, &sep, &esc);
+		DBASE *db = read_dbase(item->fkey_db);
+		bool multi = !!IFL(fit->,FKEY_MULTI);
+		for (int r = 0, tr = 0; r < db->nrows; r++) {
+			bool match = false;
+			const char *fk = dbase_get(db, r, fit->column);
+			if (multi) {
+				int alen;
+				char **ar = split_array(item->fkey_db, fk, &alen);
+				for (int n = 0; n < alen; n++)
+					if ((match = !strcmp(ar[n], key)))
+						break;
+				for (int n = 0; n < alen; n++)
+					free(ar[n]);
+				free(ar);
+			} else if(fk)
+				match = !strcmp(key, fk);
+			if (match) {
+				tw->insertRow(tr);
+				for (int f = 0, tc = 0; f < item->nfkey; f++) {
+					if (!item->keys[f].display)
+						continue;
+					int col;
+					const ITEM *dit = item->fkey_db->items[item->keys[f].item];
+					if (IFL(dit->,MULTICOL))
+						col = dit->menu[item->keys[f].menu].column;
+					else
+						col = dit->column;
+					tw->setItem(tr, tc++, new QTableWidgetItem(dbase_get(db, r, col)));
+				}
+				tr++;
+			}
+		}
+		free(key);
 		break;
 	  }
 

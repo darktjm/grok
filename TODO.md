@@ -41,24 +41,28 @@ Features in Progress
 --------------------
 
 - fkey issues:
-  - no way to display virtual fields (Print, Referers, Chart, etc)
+  - typing in a fkey_db name tries loading after every keystroke,
+    giving errors and popping up main window (i.e., db name must be
+    selected from menu)
 
-  - no form validity check:  1 key in inv, 1+ in fkey; 1+ visible, key
-    inv in fkey, no self-ref/ref loop @ field level
+  - no way to display virtual fields (Print, Referers, Chart, etc)
 
   - no data validity check:  all refs resolves to exactly 1,
     referred-to table lists all referrers, fkey_multi value is a set
 
   - no dealing w/ missing db on load/form edit
-  
+
   - no auto-add of referred-to table to ref by list in form editor for inv
 
-  - no auto-adjust of key field names if changed in foreign db (form
-    def and multi-field key order, requiring data adjustment as well)
+  - no auto-adjust of key field names if changed in foreign db
 
   - no parent-restricted mode
 
-  - no testing of inv_fkey or fkey_multi
+  - inv_fkey only barely displays list; all functionality not yet there
+
+  - no testing of fkey_multi or multi-field keys
+
+  - search restriction text field does nothing
 
   - clearing title field of purchase in dlc always clears other 2
 
@@ -67,14 +71,12 @@ Features in Progress
   - make_summary_line() leaks CARDs
 
   - no testing (or coding, really) of template output
-  
+
   - searches don't search visible fields instead of fkey
-  
-  - search restriction text field does nothing
-  
+
   - templmk: just doing a deref() is insufficent: summary should use
     juxt. fields to display just one value, for example
-    
+
   - I probably ought to disallow single fkey references to display multi
     fkey references, or make such a reference auto-convert the widget to
     a multi-reference widget
@@ -110,11 +112,8 @@ Features in Progress
   only retain the dbase & form if the dbase is modified or cached.
 
 
-- My original plan was to get fkey support into this release, but my
-  recent annoyance with Qt combined with the gog winter sale and the
-  fact that I seem to be introducing more bugs than features have
-  really lowered my motivation to do so.  The above-listed items will
-  be enough, and I may even drop multi-window support for now.
+- Due to recent hospitalization, I revisited fkey support, but I still
+  may drop multi-window support for now.
 
 Bugs
 ----
@@ -166,6 +165,9 @@ Bugs
 - Invalid long options pop up the usage() after the fork.  Fixing this
   without disabling fork entirely is probably never going to happen,
   because QApplication silently dies if it's run before the fork.
+
+- Sometimes form editor crashes when writing form def, causing it to
+  be wiped out
 
 Code Improvements
 -----------------

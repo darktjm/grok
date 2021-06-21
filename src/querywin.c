@@ -325,6 +325,7 @@ void print_query_info(void)
 		  case IT_TIME:
 		  case IT_NOTE:
 		  case IT_NUMBER:
+		  case IT_FKEY:
 			msg.append_comma;
 			msg.append(ip->name);
 			break;

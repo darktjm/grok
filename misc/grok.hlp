@@ -1547,17 +1547,14 @@
 
 	If the Multi-Ref flag is set, then this field can hold multiple keys,
 	and all cards from the referred-to database which match the keys will
-	be displayed in a scrollable table listing.  Buttons are below the
-	table:  + (Add), - (Delete) and = (Edit).  As with single references,
+	be displayed in a scrollable table listing.  As with single references,
 	Headers and Subsearch display headers in the table and a subsearch
-	text field to the right of the buttons, respectively.  The last row
-	of the table is a line of drop-down menus which operate similarly to
-	the single-reference UI, except that the selected entry is only added
-	if the + (Add) button is pressed.  Selecting an entry and pressing
-	- (Delete) will prompt for confirmation, and then delete the reference.
-	If desired, the referenced card can be deleted at the same time.  Selecting
-	an entry and pressing the = (Edit) button will switch to the referred-to
-	database with the selected card loaded for editing.
+	text field below the table, respectively.  New entries are added by
+	selecting menu entries in the bottom row as with single reference fields.
+	Causing a set entry to become unset, by blanking out one or more menus,
+	will delete that entry (and, if set menus remain, they will be set in
+	the bottom row).  Selecting a row before pressing the label will load
+	the selected item after switching to the foreign db.
 
 	Deleting a card referred to by this field will cause cascade deletes
 	(i.e., deletes of referers) only if the referred-to database knows that
@@ -1583,6 +1580,8 @@
 	retains the referred-to card.  This mode is also used when switching for
 	the = (Edit) button and using the label link.  The - (Delete) button will
 	prompt to either delete the reference or delete the entire referring card.
+	The circular arrow button will refresh the list; otherwise tracking is
+	generally not done.
 	
 	To only provide a link to a foreign db, make the height of the Referers widget
 	equal to the height of the label.  No visible fields are needed or allowed.

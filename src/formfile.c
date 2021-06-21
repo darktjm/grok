@@ -328,6 +328,7 @@ struct fkey_resolve {
 	char *fname;
 	FKEY *fkey;
 	ITEM *item;
+	FORM *form;
 };
 
 static std::vector<fkey_resolve> keys_to_resolve;
@@ -682,6 +683,7 @@ FORM *read_form(
 						fr.fname = mystrdup(p);
 						fr.fkey = fkey; // no reallocs
 						fr.item = item; // no reallocs
+						fr.form = form;
 						keys_to_resolve.push_back(fr);
 					}
 					if(fkey && fkey_form) 
@@ -838,6 +840,7 @@ static void fix_fkey_refs(void)
 						break;
 					}
 		}
+		verify_form(i->form, 0, 0);
 		keys_to_resolve.erase(i);
 	}
 }

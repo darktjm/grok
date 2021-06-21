@@ -127,10 +127,9 @@ char *fkey_of(
 	const ITEM	*item);		/* fkey definition */
 int keylen_of(
 	const ITEM	*item);		/* fkey definition; must be IT_*FKEY */
-void sort_fkey(
+void copy_fkey(
 	const ITEM	*item,		/* fkey definition; must be IT_*FKEY */
-	int		keylen,		/* computed by keylen_of */
-	int		*keys);		/* array of length keylen; filled in
+	int		*keys);		/* array of length keylen_of; filled in
 					   with indeces into item->keys */
 
 /*---------------------------------------- dbfile.c ------------*/
