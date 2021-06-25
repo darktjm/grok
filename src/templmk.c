@@ -731,7 +731,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		if(item->type != IT_FKEY)
 			continue;
 		for(j = m = 0; j < item->nfkey; j++) {
-			if(!item->keys[j].key)
+			if(!item->fkey[j].key)
 				continue;
 			if(m++)
 				break;
@@ -739,7 +739,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		if(j < item->nfkey) {
 			fputs(",\n    FOREIGN KEY (", fp);
 			for(j = m = 0; j < item->nfkey; j++)
-				if(item->keys[j].key) {
+				if(item->fkey[j].key) {
 					if(m++)
 						fprintf(fp, ",%s_%d", item->name, m);
 					else
@@ -1287,12 +1287,12 @@ static void pr_sql_fkey_ref(FILE *fp, const ITEM *item)
 	int j, m;
 	fprintf(fp, " REFERENCES %s (", item->fkey_db->name);
 	for(j = m = 0; j < item->nfkey; j++)
-		if(item->keys[j].key) {
-			const ITEM *fitem = item->fkey_db->items[item->keys[j].item];
+		if(item->fkey[j].key) {
+			const ITEM *fitem = item->fkey_db->items[item->fkey[j].item];
 			if(m++)
 				putc(',', fp);
 			if(IFL(fitem->,MULTICOL))
-				fputs(fitem->menu[item->keys[j].menu].name, fp);
+				fputs(fitem->menu[item->fkey[j].menu].name, fp);
 			else
 				fputs(fitem->name, fp);
 		}
@@ -1414,10 +1414,10 @@ static void pr_sql_type(FILE *fp, const FORM *form, int i, bool null)
 		    /*      <ref_field>.... <itemname>_id */
 		    /*    <itemname> becomes integer sequence # */
 		    for(j = m = 0; j < item->nfkey; j++)
-			    if(item->keys[j].key) {
+			    if(item->fkey[j].key) {
 				    if(m++)
 					    fprintf(fp, ", %s_k%d ", item->name, m);
-				    pr_sql_type(fp, item->fkey_db, item->keys[j].item, true);
+				    pr_sql_type(fp, item->fkey_db, item->fkey[j].item, true);
 			    }
 		    if(m == 1) {
 			    fputs("\n   ", fp);
@@ -1446,12 +1446,12 @@ static void pr_sql_fkey_fields(FILE *fp, const char *db, const ITEM *item,
 	int n, m;
 	bool didone = false;
 	for(n = 0; n < item->nfkey; n++) {
-		if(!item->keys[n].display)
+		if(!item->fkey[n].display)
 			continue;
 		if(didone)
 			fputs(", ", fp);
 		didone = true;
-		const ITEM *fitem = item->fkey_db->items[item->keys[n].item];
+		const ITEM *fitem = item->fkey_db->items[item->fkey[n].item];
 		if(fitem->type == IT_FKEY) {
 			int fseq[nseq + 1];
 			memcpy(fseq, seq, nseq * sizeof(int));
@@ -1460,14 +1460,14 @@ static void pr_sql_fkey_fields(FILE *fp, const char *db, const ITEM *item,
 			continue;
 		}
 		const char *label = IFL(fitem->,MULTICOL) ?
-				  fitem->menu[item->keys[n].menu].label
+				  fitem->menu[item->fkey[n].menu].label
 				: fitem->label;
 		if(fitem->type == IT_TIME)
-			pr_sql_item(fp, db, item->fkey_db, item->keys[n].item,
+			pr_sql_item(fp, db, item->fkey_db, item->fkey[n].item,
 				    0, label, seq, nseq);
 		else {
 			pr_sql_tq(fp, db, seq, nseq);
-			fputs(IFL(fitem->,MULTICOL) ? fitem->menu[item->keys[n].menu].name
+			fputs(IFL(fitem->,MULTICOL) ? fitem->menu[item->fkey[n].menu].name
 						    : fitem->name, fp);
 		}
 		fputs(" \"", fp);
@@ -1489,7 +1489,7 @@ static void pr_sql_fkey_tables(FILE *fp, const char *db, const ITEM *item,
 		fprintf(fp, "_%d", seq[n]);
 	fputs(" ON ", fp);
 	for(n = m = 0; n < item->nfkey; n++) {
-		if(!item->keys[n].key)
+		if(!item->fkey[n].key)
 			continue;
 		if(nseq == 1)
 			fputs(db, fp);
@@ -1504,13 +1504,13 @@ static void pr_sql_fkey_tables(FILE *fp, const char *db, const ITEM *item,
 		fputs(" = fk", fp);
 		for(int i=0; i < nseq; i++)
 			fprintf(fp, "_%d", seq[i]);
-		const ITEM *fitem = item->fkey_db->items[item->keys[n].item];
+		const ITEM *fitem = item->fkey_db->items[item->fkey[n].item];
 		fprintf(fp, ".%s", IFL(fitem->,MULTICOL) ?
-				fitem->menu[item->keys[n].menu].name :
+				fitem->menu[item->fkey[n].menu].name :
 				fitem->name);
 	}
 	for(n = 0; n < item->nfkey; n++) {
-		const ITEM *fitem = item->fkey_db->items[item->keys[n].item];
+		const ITEM *fitem = item->fkey_db->items[item->fkey[n].item];
 		if(fitem->type == IT_FKEY) {
 			int fseq[nseq + 1];
 			memcpy(fseq, seq, nseq * sizeof(int));
@@ -1528,18 +1528,18 @@ static void add_ref_keys(QStringList &sl, const FORM *cform, const FORM *form)
 		if(fitem->type == IT_FKEY && fitem->fkey_db == form) {
 			QString ks, ds;
 			for(int j = 0; j < fitem->nfkey; j++) {
-				const ITEM *kitem = form->items[fitem->keys[j].item];
+				const ITEM *kitem = form->items[fitem->fkey[j].item];
 				const char *name;
 				if(IFL(kitem->,MULTICOL))
-					name = kitem->menu[fitem->keys[j].menu].name;
+					name = kitem->menu[fitem->fkey[j].menu].name;
 				else
 					name = kitem->name;
-				if(fitem->keys[j].key) {
+				if(fitem->fkey[j].key) {
 					if(ks.length())
 						ks += ',';
 					ks += name;
 				}
-				if(fitem->keys[j].display) {
+				if(fitem->fkey[j].display) {
 					if(ds.length())
 						ds += ',';
 					ds += name;

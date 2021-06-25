@@ -267,7 +267,7 @@ enum {
 static void fill_key_row(QTableWidget *tw, ITEM *item, int row)
 {
 	bool blank = row >= item->nfkey;
-	FKEY *fk = &item->keys[row];
+	FKEY *fk = &item->fkey[row];
 	QComboBox *cb = new QComboBox;
 	cb->addItem("");
 	if (item->fkey_db) {
@@ -1430,15 +1430,15 @@ static void key_callback(int x, int y, int c)
 	if(y == -2) {
 		if(x < 0) { // del
 			if(!--item->nfkey) {
-				free(item->keys);
-				item->keys = 0;
+				free(item->fkey);
+				item->fkey = 0;
 			} else
-				memmove(item->keys + row, item->keys + row + 1, (item->nfkey - row) * sizeof(FKEY));
+				memmove(item->fkey + row, item->fkey + row + 1, (item->nfkey - row) * sizeof(FKEY));
 			key_w->removeRow(row);
 			do_resize = true;
 		} else { // dup
-			grow(0, "new fkey item", FKEY, item->keys, ++item->nfkey, NULL);
-			memmove(item->keys + row + 1, item->keys + row, (item->nfkey - row - 1) * sizeof(FKEY));
+			grow(0, "new fkey item", FKEY, item->fkey, ++item->nfkey, NULL);
+			memmove(item->fkey + row + 1, item->fkey + row, (item->nfkey - row - 1) * sizeof(FKEY));
 			key_w->insertRow(row + 1);
 			key_w->setCurrentCell(row + 1, key_w->currentColumn());
 			fill_key_row(key_w, item, row + 1);
@@ -1447,8 +1447,8 @@ static void key_callback(int x, int y, int c)
 	} else if(y == -1) { // up/down
 		if(x + row < 0 || x + row >= item->nfkey)
 			return;
-		FKEY t = item->keys[row];
-		item->keys[row] = item->keys[row + x];		item->keys[row + x] = t;
+		FKEY t = item->fkey[row];
+		item->fkey[row] = item->fkey[row + x];		item->fkey[row + x] = t;
 		fill_key_row(key_w, item, row);
 		fill_key_row(key_w, item, row + x);
 		key_w->setCurrentCell(row + x, key_w->currentColumn());
@@ -1456,7 +1456,7 @@ static void key_callback(int x, int y, int c)
 	} else { // cell widget
 		if(c > 0 && x == KEY_FIELD_FIELD && row == item->nfkey) { // unblank a blank
 			// yeah, maybe one day I'll alloc in chunks
-			zgrow(0, "new key item", FKEY, item->keys, item->nfkey,
+			zgrow(0, "new key item", FKEY, item->fkey, item->nfkey,
 			      item->nfkey + 1, NULL);
 			item->nfkey++;
 			key_w->insertRow(item->nfkey);
@@ -1468,21 +1468,21 @@ static void key_callback(int x, int y, int c)
 		if(row < item->nfkey) {
 			switch (x) {
 			    case KEY_FIELD_FIELD:
-				fkey_at(item->fkey_db, c - 1, item->keys[y].item,
-					item->keys[y].menu);
+				fkey_at(item->fkey_db, c - 1, item->fkey[y].item,
+					item->fkey[y].menu);
 				break;
 			    case KEY_FIELD_KEY:
-				item->keys[y].key = c;
+				item->fkey[y].key = c;
 				if (c && item->type == IT_INV_FKEY)
 					for (int n=0; n < item->nfkey; n++)
-						if (n != y && item->keys[n].key) {
-							item->keys[n].key = 0;
+						if (n != y && item->fkey[n].key) {
+							item->fkey[n].key = 0;
 							fill_key_row(key_w, item, n);
 							break;
 						}
 				break;
 			    case KEY_FIELD_DISPLAY:
-				item->keys[y].display = c;
+				item->fkey[y].display = c;
 				break;
 			}
 			key_w->setCurrentCell(y, x);
@@ -1571,7 +1571,7 @@ static int readback_item(
 		item  = form->items[canvas->curr_item];
 		chart = &item->ch_comp[item->ch_curr];
 	}
-	if ((tp->code < 0x100 || tp->code > 0x107) && !item)
+	if ((tp->code < 0x100 || tp->code > 0x112) && !item)
 		return(0);
 	if (!chart && (tp->code & 0x300) == 0x300)
 		return(0);

@@ -244,12 +244,12 @@ static bool fkey_loop(const FORM *form, const ITEM *item,
 	bool sform = !strcmp(item->fkey_db->name, oform->name);
 	for (int n = 0; n < item->nfkey; n++) {
 		/* FIXME: should probably check fkey_db & such instead */
-		if (sform && oform->items[item->keys[n].item] == oitem)
+		if (sform && oform->items[item->fkey[n].item] == oitem)
 			return true;
-		if (fkey_loop(item->fkey_db, item->fkey_db->items[item->keys[n].item],
+		if (fkey_loop(item->fkey_db, item->fkey_db->items[item->fkey[n].item],
 			      oform, oitem))
 			return true;
-		if (fkey_loop(item->fkey_db, item->fkey_db->items[item->keys[n].item],
+		if (fkey_loop(item->fkey_db, item->fkey_db->items[item->fkey[n].item],
 			      form, item))
 			return true;
 	}
@@ -386,15 +386,15 @@ bool verify_form(
 		    item->fkey_db) { /* can't check if fkey_db not yet loaded */
 			int nvis = 0, nkey = 0;
 			for (int n = 0; n < item->nfkey; n++) {
-				int itid = item->keys[n].item;
+				int itid = item->fkey[n].item;
 				if (itid < 0) {
 					nvis = nkey = -99999;
 					continue;
 				}
 				const ITEM *fitem = item->fkey_db->items[itid];
 				if (IFL(fitem->,MULTICOL))
-					itid += item->keys[n].menu * item->fkey_db->nitems;
-				if (item->keys[n].key) {
+					itid += item->fkey[n].menu * item->fkey_db->nitems;
+				if (item->fkey[n].key) {
 					nkey++;
 					if (item->type == IT_INV_FKEY &&
 					    fitem->fkey_db &&
@@ -409,17 +409,17 @@ bool verify_form(
 						msg += " is not a valid key field";
 					}
 				}
-				if (item->keys[n].display) {
+				if (item->fkey[n].display) {
 					nvis++;
 					if (item->type == IT_INV_FKEY &&
-					    item->keys[n].key) {
+					    item->fkey[n].key) {
 						msg += "Field ";
 						add_field_name(msg, form, nitem);
 						msg += " displays key ";
 						add_field_name(msg, item->fkey_db, itid);
 						msg += "; setting invisible\n";
 						nvis--;
-						item->keys[n].display = false;
+						item->fkey[n].display = false;
 					}
 				}
 				if (fkey_loop(item->fkey_db, fitem, form, item)) {
@@ -1059,8 +1059,8 @@ ITEM *item_clone(
 					    &parent->ch_comp[i]);
 	}
 	if (item->nfkey) {
-		item->keys = alloc(0, "clone form field", FKEY, item->nfkey);
-		tmemcpy(FKEY, item->keys, parent->keys, item->nfkey);
+		item->fkey = alloc(0, "clone form field", FKEY, item->nfkey);
+		tmemcpy(FKEY, item->fkey, parent->fkey, item->nfkey);
 		for(i=0; i < item->nmenu; i++) {
 			item->menu[i] = parent->menu[i];
 			menu_clone(&item->menu[i]);

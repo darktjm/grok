@@ -1941,7 +1941,7 @@ static void add_deref(const char *key, const FORM *form, const ITEM *item,
 		}
 		bool first = true;
 		for (int i = 0; i < item->nfkey; i++) {
-			const FKEY &fk = item->keys[i];
+			const FKEY &fk = item->fkey[i];
 			if (!fk.display)
 				continue;
 			const ITEM *fit = item->fkey_db->items[fk.item];

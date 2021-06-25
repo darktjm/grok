@@ -215,12 +215,12 @@ bool write_form(
 			write_int("fk_multi   ", IFL(item->,FKEY_MULTI));
 			write_int("nfkey      ", item->nfkey);
 			for (int n = 0; n < item->nfkey; n++) {
-				if (IS_MULTI(f->items[item->keys[n].item]->type))
-					write_str("fkey       ", f->items[item->keys[n].item]->menu[item->keys[n].menu].name);
+				if (IS_MULTI(f->items[item->fkey[n].item]->type))
+					write_str("fkey       ", f->items[item->fkey[n].item]->menu[item->fkey[n].menu].name);
 				else
-					write_str("fkey       ", f->items[item->keys[n].item]->name);
-				write_int("_fk_key    ", item->keys[n].key);
-				write_int("_fk_disp   ", item->keys[n].display);
+					write_str("fkey       ", f->items[item->fkey[n].item]->name);
+				write_int("_fk_key    ", item->fkey[n].key);
+				write_int("_fk_disp   ", item->fkey[n].display);
 			}
 		}
 	}
@@ -673,11 +673,11 @@ FORM *read_form(
 			else if (!strcmp(key, "fk_multi"))
 					IFV(item->,FKEY_MULTI, atoi(p));
 			else if (!strcmp(key, "nfkey"))
-					item->keys = zalloc(0, "form file",
+					item->fkey = zalloc(0, "form file",
 							    FKEY, (item->nfkey = atoi(p)));
 			else if (!strcmp(key, "fkey")) {
 					fkey = !fkey ?
-						item->keys : fkey+1;
+						item->fkey : fkey+1;
 					fkey->item = -1;
 					if (!fkey) {
 						fprintf(stderr, "no nkey space; fkey ignored");

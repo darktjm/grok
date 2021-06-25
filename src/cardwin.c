@@ -597,10 +597,10 @@ struct FKeySelector : public CardComboBox {
 		cur.resize(fcard->dbase->nrows, false);
 		if (fk->currentIndex() > 0) {
 			char *val = qstrdup(fk->currentText());
-			const ITEM *fit = fk->fcard->form->items[fk->item->keys[fk->fkey].item];
+			const ITEM *fit = fk->fcard->form->items[fk->item->fkey[fk->fkey].item];
 			int col = fit->column;
 			if (IFL(fit->,MULTICOL))
-				col = fit->menu[fk->item->keys[fk->fkey].menu].column;
+				col = fit->menu[fk->item->fkey[fk->fkey].menu].column;
 			/* but actually only restrict on recurse */
 			row_restrict(fcard, col, val, cur, !recurse);
 			free(val);
@@ -653,10 +653,10 @@ struct FKeySelector : public CardComboBox {
 		QStringList sl;
 		/* const */ DBASE *dbase = fcard->dbase;
 
-		const ITEM *fit = fcard->form->items[item->keys[fkey].item];
+		const ITEM *fit = fcard->form->items[item->fkey[fkey].item];
 		int col = fit->column;
 		if (IFL(fit->,MULTICOL))
-			col = fit->menu[item->keys[fkey].menu].column;
+			col = fit->menu[item->fkey[fkey].menu].column;
 		for (int r = 0; r < dbase->nrows; r++) {
 			if (!filter[r]) {
 				char *val = dbase_get(dbase, r, col);
@@ -1136,7 +1136,7 @@ static void create_item_widgets(
 		add_layout_qss(l, "fkeygroup");
 		int nvis = 0;
 		for (n = 0; n < item.nfkey; n++)
-			  if(item.keys[n].display)
+			  if(item.fkey[n].display)
 				  nvis++;
 		CARD *fcard = create_card_menu(item.fkey_db, read_dbase(item.fkey_db), 0, true);
 		fcard->fkey_next = card;
@@ -1151,7 +1151,7 @@ static void create_item_widgets(
 			mw->verticalHeader()->setVisible(false);
 		}
 		for (n = 0; n < item.nfkey; n++)
-			if (item.keys[n].display)
+			if (item.fkey[n].display)
 				  fks = add_fkey_field(carditem->w0, card, nitem,
 						       "", fks,
 						       l, mw, 0, col,
@@ -1219,8 +1219,8 @@ static FKeySelector *add_fkey_field(
 	ITEM &item, CARD *fcard, int n,    /* fkey info */
 	int ncol) /* ncol is set to # of cols if row > 0 (for callback) */
 {
-	ITEM &fit = *item.fkey_db->items[item.keys[n].item];
-	MENU *fm = IFL(fit.,MULTICOL) ? &fit.menu[item.keys[n].menu] : 0;
+	ITEM &fit = *item.fkey_db->items[item.fkey[n].item];
+	MENU *fm = IFL(fit.,MULTICOL) ? &fit.menu[item.fkey[n].menu] : 0;
 	if (fit.type == IT_FKEY) {
 		QString lab;
 		CARD *nfcard = 0;
@@ -1233,10 +1233,10 @@ static FKeySelector *add_fkey_field(
 			}
 			nfcard = create_card_menu(fit.fkey_db, read_dbase(fit.fkey_db), 0, true);
 			nfcard->fkey_next = fcard;
-			nfcard->qcurr = item.keys[n].item;
+			nfcard->qcurr = item.fkey[n].item;
 		}
 		for (n = 0; n < fit.nfkey; n++)
-			if (fit.keys[n].display)
+			if (fit.fkey[n].display)
 				prev = add_fkey_field(p, card, nitem,
 						      lab, prev,
 						      l, mw, row, col,
@@ -1497,7 +1497,7 @@ static void card_callback(
 			int keys[keylen];
 			copy_fkey(item, keys);
 			for (int i = 0; i < keylen; i++) {
-				const FKEY &fk = item->keys[keys[i]];
+				const FKEY &fk = item->fkey[keys[i]];
 				ITEM *fit = item->fkey_db->items[fk.item];
 				// maybe someday I'll replace numeric field with name
 				int col = IFL(fit->,MULTICOL) ?
@@ -1601,7 +1601,7 @@ static void card_callback(
 				FKeySelector *fks = 0;
 				int col = 0;
 				for (int n = 0; n < item->nfkey; n++)
-					if (item->keys[n].display)
+					if (item->fkey[n].display)
 						fks = add_fkey_field(card->items[nitem].w0,
 								     card, nitem,
 								     "", fks,
@@ -2106,7 +2106,7 @@ void fillout_item(
 			}
 			break;
 		} else {
-			const FKEY *fk = item->keys;
+			const FKEY *fk = item->fkey;
 			FKeySelector *w = 0, *first = 0;
 			while(iter.hasNext()) {
 				w = dynamic_cast<FKeySelector *>(iter.next());
@@ -2159,8 +2159,8 @@ void fillout_item(
 			  tw->removeRow(0);
 		const ITEM *fit = 0;
 		for (int n = 0; n < item->nfkey; n++)
-			if (item->keys[n].key) {
-				fit = item->fkey_db->items[item->keys[n].item];
+			if (item->fkey[n].key) {
+				fit = item->fkey_db->items[item->fkey[n].item];
 				break;
 			}
 		char *key = fkey_of(card->dbase, card->row, item->fkey_db, fit);
@@ -2187,12 +2187,12 @@ void fillout_item(
 			if (match) {
 				tw->insertRow(tr);
 				for (int f = 0, tc = 0; f < item->nfkey; f++) {
-					if (!item->keys[f].display)
+					if (!item->fkey[f].display)
 						continue;
 					int col;
-					const ITEM *dit = item->fkey_db->items[item->keys[f].item];
+					const ITEM *dit = item->fkey_db->items[item->fkey[f].item];
 					if (IFL(dit->,MULTICOL))
-						col = dit->menu[item->keys[f].menu].column;
+						col = dit->menu[item->fkey[f].menu].column;
 					else
 						col = dit->column;
 					tw->setItem(tr, tc++, new QTableWidgetItem(dbase_get(db, r, col)));

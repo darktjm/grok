@@ -191,9 +191,9 @@ static void add_fkey_summary(struct sum_item **res, size_t *nres,
 	if (fkno >= 0)
 		card->row = fkno;
 	for (int i = 0; i < item->nfkey; i++) {
-		if (!item->keys[i].display)
+		if (!item->fkey[i].display)
 			continue;
-		const FKEY &fk = item->keys[i];
+		const FKEY &fk = item->fkey[i];
 		const ITEM *fit = item->fkey_db->items[fk.item];
 		if (fit->type == IT_FKEY) {
 			add_fkey_summary(res, nres, fk.item, i, sumcol, ncol, card);

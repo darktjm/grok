@@ -315,10 +315,10 @@ typedef struct item {
 	CHART	*ch_comp;	/* component array */
 	BAR	*ch_bar;	/* nrows * ncomp bars, ncomp-major order */
 	int	ch_nbars;	/* number of bars in ch_bar array */
-				/*----- for FKEY */
-	FORM	*fkey_db;	/* parent database */
+				/*----- for FKEY, INV_FKEY */
+	FORM	*fkey_db;	/* foreign database */
 	int	nfkey;		/* number of items in fkey field array */
-	FKEY	*keys;		/* key field[s] */
+	FKEY	*fkey;		/* key/display field[s] */
 } ITEM;
 
 

@@ -408,7 +408,7 @@ int keylen_of(const ITEM *item)
 {
 	int n, keylen = 0;
 	for (n = 0; n < item->nfkey; n++)
-		if (item->keys[n].key)
+		if (item->fkey[n].key)
 			++keylen;
 	return keylen;
 }
@@ -417,7 +417,7 @@ void copy_fkey(const ITEM *item, int *keys)
 {
 	int keylen;
 	for (int n = keylen = 0; n < item->nfkey; n++)
-		if (item->keys[n].key)
+		if (item->fkey[n].key)
 			keys[keylen++] = n;
 }
 
@@ -469,7 +469,7 @@ int fkey_lookup(
 	int r;
 	for (r = 0; r < dbase->nrows; r++) {
 		for (n = 0; n < keylen; n++) {
-			const FKEY *k = &item->keys[keys[n]];
+			const FKEY *k = &item->fkey[keys[n]];
 			const ITEM *i = item->fkey_db->items[k->item];
 			const MENU *m = IFL(i->,MULTICOL) ? &i->menu[k->menu] : 0;
 			int col = m ? m->column : i->column;
@@ -503,7 +503,7 @@ char *fkey_of(
 	copy_fkey(item, keys);
 	char *ret = 0;
 	for (n = 0; n < keylen; n++) {
-		const FKEY *k = &item->keys[keys[n]];
+		const FKEY *k = &item->fkey[keys[n]];
 		const ITEM *i = item->fkey_db->items[k->item];
 		const MENU *m = IFL(i->,MULTICOL) ? &i->menu[k->menu] : 0;
 		int col = m ? m->column : i->column;

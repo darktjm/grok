@@ -70,7 +70,7 @@ Features in Progress
 
   - make_summary_line() leaks CARDs
 
-  - no testing (or coding, really) of template output
+  - no testing (or coding, really) of template output (partial sql support)
 
   - searches don't search visible fields instead of fkey
 

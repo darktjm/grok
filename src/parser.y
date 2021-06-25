@@ -565,6 +565,7 @@ string	: STRING			{ $$ = $1; }
 field	: FIELD %prec 's'		{ $$ = $1; }
 	| FIELD '[' number ']'		{ $$ = $1; $$.row = $3; }
 	| field FIELD %prec 's'		{ $1.card = 0; $$ = $2; }
+	/* better to use @dp: to access any row in other db */
 /*	| field FIELD '[' number ']'	{ $$ = $2; $$.row = $4; } */
 	;
 
