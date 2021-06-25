@@ -181,20 +181,22 @@ static int compare(
 }
 
 static void add_fkey_summary(struct sum_item **res, size_t *nres,
-			     int itemno, int sumcol, int &ncol,
+			     int itemno, int fkno, int sumcol, int &ncol,
 			     CARD *rcard)
 {
 	const ITEM *item = rcard->form->items[itemno];
 	CARD *card = create_card_menu(item->fkey_db, read_dbase(item->fkey_db), 0, true);
 	card->fkey_next = rcard;
 	card->qcurr = itemno;
+	if (fkno >= 0)
+		card->row = fkno;
 	for (int i = 0; i < item->nfkey; i++) {
 		if (!item->keys[i].display)
 			continue;
 		const FKEY &fk = item->keys[i];
 		const ITEM *fit = item->fkey_db->items[fk.item];
 		if (fit->type == IT_FKEY) {
-			add_fkey_summary(res, nres, fk.item, sumcol, ncol, card);
+			add_fkey_summary(res, nres, fk.item, i, sumcol, ncol, card);
 			continue;
 		}
 		grow(0, "summary", struct sum_item, *res, ncol + 1, nres);
@@ -234,7 +236,7 @@ int get_summary_cols(struct sum_item **res, size_t *nres, const CARD *card)
 			i--; // keep processing same item
 		}
 		if (item->type == IT_FKEY) {
-			add_fkey_summary(res, nres, i, item->sumcol, ncol,
+			add_fkey_summary(res, nres, i, -1, item->sumcol, ncol,
 					 const_cast<CARD *>(card));
 			continue;
 		}

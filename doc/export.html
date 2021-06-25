@@ -67,7 +67,9 @@ user-created templates, and Delete deletes them (with no undo).
 	a similar structure to the form.  The database name and field names
 	are assumed to be valid SQL.  Some manual editing may still be
 	needed to adjust data types to your target database and perform
-	any other desired tweaks.  The table is created with the same
+	any other desired tweaks.  By default, an attempt is made to make the
+	SQL compatible with SQLite 3.  With the <B>-p</B> flag, the SQL is made
+	compatible with PostgreSQL 12.  The table is created with the same
 	name as the grok database.  If the summary listing is enabled,
 	a vew is created with the same name, but with <TT>_sum</TT>
 	appended.  If data listing is enabled, a view is created with

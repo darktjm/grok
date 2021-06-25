@@ -150,6 +150,7 @@ void form_delete(
 	zfree(form->comment);
 	zfree(form->help);
 	zfree(form->planquery);
+	zfree(form->children);
 	if (form->query) {
 		for (i=0; i < form->nqueries; i++) {
 			dq = &form->query[i];

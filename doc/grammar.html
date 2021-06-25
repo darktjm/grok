@@ -334,6 +334,18 @@ affected in any database but biblio.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>expand(</TT><I>_field</I><TT>[</TT><B>n</B><TT>])</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from the database, any card, with flag or choice value expanded to mnemonic string
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>this</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the current card, 0 is first
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>last</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the last card, 0 is first
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field1</I> <I>_field2</I> ... <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B>,<B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from a referenced database, referenced from the current card.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field1</I><TT>[</TT><B>n</B><TT>]</TT> <I>_field2</I> ... <TD VALIGN=TOP BGCOLOR=#e0e0e0> <B>s</B>,<B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from a referenced database, referenced from any card
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <I>_field2</I> ... <TT>=</TT> <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Change a field in a referenced database, referenced from current card
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <I>_field2</I> ... <TT>=</TT> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Change a field in a referenced database, referenced from current card
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I><TT>[</TT><B>n</B><TT>] <I>_field2</I> ... =</TT> <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0> Change a field in a referenced database, referemced from any card
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I><TT>[</TT><B>n</B><TT>] <I>_field2</I> ... =</TT> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0> Change a field in a referenced database, referenced from any card
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>expand(</TT><I>_field1</I> <I>_field2</I> ...<TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from a referenced database, referenced from current card, with flag or choice value expanded to mnemonic string
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>expand(</TT><I>_field1</I> <I>_field2</I> ...<TT>[</TT><B>n</B><TT>])</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from a referenced database, referenced from any card, with flag or choice value expanded to mnemonic string
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> ... <TT>this</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the row referenced from current card, 0 is first
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> ... <TT>last</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the last card in database referenced from current card, 0 is first
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I><TT>[</TT><B>n</B><TT>]</TT> ... <TT>this</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the row referenced from any card, 0 is first
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I><TT>[</TT><B>n</B><TT>]</TT> ... <TT>last</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the last card in database referenced from any card, 0 is first
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>disp</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the currently displayed card, or -1 if none
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>avg(</TT><I>_field</I><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Average of a field in all cards
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>qavg(</TT><I>_field</I><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Average the current query result
@@ -363,6 +375,11 @@ affected in any database but biblio.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>@</TT><B>s1</B> <TT>/</TT><B>s2</B> <TT>+</TT><B>s3</B> <TT>:</TT> <B>s4</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Parse, evaluate and return <B>s4</B> as if it appeared in database named by <B>s1</B>, with default query <B>s2</B> and sorted by <B>s3</B>.  See above.
 </TABLE>
 
+In the reference lists above (<I>_field</I> ...), the initial field(s) must
+be reference fields.  The subsequent <I>_field</I> is interpreted as a field
+in the referenced database, from the row referenced by the initial field(s).
+Only the first field in this reference chain may specify a row using square
+brackets..
 
 <A NAME="gf">
 <H2>Operating System Access</H2>

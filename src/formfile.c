@@ -87,6 +87,8 @@ bool write_form(
 	write_int("divider    ", form->ydiv);
 	write_int("autoq      ", form->autoquery, != -1);
 	write_str("planquery  ", form->planquery);
+	for (i=0; i < form->nchild; i++)
+		write_str("child      ", form->children[i]);
 
 	for (p=form->help; p && *p; ) {
 		fputs("help\t'", fp);
@@ -480,7 +482,11 @@ FORM *read_form(
 					sscanf(p, "%d", &form->autoquery);
 			else if (!strcmp(key, "planquery"))
 					STORE(form->planquery, p);
-			else if (!strcmp(key, "query_s")) {
+			else if (!strcmp(key, "child")) {
+					grow(0, "form file", char *, form->children,
+					     ++form->nchild, 0);
+					STORE(form->children[form->nchild - 1], p);
+			} else if (!strcmp(key, "query_s")) {
 				if ((dq = add_dquery(form)))
 					dq->suspended = *p != '0';
 			} else if (!strcmp(key, "query_n")) {

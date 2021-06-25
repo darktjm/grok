@@ -114,6 +114,18 @@ static void pr_escaped(FILE *fp, const char *s, int len, int esc)
 }
 
 
+static const char *label_of(const ITEM *item, const MENU *menu)
+{
+	const char *label;
+	if(menu)
+		label = BLANK(menu->label) ? menu->name : menu->label;
+	else
+		label = BLANK(item->label) ? item->name : item->label;
+	if(!label)
+		label = "--";
+	return label;
+}
+
 /*------------------------------------ HTML ---------------------------------*/
 /*
  * create a HTML template for the current database. The template consists
@@ -159,9 +171,7 @@ const char *mktemplate_html(
 		    itemorder[i-1].item->column == item->column)
 			continue;
 		fputs("<TH ALIGN=LEFT BGCOLOR=#a0a0c0>", fp);
-		pr_escaped(fp, menu ? menu->label :
-				BLANK(item->label) ? item->name
-						   : item->label,
+		pr_escaped(fp, label_of(item, menu),
 			   menu ? menu->sumwidth : item->sumwidth,
 			   ESC_HTML | 0);
 	}
@@ -456,19 +466,17 @@ static const char *mktemplate_text(
 	fputs("\\{ENDIF}\n",fp);
 	fprintf(fp, "\\{END}\n");
 	fputs("\\{ENDIF}\n\\{IF +s}\n", fp);
-	const char *label;
 	fputs("\\{FOREACH}\n", fp);
 	for (i=0; i < card->nitems; i++) {
 		item = card->form->items[i];
 		if(item->type == IT_MULTI || item->type == IT_FLAGS) {
 			for(m = 0; m < item->nmenu; m++) {
-				len = strlen(item->menu[m].label);
+				len = strlen(label_of(item, &item->menu[m]));
 				if(len > label_len)
 					label_len = len;
 			}
 		} else {
-			len = strlen(item->label ? item->label :
-				     item->name  ? item->name  : "--");
+			len = strlen(label_of(item, NULL));
 			if (len > label_len)
 				label_len = len;
 		}
@@ -483,7 +491,6 @@ static const char *mktemplate_text(
 		if (!IN_DBASE(item->type) && item->type != IT_PRINT)
 			continue;
 		name = item->name;
-		label = item->label ? item->label : item->name;
 		if(item->type == IT_MULTI || item->type == IT_FLAGS ||
 		   item->type == IT_MENU  || item->type == IT_RADIO) {
 			if(++m == item->nmenu) {
@@ -493,13 +500,11 @@ static const char *mktemplate_text(
 			menu = &item->menu[m];
 			if(IFL(item->,MULTICOL))
 				name = menu->name;
-			if(item->type == IT_FLAGS || item->type == IT_MULTI)
-				label = menu->label;
 			--i;
 		} else
 			menu = NULL;
-		if(!label)
-			label = "--";
+		const char *label;
+		label = label_of(item, menu);
 		/* choice fields are only printed if code matches */
 		/* FIXME: print() displayed -- if MENU/RADIO invalid */
 		/*        to do that, either implement \{ELSE}/\{ELSEIF} */
@@ -622,26 +627,6 @@ const char *mktemplate_fancy(const CARD *card, FILE *fp)
 	return mktemplate_text(card, fp, true);
 }
 
-static void pr_schar(FILE *fp, char c, char doub = '\'')
-{
-	if(!isprint(c))
-		fprintf(fp, "'||CHAR(%d)||'", (int)c);
-	else
-		putc(c, fp);
-	if(c == doub)
-		putc(doub, fp);
-}
-
-static void pr_dq(FILE *fp, const char *s, char q)
-{
-	/* note: mysql's broken parser needs \ escaped as well */
-	/* but I don't care about mysql */
-	if(!s)
-		return;
-	while(*s)
-		pr_schar(fp, *s++, q);
-}
-
 /*
  * Unlike the others, this exports part of the schema as well
  * -d -> exclude summary view
@@ -653,12 +638,27 @@ static void pr_dq(FILE *fp, const char *s, char q)
  * Table is created and data is exported regardless.
  * Form name and field names are assumed to be valid SQL
  */
+
+static void pr_schar(FILE *fp, char c, char doub = '\'');
+static void pr_dq(FILE *fp, const char *s, char q);
+static void pr_sql_type(FILE *fp, const FORM *form, int i, bool null = false);
+static void pr_sql_fkey_fields(FILE *fp, const char *db, const ITEM *item,
+			       const int *seq, int nseq);
+static void pr_sql_fkey_tables(FILE *fp, const char *db, const ITEM *item,
+			       const int *seq, int nseq);
+static void pr_sql_fkey_ref(FILE *fp, const ITEM *item);
+static void pr_sql_tq(FILE *fp, const char *db, const int *seq, int nseq);
+static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
+			const MENU *menu, const char *&label,
+			const int *seq, int nseq);
+static void add_ref_keys(QStringList &sl, const FORM *cform, const FORM *form);
+
 const char *mktemplate_sql(const CARD *card, FILE *fp)
 {
 	struct sum_item *itemorder;	/* order of items in summary */
 	int		nitems;		/* number of items in summary */
 	size_t		nalloc;		/* number of allocated items */
-	int		i, j, m;	/* item counter */
+	int		i, j;		/* item counter */
 	const ITEM	*item;		/* current item */
 	const MENU	*menu;		/* current menu selection */
 	char		*s;
@@ -671,9 +671,15 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 	fprintf(fp, "-- grok form/database %s exported \\{date}\n", form->name);
 	fputs("-- note that some databases may need additional editing\n", fp);
 	fprintf(fp,
-		"DROP TABLE IF EXISTS %s;\n"
+		"\\{IF +s}\n"
+		"DROP VIEW IF EXISTS %s_view;\n"
+		"\\{ENDIF}\n"
+		"\\{IF +d}\n"
+		"DROP VIEW IF EXISTS %s_sum;\n"
+		"\\{ENDIF}\n"
+		"DROP TABLE IF EXISTS %s\\{IF -p} CASCADE\\{ENDIF};\n"
 		"BEGIN;\n"
-		"CREATE TABLE %s (\n", form->name, form->name);
+		"CREATE TABLE %s (\n", form->name, form->name, form->name, form->name);
 	if(form->help) {
 		/* should be COMMENT ('....') but sqlite3 doesn't support it */
 		/* maybe I should toggle support with -c */
@@ -713,251 +719,118 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			fputs(",\n", fp);
 		didcol = true;
 		fprintf(fp, "  %s ", item->name);
-		switch(item->type) {
-		    case IT_INPUT:
-		    case IT_NOTE:
-			fprintf(fp, "VARCHAR(%d) NOT NULL", item->maxlen);
-			break;
-		    case IT_NUMBER:
-			if(item->digits)
-				/* fprintf(fp, "DECIMAL(15,%d) NOT NULL", item->digits): */
-				/* fputs("REAL NOT NULL", fp); */
-				fputs("FLOAT(15) NOT NULL", fp);
-			else
-				fputs("BIGINT NOT NULL", fp);
-			break;
-		    case IT_TIME:
-			switch(item->timefmt) {
-			    case T_DATE:
-				fputs("DATE NOT NULL", fp);
-				break;
-			    case T_TIME:
-				fputs("TIME NOT NULL", fp);
-				break;
-			    case T_DATETIME:
-				fputs("TIMESTAMP NOT NULL", fp);
-				break;
-			    case T_DURATION:
-				fputs("TIME NOT NULL", fp); /* probably too limiting */
-				break;
-			}
-			break;
-		    case IT_CHOICE: {
-			    int minlen = strlen(item->flagcode), maxlen = minlen;
-			    for(j = i + 1; j < form->nitems; j++)
-				    if(form->items[j]->type == IT_CHOICE &&
-				       form->items[j]->column == item->column) {
-					    int k = strlen(form->items[j]->flagcode);
-					    if(k < minlen)
-						    minlen = k;
-					    if(k > maxlen)
-						    maxlen = k;
-				    }
-			    if(minlen != maxlen)
-				    fputs("VAR", fp);
-			    fprintf(fp, "CHAR(%d) NOT NULL\n", maxlen);
-			    fprintf(fp, "    (CHECK (%s in(", item->name);
-			    for(j = i; j < form->nitems; j++)
-				    if(form->items[j]->type == IT_CHOICE &&
-				       form->items[j]->column == item->column) {
-					    if(j != i)
-						    putc(',', fp);
-					    putc('\'', fp);
-					    pr_dq(fp, form->items[j]->flagcode, '\'');
-					    fputc('\'', fp);
-				    }
-			    fputs("))", fp);
-			    break;
-		    }
-		    case IT_FLAG:
-			fputs("BOOLEAN NOT NULL", fp);
-			break;
-		    case IT_MENU:
-		    case IT_RADIO: {
-			    int minlen = strlen(item->menu->flagcode), maxlen = minlen;
-			    for(j = i; j < item->nmenu; j++) {
-				    int k = strlen(item->menu[j].flagcode);
-				    if(k < minlen)
-					    minlen = k;
-				    if(k > maxlen)
-					    maxlen = k;
-			    }
-			    if(minlen != maxlen)
-				    fputs("VAR", fp);
-			    fprintf(fp, "CHAR(%d) NOT NULL\n", maxlen);
-			    fprintf(fp, "    CHECK (%s in(", item->name);
-			    for(j = 0; j < item->nmenu; j++) {
-				    if(j)
-					    putc(',', fp);
-				    putc('\'', fp);
-				    pr_dq(fp, item->menu[j].flagcode, '\'');
-				    fputc('\'', fp);
-			    }
-			    fputs("))", fp);
-			    break;
-		    }
-		    case IT_MULTI:
-		    case IT_FLAGS:
-			for(j = m = 0; m< item->nmenu; m++)
-				j += strlen(item->menu[j].flagcode);
-			fprintf(fp, "VARCHAR(%d) NOT NULL", j ? j + item->nmenu - 1 : 0);
-			/* a check here would be too complicated */
-			/* making the db slower if it actually enforces */
-		    default: ; /* shut gcc up */
-		}
+		pr_sql_type(fp, form, i);
 	}
 	if(!didcol) {
 		fputs(");\n", fp);
 		return(0);
 	}
+	for(i = 0; i < form->nitems; i++) {
+		int m;
+		item = form->items[i];
+		if(item->type != IT_FKEY)
+			continue;
+		for(j = m = 0; j < item->nfkey; j++) {
+			if(!item->keys[j].key)
+				continue;
+			if(m++)
+				break;
+		}
+		if(j < item->nfkey) {
+			fputs(",\n    FOREIGN KEY (", fp);
+			for(j = m = 0; j < item->nfkey; j++)
+				if(item->keys[j].key) {
+					if(m++)
+						fprintf(fp, ",%s_%d", item->name, m);
+					else
+						fputs(item->name, fp);
+				}
+			putc(')', fp);
+			pr_sql_fkey_ref(fp, item);
+		}
+	}
+	/* make referred-to fields UNIQUE */
+	QStringList sl;
+	for(i = 0; i < card->form->nchild; i++) {
+		const FORM *cform = read_form(card->form->children[i]);
+		add_ref_keys(sl, cform, card->form);
+	}
+	for(i = 0; i < card->form->nitems; i++)
+		if(card->form->items[i]->type == IT_INV_FKEY)
+			add_ref_keys(sl, card->form->items[i]->fkey_db,
+				     card->form);
+	sl.removeDuplicates();
+	for(i = 0; i < sl.length(); i++) {
+		char *s = qstrdup(sl[i]);
+		fprintf(fp, ",\n  UNIQUE(%s)", s);
+		free(s);
+	}
+	fputs(");\n", fp);
+
+	/* FIXME:  create index on referred-to fields */
 	fprintf(fp,
-		");\n"
 		"\\{IF +d}\n"
-		"DROP VIEW IF EXISTS %s_sum;\n"
-		"CREATE VIEW %s_sum AS SELECT\n", form->name, form->name);
+		"CREATE VIEW %s_sum AS SELECT\n", form->name);
 	nalloc = card->form->nitems;
 	itemorder = alloc(0, "summary", struct sum_item, nalloc);
 	nitems = get_summary_cols(&itemorder, &nalloc, card);
 	for(i = 0; i < nitems; i++) {
 		item = itemorder[i].item;
 		menu = itemorder[i].menu;
-		const char *label = item->label;
 		if (item->type == IT_CHOICE && i &&
 		    itemorder[i-1].item->type == IT_CHOICE &&
 		    itemorder[i-1].item->column == item->column)
 			continue;
 		if(i)
 			fputs(",\n", fp);
-		/* LEFT(x,y) -> SUBSTR(x,1,y) */
-		fputs("  SUBSTR(", fp);
-		switch(item->type) {
-		    case IT_INPUT:
-		    case IT_NOTE:
-		    case IT_NUMBER:
-		    case IT_TIME:
-			fputs(item->name, fp);
-			break;
-		    case IT_CHOICE:
-			if(i > 0 && form->items[i - 1]->type == IT_LABEL)
-				label = form->items[i - 1]->label;
+		int nseq = 0;
+		const CARD *c;
+		for(c = itemorder[i].fcard; c->fkey_next; c = c->fkey_next)
+			nseq++;
+		int seq[nseq];
+		for(c = itemorder[i].fcard, j = nseq - 1; c->fkey_next; c = c->fkey_next, j--) {
+			if(!j)
+				seq[j] = c->qcurr;
 			else
-				label = item->name;
-			for(j = i; j < form->nitems; j++)
-				if(form->items[j]->type == IT_CHOICE &&
-				   form->items[j]->column == item->column &&
-				   form->items[j]->flagtext)
-					break;
-			if(j == form->nitems) {
-				fputs(item->name, fp);
-				break;
-			}
-			fprintf(fp, "CASE %s", item->name);
-			for(j = i; j < form->nitems; j++)
-				if(form->items[j]->type == IT_CHOICE &&
-				   form->items[j]->column == item->column &&
-				   form->items[j]->flagtext) {
-					fputs(" WHEN '", fp);
-					pr_dq(fp, form->items[j]->flagcode, '\'');
-					fputs("' THEN '", fp);
-					pr_dq(fp, form->items[j]->flagtext, '\'');
-					fputc('\'', fp);
-				}
-			fprintf(fp, " ELSE %s END", item->name);
-			break;
-		    case IT_FLAG:
-			if(item->flagtext) {
-				fprintf(fp, "CASE WHEN %s THEN '", item->name);
-				pr_dq(fp, item->flagtext, '\'');
-				fputs("' ELSE '' END", fp);
-			} else
-				fputs(item->name, fp);
-			break;
-		    case IT_MENU:
-		    case IT_RADIO:
-			for(j = 0; j < item->nmenu; j++)
-				if(item->menu[j].flagtext)
-					break;
-			if(j == item->nmenu) {
-				fputs(item->name, fp);
-				break;
-			}
-			fprintf(fp, "CASE %s", item->name);
-			for(j = 0; j < item->nmenu; j++) {
-				if(!item->menu[j].flagtext)
-					continue;
-				fputs(" WHEN '", fp);
-				pr_dq(fp, item->menu[j].flagcode, '\'');
-				fputs("' THEN '", fp);
-				pr_dq(fp, item->menu[j].flagtext, '\'');
-				putc('\'', fp);
-			}
-			fprintf(fp, " ELSE %s END", item->name);
-			break;
-		    case IT_MULTI:
-		    case IT_FLAGS:
-			if(menu) {
-				label = menu->label;
-				if(menu->flagtext) {
-					fprintf(fp, "CASE WHEN %s THEN '", menu->name);
-					pr_dq(fp, menu->flagtext, '\'');
-					fputs("' ELSE '' END", fp);
-				} else
-					fputs(menu->name, fp);
-				break;
-			}
-			for(j = 0; j < item->nmenu; j++)
-				if(item->menu[j].flagtext)
-					break;
-			if(j == item->nmenu) {
-				fputs(item->name, fp);
-				break;
-			}
-			fputs("TRIM(", fp);
-			for(j = 0; j < item->nmenu; j++)
-				if(item->menu[j].flagtext)
-					fputs("REPLACE(", fp);
-			putc('\'', fp);
-			pr_schar(fp, form->aesc);
-			fprintf(fp, "'||%s||'", item->name);
-			pr_schar(fp, form->asep);
-			putc('\'', fp);
-			for(j = 0; j < item->nmenu; j++)
-				if(item->menu[j].flagtext) {
-					putc('\'', fp);
-					pr_schar(fp, form->asep);
-					for(s = item->menu[j].flagcode; *s; s++) {
-						if(*s == form->asep ||
-						   *s == form->aesc)
-							pr_schar(fp, form->aesc);
-						pr_schar(fp, *s++);
-					}
-					pr_schar(fp, form->asep);
-					fputs("','", fp);
-					pr_schar(fp, form->asep);
-					pr_dq(fp, item->menu[j].flagtext, '\'');
-					pr_schar(fp, form->asep);
-					fputs("')", fp);
-				}
-			fputs(",'", fp);
-			pr_schar(fp, form->asep);
-			fprintf(fp, "'),1,%d)", item->sumwidth);
-		    default: ; /* shut gcc up */
+				seq[j] = c->row;
 		}
+		const char *label = label_of(item, menu);
+		/* LEFT(x,y) -> SUBSTR(x,1,y) (sqlite3 doesn't support LEFT) */
+		fputs("  SUBSTR(", fp);
+		if(item->type == IT_NUMBER)
+			/* postgres requires explicit num->str conversion */
+			fputs("\\{IF -p}''||\\{ENDIF}", fp);
+		int itno;
+		const FORM *fform = itemorder[i].fcard->form;
+		for(itno = 0; itno < fform->nitems; itno++)
+			if(fform->items[itno] == item)
+				break;
+		pr_sql_item(fp, form->name, fform, itno, menu, label, seq, nseq);
 		fprintf(fp, ",1,%d) \"", menu ? menu->sumwidth : item->sumwidth);
 		pr_dq(fp, label, '"');
+		/* alias to avoid name conflicts w/ other tables */
+		/* FIXME: use field labels as prefix instead of this suffix */
+		for(j=0; j < nseq; j++)
+			fprintf(fp, "_%d", seq[j]);
 		putc('"', fp);
 	}
 	free_summary_cols(itemorder, nitems);
+	fprintf(fp, "\n  FROM %s", form->name);
+	for(i=0; i < form->nitems; i++) {
+		item = form->items[i];
+		if(item->type == IT_FKEY && item->sumwidth)
+			pr_sql_fkey_tables(fp, form->name, item, &i, 1);
+	}
 	fprintf(fp,
-		"\n  FROM %s;\n"
+		";\n"
 		"\\{ENDIF}\n"
 		"\\{IF +s}\n"
-		"DROP VIEW IF EXISTS %s_view;\n"
-		"CREATE VIEW %s_view AS SELECT\n", form->name, form->name, form->name);
+		"CREATE VIEW %s_view AS SELECT\n", form->name);
 	for(didcol = false, i = 0; i < form->nitems; i++) {
 		item = form->items[i];
 		/* labels are pointless, and print is impossible to translate */
 		/* charts are right out */
+		/* inv_fkey requires multiple rows */
 		if(!IN_DBASE(item->type))
 			continue;
 		if(item->type == IT_CHOICE) {
@@ -973,7 +846,9 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 				if(didcol)
 					fputs(",\n", fp);
 				didcol = true;
-				fprintf(fp, "  %s \"", item->menu[j].name);
+				fputs("  ", fp);
+				pr_sql_tq(fp, form->name, 0, 0);
+				fprintf(fp, "%s \"", item->menu[j].name);
 				if(item->label) {
 					pr_dq(fp, item->label, '"');
 					fputs(": ", fp);
@@ -986,54 +861,18 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		if(didcol)
 			fputs(",\n", fp);
 		didcol = true;
+		fputs("  ", fp);
+		const char *label = item->label;
 		switch(item->type) {
 		    case IT_INPUT:
 		    case IT_NOTE:
 		    case IT_NUMBER:
 		    case IT_TIME:
-			fprintf(fp, "  %s \"", item->name);
-			pr_dq(fp, item->label, '"');
-			putc('"', fp);
-			break;
-		    case IT_CHOICE:
-			/* FIXME: if label blank, use flagtext */
-			/*        if both non-blank, append flagtext */
-			/*   label (flagtext) */
-			fprintf(fp, "  CASE %s", item->name);
-			for(j = i; j < form->nitems; j++)
-				if(form->items[j]->type == IT_CHOICE &&
-				   form->items[j]->column == item->column) {
-					fputs(" WHEN '", fp);
-					pr_dq(fp, form->items[j]->flagcode, '\'');
-					fputs("' THEN '", fp);
-					if(form->items[j]->label) {
-						pr_dq(fp, form->items[j]->label, '\'');
-						if(form->items[j]->flagtext &&
-						   strcmp(form->items[j]->flagtext, form->items[j]->label)) {
-							fputs(" (", fp);
-							pr_dq(fp, form->items[j]->flagtext, '\'');
-							putc(')', fp);
-						}
-					} else
-						pr_dq(fp, form->items[j]->flagtext, '\'');
-					fputc('\'', fp);
-				}
-			fprintf(fp, " ELSE %s END \"", item->name);
-			if(i > 0 && form->items[i - 1]->type == IT_LABEL)
-				pr_dq(fp, form->items[i - 1]->label, '"');
-			else
-				pr_dq(fp, item->name, '"');
-			putc('"', fp);
-			break;
 		    case IT_FLAG:
-			if(item->flagtext) {
-				fprintf(fp, "  CASE WHEN %s THEN '", item->name);
-				pr_dq(fp, item->flagtext, '\'');
-				fputs("' ELSE '' END \"", fp);
-				putc('\'', fp);
-			} else
-				fprintf(fp, "  %s \"", item->name);
-			pr_dq(fp, item->label, '"');
+		    case IT_CHOICE:
+			pr_sql_item(fp, form->name, form, i, 0, label, 0, 0);
+			fputs(" \"", fp);
+			pr_dq(fp, label, '"');
 			putc('"', fp);
 			break;
 		    case IT_MENU:
@@ -1132,14 +971,24 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			fputs(", ','", fp);
 			pr_schar(fp, form->asep);
 			fputs("')", fp);
+			break;
+		    case IT_FKEY:
+			pr_sql_fkey_fields(fp, form->name, item, &i, 1);
+			break;
 		    default: ; /* shut gcc up */
 		}
 	}
+	fprintf(fp, "\n  FROM %s", form->name);
+	for(i=0; i < form->nitems; i++) {
+		item = form->items[i];
+		if(item->type == IT_FKEY)
+			pr_sql_fkey_tables(fp, form->name, item, &i, 1);
+	}
 	fprintf(fp,
-		"\n  FROM %s;\n"
+		";\n"
 		"\\{ENDIF}\n"
 		"\\{SUBST '=''}\\{FOREACH}\n"
-		"INSERT INTO %s (\n", form->name, form->name);
+		"INSERT INTO %s (\n", form->name);
 	for(didcol = false, i = 0; i < form->nitems; i++) {
 		item = form->items[i];
 		if(!IN_DBASE(item->type))
@@ -1194,6 +1043,12 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 				fprintf(fp, "   \\{(_%s?_%s:0)}", item->name, item->name);
 			else if(item->type == IT_FLAG)
 				fprintf(fp, "   \\{_%s?\"TRUE\":\"FALSE\"}", item->name);
+			else if(item->type == IT_TIME)
+				fprintf(fp, "   \\{IF -p}to_timestamp\\{ENDIF}(\\{_%s?_%s:\"0\"})",
+					item->name, item->name);
+			else if(item->type == IT_FKEY)
+				fprintf(fp, "   \\{IF (!#_%s)}NULL\\{ELSE}'\\{_%s}'\\{ENDIF}",
+					item->name, item->name);
 			else
 				fprintf(fp, "   '\\{_%s}'", item->name);
 		}
@@ -1201,4 +1056,498 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 	fputs("\n  );\n\\{END}\nCOMMIT;\n", fp);
 	fflush(fp);
 	return(0);
+}
+
+static void pr_schar(FILE *fp, char c, char doub)
+{
+	if(!isprint(c))
+		fprintf(fp, "'||CHAR(%d)||'", (int)c);
+	else
+		putc(c, fp);
+	if(c == doub)
+		putc(doub, fp);
+}
+
+static void pr_dq(FILE *fp, const char *s, char q)
+{
+	/* note: mysql's broken parser needs \ escaped as well */
+	/* but I don't care about mysql */
+	if(!s)
+		return;
+	while(*s)
+		pr_schar(fp, *s++, q);
+}
+
+static const char *sqlite_date_fmt(const ITEM *item)
+{
+	/* Note:  2-year dates not supported in sqlite3 */
+	/* Note:  12-hour time not supported in sqlite3 */
+	switch(item->timefmt) {
+	    case T_DATE:
+		return pref.mmddyy ? "%m/%d/%Y" : "%d.%m.%Y"; /* %y */
+	    case T_TIME:
+		return /* pref.ampm ? "%I:%M%p" : */ "%H:%M"; /* %p is > 1 char */
+	    case T_DURATION:
+		return "%H:%M"; /* %H is limited to 24 hrs */
+	    case T_DATETIME:
+	    default:
+		/* pref.ampm should be used here as well */
+		return pref.mmddyy ? "%m/%d/%Y %H:%M" : "%d.%m.%Y %H:%M";
+	}
+}
+
+static const char *postgres_date_fmt(const ITEM *item)
+{
+	switch(item->timefmt) {
+	    case T_DATE:
+		return pref.mmddyy ? "MM/DD/DD" : "DD.MM.YY";
+	    case T_TIME:
+		return pref.ampm ? "HH12:MIam" : "HH24:MI"; /* am is > 1 char */
+	    case T_DURATION:
+		return "HH24:MI"; /* HH24 is limited to 24 hrs */
+	    case T_DATETIME:
+	    default:
+		return pref.mmddyy ?
+			(pref.ampm ? "MM/DD/YY HH12:MIam" : "MM/DD/YY HH24:MI") :
+			(pref.ampm ? "DD.MM.YY HH12:MIam" : "DD.MM.YY HH24:MI");
+	}
+}
+
+static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
+			const MENU *menu, const char *&label,
+			const int *seq, int nseq)
+{
+	const ITEM *item = form->items[itno];
+	int j;
+	switch(item->type) {
+	    case IT_INPUT:
+	    case IT_NOTE:
+	    case IT_NUMBER:
+		pr_sql_tq(fp, db, seq, nseq);
+		fputs(item->name, fp);
+		break;
+	    case IT_TIME: {
+		    /* there is no standard way of doing this */
+		    /* sqlite3 by default; postgres with -p */
+		    fprintf(fp, "\\{IF -p}to_char(\\{ELSE}"
+			        "strftime(\"%s\",\\{ENDIF}", sqlite_date_fmt(item));
+		    pr_sql_tq(fp, db, seq, nseq);
+		    fprintf(fp, "%s,\\{IF -p}'%s'\\{ELSE}"
+			        "'unixepoch'\\{ENDIF})",
+			    item->name, postgres_date_fmt(item));
+		    break;
+	    }
+	    case IT_CHOICE:
+		/* FIXME: if label blank, use flagtext */
+		/*        if both non-blank, append flagtext */
+		/*   label (flagtext) */
+		if(itno > 0 && form->items[itno - 1]->type == IT_LABEL)
+			label = form->items[itno - 1]->label;
+		else
+			label = item->name;
+		for(j = itno; j < form->nitems; j++)
+			if(form->items[j]->type == IT_CHOICE &&
+			   form->items[j]->column == item->column &&
+			   form->items[j]->flagtext)
+				break;
+		if(j == form->nitems) {
+			pr_sql_tq(fp, db, seq, nseq);
+			fputs(item->name, fp);
+			break;
+		}
+		fputs("CASE ", fp);
+		pr_sql_tq(fp, db, seq, nseq);
+		fputs(item->name, fp);
+		for(j = itno; j < form->nitems; j++)
+			if(form->items[j]->type == IT_CHOICE &&
+			   form->items[j]->column == item->column &&
+			   form->items[j]->flagtext) {
+				fputs(" WHEN '", fp);
+				pr_dq(fp, form->items[j]->flagcode, '\'');
+				fputs("' THEN '", fp);
+				if(form->items[j]->label) {
+					pr_dq(fp, form->items[j]->label, '\'');
+					if(form->items[j]->flagtext &&
+					   strcmp(form->items[j]->flagtext, form->items[j]->label)) {
+						fputs(" (", fp);
+						pr_dq(fp, form->items[j]->flagtext, '\'');
+						putc(')', fp);
+					}
+				} else
+					pr_dq(fp, form->items[j]->flagtext, '\'');
+				putc('\'', fp);
+			}
+		fputs(" ELSE ", fp);
+		pr_sql_tq(fp, db, seq, nseq);
+		fprintf(fp, "%s END", item->name);
+		break;
+	    case IT_FLAG:
+		if(item->flagtext) {
+			fputs("CASE WHEN ", fp);
+			pr_sql_tq(fp, db, seq, nseq);
+			fprintf(fp, "%s THEN '", item->name);
+			pr_dq(fp, item->flagtext, '\'');
+			fputs("' ELSE '' END", fp);
+		} else {
+			pr_sql_tq(fp, db, seq, nseq);
+			fputs(item->name, fp);
+		}
+		break;
+	    case IT_MENU:
+	    case IT_RADIO:
+		for(j = 0; j < item->nmenu; j++)
+			if(item->menu[j].flagtext)
+				break;
+		if(j == item->nmenu) {
+			pr_sql_tq(fp, db, seq, nseq);
+			fputs(item->name, fp);
+			break;
+		}
+		fputs("CASE ", fp);
+		pr_sql_tq(fp, db, seq, nseq);
+		fputs(item->name, fp);
+		for(j = 0; j < item->nmenu; j++) {
+			if(!item->menu[j].flagtext)
+				continue;
+			fputs(" WHEN '", fp);
+			pr_dq(fp, item->menu[j].flagcode, '\'');
+			fputs("' THEN '", fp);
+			pr_dq(fp, item->menu[j].flagtext, '\'');
+			putc('\'', fp);
+		}
+		fputs(" ELSE ", fp);
+		pr_sql_tq(fp, db, seq, nseq);
+		fprintf(fp, "%s END", item->name);
+		break;
+	    case IT_MULTI:
+	    case IT_FLAGS:
+		if(menu) {
+			label = menu->label;
+			if(menu->flagtext) {
+				fputs("CASE WHEN ", fp);
+				pr_sql_tq(fp, db, seq, nseq);
+				fprintf(fp, "%s THEN '", menu->name);
+				pr_dq(fp, menu->flagtext, '\'');
+				fputs("' ELSE '' END", fp);
+			} else {
+				pr_sql_tq(fp, db, seq, nseq);
+				fputs(menu->name, fp);
+			}
+			break;
+		}
+		for(j = 0; j < item->nmenu; j++)
+			if(item->menu[j].flagtext)
+				break;
+		if(j == item->nmenu) {
+			pr_sql_tq(fp, db, seq, nseq);
+			fputs(item->name, fp);
+			break;
+		}
+		fputs("TRIM(", fp);
+		for(j = 0; j < item->nmenu; j++)
+			if(item->menu[j].flagtext)
+				fputs("REPLACE(", fp);
+		putc('\'', fp);
+		pr_schar(fp, form->aesc);
+		fputs("'||", fp);
+		pr_sql_tq(fp, db, seq, nseq);
+		fprintf(fp, "%s||'", item->name);
+		pr_schar(fp, form->asep);
+		putc('\'', fp);
+		for(j = 0; j < item->nmenu; j++)
+			if(item->menu[j].flagtext) {
+				putc('\'', fp);
+				pr_schar(fp, form->asep);
+				for(const char *s = item->menu[j].flagcode; *s; s++) {
+					if(*s == form->asep ||
+					   *s == form->aesc)
+						pr_schar(fp, form->aesc);
+					pr_schar(fp, *s++);
+				}
+				pr_schar(fp, form->asep);
+				fputs("','", fp);
+				pr_schar(fp, form->asep);
+				pr_dq(fp, item->menu[j].flagtext, '\'');
+				pr_schar(fp, form->asep);
+				fputs("')", fp);
+			}
+		fputs(",'", fp);
+		pr_schar(fp, form->asep);
+		fprintf(fp, "'),1,%d)", item->sumwidth);
+		break;
+	    case IT_FKEY:
+		pr_sql_fkey_fields(fp, db, item, &itno, 1);
+		break;
+	    default: ; /* shut gcc up */
+	}
+}
+
+static void pr_sql_fkey_ref(FILE *fp, const ITEM *item)
+{
+	int j, m;
+	fprintf(fp, " REFERENCES %s (", item->fkey_db->name);
+	for(j = m = 0; j < item->nfkey; j++)
+		if(item->keys[j].key) {
+			const ITEM *fitem = item->fkey_db->items[item->keys[j].item];
+			if(m++)
+				putc(',', fp);
+			if(IFL(fitem->,MULTICOL))
+				fputs(fitem->menu[item->keys[j].menu].name, fp);
+			else
+				fputs(fitem->name, fp);
+		}
+	putc(')', fp);
+}
+
+static void pr_sql_type(FILE *fp, const FORM *form, int i, bool null)
+{
+	int j, m;
+	const ITEM *item = form->items[i];
+	switch(item->type) {
+	    case IT_INPUT:
+	    case IT_NOTE:
+		fprintf(fp, "VARCHAR(%d)", item->maxlen);
+		if(!null)
+			fputs(" NOT NULL", fp);
+		break;
+	    case IT_NUMBER:
+		if(item->digits)
+			/* fprintf(fp, "DECIMAL(15,%d)", item->digits): */
+			/* fputs("REAL", fp); */
+			fputs("FLOAT(15)", fp);
+		else
+			fputs("BIGINT", fp);
+		if(!null)
+			fputs(" NOT NULL", fp);
+		break;
+	    case IT_TIME:
+		switch(item->timefmt) {
+		    case T_DATE:
+			fputs("DATE", fp);
+			break;
+		    case T_TIME:
+			fputs("TIME", fp);
+			break;
+		    case T_DATETIME:
+			fputs("TIMESTAMP", fp);
+			break;
+		    case T_DURATION:
+			fputs("TIME", fp); /* probably too limiting */
+			break;
+		}
+		if(!null)
+			fputs(" NOT NULL", fp);
+		break;
+	    case IT_CHOICE: {
+		    int minlen = strlen(item->flagcode), maxlen = minlen;
+		    for(j = i + 1; j < form->nitems; j++)
+			    if(form->items[j]->type == IT_CHOICE &&
+			       form->items[j]->column == item->column) {
+				    int k = strlen(form->items[j]->flagcode);
+				    if(k < minlen)
+					    minlen = k;
+				    if(k > maxlen)
+					    maxlen = k;
+			    }
+		    if(minlen != maxlen)
+			    fputs("VAR", fp);
+		    fprintf(fp, "CHAR(%d)", maxlen);
+		    if(!null)
+			    fputs(" NOT NULL", fp);
+		    fprintf(fp, "\n    (CHECK (%s in(", item->name);
+		    for(j = i; j < form->nitems; j++)
+			    if(form->items[j]->type == IT_CHOICE &&
+			       form->items[j]->column == item->column) {
+				    if(j != i)
+					    putc(',', fp);
+				    putc('\'', fp);
+				    pr_dq(fp, form->items[j]->flagcode, '\'');
+				    putc('\'', fp);
+			    }
+		    fputs("))", fp);
+		    break;
+	    }
+	    case IT_FLAG:
+		fputs("BOOLEAN", fp);
+		if(!null)
+			fputs(" NOT NULL", fp);
+		break;
+	    case IT_MENU:
+	    case IT_RADIO: {
+		    int minlen = strlen(item->menu->flagcode), maxlen = minlen;
+		    for(j = 0; j < item->nmenu; j++) {
+			    int k = strlen(item->menu[j].flagcode);
+			    if(k < minlen)
+				    minlen = k;
+			    if(k > maxlen)
+				    maxlen = k;
+		    }
+		    if(minlen != maxlen)
+			    fputs("VAR", fp);
+		    fprintf(fp, "CHAR(%d)", maxlen);
+		    if(!null)
+			    fputs(" NOT NULL", fp);
+		    fprintf(fp, "\n    CHECK (%s in(", item->name);
+		    for(j = 0; j < item->nmenu; j++) {
+			    if(j)
+				    putc(',', fp);
+			    putc('\'', fp);
+			    pr_dq(fp, item->menu[j].flagcode, '\'');
+			    putc('\'', fp);
+		    }
+		    fputs("))", fp);
+		    break;
+	    }
+	    case IT_MULTI:
+	    case IT_FLAGS:
+		for(j = m = 0; m< item->nmenu; m++)
+			j += strlen(item->menu[j].flagcode);
+		fprintf(fp, "VARCHAR(%d)", j ? j + item->nmenu - 1 : 0);
+		if(!null)
+			fputs(" NOT NULL", fp);
+		/* a check here would be too complicated */
+		/* making the db slower if it actually enforces */
+		break;
+	    case IT_FKEY:
+		    /* FIXME:  create support table for FKEY_MULTI */
+		    /*    <dbname>_<itemname>_ref */
+		    /*      <ref_field>.... <itemname>_id */
+		    /*    <itemname> becomes integer sequence # */
+		    for(j = m = 0; j < item->nfkey; j++)
+			    if(item->keys[j].key) {
+				    if(m++)
+					    fprintf(fp, ", %s_k%d ", item->name, m);
+				    pr_sql_type(fp, item->fkey_db, item->keys[j].item, true);
+			    }
+		    if(m == 1) {
+			    fputs("\n   ", fp);
+			    pr_sql_fkey_ref(fp, item);
+		    }
+		    break;
+	    default: ; /* shut gcc up */
+	}
+}
+
+static void pr_sql_tq(FILE *fp, const char *db, const int *seq, int nseq)
+{
+	if(!nseq) {
+		fprintf(fp, "%s.", db);
+		return;
+	}
+	fputs("fk", fp);
+	for(int m=0; m < nseq; m++)
+		fprintf(fp, "_%d", seq[m]);
+	putc('.', fp);
+}
+
+static void pr_sql_fkey_fields(FILE *fp, const char *db, const ITEM *item,
+			       const int *seq, int nseq)
+{
+	int n, m;
+	bool didone = false;
+	for(n = 0; n < item->nfkey; n++) {
+		if(!item->keys[n].display)
+			continue;
+		if(didone)
+			fputs(", ", fp);
+		didone = true;
+		const ITEM *fitem = item->fkey_db->items[item->keys[n].item];
+		if(fitem->type == IT_FKEY) {
+			int fseq[nseq + 1];
+			memcpy(fseq, seq, nseq * sizeof(int));
+			fseq[nseq] = n;
+			pr_sql_fkey_fields(fp, db, item, fseq, nseq + 1);
+			continue;
+		}
+		const char *label = IFL(fitem->,MULTICOL) ?
+				  fitem->menu[item->keys[n].menu].label
+				: fitem->label;
+		if(fitem->type == IT_TIME)
+			pr_sql_item(fp, db, item->fkey_db, item->keys[n].item,
+				    0, label, seq, nseq);
+		else {
+			pr_sql_tq(fp, db, seq, nseq);
+			fputs(IFL(fitem->,MULTICOL) ? fitem->menu[item->keys[n].menu].name
+						    : fitem->name, fp);
+		}
+		fputs(" \"", fp);
+		pr_dq(fp, label, '"');
+		/* alias to avoid name conflicts w/ other tables */
+		/* FIXME: use field labels as prefix instead of this suffix */
+		for(m=0; m < nseq; m++)
+			fprintf(fp, "_%d", seq[m]);
+		putc('"', fp);
+	}
+}
+
+static void pr_sql_fkey_tables(FILE *fp, const char *db, const ITEM *item,
+			       const int *seq, int nseq)
+{
+	int n, m;
+	fprintf(fp, "\n    LEFT OUTER JOIN %s fk", item->fkey_db->name);
+	for(n = 0; n < nseq; n++)
+		fprintf(fp, "_%d", seq[n]);
+	fputs(" ON ", fp);
+	for(n = m = 0; n < item->nfkey; n++) {
+		if(!item->keys[n].key)
+			continue;
+		if(nseq == 1)
+			fputs(db, fp);
+		else {
+			fputs("fk", fp);
+			for(int i=0; i < nseq - 1; i++)
+				fprintf(fp, "_%d", seq[i]);
+		}
+		fprintf(fp, ".%s", item->name);
+		if(m++)
+			fprintf(fp, "_k%d", m);
+		fputs(" = fk", fp);
+		for(int i=0; i < nseq; i++)
+			fprintf(fp, "_%d", seq[i]);
+		const ITEM *fitem = item->fkey_db->items[item->keys[n].item];
+		fprintf(fp, ".%s", IFL(fitem->,MULTICOL) ?
+				fitem->menu[item->keys[n].menu].name :
+				fitem->name);
+	}
+	for(n = 0; n < item->nfkey; n++) {
+		const ITEM *fitem = item->fkey_db->items[item->keys[n].item];
+		if(fitem->type == IT_FKEY) {
+			int fseq[nseq + 1];
+			memcpy(fseq, seq, nseq * sizeof(int));
+			fseq[nseq] = n;
+			pr_sql_fkey_tables(fp, db, fitem, fseq, nseq + 1);
+		}
+	}
+}
+
+static void add_ref_keys(QStringList &sl, const FORM *cform, const FORM *form)
+{
+	for(int i = 0; i < cform->nitems; i++) {
+		const ITEM *fitem = cform->items[i];
+		/* FIXME:  verify this works; may need strcmp(name) */
+		if(fitem->type == IT_FKEY && fitem->fkey_db == form) {
+			QString ks, ds;
+			for(int j = 0; j < fitem->nfkey; j++) {
+				const ITEM *kitem = form->items[fitem->keys[j].item];
+				const char *name;
+				if(IFL(kitem->,MULTICOL))
+					name = kitem->menu[fitem->keys[j].menu].name;
+				else
+					name = kitem->name;
+				if(fitem->keys[j].key) {
+					if(ks.length())
+						ks += ',';
+					ks += name;
+				}
+				if(fitem->keys[j].display) {
+					if(ds.length())
+						ds += ',';
+					ds += name;
+				}
+			}
+			sl.append(ks);
+			if(!IFL(fitem->,RDONLY))
+				sl.append(ds);
+		}
+	}
 }

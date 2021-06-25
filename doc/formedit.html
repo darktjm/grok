@@ -259,6 +259,42 @@ not be put into the static part of the canvas.
 	for configuring charts and their components.  Charts should be
 	put into the static part of the canvas.<P>
 
+<LI><B>Reference</B><BR>
+	A reference field is a reference to another database.  The
+	value stored in this database must match one or more fieds in the
+	other database.  This match must be unique:  only one row is
+	matched.  Multi-reference reference fields match more than one
+	row by storing more than one value to match.  The matching field(s)
+	and the field(s) to display in the current form may be separate.
+	For example, an ID field may be the key to match, but the fields
+	to display are the name and short description.  Selection of the
+	value is via menus for the displayed fields.  This means that each
+	combination of visible fields must be unique in the other database,
+	just like each set of key fields.  The other database generally
+	does not know about the reference, so it must be told in order for
+	some features to work, either by adding this database to the other's
+	form's Referers list, or by adding Referer field to the other database
+	referencing this database.  The label of a Reference field is an
+	HTML-style link which switches to the other database, with the
+	card referred to by this one selected for editing.<P>
+
+<LI><B>Referers</B><BR>
+	A referers field displays data from all cards of another database which
+	refer to this card.  The Reference field referring to this database
+	must be specified as the key, and may not be displayed (since
+	it just repeats data in the current card).  Like reference fields,
+	the label is an HTML-style link to the other database.  This
+	switches to the other databse in a special parent-restricted mode,
+	where the specified key field is restricted to point to the card
+	from which the link was pressed.  If all fields of the other database
+	are displayed (except for the key field(s), of course), it is
+	possible to create cards in the other database directly by editing
+	values in the bottom (editable) row of the table.<P>
+
+	A special form of this field where the label takes up the entire
+	widget needs/allows no displayed fields; it is just a link to the
+	referring database (in parent restricted mode).<P>
+
 </UL>
 
 <P>Each field has a number of parameters that depend on the type. The most
@@ -350,6 +386,21 @@ a field in the card:
 	the Internal field name, Database column, Summary column and
 	Width in summary fields are moved to the Menu table, because
 	they are specified separately for each flag.<P>
+
+<LI><B>Headers</B><BR>
+	Selecting this option displays field labels from the other database
+	above the displayed fields in the Reference and Referers widgets.<P>
+
+<LI><B>Subsearch</B><BR>
+	Selecting this option cretes a text field below the displayed fields.
+	Text entered there is used to query the other database, and filters
+	the editor menus and/or multi-item listing.<P>
+
+<LI><B>Multi-Ref</B><BR>
+	Reference fields may refer to more than one card in the other database
+	by storing multiple keys in a set.  This changes the display
+	from a row of selection menus to a table listing the current values,
+	each as a row of selection menus, plus a blank row at the end.<P>
 
 <LI><B>Internal field name</B><BR>
 	All fields have an unique name. Choice names are not unique,
@@ -503,12 +554,36 @@ a field in the card:
 	undo!), and the Duplicate button copies the selected row to the
 	immediately following row.<P>
 
+<LI><B>Foreign DB</B><BR>
+	For Reference and Referers fields, this is the other database.
+	It is actually the name (or path to) a form, rather than a raw
+	database file.<P>
+
+<LI><B>Foreign Fields</B><BR>
+	For Reference and Referers fields, this species the fields to
+	match (key fields) and the fields to display.  The Key and
+	Display checkboxes select how a field is used.  The pull-down
+	menu selects a field from the other databse.  Selecting a field
+	in the bottom row adds it to the list, and clearing a field
+	selection in the list deletes it.<P>
+
+	Note that order matters.  The order of fields, top to bottom, with
+	the display flag set is the order in which the fields are displayed
+	in the card window.  For Reference fields, multiple key fields are
+	stored as a single array value in the database.  The order of this
+	array is the order, from top to bottom, of the fields marked as
+	keys.<P>
+	
+	Changing the list of key fields in Reference field definitions in
+	any way will invalidate all data currently stored in the Reference
+	field.<P>
+
 <LI><B>Calendar interface</B><BR>
 	If the <I>plan</I> calendar program (see below) reads a grok
 	database, it starts <I>grok</I> with the -p option, which uses
 	the calendar interface settings to interpret the fields of
 	the database. At least one field must be marked <TT>Date</TT>
-	or <TT>Date+time"</TT>; <I>plan</I> will use the value in that
+	or <TT>Date+time</TT>; <I>plan</I> will use the value in that
 	field to display the card in the calendar at the given date. There
 	should also be a field marked <TT>Note</TT> or <TT>Message</TT>;
 	this will become the label of the calendar item that is shown
@@ -592,6 +667,13 @@ Grammar section for details.
 	cards whose value is above average.One of the queries can be
 	selected as the default query that will be performed when the
 	database is read from disk.<P>
+
+<LI><B>Referers</B><BR>
+	Starts up a window that allows entry of databases referring to
+	this one.  Some operations, such as cascade deletes and SQL template
+	export, rely on a list of referring database to work properly.
+	Databases used in Referers fields are automatically added to this
+	list.<P>
 
 <LI><B>Def Help</B><BR>
 	The main window has a help button in the lower left corner. This
