@@ -204,8 +204,9 @@ static void resize_menu_table(QTableWidget *tw)
 	tw->updateGeometry();
 }
 
-static int fkey_index(const FORM *f, int item, int menu) {
+static int fkey_index(const FORM *f, int index) {
 	int sel = 0;
+	int item = index % f->nitems, menu = index / f->nitems;
 	for (int i=0; i < f->nitems; i++) {
 		const ITEM *it = f->items[i];
 		if (!IN_DBASE(it->type))
@@ -223,24 +224,47 @@ static int fkey_index(const FORM *f, int item, int menu) {
 	return -1;
 }
 
-static void fkey_at(const FORM *f, int idx, int &item, int &menu) {
-	item = -1;
-	if (idx < 0)
+static void fkey_at(const FORM *f, int idx, FKEY &fk)
+{
+	int item = -1, menu;
+	fk.item = 0;
+	fk.menu = 0;
+	fk.index = -1;
+	if (idx < 0) {
+		zfree(fk.name);
+		fk.name = 0;
 		return;
+	}
 	for (int i=0; i < f->nitems; i++) {
-		const ITEM *it = f->items[i];
+		ITEM *it = f->items[i];
 		if (!IN_DBASE(it->type))
 			continue;
 		if (IFL(it->,MULTICOL)) {
 			if (it->nmenu)
 				item++;
 			for (menu=0; menu < it->nmenu; menu++)
-				if (!idx--)
+				if (!idx--) {
+					fk.item = it;
+					fk.menu = &it->menu[menu];
+					fk.index = item + menu * f->nitems;
+					if(!fk.name || strcmp(fk.name, fk.menu->name)) {
+						zfree(fk.name);
+						fk.name = strdup(fk.menu->name);
+					}
 					return;
+				}
 		} else {
 			item++;
-			if (!idx--)
+			if (!idx--) {
+				fk.item = it;
+				fk.menu = 0;
+				fk.index = item;
+				if(!fk.name || strcmp(fk.name, it->name)) {
+					zfree(fk.name);
+					fk.name = strdup(it->name);
+				}
 				return;
+			}
 		}
 	}
 }
@@ -270,25 +294,31 @@ static void fill_key_row(QTableWidget *tw, ITEM *item, int row)
 	FKEY *fk = &item->fkey[row];
 	QComboBox *cb = new QComboBox;
 	cb->addItem("");
-	if (item->fkey_db) {
-		for (int i=0; i < item->fkey_db->nitems; i++) {
-			const ITEM *it = item->fkey_db->items[i];
+	resolve_fkey_fields(item);
+	const FORM *fform = item->fkey_form;
+	if (fform) {
+		for (int i=0; i < fform->nitems; i++) {
+			const ITEM *it = fform->items[i];
 			if (!IN_DBASE(it->type))
 				continue;
 			if (IFL(it->,MULTICOL)) {
 				for (int m=0; m < it->nmenu; m++)
-					cb->addItem(fkey_name(item->fkey_db,
+					cb->addItem(fkey_name(fform,
 							      i, m));
 			} else
-				cb->addItem(fkey_name(item->fkey_db, i, 0));
+				cb->addItem(fkey_name(fform, i, 0));
 		}
 	}
 	if (blank)
 		cb->setCurrentIndex(0);
-	else if (!item->fkey_db) {
-		cb->setCurrentText(QString::number(fk->item) + '/' + QString::number(fk->menu));
-	} else
-		cb->setCurrentIndex(fkey_index(item->fkey_db, fk->item, fk->menu) + 1);
+	else if (!fform)
+		cb->setCurrentText(fk->name);
+	else {
+		if(fk->index < 0)
+			cb->setCurrentText(fk->name);
+		else
+			cb->setCurrentIndex(fkey_index(fform, fk->index) + 1);
+	}
 	tw->setCellWidget(row, KEY_FIELD_FIELD, cb);
 	set_popup_cb(cb, key_callback(KEY_FIELD_FIELD, row, c), int, c);
 	QCheckBox *chk = new QCheckBox;
@@ -1226,15 +1256,17 @@ static void fillout_formedit_widget(
 	  case 0x23c:
 	  case 0x23d: set_toggle(w, item->dcombo == tp->code - 0x23b);	break;
 	  case 0x244:
-		  if (!item->fkey_db)
+		  if (BLANK(item->fkey_form_name))
 			  print_text_button_s(w, "");
 		  else {
-			  const char *p = canonicalize(item->fkey_db->path, false);
+			  /* FIXME: this allows fkey_db_name to be path */
+			  /* but nowhere else does */
+			  const char *p = canonicalize(item->fkey_form_name, false);
 			  if (!strcmp(p, canonicalize(resolve_tilde(GROKDIR, 0), 0)) ||
 			      !strcmp(p, canonicalize(resolve_tilde(LIB "/grokdir", 0), 0)))
-				  print_text_button_s(w, item->fkey_db->name);
+				  print_text_button_s(w, item->fkey_form_name);
 			  else {
-				  char *lab = qstrdup(QString(p) + '/' + item->fkey_db->name);
+				  char *lab = qstrdup(QString(p) + '/' + item->fkey_form_name);
 				  print_text_button_s(w, lab);
 				  free(lab);
 			  }
@@ -1468,8 +1500,7 @@ static void key_callback(int x, int y, int c)
 		if(row < item->nfkey) {
 			switch (x) {
 			    case KEY_FIELD_FIELD:
-				fkey_at(item->fkey_db, c - 1, item->fkey[y].item,
-					item->fkey[y].menu);
+				fkey_at(item->fkey_form, c - 1, item->fkey[y]);
 				break;
 			    case KEY_FIELD_KEY:
 				item->fkey[y].key = c;
@@ -1756,14 +1787,9 @@ static int readback_item(
 		       break;
 	  case 0x244: {
 		  const char *s = read_text_button(w, 0);
-		  if (s && *s)
-			  item->fkey_db = read_form(s);
-		  else if(item->fkey_db) {
-			  form_delete((FORM *)item->fkey_db);
-			  item->fkey_db = NULL;
-		  }
-		  }
+		  item->fkey_form_name = BLANK(s) ? NULL : strdup(s);
 		  break;
+	  }
 	  case 0x23e:  IFT(item->,MULTICOL);
 		       if (IFL(item->,MULTICOL) && item->nmenu) {
 			       int had_0 = avail_column(form, item);

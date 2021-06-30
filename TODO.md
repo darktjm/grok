@@ -169,6 +169,8 @@ Bugs
 - Sometimes form editor crashes when writing form def, causing it to
   be wiped out
 
+- Error during FOREACH loop on export double frees query results
+
 Code Improvements
 -----------------
 
@@ -180,7 +182,8 @@ Code Improvements
 
 - On all file writes, fflush before fclose, and report on ferror().
   Normally I'd stop writing as soon as an error occurs, but that's too
-  much trouble and probably not worth it.
+  much trouble and probably not worth it.  Maybe make backups before
+  overwriting and delete when successfully written.
 
 - Check errors on all file reads, and report/abort if so.  I suppose
   that delaying until just before fclose would be sufficient.
@@ -231,13 +234,10 @@ Code Improvements
 Minor UI Improvements
 ---------------------
 
-- Move search mode selection to menu, or something.  Maybe add
-  hotkeys so it's easier to do.  I rarely switch, and having that
-  big old menu button take up space while the search text shrinks is
-  awful (maybe also remove the Search button while I'm at it, since
-  pressing return does the same thing).  Plus, I"m not even sure I
-  understand what all of those options do (probably at least because
-  widen was broken, and the entire widget isn't even documented
+- Maybe add hotkeys for serch mode so it's easier to do.  Maybe remove
+  the Serch button since pressing return does the same thing.  Plus, I"m
+  not even sure I understand what all of those options do (probably at
+  least because widen was broken, and the entire widget isn't even documented
   outside of grok.hlp and HISTORY).  I only use the first and last.
 
   It would be best to have a full stack of query strings, since data
@@ -306,7 +306,7 @@ Important UI improvements
 
 - Do something about the help text.  Converting the built-in text to
   basic HTML improved the appearance a bit, so at least
-  appearance-related changes can wait. It is not possible to
+  appearance-related changes can wait.  It is not possible to
   globally override QWhatsThis.  Instead, I'd have to subclass every
   widget with whatsThis text and override the keyboard and mouse
   events (probably among others) to call my own routine, instead.
@@ -921,7 +921,7 @@ Major Card Features
   also in the todo sample database, but it's not as though every other
   such application doesn't have one, as well (well, yeah, every other
   means just Fiasco and GCStar to me right now, as form.cgi was a
-  serious application for a serious database, with no media frivolty).
+  serious application for a serious database, with no media frivolity).
 
 - Remove the chart widget, and replace it with a generic inset widget.
   Static charts can be made using external programs like R.  Making
@@ -953,8 +953,7 @@ Major Feature: Foreign Database References
 - A menu option is
   provided to check a "child" database for bad references, with
   automatic resolution either blanking the reference or removing the
-  child entirely.  Cascade deletes are only possible if the parent
-  expliclitly lists child databases.
+  child entirely.
 
   - A text field below (optional?) is a
     search expression applied to the parent database to restrict
@@ -997,7 +996,8 @@ Major Feature: Foreign Database References
     key).  Whether a child is deleted or just has its reference
     blanked could just depend on whether or not the field is
     never-blank, or the delete popup gives options for what to do,
-    defaulted to what it thinks is right.
+    defaulted to what it thinks is right.  Cascade deletes are only
+    possible if the parent expliclitly lists child databases.
 
 - For convenience and safety, rather than using virtual
   references, the "parent" can be given a stored reference like the

@@ -1904,14 +1904,19 @@ void free_db_sort(
 	}
 }
 
-static void add_deref(const char *key, const FORM *form, const ITEM *item,
+static void add_deref(const char *key, const FORM *form, ITEM *item,
 		      char *&ret, size_t *retalloc, int &retlen,
 		      const char *fsep, const char *rsep,
 		      int name_prefix_off, int nplen)
 {
+	const FORM *fform = 0;
 	DBASE *dbase = 0;
-	if (key)
-		dbase = read_dbase(item->fkey_db);
+	if (key) {
+		resolve_fkey_fields(item);
+		if (!(fform = item->fkey_form))
+			return;
+		dbase = read_dbase(fform);
+	}
 	for (int keyno = 0; ; keyno++) {
 		int r = 0;
 		if (key) {
@@ -1944,10 +1949,12 @@ static void add_deref(const char *key, const FORM *form, const ITEM *item,
 			const FKEY &fk = item->fkey[i];
 			if (!fk.display)
 				continue;
-			const ITEM *fit = item->fkey_db->items[fk.item];
-			const char *value = dbase_get(dbase, r, fit->column);
-			if (fit->type == IT_FKEY)
-				add_deref(value, fit->fkey_db, fit,
+			ITEM *fit = fk.item;
+			const char *value = fk.name;
+			if(fit)
+				value = dbase_get(dbase, r, fit->column);
+			if (fit && fit->type == IT_FKEY)
+				add_deref(value, fform, fit,
 					  ret, retalloc, retlen,
 					  fsep, rsep, name_prefix_off, nplen);
 			else if (key) {
@@ -1966,9 +1973,9 @@ static void add_deref(const char *key, const FORM *form, const ITEM *item,
 					retlen += vlen;
 				}
 			} else {
-				/* FIXME: esc(fit->name, *fsep, *rsep) */
+				/* FIXME: esc(fk.name, *fsep, *rsep) */
 				/* also escape ' ' and '_' if needed */
-				int nlen = strlen(fit->name);
+				int nlen = strlen(fk.name);
 				if (!first) {
 					grow(0, "dreff", char, ret,
 					     retlen + nplen + nlen + 3, retalloc);
@@ -1980,7 +1987,7 @@ static void add_deref(const char *key, const FORM *form, const ITEM *item,
 					grow(0, "dreff", char, ret,
 					     retlen + nlen + 2, retalloc);
 				ret[retlen++] = '_';
-				memcpy(ret + retlen, fit->name, nlen + 1);
+				memcpy(ret + retlen, fk.name, nlen + 1);
 			}
 			first = false;
 		}
@@ -2004,7 +2011,7 @@ char *f_deref(
 	if (!value)
 		return(0);
 	for (i=0; i < form->nitems; i++) {
-		const ITEM *item = form->items[i];
+		ITEM *item = form->items[i];
 		if (item->column != field.column || item->type != IT_FKEY)
 			continue;
 		add_deref(value, form, item, ret, &retalloc, retlen,
@@ -2032,7 +2039,7 @@ char *f_dereff(
 
 	get_form_arraysep(form, &sep, &esc);
 	for (i=0; i < form->nitems; i++) {
-		const ITEM *item = form->items[i];
+		ITEM *item = form->items[i];
 		if (!IN_DBASE(item->type))
 			continue;
 		if (item->type == IT_FKEY && item->column == field.column) {

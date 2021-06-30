@@ -21,7 +21,7 @@
 /* Yet more bison-specific code */
 /* This makes yyparse more reentrant */
 %code requires {
-struct fitem { CARD *card; const ITEM *item; };
+struct fitem { CARD *card; ITEM *item; };
 typedef std::vector<fitem> fitem_stack;
 typedef struct {
 	char	*ret;		/* returned string */

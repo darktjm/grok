@@ -219,9 +219,12 @@ typedef struct {
 	int	sumwidth;
 } MENU;
 
+typedef struct item ITEM;
 typedef struct {
-	int	item;		/* item # in dbase form */
-	int	menu;		/* if item is multi, which menu entry */
+	char	*name;		/* foreign variable name */
+	ITEM	*item;	/* resolved field pointer */
+	const MENU *menu;	/* resolved field pointer */
+	int	index;		/* resolved field pointer */
 	bool	key;		/* part of key, or just display? */
 	bool	display;	/* if key, display value? */
 } FKEY;
@@ -262,7 +265,7 @@ enum {
 } while(0)
 #define IFX(i,j,x) i flags = ((i flags) & ~(1U<<IF_##x)) | (j flags & (1U<<IF_##x))
 
-typedef struct item {
+struct item {
 	ITYPE	type;		/* one of IT_* */
 	char	*name;		/* field name, used in expressions */
 	int	x, y;		/* position in form */
@@ -316,10 +319,11 @@ typedef struct item {
 	BAR	*ch_bar;	/* nrows * ncomp bars, ncomp-major order */
 	int	ch_nbars;	/* number of bars in ch_bar array */
 				/*----- for FKEY, INV_FKEY */
-	FORM	*fkey_db;	/* foreign database */
+	char	*fkey_form_name;	/* foreign database */
+	FORM	*fkey_form;	/* resolved foreign database */
 	int	nfkey;		/* number of items in fkey field array */
 	FKEY	*fkey;		/* key/display field[s] */
-} ITEM;
+};
 
 
 /* true if the item type uses multicol */

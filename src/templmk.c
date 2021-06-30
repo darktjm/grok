@@ -642,16 +642,19 @@ const char *mktemplate_fancy(const CARD *card, FILE *fp)
 static void pr_schar(FILE *fp, char c, char doub = '\'');
 static void pr_dq(FILE *fp, const char *s, char q);
 static void pr_sql_type(FILE *fp, const FORM *form, int i, bool null = false);
-static void pr_sql_fkey_fields(FILE *fp, const char *db, const ITEM *item,
+static void pr_sql_fkey_fields(FILE *fp, const char *db, ITEM *item,
+			       const int *seq, int nseq, bool has_groupby,
+			       bool is_agg = false);
+static void pr_sql_fkey_tables(FILE *fp, const char *db, ITEM *item,
 			       const int *seq, int nseq);
-static void pr_sql_fkey_tables(FILE *fp, const char *db, const ITEM *item,
-			       const int *seq, int nseq);
-static void pr_sql_fkey_ref(FILE *fp, const ITEM *item);
+static void pr_sql_fkey_ref(FILE *fp, ITEM *item);
 static void pr_sql_tq(FILE *fp, const char *db, const int *seq, int nseq);
 static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
 			const MENU *menu, const char *&label,
-			const int *seq, int nseq);
-static void add_ref_keys(QStringList &sl, const FORM *cform, const FORM *form);
+			const int *seq, int nseq, bool has_groupby);
+static void add_ref_keys(QStringList &sl, const char *cform, const FORM *form);
+static bool any_fkey_multi(const FORM *form, const struct sum_item *itemorder = 0,
+			   int nitems = 0, const ITEM *item = 0);
 
 const char *mktemplate_sql(const CARD *card, FILE *fp)
 {
@@ -659,7 +662,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 	int		nitems;		/* number of items in summary */
 	size_t		nalloc;		/* number of allocated items */
 	int		i, j;		/* item counter */
-	const ITEM	*item;		/* current item */
+	ITEM		*item;		/* current item */
 	const MENU	*menu;		/* current menu selection */
 	char		*s;
 	const FORM	*form;
@@ -725,6 +728,9 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		fputs(");\n", fp);
 		return(0);
 	}
+	bool has_groupby = any_fkey_multi(form);
+	if(has_groupby)
+		fputs(",\n  fk_rowid INTEGER", fp);
 	for(i = 0; i < form->nitems; i++) {
 		int m;
 		item = form->items[i];
@@ -751,14 +757,14 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 	}
 	/* make referred-to fields UNIQUE */
 	QStringList sl;
-	for(i = 0; i < card->form->nchild; i++) {
-		const FORM *cform = read_form(card->form->children[i]);
-		add_ref_keys(sl, cform, card->form);
-	}
+	for(i = 0; i < card->form->nchild; i++)
+		add_ref_keys(sl, card->form->children[i], card->form);
 	for(i = 0; i < card->form->nitems; i++)
-		if(card->form->items[i]->type == IT_INV_FKEY)
-			add_ref_keys(sl, card->form->items[i]->fkey_db,
+		if(card->form->items[i]->type == IT_INV_FKEY) {
+			resolve_fkey_fields(card->form->items[i]);
+			add_ref_keys(sl, card->form->items[i]->fkey_form->name,
 				     card->form);
+		}
 	sl.removeDuplicates();
 	for(i = 0; i < sl.length(); i++) {
 		char *s = qstrdup(sl[i]);
@@ -766,14 +772,22 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		free(s);
 	}
 	fputs(");\n", fp);
-
-	/* FIXME:  create index on referred-to fields */
+	/* Note: postgres creates these automatically */
+	/*       so does sqlite3, sort of, but not permanently */
+	for(i = 0; i < sl.length(); i++) {
+		char *s = qstrdup(sl[i]);
+		fprintf(fp, "DROP INDEX IF EXISTS %s_%d;\n"
+			"CREATE INDEX %s_%d ON %s (%s);\n", card->form->name, i,
+			card->form->name, i, card->form->name, s);
+		free(s);
+	}
 	fprintf(fp,
 		"\\{IF +d}\n"
 		"CREATE VIEW %s_sum AS SELECT\n", form->name);
 	nalloc = card->form->nitems;
 	itemorder = alloc(0, "summary", struct sum_item, nalloc);
 	nitems = get_summary_cols(&itemorder, &nalloc, card);
+	has_groupby = any_fkey_multi(form, itemorder, nitems);
 	for(i = 0; i < nitems; i++) {
 		item = itemorder[i].item;
 		menu = itemorder[i].menu;
@@ -797,6 +811,22 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		const char *label = label_of(item, menu);
 		/* LEFT(x,y) -> SUBSTR(x,1,y) (sqlite3 doesn't support LEFT) */
 		fputs("  SUBSTR(", fp);
+		bool is_agg = false;
+		if(has_groupby) {
+			int it = itemorder[i].fcard->qcurr;
+			for(c = itemorder[i].fcard->fkey_next; c && c->fkey_next; c = c->fkey_next) {
+				const ITEM *fitem = c->form->items[it];
+				if((fitem->type == IT_FKEY && IFL(fitem->, FKEY_MULTI)) ||
+				   fitem->type == IT_INV_FKEY) {
+					is_agg = true;
+					break;
+				}
+			}
+			if(is_agg)
+				fputs("\\{IF -p}string_agg\\{ELSE}group_concat\\{END}(coalesce(", fp);
+			else
+				fputs("max(", fp);
+		}
 		if(item->type == IT_NUMBER)
 			/* postgres requires explicit num->str conversion */
 			fputs("\\{IF -p}''||\\{ENDIF}", fp);
@@ -805,8 +835,17 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		for(itno = 0; itno < fform->nitems; itno++)
 			if(fform->items[itno] == item)
 				break;
-		pr_sql_item(fp, form->name, fform, itno, menu, label, seq, nseq);
-		fprintf(fp, ",1,%d) \"", menu ? menu->sumwidth : item->sumwidth);
+		pr_sql_item(fp, form->name, fform, itno, menu, label, seq, nseq, has_groupby);
+		fprintf(fp, ",1,%d)", menu ? menu->sumwidth : item->sumwidth);
+		if(has_groupby) {
+			if(is_agg)
+				/* FIXME:  should this be arraysep? */
+				/*         if so, array-esc items? */
+				fputs(",''), CH\\{IF +p}A\\{ENDIF}R(10))", fp);
+			else
+				putc(')', fp);
+		}
+		fputs(" \"", fp);
 		pr_dq(fp, label, '"');
 		/* alias to avoid name conflicts w/ other tables */
 		/* FIXME: use field labels as prefix instead of this suffix */
@@ -814,18 +853,22 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			fprintf(fp, "_%d", seq[j]);
 		putc('"', fp);
 	}
-	free_summary_cols(itemorder, nitems);
 	fprintf(fp, "\n  FROM %s", form->name);
 	for(i=0; i < form->nitems; i++) {
 		item = form->items[i];
 		if(item->type == IT_FKEY && item->sumwidth)
 			pr_sql_fkey_tables(fp, form->name, item, &i, 1);
 	}
+	if(has_groupby)
+		fprintf(fp, "\n    GROUP BY %s.fk_rowid", form->name);
+	free_summary_cols(itemorder, nitems);
+	/* FIXME:  ORDER BY sort column */
 	fprintf(fp,
 		";\n"
 		"\\{ENDIF}\n"
 		"\\{IF +s}\n"
 		"CREATE VIEW %s_view AS SELECT\n", form->name);
+	has_groupby = any_fkey_multi(form);
 	for(didcol = false, i = 0; i < form->nitems; i++) {
 		item = form->items[i];
 		/* labels are pointless, and print is impossible to translate */
@@ -847,8 +890,13 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 					fputs(",\n", fp);
 				didcol = true;
 				fputs("  ", fp);
+				if(has_groupby)
+					fputs("max(", fp);
 				pr_sql_tq(fp, form->name, 0, 0);
-				fprintf(fp, "%s \"", item->menu[j].name);
+				fputs(item->menu[j].name, fp);
+				if(has_groupby)
+					putc(')', fp);
+				fputs(" \"", fp);
 				if(item->label) {
 					pr_dq(fp, item->label, '"');
 					fputs(": ", fp);
@@ -870,7 +918,11 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		    case IT_TIME:
 		    case IT_FLAG:
 		    case IT_CHOICE:
-			pr_sql_item(fp, form->name, form, i, 0, label, 0, 0);
+			if(has_groupby)
+				fputs("max(", fp);
+			pr_sql_item(fp, form->name, form, i, 0, label, 0, 0, has_groupby);
+			if(has_groupby)
+				putc(')', fp);
 			fputs(" \"", fp);
 			pr_dq(fp, label, '"');
 			putc('"', fp);
@@ -884,13 +936,18 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 					   strcmp(item->menu[j].flagtext,
 						  item->menu[j].label)))
 					break;
+			if(has_groupby)
+				fputs("max(", fp);
 			if(j == item->nmenu) {
-				fprintf(fp, "  %s \"", item->name);
+				fputs(item->name, fp);
+				if(has_groupby)
+					putc(')', fp);
+				fputs(" \"", fp);
 				pr_dq(fp, item->label, '"');
 				putc('"', fp);
 				break;
 			}
-			fprintf(fp, "  CASE %s", item->name);
+			fprintf(fp, "CASE %s", item->name);
 			for(j = 0; j < item->nmenu; j++) {
 				if(!strcmp(item->menu[j].label,
 					   item->menu[j].flagcode) &&
@@ -911,13 +968,17 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 				putc('\'', fp);
 			}
 			fprintf(fp, " ELSE %s END", item->name);
+			if(has_groupby)
+				putc(')', fp);
 			break;
 		    case IT_MULTI:
 		    case IT_FLAGS:
 			/* this is bound to fail in some cases */
 			/* that's at least one reason why I suggest
 			 * manual editing in the header comment */
-			fputs("  REPLACE(REPLACE(TRIM(", fp);
+			if(has_groupby)
+				fputs("max(", fp);
+			fputs("REPLACE(REPLACE(TRIM(", fp);
 			for(j = 0; j < item->nmenu; j++)
 				if(strcmp(item->menu[j].label,
 					  item->menu[j].flagcode) ||
@@ -971,9 +1032,11 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			fputs(", ','", fp);
 			pr_schar(fp, form->asep);
 			fputs("')", fp);
+			if(has_groupby)
+				putc(')', fp);
 			break;
 		    case IT_FKEY:
-			pr_sql_fkey_fields(fp, form->name, item, &i, 1);
+			pr_sql_fkey_fields(fp, form->name, item, &i, 1, has_groupby);
 			break;
 		    default: ; /* shut gcc up */
 		}
@@ -984,6 +1047,9 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		if(item->type == IT_FKEY)
 			pr_sql_fkey_tables(fp, form->name, item, &i, 1);
 	}
+	if(has_groupby)
+		fprintf(fp, "\n    GROUP BY %s.fk_rowid", form->name);
+	/* FIXME:  ORDER BY sort column */
 	fprintf(fp,
 		";\n"
 		"\\{ENDIF}\n"
@@ -1015,6 +1081,8 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			fprintf(fp, "   %s", item->name);
 		}
 	}
+	if(has_groupby)
+		fputs(",\n  fk_rowid", fp);
 	fputs("\n  ) VALUES (\n", fp);
 	for(didcol = false, i = 0; i < form->nitems; i++) {
 		item = form->items[i];
@@ -1053,6 +1121,8 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 				fprintf(fp, "   '\\{_%s}'", item->name);
 		}
 	}
+	if(has_groupby)
+		fputs(",\n  \\{this}", fp);
 	fputs("\n  );\n\\{END}\nCOMMIT;\n", fp);
 	fflush(fp);
 	return(0);
@@ -1061,7 +1131,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 static void pr_schar(FILE *fp, char c, char doub)
 {
 	if(!isprint(c))
-		fprintf(fp, "'||CHAR(%d)||'", (int)c);
+		fprintf(fp, "'||CH\\{IF +p}A\\{ENDIF}R(%d)||'", (int)c);
 	else
 		putc(c, fp);
 	if(c == doub)
@@ -1115,9 +1185,9 @@ static const char *postgres_date_fmt(const ITEM *item)
 
 static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
 			const MENU *menu, const char *&label,
-			const int *seq, int nseq)
+			const int *seq, int nseq, bool has_groupby)
 {
-	const ITEM *item = form->items[itno];
+	ITEM *item = form->items[itno];
 	int j;
 	switch(item->type) {
 	    case IT_INPUT:
@@ -1276,25 +1346,22 @@ static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
 		fprintf(fp, "'),1,%d)", item->sumwidth);
 		break;
 	    case IT_FKEY:
-		pr_sql_fkey_fields(fp, db, item, &itno, 1);
+		pr_sql_fkey_fields(fp, db, item, &itno, 1, has_groupby);
 		break;
 	    default: ; /* shut gcc up */
 	}
 }
 
-static void pr_sql_fkey_ref(FILE *fp, const ITEM *item)
+static void pr_sql_fkey_ref(FILE *fp, ITEM *item)
 {
 	int j, m;
-	fprintf(fp, " REFERENCES %s (", item->fkey_db->name);
+	resolve_fkey_fields(item);
+	fprintf(fp, " REFERENCES %s (", item->fkey_form->name);
 	for(j = m = 0; j < item->nfkey; j++)
 		if(item->fkey[j].key) {
-			const ITEM *fitem = item->fkey_db->items[item->fkey[j].item];
 			if(m++)
 				putc(',', fp);
-			if(IFL(fitem->,MULTICOL))
-				fputs(fitem->menu[item->fkey[j].menu].name, fp);
-			else
-				fputs(fitem->name, fp);
+			fputs(item->fkey[j].name, fp);
 		}
 	putc(')', fp);
 }
@@ -1302,7 +1369,7 @@ static void pr_sql_fkey_ref(FILE *fp, const ITEM *item)
 static void pr_sql_type(FILE *fp, const FORM *form, int i, bool null)
 {
 	int j, m;
-	const ITEM *item = form->items[i];
+	ITEM *item = form->items[i];
 	switch(item->type) {
 	    case IT_INPUT:
 	    case IT_NOTE:
@@ -1408,22 +1475,29 @@ static void pr_sql_type(FILE *fp, const FORM *form, int i, bool null)
 		/* a check here would be too complicated */
 		/* making the db slower if it actually enforces */
 		break;
-	    case IT_FKEY:
+	    case IT_FKEY: {
+		    resolve_fkey_fields(item);
+		    const FORM *fform = item->fkey_form;
+		    if(!fform)
+			    break;
 		    /* FIXME:  create support table for FKEY_MULTI */
 		    /*    <dbname>_<itemname>_ref */
 		    /*      <ref_field>.... <itemname>_id */
 		    /*    <itemname> becomes integer sequence # */
 		    for(j = m = 0; j < item->nfkey; j++)
 			    if(item->fkey[j].key) {
+				    if(!item->fkey[j].item)
+					    break;
 				    if(m++)
 					    fprintf(fp, ", %s_k%d ", item->name, m);
-				    pr_sql_type(fp, item->fkey_db, item->fkey[j].item, true);
+				    pr_sql_type(fp, fform, item->fkey[j].index % fform->nitems, true);
 			    }
 		    if(m == 1) {
 			    fputs("\n   ", fp);
 			    pr_sql_fkey_ref(fp, item);
 		    }
 		    break;
+	    }
 	    default: ; /* shut gcc up */
 	}
 }
@@ -1440,35 +1514,55 @@ static void pr_sql_tq(FILE *fp, const char *db, const int *seq, int nseq)
 	putc('.', fp);
 }
 
-static void pr_sql_fkey_fields(FILE *fp, const char *db, const ITEM *item,
-			       const int *seq, int nseq)
+static void pr_sql_fkey_fields(FILE *fp, const char *db, ITEM *item,
+			       const int *seq, int nseq, bool has_groupby,
+			       bool is_agg)
 {
 	int n, m;
 	bool didone = false;
+	is_agg |= item->type == IT_INV_FKEY || IFL(item->,FKEY_MULTI);
+	resolve_fkey_fields(item);
+	const FORM *fform = item->fkey_form;
 	for(n = 0; n < item->nfkey; n++) {
 		if(!item->fkey[n].display)
 			continue;
 		if(didone)
 			fputs(", ", fp);
 		didone = true;
-		const ITEM *fitem = item->fkey_db->items[item->fkey[n].item];
+		if(!item->fkey[n].item)
+			continue;
+		ITEM *fitem = item->fkey[n].item;
 		if(fitem->type == IT_FKEY) {
 			int fseq[nseq + 1];
 			memcpy(fseq, seq, nseq * sizeof(int));
 			fseq[nseq] = n;
-			pr_sql_fkey_fields(fp, db, item, fseq, nseq + 1);
+			pr_sql_fkey_fields(fp, db, item, fseq, nseq + 1, has_groupby, is_agg);
 			continue;
 		}
 		const char *label = IFL(fitem->,MULTICOL) ?
-				  fitem->menu[item->fkey[n].menu].label
-				: fitem->label;
+				  item->fkey[n].menu->label : fitem->label;
+		bool is_agg = false;
+		if(has_groupby) {
+			if(is_agg)
+				fputs("\\{IF -p}string_agg\\{ELSE}group_concat\\{END}(coalesce(", fp);
+			else
+				fputs("max(", fp);
+		}
 		if(fitem->type == IT_TIME)
-			pr_sql_item(fp, db, item->fkey_db, item->fkey[n].item,
-				    0, label, seq, nseq);
+			pr_sql_item(fp, db, fform, item->fkey[n].index % fform->nitems,
+				    0, label, seq, nseq, has_groupby);
 		else {
 			pr_sql_tq(fp, db, seq, nseq);
-			fputs(IFL(fitem->,MULTICOL) ? fitem->menu[item->fkey[n].menu].name
+			fputs(IFL(fitem->,MULTICOL) ? item->fkey[n].menu->name
 						    : fitem->name, fp);
+		}
+		if(has_groupby) {
+			if(is_agg)
+				/* FIXME:  should this be arraysep? */
+				/*         if so, array-esc items? */
+				fputs(",''), CH\\{IF +p}A\\{ENDIF}R(10))", fp);
+			else
+				putc(')', fp);
 		}
 		fputs(" \"", fp);
 		pr_dq(fp, label, '"');
@@ -1480,20 +1574,31 @@ static void pr_sql_fkey_fields(FILE *fp, const char *db, const ITEM *item,
 	}
 }
 
-static void pr_sql_fkey_tables(FILE *fp, const char *db, const ITEM *item,
+static void pr_sql_fkey_tables(FILE *fp, const char *db, ITEM *item,
 			       const int *seq, int nseq)
 {
 	int n, m;
-	fprintf(fp, "\n    LEFT OUTER JOIN %s fk", item->fkey_db->name);
+	if(IFL(item->,FKEY_MULTI)) {
+		/* note: only one ID field needs to be made per table */
+		/* but queries make more sense if there is one per FKEY_MULTI */
+		fprintf(fp, "\n    LEFT OUTER JOIN %s_fk%d ON %s_fk%d.%s_id = %s.%s",
+			db, *seq, db, *seq, item->name, db, item->name);
+	}
+	resolve_fkey_fields(item);
+	fprintf(fp, "\n    LEFT OUTER JOIN %s fk", item->fkey_form->name);
 	for(n = 0; n < nseq; n++)
 		fprintf(fp, "_%d", seq[n]);
 	fputs(" ON ", fp);
 	for(n = m = 0; n < item->nfkey; n++) {
 		if(!item->fkey[n].key)
 			continue;
-		if(nseq == 1)
+		if(m)
+			fputs(" AND ", fp);
+		if(nseq == 1) {
 			fputs(db, fp);
-		else {
+			if(IFL(item->,FKEY_MULTI))
+				fprintf(fp, "_fk%d", *seq);
+		} else {
 			fputs("fk", fp);
 			for(int i=0; i < nseq - 1; i++)
 				fprintf(fp, "_%d", seq[i]);
@@ -1504,13 +1609,13 @@ static void pr_sql_fkey_tables(FILE *fp, const char *db, const ITEM *item,
 		fputs(" = fk", fp);
 		for(int i=0; i < nseq; i++)
 			fprintf(fp, "_%d", seq[i]);
-		const ITEM *fitem = item->fkey_db->items[item->fkey[n].item];
+		const ITEM *fitem = item->fkey[n].item;
 		fprintf(fp, ".%s", IFL(fitem->,MULTICOL) ?
-				fitem->menu[item->fkey[n].menu].name :
+				item->fkey[n].menu->name :
 				fitem->name);
 	}
 	for(n = 0; n < item->nfkey; n++) {
-		const ITEM *fitem = item->fkey_db->items[item->fkey[n].item];
+		ITEM *fitem = item->fkey[n].item;
 		if(fitem->type == IT_FKEY) {
 			int fseq[nseq + 1];
 			memcpy(fseq, seq, nseq * sizeof(int));
@@ -1520,18 +1625,22 @@ static void pr_sql_fkey_tables(FILE *fp, const char *db, const ITEM *item,
 	}
 }
 
-static void add_ref_keys(QStringList &sl, const FORM *cform, const FORM *form)
+static void add_ref_keys(QStringList &sl, const char *cform, const FORM *form)
 {
-	for(int i = 0; i < cform->nitems; i++) {
-		const ITEM *fitem = cform->items[i];
+	const FORM *fform = read_form(cform);
+	if(!fform)
+		return;
+	for(int i = 0; i < fform->nitems; i++) {
+		ITEM *fitem = fform->items[i];
+		resolve_fkey_fields(fitem);
 		/* FIXME:  verify this works; may need strcmp(name) */
-		if(fitem->type == IT_FKEY && fitem->fkey_db == form) {
+		if(fitem->type == IT_FKEY && fitem->fkey_form == form) {
 			QString ks, ds;
 			for(int j = 0; j < fitem->nfkey; j++) {
-				const ITEM *kitem = form->items[fitem->fkey[j].item];
+				const ITEM *kitem = fitem->fkey[j].item;
 				const char *name;
 				if(IFL(kitem->,MULTICOL))
-					name = kitem->menu[fitem->fkey[j].menu].name;
+					name = fitem->fkey[j].menu->name;
 				else
 					name = kitem->name;
 				if(fitem->fkey[j].key) {
@@ -1550,4 +1659,46 @@ static void add_ref_keys(QStringList &sl, const FORM *cform, const FORM *form)
 				sl.append(ds);
 		}
 	}
+}
+
+/* stupid 3 functions in one */
+static bool any_fkey_multi(const FORM *form, const struct sum_item *itemorder,
+			   int nitems, const ITEM *item)
+{
+	/* per item */
+	if(item) {
+#if 0
+		if(item->type == IT_INV_FKEY)
+			return true;
+#endif
+		if(item->type != IT_FKEY)
+			return false;
+		if(IFL(item->,FKEY_MULTI))
+			return true;
+		for(int j = 0; j < item->nfkey; j++)
+			if(any_fkey_multi(0, 0, 0, item->fkey[j].item))
+				return true;
+		return false;
+	}
+	/* summary */
+	if(itemorder) {
+		for(int j = 0; j < nitems; j++) {
+			const CARD *c;
+			for(c = itemorder[j].fcard; c->fkey_next; c = c->fkey_next) {
+				const ITEM *fitem = c->fkey_next->form->items[c->qcurr];
+				if((fitem->type == IT_FKEY && IFL(fitem->,FKEY_MULTI)))
+					return true;
+#if 0
+				if(fitem->type == IT_INV_FKEY)
+					return true;
+#endif
+			}
+		}
+		return false;
+	}
+	/* full form */
+	for(int i = 0; i < form->nitems; i++)
+		if(any_fkey_multi(0, 0, 0, form->items[i]))
+			return true;
+	return false;
 }

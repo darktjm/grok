@@ -184,8 +184,12 @@ static void add_fkey_summary(struct sum_item **res, size_t *nres,
 			     int itemno, int fkno, int sumcol, int &ncol,
 			     CARD *rcard)
 {
-	const ITEM *item = rcard->form->items[itemno];
-	CARD *card = create_card_menu(item->fkey_db, read_dbase(item->fkey_db), 0, true);
+	ITEM *item = rcard->form->items[itemno];
+	resolve_fkey_fields(item);
+	FORM *fform = item->fkey_form;
+	if(!fform)
+		return;
+	CARD *card = create_card_menu(fform, read_dbase(fform), 0, true);
 	card->fkey_next = rcard;
 	card->qcurr = itemno;
 	if (fkno >= 0)
@@ -194,9 +198,12 @@ static void add_fkey_summary(struct sum_item **res, size_t *nres,
 		if (!item->fkey[i].display)
 			continue;
 		const FKEY &fk = item->fkey[i];
-		const ITEM *fit = item->fkey_db->items[fk.item];
+		if(!fk.item)
+			break;
+		int fitno = fk.index % fform->nitems;
+		ITEM *fit = fk.item;
 		if (fit->type == IT_FKEY) {
-			add_fkey_summary(res, nres, fk.item, i, sumcol, ncol, card);
+			add_fkey_summary(res, nres, fitno, i, sumcol, ncol, card);
 			continue;
 		}
 		grow(0, "summary", struct sum_item, *res, ncol + 1, nres);
@@ -204,13 +211,13 @@ static void add_fkey_summary(struct sum_item **res, size_t *nres,
 		
 		(*res)[ncol].sumcol = sumcol;
 #if 0
-		(*res)[ncol].sumoff = IFL(fit->,MULTICOL) ? fit->menu[fk.menu].sumcol :
+		(*res)[ncol].sumoff = IFL(fit->,MULTICOL) ? fk.menu->sumcol :
 							    fit->sumcol;
 #else
 		(*res)[ncol].sumoff = ncol;
 #endif
 		(*res)[ncol].item = fit;
-		(*res)[ncol++].menu = IFL(fit->,MULTICOL) ? &fit->menu[fk.menu] : NULL;
+		(*res)[ncol++].menu = fk.menu;
 	}
 }
 
@@ -220,7 +227,7 @@ int get_summary_cols(struct sum_item **res, size_t *nres, const CARD *card)
 	const FORM *form = card->form;
 
 	for(i=ncol=0,m=-1; i < form->nitems; i++) {
-		const ITEM *item = form->items[i];
+		ITEM *item = form->items[i];
 		if (!IN_DBASE(item->type)) // FIXME: allow Print in summary
 			continue;
 		if (!IFL(item->,MULTICOL) && item->sumwidth <= 0)
@@ -288,10 +295,11 @@ static int get_fkey_field(const CARD *fcard, int r)
 	if (r < 0)
 		return -1;
 	r = get_fkey_field(fcard->fkey_next, r);
-	const ITEM *fitem = fcard->fkey_next->form->items[fcard->qcurr];
+	ITEM *fitem = fcard->fkey_next->form->items[fcard->qcurr];
 	const char *key = dbase_get(fcard->fkey_next->dbase, r, fitem->column);
 	/* FIXME:  Somehow generate multiple rows if keyno can be > 0 */
-	return fkey_lookup(fcard->dbase, fcard->fkey_next->form, fitem, key, 0);
+	resolve_fkey_fields(fitem);
+	return fkey_lookup(fcard->dbase, fcard->fkey_next->form, fitem, key);
 }
 
 void make_summary_line(

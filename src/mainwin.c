@@ -29,11 +29,23 @@
 #define LIB "/usr/local/lib"
 #endif
 
-static void file_pulldown	(int);
-static void newform_pulldown	(int);
+enum file_menu {
+    FM_FINDSEL, FM_PRINT, FM_EXPORT, FM_PREFS, FM_CHECKREF, FM_SAVE, FM_REVERT,
+    FM_QUIT, FM_SAVEALL
+};
+
+enum formed_menu {
+    NFM_CURRENT, NFM_NEW, NFM_DUP
+};
+
+#define QM_AUTO -2
+#define QM_ALL  -1
+
+static void file_pulldown	(enum file_menu);
+static void formed_pulldown	(enum formed_menu);
 static void dbase_pulldown	(int);
 static void section_pulldown	(int);
-static void mode_callback	(int);
+static void mode_callback	(Searchmode);
 static void sect_callback	(int);
 static void query_pulldown	(int item, bool set = false);
 static void sort_pulldown	(int item, bool set = false);
@@ -42,10 +54,11 @@ static void requery_callback	(void);
 static void clear_callback	(void);
 static void letter_callback	(int);
 static void pos_callback	(int);
-static void new_callback  (void);
-static void dup_callback  (void);
-static void del_callback  (void);
-static bool multi_save_revert(bool);
+static void new_callback	(void);
+static void dup_callback	(void);
+static void del_callback	(void);
+static bool multi_save_revert	(bool);
+static void check_references	(void);
 
 /*
  * The following is part one in a fix for a bug that had been plaguing
@@ -102,9 +115,9 @@ static QPushButton	*w_del;		/* button: delete current card */
 static QComboBox	*w_sect;	/* button: section popup for card */
 static int		defsection;	/* default section */
 
-static Searchmode	searchmode;	/* current search mode */
-static const char	* const modename[] = { "All", "In query", "Narrow", "Widen",
-					"Widen in Query", "Find & select" };
+static Searchmode	searchmode = SM_FIND;	/* current search mode */
+static const char	* const modename[] = { "All", "In Query", "Narrow", "Widen",
+					"Widen in Query", "Find && Select" };
 
 
 /*
@@ -116,7 +129,6 @@ static const char	* const modename[] = { "All", "In query", "Narrow", "Widen",
 void create_mainwindow()
 {
 	QWidget		*w;
-	QComboBox	*popup;
 	long		i;
 	char		buf[10];
 	QMenuBar	*menubar;
@@ -131,29 +143,30 @@ void create_mainwindow()
 	menu = menubar->addMenu("&File");
 	menu->setTearOffEnabled(true);
 	bind_help(menu, "pd_file");
-	menu->addAction("&Find && select", [=](){file_pulldown(0);},
+	menu->addAction("&Find && select", [=](){file_pulldown(FM_FINDSEL);},
 			Qt::CTRL|Qt::Key_F);
-	menu->addAction("&Print...", [=](){file_pulldown(1);},
+	menu->addAction("&Check References", [=](){file_pulldown(FM_CHECKREF);});
+	menu->addAction("&Print...", [=](){file_pulldown(FM_PRINT);},
 			Qt::CTRL|Qt::Key_P);
-	menu->addAction("&Export...", [=](){file_pulldown(2);},
+	menu->addAction("&Export...", [=](){file_pulldown(FM_EXPORT);},
 			Qt::CTRL|Qt::Key_E);
-	menu->addAction("P&references...", [=](){file_pulldown(3);},
+	menu->addAction("P&references...", [=](){file_pulldown(FM_PREFS);},
 			Qt::CTRL|Qt::Key_R);
-	submenu = menu->addMenu("F&orm editor");
+	submenu = menu->addMenu("F&orm Editor");
 	if (restricted)
 		submenu->setEnabled(false);
 	submenu->setTearOffEnabled(true);
 	bind_help(submenu, "pd_file");
-	submenu->addAction("&Edit current form...", [=](){newform_pulldown(0);});
-	submenu->addAction("&Create new form from scratch...", [=](){newform_pulldown(1);});
-	submenu->addAction("Create, use current as &template...", [=](){newform_pulldown(2);});
-	menu->addAction("&Save", [=](){file_pulldown(6);},
+	submenu->addAction("&Edit current form...", [=](){formed_pulldown(NFM_CURRENT);});
+	submenu->addAction("&Create new form from scratch...", [=](){formed_pulldown(NFM_NEW);});
+	submenu->addAction("Create, use current as &template...", [=](){formed_pulldown(NFM_DUP);});
+	menu->addAction("&Save", [=](){file_pulldown(FM_SAVE);},
 			Qt::CTRL|Qt::Key_S);
-	menu->addAction("Save &All", [=](){file_pulldown(8);},
+	menu->addAction("Save &All", [=](){file_pulldown(FM_SAVEALL);},
 			Qt::CTRL|Qt::SHIFT|Qt::Key_S);
-	menu->addAction("Re&vert/Save...", [=](){file_pulldown(9);},
+	menu->addAction("Re&vert/Save...", [=](){file_pulldown(FM_REVERT);},
 			Qt::CTRL|Qt::SHIFT|Qt::Key_R);
-	menu->addAction("&Quit", [=](){file_pulldown(7);},
+	menu->addAction("&Quit", [=](){file_pulldown(FM_QUIT);},
 			Qt::CTRL|Qt::Key_Q);
 	
 	dbpulldown = menu = menubar->addMenu("&Database");
@@ -189,7 +202,7 @@ void create_mainwindow()
 	menu->addAction("&Files and programs", [=](){help_callback(mainwindow, "files");});
 	menu->addAction("&Expression grammar", [=](){help_callback(mainwindow, "grammar");},
 			Qt::CTRL|Qt::Key_G);
-	menu->addAction("&Variables and QSS", [=](){help_callback(mainwindow, "resources");});
+	menu->addAction("En&vironment and QSS", [=](){help_callback(mainwindow, "resources");});
 
 	w = new MinWidget;
 	mainwindow->setCentralWidget(w);
@@ -206,13 +219,6 @@ void create_mainwindow()
 	hb->addWidget(w);
 	set_button_cb(w, search_callback(0));
 	bind_help(w, "search");
-
-	popup = new QComboBox;
-	for (i=0; i < SM_NMODES; i++)
-		popup->addItem(modename[i]);
-	set_popup_cb(popup, mode_callback(i), int, i);
-	bind_help(popup, "search");
-	hb->addWidget(popup);
 
 	w_search = new QLineEdit;
 	w_search->sizePolicy().setHorizontalStretch(1);
@@ -672,6 +678,7 @@ void remake_section_pulldown()
 
 #define MAXQ	100		/* no more than 100 queries in pulldown */
 static QActionGroup	*qag = 0;	/* for radio-like queries */
+static QActionGroup	*smag = 0;	/* for search mode */
 
 void remake_query_pulldown(void)
 {
@@ -684,11 +691,28 @@ void remake_query_pulldown(void)
 		delete qag;
 		qag = 0;
 	}
+	if(smag) {
+		delete smag;
+		smag = 0;
+	}
 	if (!card || !card->form)
 		return;
 
-	QAction *aq = qpulldown->addAction("Autoquery",
-				   [=](bool c){query_pulldown(-2, c);});
+	QMenu *submenu = qpulldown->addMenu("Search &Mode");
+	QAction *aq;
+	submenu->setTearOffEnabled(true);
+	bind_help(submenu, "search");
+	smag = new QActionGroup(submenu);
+	for (i=0; i < SM_NMODES; i++) {
+		aq = submenu->addAction(modename[i],
+					[=](){mode_callback((Searchmode)i);});
+		aq->setCheckable(true);
+		aq->setChecked(i == searchmode);
+		smag->addAction(aq);
+	}
+
+	aq = qpulldown->addAction("Autoquery",
+				   [=](bool c){query_pulldown(QM_AUTO, c);});
 	aq->setCheckable(true);
 	aq->setChecked(pref.autoquery);
 
@@ -993,12 +1017,12 @@ void find_and_select(
  */
 
 static void file_pulldown(
-	int				item)
+	enum file_menu			item)
 {
 	CARD				*card = mainwindow->card;
 	card_readback_texts(card, -1);
 	switch (item) {
-	  case 0: {						/* find&sel */
+	  case FM_FINDSEL: {					/* find&sel */
 		char *string = qstrdup(w_search->text());
 		if (string) {
 			find_and_select(string);
@@ -1006,23 +1030,23 @@ static void file_pulldown(
 		}
 		break; }
 
-	  case 1:						/* print */
+	  case FM_PRINT:					/* print */
 		create_print_popup(card);
 		break;
 
-	  case 2:						/* export */
+	  case FM_EXPORT:					/* export */
 		create_templ_popup(card);
 		break;
 
-	  case 3:						/* preference*/
+	  case FM_PREFS:					/* preference*/
 		create_preference_popup();
 		break;
 
-	  /* 4 is edit submenu */
+	  case FM_CHECKREF:					/* checkrefs */
+		check_references();
+		break;
 
-	  /* 5 was About; moved to Help menu */
-
-	  case 6:						/* save */
+	  case FM_SAVE:						/* save */
 		if (card && card->form && card->dbase) {
 			if (card->form->rdonly)
 				create_error_popup(mainwindow, 0,
@@ -1037,13 +1061,12 @@ static void file_pulldown(
 		print_info_line();
 		break;
 
-	  case 7:						/* quit*/
+	  case FM_QUIT:						/* quit*/
 		if (multi_save_revert(true))
 			exit(0);
 		break;
 
-	  /* 8 was Rambo Quit; removed */
-	 case 8:						/* save all */
+	 case FM_SAVEALL:					/* save all */
 		for (DBASE *db = dbase_list; db; db = db->next)
 			if (db->modified)
 				write_dbase(db, true);
@@ -1051,15 +1074,15 @@ static void file_pulldown(
 		print_info_line();
 		break;
 
-	 case 9:						/* Revert */
+	 case FM_REVERT:					/* Revert */
 		multi_save_revert(false);
 		break;
 	}
 }
 
 
-static void newform_pulldown(
-	int				item)
+static void formed_pulldown(
+	enum formed_menu			item)
 {
 	CARD				*card = mainwindow->card;
 	card_readback_texts(card, -1);
@@ -1136,7 +1159,7 @@ static void query_pulldown(
 	if (!card || !card->dbase || !card->dbase->nrows)
 		return;
 	card_readback_texts(card, -1);
-	if (item == -2) {
+	if (item == QM_AUTO) {
 		pref.autoquery = set;
 		item = card->form->autoquery;
 	} else if (pref.autoquery)
@@ -1258,7 +1281,7 @@ static char	*history[NHIST];
 static int	s_curr, s_offs;
 
 static void mode_callback(
-	int				item)	/* one of SM_* */
+	Searchmode			item)	/* one of SM_* */
 {
 	searchmode = (Searchmode)item;
 }
@@ -1671,4 +1694,84 @@ static bool multi_save_revert(
 	free(checkboxes);
 	delete dlg;
 	return ret;
+}
+
+static void check_references(void)
+{
+	CARD *card = mainwindow->card;
+	int nbadref = 0;
+	badref *badrefs = 0;
+	check_db_references(card->form, card->dbase, &badrefs, &nbadref);
+	if(!nbadref) {
+		QMessageBox *dialog = new QMessageBox(QMessageBox::Information,
+						      "Reference Check",
+						      "All references seem OK",
+						      QMessageBox::Ok, mainwindow);
+		popup_nonmodal(dialog);
+	} else {
+		/* FIXME:  offer fixes */
+		QString qs;
+		for(int i = 0; i < nbadref; i++)
+			switch(badrefs[i].reason) {
+			    case BR_MISSING:
+				/* fix:  clear fkey or delete record */
+				qs += qsprintf("Form '%s' has no card matching row %d, key %d, field '%s' of form '%s'",
+
+					       badrefs[i].fform->name, badrefs[i].row, badrefs[i].keyno,
+					       badrefs[i].form->items[badrefs[i].item]->name,
+					       badrefs[i].form->name);
+				break;
+			    case BR_DUP:
+				/* fix:  alter key field(s) in dup record(s) */
+				qs += qsprintf("Form '%s' has more than one card matching row %d, key %d, field '%s' of form '%s'",
+					       badrefs[i].fform->name, badrefs[i].row, badrefs[i].keyno,
+					       badrefs[i].form->items[badrefs[i].item]->name,
+					       badrefs[i].form->name);
+				break;
+			    case BR_INV_MISSING: {
+				/* fix:  clear fkey or delete foreign record */
+				const ITEM *item = badrefs[i].form->items[badrefs[i].item];
+				const ITEM *fitem = 0;
+				for(int j = 0; j < item->nfkey; j++)
+					if(item->fkey[j].key) {
+						fitem = item->fkey[j].item;
+						break;
+					}
+				qs += qsprintf("This form ('%s') has no card matching row %d, key %d, field '%s' of form '%s'",
+					       badrefs[i].form->name, badrefs[i].row, badrefs[i].keyno,
+					       fitem->name,
+					       badrefs[i].fform->name);
+				break;
+			    }
+			    case BR_INV_DUP: {
+				/* fix:  alter key field(s) in dup record(s) */
+				const ITEM *item = badrefs[i].form->items[badrefs[i].item];
+				const ITEM *fitem = 0;
+				for(int j = 0; j < item->nfkey; j++)
+					if(item->fkey[j].key) {
+						fitem = item->fkey[j].item;
+						break;
+					}
+				qs += qsprintf("This form ('%s') has more than one card matching row %d, key %d, field '%s' of form '%s'",
+					       badrefs[i].form->name, badrefs[i].row, badrefs[i].keyno,
+					       fitem->name,
+					       badrefs[i].fform->name);
+				break;
+			    }
+			    case BR_NO_INVREF:
+				/* fix:  add invref to foreign form def */
+				qs += qsprintf("Form '%s' does not list '%s' as a referer\n",
+					       badrefs[i].fform->name, badrefs[i].form->name);
+				break;
+			    case BR_NO_FORM:
+				/* fix: try again or rename in form def */
+				qs += qsprintf("Can't load foreign db '%s'\n",
+					       badrefs[i].form->items[badrefs[i].item]->fkey_form_name);
+				break;
+			}
+		char *s = qstrdup(qs);
+		create_error_popup(mainwindow, 0, s);
+		free(s);
+	}
+	zfree(badrefs);
 }

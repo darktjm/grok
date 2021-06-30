@@ -115,22 +115,38 @@ void dbase_sort(
 	bool		rev,		/* reverse if nonzero */
 	bool		noinit = false);/* multi-field sort */
 int fkey_lookup(
-	DBASE		*dbase,		/* database to search */
+	const DBASE	*dbase,		/* database to search */
 	const FORM	*form,		/* fkey origin */
 	const ITEM	*item,		/* fkey definition */
 	const char	*val,		/* reference value */
-	int		keyno);		/* multi: array elt (ret. -2 if oob */
+	int		keyno = 0,	/* multi: array elt (ret. -2 if oob */
+	int		start = 0);	/* row to start looking */
 char *fkey_of(
-	DBASE		*dbase,		/* database to search */
+	const DBASE	*dbase,		/* database to search */
 	int		row,		/* row */
 	const FORM	*form,		/* fkey origin */
 	const ITEM	*item);		/* fkey definition */
 int keylen_of(
 	const ITEM	*item);		/* fkey definition; must be IT_*FKEY */
-void copy_fkey(
+int copy_fkey(				/* returns <0 on lookup failure */
 	const ITEM	*item,		/* fkey definition; must be IT_*FKEY */
 	int		*keys);		/* array of length keylen_of; filled in
-					   with indeces into item->keys */
+					   with item->fkey indices */
+enum badref_reason {
+    BR_MISSING, BR_DUP, BR_INV_MISSING, BR_INV_DUP, BR_NO_INVREF, BR_NO_FORM
+    /*, BR_NO_FREF */ /* verify_form ensures this can't hpppen */
+};
+struct badref {
+    const FORM *form, *fform;
+    const DBASE *dbase, *fdbase;
+    int item, row, keyno;
+    enum badref_reason reason;
+};
+void check_db_references(
+	const FORM	*form,
+	const DBASE	*db,
+	badref		**badrefs,
+	int		*nbadref);
 
 /*---------------------------------------- dbfile.c ------------*/
 
@@ -314,6 +330,7 @@ void menu_delete(
 	MENU		*m);
 void menu_clone(
 	MENU		*m);
+void resolve_fkey_fields(ITEM *item);
 
 /*---------------------------------------- formwin.c ------------*/
 
@@ -518,7 +535,7 @@ void create_summary_menu(
 /* nres is alloced size of res, and return value is # of filled entries */
 /* menu is non-NULL for multi-column fields */
 struct sum_item {
-	const ITEM	*item;
+	ITEM		*item;
 	const MENU	*menu;
 	CARD		*fcard;
 	int		sumcol, sumoff;

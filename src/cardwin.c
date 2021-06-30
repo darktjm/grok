@@ -118,7 +118,9 @@ CARD *create_card_menu(
 	int		n;
 
 							/*-- alloc card --*/
-	n = sizeof(CARD) + sizeof(struct carditem) * form->nitems;
+	n = sizeof(CARD);
+	if(!no_gui)
+		n += sizeof(struct carditem) * form->nitems;
 	if (!(card = (CARD *)calloc(n, 1)))
 		return(NULL);
 	card->next = card_list;
@@ -126,7 +128,7 @@ CARD *create_card_menu(
 	card->form   = form;
 	card->dbase  = dbase;
 	card->row    = -1;
-	card->nitems = form->nitems;
+	card->nitems = no_gui ? 0 : form->nitems;
 	if (!no_gui)
 		build_card_menu(card, wform);
 	return(card);
@@ -546,8 +548,9 @@ struct FKeySelector : public CardComboBox {
 			key = dbase_get(fc->dbase, r, fc->form->items[fc->qcurr]->column);
 			keyno = 0; /* no way to handle multi here */
 		}
+	    resolve_fkey_fields(oc->form->items[fc->qcurr]);
 		return fkey_lookup(fc->dbase, oc->form, oc->form->items[fc->qcurr],
-				   key, 0);
+				   key);
 	}
 	void clear_group(FKeySelector *end = 0) {
 		if (end == this)
@@ -596,11 +599,20 @@ struct FKeySelector : public CardComboBox {
 		/* first, restrict based on current value */
 		cur.resize(fcard->dbase->nrows, false);
 		if (fk->currentIndex() > 0) {
+			resolve_fkey_fields(fk->item);
+			if(!fk->item->fkey_form)
+				return;
+			if (fk->item->fkey_form != fk->fcard->form) {
+				fk->fcard->form = fk->item->fkey_form;
+				fk->fcard->dbase = read_dbase(fk->fcard->form);
+			}
+			const ITEM *fit = fk->item->fkey[fk->fkey].item;
+			if(!fit)
+				return;
 			char *val = qstrdup(fk->currentText());
-			const ITEM *fit = fk->fcard->form->items[fk->item->fkey[fk->fkey].item];
 			int col = fit->column;
 			if (IFL(fit->,MULTICOL))
-				col = fit->menu[fk->item->fkey[fk->fkey].menu].column;
+				col = fk->item->fkey[fk->fkey].menu->column;
 			/* but actually only restrict on recurse */
 			row_restrict(fcard, col, val, cur, !recurse);
 			free(val);
@@ -652,11 +664,17 @@ struct FKeySelector : public CardComboBox {
 		restrict(this, fcard, filter);
 		QStringList sl;
 		/* const */ DBASE *dbase = fcard->dbase;
-
-		const ITEM *fit = fcard->form->items[item->fkey[fkey].item];
+		resolve_fkey_fields(item);
+		if (item->fkey_form != fcard->form) {
+			fcard->form = item->fkey_form;
+			dbase = fcard->dbase = read_dbase(fcard->form);
+		}
+		const ITEM *fit = item->fkey[fkey].item;
+		if (!fit)
+			return;
 		int col = fit->column;
 		if (IFL(fit->,MULTICOL))
-			col = fit->menu[item->fkey[fkey].menu].column;
+			col = item->fkey[fkey].menu->column;
 		for (int r = 0; r < dbase->nrows; r++) {
 			if (!filter[r]) {
 				char *val = dbase_get(dbase, r, col);
@@ -1138,7 +1156,9 @@ static void create_item_widgets(
 		for (n = 0; n < item.nfkey; n++)
 			  if(item.fkey[n].display)
 				  nvis++;
-		CARD *fcard = create_card_menu(item.fkey_db, read_dbase(item.fkey_db), 0, true);
+		resolve_fkey_fields(&item);
+		FORM *fform = item.fkey_form;
+		CARD *fcard = create_card_menu(fform, fform ? read_dbase(fform) : 0, 0, true);
 		fcard->fkey_next = card;
 		fcard->qcurr = nitem;
 		int col = 0;
@@ -1219,37 +1239,50 @@ static FKeySelector *add_fkey_field(
 	ITEM &item, CARD *fcard, int n,    /* fkey info */
 	int ncol) /* ncol is set to # of cols if row > 0 (for callback) */
 {
-	ITEM &fit = *item.fkey_db->items[item.fkey[n].item];
-	MENU *fm = IFL(fit.,MULTICOL) ? &fit.menu[item.fkey[n].menu] : 0;
-	if (fit.type == IT_FKEY) {
+	bool multi = item.type == IT_INV_FKEY || IFL(item.,FKEY_MULTI);
+	resolve_fkey_fields(&item);
+	const FORM *fform = item.fkey_form;
+	if(!fform)
+		return new FKeySelector(card, nitem, multi ? 0 : p, fcard,
+					&item, n);
+	ITEM *fit = item.fkey[n].item;
+	if(!fit)
+		return new FKeySelector(card, nitem, multi ? 0 : p, fcard,
+					&item, n);
+	const MENU *fm = item.fkey[n].menu;
+	if (fit->type == IT_FKEY) {
+		resolve_fkey_fields(fit);
+		FORM *fitform = fit->fkey_form;
+		if(!fitform)
+			return new FKeySelector(card, nitem, multi ? 0 : p, fcard,
+						fit, n);
 		QString lab;
 		CARD *nfcard = 0;
 		if (!row) {
-			if (fit.label) {
+			if (fit->label) {
 				if (toplab.isEmpty())
-					lab = fit.label;
+					lab = fit->label;
 				else
-					lab = toplab + '/' + fit.label;
+					lab = toplab + '/' + fit->label;
 			}
-			nfcard = create_card_menu(fit.fkey_db, read_dbase(fit.fkey_db), 0, true);
+			nfcard = create_card_menu(fitform, read_dbase(fitform), 0, true);
 			nfcard->fkey_next = fcard;
-			nfcard->qcurr = item.fkey[n].item;
+			nfcard->qcurr = item.fkey[n].index % fform->nitems;
 		}
-		for (n = 0; n < fit.nfkey; n++)
-			if (fit.fkey[n].display)
+		for (n = 0; n < fit->nfkey; n++)
+			if (fit->fkey[n].display)
 				prev = add_fkey_field(p, card, nitem,
 						      lab, prev,
 						      l, mw, row, col,
-						      fit, nfcard, n,
+						      *fit, nfcard, n,
 						      ncol);
 		return prev;
 	}
 	if (!row && mw && mw->columnCount() <= col)
 		mw->setColumnCount(col + 1);
-	bool multi = item.type == IT_INV_FKEY || IFL(item.,FKEY_MULTI);
 	if (!row && IFL(item.,FKEY_HEADER)) {
 		const char *lab = fm ? (fm->label ? fm->label : "") :
-					 fit.label ? fit.label : "";
+					 fit->label ? fit->label : "";
 		if (multi)
 			mw->setHorizontalHeaderItem(col, new QTableWidgetItem(lab));
 		else
@@ -1471,7 +1504,9 @@ static void card_callback(
 			QString fpath = card->form->path;
 			bool blank = BLANK(dbase_get(card->dbase, card->row, item->column));
 			/* FIXME: INV_FKEY selects parent-restrict mode */
-			switch_form(mainwindow->card, item->fkey_db->path);
+			resolve_fkey_fields(item);
+			if(item->fkey_form)
+				switch_form(mainwindow->card, item->fkey_form->path);
 			if (item->type == IT_INV_FKEY || sel < 0 || blank)
 				return;
 			/*  {r="";foreach(k,+@"origdb":_ref[row],"_key1==k[0]&&..","(r=1)");r} */
@@ -1498,10 +1533,10 @@ static void card_callback(
 			copy_fkey(item, keys);
 			for (int i = 0; i < keylen; i++) {
 				const FKEY &fk = item->fkey[keys[i]];
-				ITEM *fit = item->fkey_db->items[fk.item];
+				ITEM *fit = fk.item;
 				// maybe someday I'll replace numeric field with name
 				int col = IFL(fit->,MULTICOL) ?
-					fit->menu[fk.menu].column :
+					fk.menu->column :
 					fit->column;
 				if (i > 0)
 					q += "&&";
@@ -1574,8 +1609,11 @@ static void card_callback(
 			/* need to clear out all widgets to ensure blank remains */
 			w->clear_group();
 		int dbrow = w->base_row;
-		char *v = dbrow < 0 ? 0 : fkey_of(read_dbase(item->fkey_db),
-						  dbrow, item->fkey_db, item);
+		resolve_fkey_fields(item);
+		if (!item->fkey_form)
+			break;
+		char *v = dbrow < 0 ? 0 : fkey_of(read_dbase(item->fkey_form),
+						  dbrow, item->fkey_form, item);
 		if (multi) {
 			char *a = dbase_get(card->dbase, card->row, item->column);
 			if (!v) {
@@ -2085,6 +2123,9 @@ void fillout_item(
 			}
 			break;
 		}
+		resolve_fkey_fields(item);
+		if(!item->fkey_form)
+			break;
 		DBASE *fdbase = 0;
 		if (multi) {
 			QTableWidget *tw = 0;
@@ -2116,8 +2157,8 @@ void fillout_item(
 					first = w;
 				while (!fk->display)
 					fk++;
-				ITEM *fitem = item->fkey_db->items[fk->item];
-				MENU *menu = &fitem->menu[fk->menu];
+				ITEM *fitem = fk->item;
+				const MENU *menu = fk->menu;
 				fk++;
 				int col = IFL(fitem->,MULTICOL) ? menu->column :
 					                          fitem->column;
@@ -2153,29 +2194,35 @@ void fillout_item(
 		}
 		if (!tw)
 			break; // invalid form??
-		/* FIXME: fill table */
 		/* FIXME:  just setRowCount(0) if read-only */
+		/* FIXME:  make fully editable if all non-key fields visible */
 		while(tw->rowCount() > 1)
 			  tw->removeRow(0);
-		const ITEM *fit = 0;
+		resolve_fkey_fields(item);
+		ITEM *fit = 0;
 		for (int n = 0; n < item->nfkey; n++)
 			if (item->fkey[n].key) {
-				fit = item->fkey_db->items[item->fkey[n].item];
+				fit = item->fkey[n].item;
 				break;
 			}
-		char *key = fkey_of(card->dbase, card->row, item->fkey_db, fit);
+		if(!fit)
+			  break;
+		resolve_fkey_fields(fit);
+		if(!fit->fkey_form)
+			  break;
+		char *key = fkey_of(card->dbase, card->row, item->fkey_form, fit);
 		if (!key)
 			  break;
 		char sep, esc;
-		get_form_arraysep(item->fkey_db, &sep, &esc);
-		DBASE *db = read_dbase(item->fkey_db);
+		get_form_arraysep(item->fkey_form, &sep, &esc);
+		DBASE *db = read_dbase(item->fkey_form);
 		bool multi = !!IFL(fit->,FKEY_MULTI);
 		for (int r = 0, tr = 0; r < db->nrows; r++) {
 			bool match = false;
 			const char *fk = dbase_get(db, r, fit->column);
 			if (multi) {
 				int alen;
-				char **ar = split_array(item->fkey_db, fk, &alen);
+				char **ar = split_array(item->fkey_form, fk, &alen);
 				for (int n = 0; n < alen; n++)
 					if ((match = !strcmp(ar[n], key)))
 						break;
@@ -2190,9 +2237,9 @@ void fillout_item(
 					if (!item->fkey[f].display)
 						continue;
 					int col;
-					const ITEM *dit = item->fkey_db->items[item->fkey[f].item];
+					const ITEM *dit = item->fkey[f].item;
 					if (IFL(dit->,MULTICOL))
-						col = dit->menu[item->fkey[f].menu].column;
+						col = item->fkey[f].menu->column;
 					else
 						col = dit->column;
 					tw->setItem(tr, tc++, new QTableWidgetItem(dbase_get(db, r, col)));

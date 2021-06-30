@@ -201,24 +201,13 @@ bool write_form(
 			}
 		}
 		if (item->type == IT_FKEY || item->type == IT_INV_FKEY) {
-			const FORM *f = item->fkey_db;
-			const char *gd = resolve_tilde(GROKDIR, 0);
-			int gdl = strlen(gd);
-			if (strncmp(gd, item->fkey_db->path, gdl) ||
-			    item->fkey_db->path[gdl] != '/')
-				gdl = 0;
-			else
-				gdl++;
-			write_str("fk_db      ", item->fkey_db->path + gdl);
+			write_str("fk_db      ", item->fkey_form_name);
 			write_int("fk_header  ", IFL(item->,FKEY_HEADER));
 			write_int("fk_search  ", IFL(item->,FKEY_SEARCH));
 			write_int("fk_multi   ", IFL(item->,FKEY_MULTI));
 			write_int("nfkey      ", item->nfkey);
 			for (int n = 0; n < item->nfkey; n++) {
-				if (IS_MULTI(f->items[item->fkey[n].item]->type))
-					write_str("fkey       ", f->items[item->fkey[n].item]->menu[item->fkey[n].menu].name);
-				else
-					write_str("fkey       ", f->items[item->fkey[n].item]->name);
+				write_str("fkey       ", item->fkey[n].name);
 				write_int("_fk_key    ", item->fkey[n].key);
 				write_int("_fk_disp   ", item->fkey[n].display);
 			}
@@ -229,7 +218,7 @@ bool write_form(
 	path = db_path(form);
 	/* auto-creation of procedurals won't work */
 	/* best to just force user to edit */
-	/* if they want to do it later, they can set it to /bintrue */
+	/* if they want to do it later, they can set it to /bin/true */
 	if (!form->proc && access(path, F_OK) && errno == ENOENT) {
 		if (!(fp = fopen(path, "w"))) {
 			create_error_popup(mainwindow, errno,
@@ -316,7 +305,8 @@ struct tab_loading {
 	const char *dir;
 };
 
-static bool operator<(tab_loading a, tab_loading b) {
+static bool operator<(tab_loading a, tab_loading b)
+{
 	int c = strcmp(a.dir, b.dir);
 	if(c)
 		return c < 0 ? true : false;
@@ -324,18 +314,6 @@ static bool operator<(tab_loading a, tab_loading b) {
 }
 
 static std::set<tab_loading> loading_forms;
-
-struct fkey_resolve {
-	char *dbname;
-	char *fname;
-	FKEY *fkey;
-	ITEM *item;
-	FORM *form;
-};
-
-static std::vector<fkey_resolve> keys_to_resolve;
-
-static void fix_fkey_refs(void);
 
 FORM *read_form(
 	const char		*path,		/* file to read list from */
@@ -351,8 +329,6 @@ FORM *read_form(
 	CHART			*chart = 0;	/* next chart component */
 	MENU			*menu = 0;	/* next menu item */
 	FKEY			*fkey = 0;	/* next fkey key field */
-	const FORM		*fkey_form = 0;	/* fkey's form def */
-	char			*fkey_db_name = 0; /* if not loaded */
 
 	/* Use same path as the GUI for relative names */
 	if(!strchr(path, '/')) {
@@ -660,13 +636,9 @@ FORM *read_form(
 					chart->value[key[7]-'0'].add = atof(p);
 			else if (chart && !strncmp(key, "_ch_expr", 8))
 					STORE(chart->value[key[8]-'0'].expr,p);
-			else if (!strcmp(key, "fk_db")) {
-					fkey_form = item->fkey_db = read_form(p);
-					if (!fkey_form) {
-						zfree(fkey_db_name);
-						fkey_db_name = mystrdup(p);
-					}
-			} else if (!strcmp(key, "fk_header"))
+			else if (!strcmp(key, "fk_db"))
+					STORE(item->fkey_form_name, p);
+			else if (!strcmp(key, "fk_header"))
 					IFV(item->,FKEY_HEADER, atoi(p));
 			else if (!strcmp(key, "fk_search"))
 					IFV(item->,FKEY_SEARCH, atoi(p));
@@ -676,38 +648,12 @@ FORM *read_form(
 					item->fkey = zalloc(0, "form file",
 							    FKEY, (item->nfkey = atoi(p)));
 			else if (!strcmp(key, "fkey")) {
-					fkey = !fkey ?
-						item->fkey : fkey+1;
-					fkey->item = -1;
+					fkey = !fkey ? item->fkey : fkey+1;
 					if (!fkey) {
-						fprintf(stderr, "no nkey space; fkey ignored");
+						fprintf(stderr, "no nfkey specified; fkey ignored");
 						continue;
 					}
-					if (!fkey_form) { // still loading
-						fkey_resolve fr;
-						fr.dbname = mystrdup(fkey_db_name);
-						fr.fname = mystrdup(p);
-						fr.fkey = fkey; // no reallocs
-						fr.item = item; // no reallocs
-						fr.form = form;
-						keys_to_resolve.push_back(fr);
-					}
-					if(fkey && fkey_form) 
-						for (int n = 0; n < fkey_form->nitems; n++) {
-							ITEM *it = fkey_form->items[n];
-							if (it->name && !strcmp(it->name, p)) {
-								fkey->item = n;
-								break;
-							}
-							if (IS_MULTI(it->type))
-								for (int m = 0; m < it->nmenu; m++)
-									if (it->menu[m].name &&
-									    !strcmp(it->menu[m].name, p)) {
-										fkey->item = n;
-										fkey->menu = m;
-										break;
-									}
-						}
+					STORE(fkey->name, p);
 			}
 			else if (fkey && !strcmp(key, "_fk_key"))
 					fkey->key = atoi(p) ? true : false;
@@ -720,17 +666,16 @@ FORM *read_form(
 		}
 	}
 	fclose(fp);
-	zfree(fkey_db_name);
-	loading_forms.erase(tl);
 	/* verify_form() will also create the symtab */
 	if(!verify_form(form, NULL, mainwindow)) {
 		form_delete(form);
+		loading_forms.erase(tl);
 		return NULL;
 	}
+	loading_forms.erase(tl);
 	if(!force) {
 		form->next = form_list;
 		form_list = form;
-		fix_fkey_refs();
 		return form;
 	}
 	/* first pass: replace forms and collect possible dbase replacements */
@@ -774,7 +719,6 @@ FORM *read_form(
 					/* it's unsafe to readback texts with new form */
 					card_readback_texts(card, -1);
 					card->form = nform;
-					/* FIXME:  adjust fkey refs */
 				}
 			form_delete(oform);
 			if(!*prev)
@@ -782,7 +726,6 @@ FORM *read_form(
 		}
 	form->next = form_list;
 	form_list = form;
-	fix_fkey_refs();
 	/* 2nd pass: update databases if form->dbase/proc/name changed */
 	while(repl_dbase) {
 		DBASE *odbase = repl_dbase;
@@ -819,34 +762,4 @@ FORM *read_form(
 			fillout_card(card, false);
 		}
 	return form;
-}
-
-static void fix_fkey_refs(void)
-{
-	for(auto i = keys_to_resolve.begin(); i != keys_to_resolve.end(); ) {
-		FORM *f = read_form(i->dbname);
-		if(!f) {
-			while(++i != keys_to_resolve.end() &&
-			      !strcmp(i->dbname, i[-1].dbname));
-			continue;
-		}
-		i->item->fkey_db = f;
-		for (int n = 0; n < f->nitems; n++) {
-			ITEM *it = f->items[n];
-			if (it->name && !strcmp(it->name, i->fname)) {
-				i->fkey->item = n;
-				break;
-			}
-			if (IS_MULTI(it->type))
-				for (int m = 0; m < it->nmenu; m++)
-					if (it->menu[m].name &&
-					    !strcmp(it->menu[m].name, i->fname)) {
-						i->fkey->item = n;
-						i->fkey->menu = m;
-						break;
-					}
-		}
-		verify_form(i->form, 0, 0);
-		keys_to_resolve.erase(i);
-	}
 }

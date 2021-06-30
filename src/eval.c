@@ -382,8 +382,10 @@ int Xparserlex(YYSTYPE *lvalp, PG)
 			if (!fit.card)
 				row = g->card->row;
 			if (fit.card) {
-				form = fit.item->fkey_db;
-				c = create_card_menu(form, read_dbase(form), 0, true);
+				resolve_fkey_fields(fit.item);
+				c = create_card_menu(fit.item->fkey_form,
+						     read_dbase(fit.item->fkey_form),
+						     0, true);
 				c->fkey_next = fit.card;
 				row = fit.card->row;
 			}
@@ -395,11 +397,11 @@ int Xparserlex(YYSTYPE *lvalp, PG)
 					lvalp->fval.row = fit.card->qcurr = fit.card->row = -1;
 				else {
 					DBASE *fdb = c->dbase;
+					resolve_fkey_fields(fit.item);
 					g->card->qcurr = lvalp->fval.row =
 						fkey_lookup(fdb, db->form, fit.item,
 							    dbase_get(db, row,
-								      fit.item->column),
-							   0);
+								      fit.item->column));
 				}
 			} else
 				lvalp->fval.row = g->card->row;

@@ -135,8 +135,8 @@ void form_delete(
 		if (f == form)
 			continue;
 		for (i = 0; i < f->nitems; i++)
-			if (f->items[i]->fkey_db == form)
-				return;
+			if (f->items[i]->fkey_form == form)
+				f->items[i]->fkey_form = 0;
 	}
 	/* a card can't have a form without a dbase, so no point in checking */
 	for (i=form->nitems - 1; i >= 0; --i)
@@ -234,23 +234,26 @@ static void verify_col(const FORM *form, const char *type, int **acol,
 	return;
 }
 
-static bool fkey_loop(const FORM *form, const ITEM *item,
+static bool fkey_loop(const FORM *form, ITEM *item,
 		      const FORM *oform, const ITEM *oitem)
 {
 	if (item->type != IT_FKEY && item->type != IT_INV_FKEY)
 		return false;
-	if (!item->fkey_db)
+	resolve_fkey_fields(item);
+	const FORM *fform = item->fkey_form;
+	if (!fform)
 		return false; /* actually, can't check */
-	bool sform = !strcmp(item->fkey_db->name, oform->name);
+	bool sform = !strcmp(fform->name, oform->name);
 	for (int n = 0; n < item->nfkey; n++) {
+		ITEM *fitem = item->fkey[n].item;
+		if(!fitem)
+			continue;
 		/* FIXME: should probably check fkey_db & such instead */
-		if (sform && oform->items[item->fkey[n].item] == oitem)
+		if (sform && fitem == oitem)
 			return true;
-		if (fkey_loop(item->fkey_db, item->fkey_db->items[item->fkey[n].item],
-			      oform, oitem))
+		if (fkey_loop(fform, fitem, oform, oitem))
 			return true;
-		if (fkey_loop(item->fkey_db, item->fkey_db->items[item->fkey[n].item],
-			      form, item))
+		if (fkey_loop(fform, fitem, form, item))
 			return true;
 	}
 	return false;
@@ -382,30 +385,28 @@ bool verify_form(
 			add_field_name(msg, form, nitem);
 			msg += " has no button action\n";
 		}
-		if ((item->type == IT_FKEY || item->type == IT_INV_FKEY) &&
-		    item->fkey_db) { /* can't check if fkey_db not yet loaded */
+		if (item->type == IT_FKEY || item->type == IT_INV_FKEY)
+			resolve_fkey_fields(item);
+		else
+			item->fkey_form = 0; // just to make sure
+		const FORM *fform = item->fkey_form;
+		if (fform) {
 			int nvis = 0, nkey = 0;
 			for (int n = 0; n < item->nfkey; n++) {
-				int itid = item->fkey[n].item;
-				if (itid < 0) {
-					nvis = nkey = -99999;
-					continue;
-				}
-				const ITEM *fitem = item->fkey_db->items[itid];
-				if (IFL(fitem->,MULTICOL))
-					itid += item->fkey[n].menu * item->fkey_db->nitems;
+				int itid = item->fkey[n].index;
+				ITEM *fitem = item->fkey[n].item;
 				if (item->fkey[n].key) {
 					nkey++;
-					if (item->type == IT_INV_FKEY &&
-					    fitem->fkey_db &&
+					resolve_fkey_fields(fitem);
+					if (item->type == IT_INV_FKEY && fitem &&
 					    (fitem->type != IT_FKEY ||
-					     strcmp(fitem->fkey_db->name,
-						    form->name))) {
+					     (fitem->fkey_form &&
+					      strcmp(fitem->fkey_form->name, form->name)))) {
 						/* FIXME:  enforce in editor */
 						msg += "Field ";
 						add_field_name(msg, form, nitem);
 						msg += " key ";
-						add_field_name(msg, item->fkey_db, itid);
+						add_field_name(msg, fform, itid);
 						msg += " is not a valid key field";
 					}
 				}
@@ -416,13 +417,13 @@ bool verify_form(
 						msg += "Field ";
 						add_field_name(msg, form, nitem);
 						msg += " displays key ";
-						add_field_name(msg, item->fkey_db, itid);
+						add_field_name(msg, fform, itid);
 						msg += "; setting invisible\n";
 						nvis--;
 						item->fkey[n].display = false;
 					}
 				}
-				if (fkey_loop(item->fkey_db, fitem, form, item)) {
+				if (fitem && fkey_loop(fform, fitem, form, item)) {
 					msg += "Field ";
 					add_field_name(msg, form, nitem);
 					msg += " has a reference loop.\n";
@@ -996,6 +997,11 @@ void item_delete(
 		menu_delete(&item->menu[i]);
 	zfree(item->menu);
 
+	zfree(item->fkey_form_name);
+	for (i=0; i < item->nfkey; i++)
+		zfree(item->fkey[i].name);
+	zfree(item->fkey);
+
 	while (item->ch_ncomp) {
 		item->ch_curr = item->ch_ncomp - 1;
 		del_chart_component(item);
@@ -1075,4 +1081,36 @@ void menu_clone(MENU *m)
 	m->flagcode = zstrdup(m->flagcode);
 	m->flagtext = zstrdup(m->flagtext);
 	m->name = zstrdup(m->name);
+}
+
+/* resolve foreign form name and field names */
+void resolve_fkey_fields(ITEM *item)
+{
+	if(item->type != IT_FKEY && item->type != IT_INV_FKEY)
+		return;
+	if(!item->fkey_form) {
+		if(!(item->fkey_form = read_form(item->fkey_form_name)))
+			return;
+		for(int i = 0; i < item->nfkey; i++) {
+			item->fkey[i].item = 0;
+			item->fkey[i].menu = 0;
+			item->fkey[i].index = -1;
+		}
+	}
+	const FORM *fform = item->fkey_form;
+	const FIELDS *s = fform->fields;
+	for(int i = 0; i < item->nfkey; i++) {
+		FKEY &fk = item->fkey[i];
+		if(!fk.item) {
+			auto it = s->find(fk.name);
+			if(it == s->end())
+				continue;
+			fk.index = it->second;
+			fk.item = fform->items[it->second % fform->nitems];
+			if(IFL(fk.item->,MULTICOL))
+				fk.menu = &fk.item->menu[it->second / fform->nitems];
+			else
+				fk.menu = 0;
+		}
+	}
 }
