@@ -47,6 +47,20 @@ void fillout_item(
 	CARD		*card,		/* card to draw into menu */
 	int		i,		/* item index */
 	bool		deps);		/* if true, dependencies only */
+class FKeySelector;
+void refilter_fkey(FKeySelector *fks);
+int fkey_group_val(FKeySelector *fks);
+void fkey_group_setval(
+	FKeySelector *fks,		/* any widget in group */
+	int row,			/* row in displayed db; <0 use key */
+	const char *key,		/* full key if row <0; 0/blank ok */
+	int keyno);			/* if >=0, FKEY_MULTI array item */
+FKeySelector *add_fkey_field(
+	QWidget *p, CARD *card, int nitem, /* widget & callback info */
+	QString toplab, FKeySelector *prev, /* context */
+	QGridLayout *l, QTableWidget *mw, int row, int &col,  /* where to put it */
+	ITEM &item, CARD *fcard, int n,    /* fkey info */
+	int ncol); /* ncol is set to # of cols if row > 0 (for callback) */
 
 /* property names for widget fonts */
 extern const char * const font_prop[F_NFONTS];
@@ -114,12 +128,12 @@ void dbase_sort(
 	int		col,		/* column to sort by */
 	bool		rev,		/* reverse if nonzero */
 	bool		noinit = false);/* multi-field sort */
-int fkey_lookup(
+int fkey_lookup( /* ret -2 for oob, -1 for not found */
 	const DBASE	*dbase,		/* database to search */
 	const FORM	*form,		/* fkey origin */
 	const ITEM	*item,		/* fkey definition */
 	const char	*val,		/* reference value */
-	int		keyno = 0,	/* multi: array elt (ret. -2 if oob */
+	int		keyno = 0,	/* multi array elt (<0 = already extracted) */
 	int		start = 0);	/* row to start looking */
 char *fkey_of(
 	const DBASE	*dbase,		/* database to search */
@@ -133,8 +147,7 @@ int copy_fkey(				/* returns <0 on lookup failure */
 	int		*keys);		/* array of length keylen_of; filled in
 					   with item->fkey indices */
 enum badref_reason {
-    BR_MISSING, BR_DUP, BR_INV_MISSING, BR_INV_DUP, BR_NO_INVREF, BR_NO_FORM
-    /*, BR_NO_FREF */ /* verify_form ensures this can't hpppen */
+    BR_MISSING, BR_DUP, BR_NO_INVREF, BR_NO_FORM, BR_NO_CFORM, BR_NO_FREF
 };
 struct badref {
     const FORM *form, *fform;
@@ -146,7 +159,9 @@ void check_db_references(
 	const FORM	*form,
 	const DBASE	*db,
 	badref		**badrefs,
-	int		*nbadref);
+	int		*nbadref,
+	const FORM	*inv = 0,
+	const DBASE	*invdb = 0);
 
 /*---------------------------------------- dbfile.c ------------*/
 
@@ -285,13 +300,23 @@ bool find_unesc_elt(
 /* Set a variable outside of evaluate(); used by templates */
 void set_var(CARD *card, int v, char *s);
 
+/*---------------------------------------- mainwin.c ------------*/
+
+class GrokMainWindow : public QMainWindow {
+  public:
+    CARD *card = 0;
+};
+
+extern GrokMainWindow	*mainwindow;	/* popup menus hang off main window */
+
 /*---------------------------------------- formfile.c ------------*/
 
 bool write_form(
 	FORM		*form);		/* form and items to write */
 FORM *read_form(
 	const char	*path,		/* file to read list from */
-	bool		force = false);	/* overrwrite loaded forms */
+	bool		force = false,	/* overrwrite loaded forms */
+	QWidget		*parent = mainwindow);	/* error popup parent */
 
 /*---------------------------------------- formop.c ------------*/
 
@@ -387,13 +412,6 @@ void append_search_string(
 	char		*text);
 void do_query(
 	int		qmode);		/* -1=all, or query number */
-
-class GrokMainWindow : public QMainWindow {
-  public:
-    CARD *card = 0;
-};
-
-extern GrokMainWindow	*mainwindow;	/* popup menus hang off main window */
 
 /*---------------------------------------- popup.c ------------*/
 

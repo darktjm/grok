@@ -1783,7 +1783,7 @@ CARD *f_db_start(
 			free(fname);
 		}
 		if(!form)
-			form = read_form(formname);
+			form = read_form(formname, false, 0);
 	}
 	if (form)
 		dbase = read_dbase(form);

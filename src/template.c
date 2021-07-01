@@ -675,7 +675,7 @@ static const char *eval_command(
 				return msg;
 			c = *word;
 			*word = 0;
-			if(!*db_name || !((form = read_form(db_name))))
+			if(!*db_name || !((form = read_form(db_name, false, 0))))
 				return "Can't find database";
 			if(!(dbase = read_dbase(form)))
 				dbase = dbase_create(form);

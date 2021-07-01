@@ -426,12 +426,12 @@ int copy_fkey(const ITEM *item, int *keys)
 	return ret;
 }
 
-int fkey_lookup(
+int fkey_lookup( /* ret -2 for oob, -1 for not found */
 	const DBASE	*dbase,		/* database to search */
 	const FORM	*form,		/* fkey origin */
 	const ITEM	*item,		/* fkey definition */
 	const char	*val,		/* reference value */
-	int		keyno,		/* multi: array elt (ret. -2 if oob */
+	int		keyno,		/* multi array elt (<0 = already extracted) */
 	int		start)		/* row to start looking */
 {
 	/* expects resolve_fkey_fields(item); to have been called first */
@@ -444,12 +444,12 @@ int fkey_lookup(
 		return -1;
 	char *vbuf = 0;
 
-	if (IFL(item->,FKEY_MULTI)) {
+	if (IFL(item->,FKEY_MULTI) && keyno >= 0) {
 		val = vbuf = unesc_elt_at(form, val, keyno);
 		/* no blank keys */
 		if (!vbuf)
 			return -2;
-	} else if(keyno)
+	} else if(keyno > 0)
 		return -2;
 	int n;
 	QString keyf;
@@ -528,7 +528,8 @@ char *fkey_of(
 	return ret;
 }
 
-void check_db_references(const FORM *form, const DBASE *db, badref **badrefs, int *nbadref)
+void check_db_references(const FORM *form, const DBASE *db, badref **badrefs,
+			 int *nbadref, const FORM *inv, const DBASE *invdb)
 {
 	int i, j, r, k;
 
@@ -537,6 +538,8 @@ void check_db_references(const FORM *form, const DBASE *db, badref **badrefs, in
 		if(item->type == IT_FKEY) {
 			resolve_fkey_fields(item);
 			const FORM *fform = item->fkey_form;
+			if(inv && fform != inv)
+				continue;
 			if(!fform) {
 				badref br;
 				br.form = form;
@@ -551,32 +554,34 @@ void check_db_references(const FORM *form, const DBASE *db, badref **badrefs, in
 				(*badrefs)[(*nbadref)++] = br;
 				continue;
 			}
-			const DBASE *fdb = read_dbase(fform);
-			for(j = 0; j < fform->nchild; j++)
-				if(!strcmp(fform->children[j], form->name))
-					break;
-			if(j == fform->nchild) {
-				for(j = 0; j < fform->nitems; j++) {
-					ITEM *fitem = fform->items[j];
-					if(fitem->type != IT_INV_FKEY)
-						continue;
-					resolve_fkey_fields(fitem);
-					if(fitem->fkey_form &&
-					   !strcmp(fitem->fkey_form->name, form->name))
+			const DBASE *fdb = invdb ? invdb : read_dbase(fform);
+			if(!inv) {
+				for(j = 0; j < fform->nchild; j++)
+					if(!strcmp(fform->children[j], form->name))
 						break;
-				}
-				if(j == fform->nitems) {
-					badref br;
-					br.form = form;
-					br.item = i;
-					br.fform = fform;
-					br.dbase = db;
-					br.fdbase = fdb;
-					br.row = br.keyno = -1;
-					br.reason = BR_NO_INVREF;
-					grow(0, "bad refs", badref,
-					     *badrefs, *nbadref + 1, 0);
-					(*badrefs)[(*nbadref)++] = br;
+				if(j == fform->nchild) {
+					for(j = 0; j < fform->nitems; j++) {
+						ITEM *fitem = fform->items[j];
+						if(fitem->type != IT_INV_FKEY)
+							continue;
+						resolve_fkey_fields(fitem);
+						if(fitem->fkey_form &&
+						   !strcmp(fitem->fkey_form->name, form->name))
+							break;
+					}
+					if(j == fform->nitems) {
+						badref br;
+						br.form = form;
+						br.item = i;
+						br.fform = fform;
+						br.dbase = db;
+						br.fdbase = fdb;
+						br.row = br.keyno = -1;
+						br.reason = BR_NO_INVREF;
+						grow(0, "bad refs", badref,
+						     *badrefs, *nbadref + 1, 0);
+						(*badrefs)[(*nbadref)++] = br;
+					}
 				}
 			}
 			for(r = 0; r < db->nrows; r++) {
@@ -604,7 +609,7 @@ void check_db_references(const FORM *form, const DBASE *db, badref **badrefs, in
 					}
 				}
 			}
-		} else if(item->type == IT_INV_FKEY) {
+		} else if(!inv && item->type == IT_INV_FKEY) {
 			resolve_fkey_fields(item);
 			const FORM *fform = item->fkey_form;
 			if(!fform) {
@@ -621,39 +626,52 @@ void check_db_references(const FORM *form, const DBASE *db, badref **badrefs, in
 				(*badrefs)[(*nbadref)++] = br;
 				continue;
 			}
-			/* verify_form checks if fitem->type == FKEY and
-			 * fitem->fkey_form is this form */
-			/* so, no BR_FREF, ever */
-			const DBASE *fdb = read_dbase(fform);
-			for(j = 0; j < item->nfkey; j++)
-				if(item->fkey[j].key)
+			/* verify_form ensures foreign key field is FKEY */
+			/* otherwise, I'd have to check for BR_NO_FREF here */
+			check_db_references(fform, read_dbase(fform), badrefs,
+					    nbadref, form, db);
+		}
+	}
+	if(inv)
+		return;
+	for(i = 0; i < form->nchild; i++) {
+		const FORM *fform = read_form(form->children[i], false, 0);
+		if(!fform) {
+			badref br;
+			br.form = form;
+			br.item = i;
+			br.fform = fform;
+			br.dbase = 0;
+			br.fdbase = 0;
+			br.row = br.keyno = -1;
+			br.reason = BR_NO_CFORM;
+			grow(0, "bad refs", badref,
+			     *badrefs, *nbadref + 1, 0);
+			(*badrefs)[(*nbadref)++] = br;
+			continue;
+		}
+		for(j = 0; j < fform->nitems; j++) {
+			ITEM *item = form->items[j];
+			if(item->type == IT_FKEY) {
+				resolve_fkey_fields(item);
+				if(item->fkey_form == form)
 					break;
-			const ITEM *fitem = item->fkey[j].item;
-			for(r = 0; r < fdb->nrows; r++) {
-				const char *data = dbase_get(fdb, r, fitem->column);
-				if(BLANK(data))
-					continue;
-				for(k = 0; ; k++) {
-					int fr = fkey_lookup(db, fform, fitem, data, k);
-					if(fr == -2)
-						break;
-					if(fr == -1 ||
-					   fkey_lookup(db, fform, fitem, data, k, fr + 1) >= 0) {
-						badref br;
-						br.form = form;
-						br.item = i;
-						br.fform = fform;
-						br.dbase = db;
-						br.fdbase = fdb;
-						br.row = r;
-						br.keyno = k;
-						br.reason = fr < 0 ? BR_INV_MISSING : BR_INV_DUP;
-						grow(0, "bad refs", badref,
-						     *badrefs, *nbadref + 1, 0);
-						(*badrefs)[(*nbadref)++] = br;
-					}
-				}
 			}
 		}
+		if(j >= fform->nitems) {
+			badref br;
+			br.form = form;
+			br.item = i;
+			br.fform = fform;
+			br.dbase = 0;
+			br.fdbase = 0;
+			br.row = br.keyno = -1;
+			br.reason = BR_NO_FREF;
+			grow(0, "bad refs", badref,
+			     *badrefs, *nbadref + 1, 0);
+			(*badrefs)[(*nbadref)++] = br;
+		} else
+			check_db_references(fform, read_dbase(fform), badrefs,
+					    nbadref, form, db);
 	}
 }

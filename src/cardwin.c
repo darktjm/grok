@@ -27,7 +27,7 @@ static void card_callback(int, CARD *, bool f = false, int i = 0);
 void card_readback_texts(CARD *, int);
 static bool store(CARD *, int, const char *, int menu = 0);
 
-// Th Card window can be open multiple times, and should self-destruct on
+// The Card window can be open multiple times, and should self-destruct on
 // close.  The old close callback also freed the card, as below.
 class CardWindow : public QDialog {
 public:
@@ -548,7 +548,7 @@ struct FKeySelector : public CardComboBox {
 			key = dbase_get(fc->dbase, r, fc->form->items[fc->qcurr]->column);
 			keyno = 0; /* no way to handle multi here */
 		}
-	    resolve_fkey_fields(oc->form->items[fc->qcurr]);
+		resolve_fkey_fields(oc->form->items[fc->qcurr]);
 		return fkey_lookup(fc->dbase, oc->form, oc->form->items[fc->qcurr],
 				   key);
 	}
@@ -560,6 +560,7 @@ struct FKeySelector : public CardComboBox {
 		setCurrentIndex(0);
 		next->clear_group(end ? end : this);
 	}
+	void group_setval(int row, const char *key, int keyno);
     private:
 	typedef std::vector<bool> rowrestrict;
 	void row_restrict(const CARD *c, int col, const char *val, rowrestrict &restrict,
@@ -731,7 +732,6 @@ struct FKeySelector : public CardComboBox {
 			setCurrentIndex(sl.indexOf(sel) + 1);
 		return;
 	}
-
     public:
 	CARD *fcard;
 	int base_row = -1;
@@ -741,12 +741,6 @@ struct FKeySelector : public CardComboBox {
 	int fkey;
 };
 
-static FKeySelector *add_fkey_field(
-	QWidget *p, CARD *card, int nitem, /* widget & callback info */
-	QString toplab, FKeySelector *prev, /* context */
-	QGridLayout *l, QTableWidget *mw, int row, int &col,  /* where to put it */
-	ITEM &item, CARD *fcard, int n,    /* fkey info */
-	int ncol); /* ncol is set to # of cols if row > 0 (for callback) */
 static void create_item_widgets(
 	CARD		*card,		/* card the item is added to */
 	int		nitem)		/* number of item being added */
@@ -1232,7 +1226,82 @@ static void create_item_widgets(
 	}
 }
 
-static FKeySelector *add_fkey_field(
+/* external use only */
+void refilter_fkey(FKeySelector *fks)
+{
+	fks->refilter();
+}
+
+int fkey_group_val(FKeySelector *fks)
+{
+	return fks->base_row;
+}
+
+void fkey_group_setval(FKeySelector *fks, int row, const char *key, int keyno)
+{
+	fks->group_setval(row, key, keyno);
+}
+/* end external use only */
+
+void FKeySelector::group_setval(int row, const char *key, int keyno)
+{
+	FKeySelector *w;
+
+	if (row < 0 && BLANK(key)) {
+		/* if non-specific selected, leave alone */
+		/* otherwise blank out all widgets */
+		w = this;
+		while(1) {
+			if (w->currentIndex() <= 0)
+				break;
+			w = w->next;
+			if(w == this) {
+				w = 0;
+				break;
+			}
+		}
+		if(!w) {
+			/* blank if none of the widgets are blank */
+			w = this;
+			do {
+				QSignalBlocker sb(w);
+				w->setCurrentIndex(0);
+				w = w->next;
+			} while(w != this);
+			refilter();
+		}
+		return;
+	}
+	DBASE *fdbase = 0;
+	w = this;
+	char *bkey = 0;
+	if(row >= 0)
+		key = bkey = fkey_of(fcard->dbase, row, card->form,
+				     item);
+	do {
+		const FKEY *fk = &w->item->fkey[w->fkey];
+		ITEM *fitem = fk->item;
+		const MENU *menu = fk->menu;
+		int col = IFL(fitem->,MULTICOL) ? menu->column :
+				fitem->column;
+		QSignalBlocker sb(w);
+		w->clear();
+		w->addItem("");
+		row = w->lookup(key, keyno);
+		if (row < 0 ) {
+			/* invalid key: ignore for now */
+			w->setCurrentIndex(0);
+		} else {
+			fdbase = w->fcard->dbase;
+			w->addItem(dbase_get(fdbase, row, col));
+			w->setCurrentIndex(1);
+		}
+		w = w->next;
+	} while(w != this);
+	refilter();
+}
+
+FKeySelector *add_fkey_field(
 	QWidget *p, CARD *card, int nitem, /* widget & callback info */
 	QString toplab, FKeySelector *prev, /* context */
 	QGridLayout *l, QTableWidget *mw, int row, int &col,  /* where to put it */
@@ -2082,51 +2151,6 @@ void fillout_item(
 	  case IT_FKEY: {
 		bool multi = IFL(item->,FKEY_MULTI);
 		QListIterator<QObject *>iter(w0->children());
-		if (BLANK(data)) {
-			/* if non-specific selected, leave alone */
-			/* otherwise blank out all widgets */
-			if (multi) {
-				while(iter.hasNext()) {
-					QTableWidget *tw = dynamic_cast<QTableWidget *>(iter.next());
-					if(tw) {
-						// FIXME:  readonly deletes all
-						while (tw->rowCount() > 1)
-							tw->removeRow(0);
-						break;
-					}
-				}
-				break;
-			} else {
-				FKeySelector *w = 0;
-				while(iter.hasNext()) {
-					w = dynamic_cast<FKeySelector *>(iter.next());
-					if(!w)
-						continue;
-					if (w->currentIndex() <= 0)
-						break;
-					w = 0;
-				}
-				if(!w) {
-					/* blank if none of the widgets are blank */
-					iter = w0->children();
-					while(iter.hasNext())
-						if ((w = dynamic_cast<FKeySelector *>(iter.next()))) {
-							QSignalBlocker sb(w);
-							w->setCurrentIndex(0);
-						}
-					iter = w0->children();
-					while(iter.hasNext())
-						if ((w = dynamic_cast<FKeySelector *>(iter.next())))
-							break;
-				}
-				w->refilter();
-			}
-			break;
-		}
-		resolve_fkey_fields(item);
-		if(!item->fkey_form)
-			break;
-		DBASE *fdbase = 0;
 		if (multi) {
 			QTableWidget *tw = 0;
 			while(iter.hasNext()) {
@@ -2136,7 +2160,16 @@ void fillout_item(
 			}
 			if (!tw)
 				break; // invalid form??
-			fdbase = static_cast<FKeySelector *>(tw->cellWidget(0, 0))->fcard->dbase;
+			if (BLANK(data)) {
+				// FIXME:  readonly deletes all
+				while (tw->rowCount() > 1)
+					tw->removeRow(0);
+				break;
+			}
+			resolve_fkey_fields(item);
+			if(!item->fkey_form)
+				break;
+			DBASE *fdbase = static_cast<FKeySelector *>(tw->cellWidget(0, 0))->fcard->dbase;
 			for(int n = 0;;n++) {
 				int row = fkey_lookup(fdbase, card->form, item, data, n);
 				if(row < 0)
@@ -2145,37 +2178,16 @@ void fillout_item(
 				// scan table to see if row already in
 				// if not, append row before last/blank row
 			}
-			break;
 		} else {
-			const FKEY *fk = item->fkey;
-			FKeySelector *w = 0, *first = 0;
+			FKeySelector *w = 0;
 			while(iter.hasNext()) {
 				w = dynamic_cast<FKeySelector *>(iter.next());
-				if(!w)
-					continue;
-				if(!first)
-					first = w;
-				while (!fk->display)
-					fk++;
-				ITEM *fitem = fk->item;
-				const MENU *menu = fk->menu;
-				fk++;
-				int col = IFL(fitem->,MULTICOL) ? menu->column :
-					                          fitem->column;
-				QSignalBlocker sb(w);
-				w->clear();
-				w->addItem("");
-				int row = w->lookup(data, 0);
-				if (row < 0 ) {
-					/* invalid key: ignore for now */
-					w->setCurrentIndex(0);
-				} else {
-					fdbase = w->fcard->dbase;
-					w->addItem(dbase_get(fdbase, row, col));
-					w->setCurrentIndex(1);
-				}
+				if(w)
+					break;
 			}
-			first->refilter();
+			if (!w)
+				break; // invalid form??
+			fkey_group_setval(w, -1, data, 0);
 		}
 		/* FIXME: */
 		/* disable all widgets if read-only; remove multi last blank row */
@@ -2196,6 +2208,20 @@ void fillout_item(
 			break; // invalid form??
 		/* FIXME:  just setRowCount(0) if read-only */
 		/* FIXME:  make fully editable if all non-key fields visible */
+	        /* only IN_DBASE:
+		 *  IT_INPUT   short LineEdit, maybe with combo box
+		 *  IT_TIME    short date/time widget
+		 *  IT_NOTE    small text input box
+		 *  IT_CHOICE  IT_MENU
+		 *  IT_FLAG    raw
+		 *  IT_NUMBER  short number input
+		 *  IT_MENU    combobox pulldown
+		 *  IT_RADIO   IT_MENU
+		 *  IT_MULTI   ??  popup multiselect?
+		 *  IT_MULTI mc same IT_FLAG
+		 *  IT_FLAGS   IT_MULTI
+		 *  IT_FKEY    line of sel widgets
+		 */
 		while(tw->rowCount() > 1)
 			  tw->removeRow(0);
 		resolve_fkey_fields(item);

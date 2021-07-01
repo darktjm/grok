@@ -901,8 +901,11 @@ void switch_form(
 			dbase = read_dbase(form);
 		/* old code always created form & dbase, even if invalid */
 		/* so for now, this code does, too */
-		if (!form)
+		if (!form) {
 			form = form_create();
+			form->name = strdup(formname);
+			form->dbase = strdup(formname);
+		}
 		if (!dbase)
 			dbase = dbase_create(form);
 		form->dbpath = dbase->path;
@@ -1696,6 +1699,79 @@ static bool multi_save_revert(
 	return ret;
 }
 
+static int cmp_badref(const void *_a, const void *_b)
+{
+	const badref *a = (const badref *)_a, *b = (const badref *)_b;
+	if(a->reason != b->reason)
+		return a->reason - b->reason;
+	if(a->form != b->form) {
+		int c = strcmp(a->form->name, b->form->name);
+		if(!c)
+			return a->form - b->form;
+		return c;
+	}
+	if(a->fform != b->fform) {
+		if(!a->fform)
+			return -1;
+		if(!b->fform)
+			return 1;
+		int c = strcmp(a->fform->name, b->fform->name);
+		if(!c)
+			return a->fform - b->fform;
+		return c;
+	}
+	if(a->item != b->item)
+		return a->item - b->item;
+	char *aval = dbase_get(a->dbase, a->row, a->form->items[a->item]->column);
+	if(IFL(a->form->items[a->item]->,FKEY_MULTI))
+		aval = unesc_elt_at(a->form, aval, a->keyno);
+	char *bval = dbase_get(b->dbase, b->row, b->form->items[b->item]->column);
+	if(IFL(b->form->items[b->item]->,FKEY_MULTI))
+		bval = unesc_elt_at(b->form, bval, b->keyno);
+	int c = strcmp(STR(aval), STR(bval));
+	if(IFL(a->form->items[a->item]->,FKEY_MULTI))
+		zfree(aval);
+	if(IFL(b->form->items[b->item]->,FKEY_MULTI))
+		zfree(bval);
+	if(c)
+		return c;
+	return a->row - b->row;
+}
+
+static void fkey_callback(FKeySelector *fks)
+{
+	refilter_fkey(fks);
+}
+
+class ItemEd : public QDialog {
+    public:
+    ItemEd(QWidget *parent, const FORM *form, const DBASE *dbase, int row) :
+        QDialog(parent) {
+		setAttribute(Qt::WA_DeleteOnClose);
+		QBoxLayout *l = new QBoxLayout(QBoxLayout::TopToBottom, this);
+		QWidget *w = new QWidget;
+		w->setObjectName("wform");
+		l->addWidget(w);
+		l->addWidget(mk_separator());
+		QDialogButtonBox *bb = new QDialogButtonBox;
+		QAbstractButton *b = mk_button(bb, "Done", dbbr(Accept));
+		set_button_cb(b, accept()); /* why is this necessary? */
+		l->addWidget(bb);
+		card = create_card_menu(const_cast<FORM *>(form),
+					const_cast<DBASE *>(dbase),
+					w, false);
+		card->row = row;
+		card->shell = this;
+		fillout_card(card, false);
+		setWindowTitle("Edit Card");
+		set_icon(this, 1);
+		setModal(true);
+	}
+	~ItemEd() { card_readback_texts(card, -1); free_card(card); }
+    private:
+	CARD *card;
+};
+
 static void check_references(void)
 {
 	CARD *card = mainwindow->card;
@@ -1709,69 +1785,267 @@ static void check_references(void)
 						      QMessageBox::Ok, mainwindow);
 		popup_nonmodal(dialog);
 	} else {
-		/* FIXME:  offer fixes */
-		QString qs;
-		for(int i = 0; i < nbadref; i++)
+		QDialog *dlg = new QDialog(mainwindow);
+		dlg->setWindowTitle("Reference Check");
+		dlg->setObjectName("refcheck");
+		set_icon(dlg, 1);
+		bind_help(dlg, "refcheck");
+		QBoxLayout *main = new QBoxLayout(QBoxLayout::TopToBottom, dlg);
+		main->addWidget(new QLabel("Foreign reference inconsistencies"
+					   " have been detected."));
+		QScrollArea *sc = new QScrollArea(dlg);
+		main->addWidget(sc);
+		QWidget *msgw = new QWidget(sc);
+		msgw->setMinimumSize(800, 600);
+		sc->setWidget(msgw);
+		QGridLayout *form = new QGridLayout(msgw);
+		form->setSizeConstraint(QLayout::SetMinAndMaxSize);
+		form->setColumnStretch(1, 1);
+		main->addWidget(mk_separator());
+		QDialogButtonBox *bb = new QDialogButtonBox;
+		QAbstractButton *b;
+		b = mk_button(bb, 0, dbbb(Help));
+		set_button_cb(b, help_callback(dlg, "refcheck"));
+		b = mk_button(bb, 0, dbbb(Cancel));
+		set_button_cb(b, dlg->reject());
+		b = mk_button(bb, 0, dbbb(Ok));
+		set_button_cb(b, dlg->accept());
+		main->addWidget(bb);
+		QCheckBox *cb, *cb2;
+		int r = 0;
+		char *sbuf = 0;
+		size_t sbuf_len = 0;
+		CARD card = {};
+		qsort(badrefs, nbadref, sizeof(*badrefs), cmp_badref);
+		for(int i = 0; i < nbadref; i++) {
+			if(i)
+				form->addWidget(mk_separator(), r++, 0, 1, 3);
 			switch(badrefs[i].reason) {
-			    case BR_MISSING:
-				/* fix:  clear fkey or delete record */
-				qs += qsprintf("Form '%s' has no card matching row %d, key %d, field '%s' of form '%s'",
-
-					       badrefs[i].fform->name, badrefs[i].row, badrefs[i].keyno,
-					       badrefs[i].form->items[badrefs[i].item]->name,
-					       badrefs[i].form->name);
-				break;
-			    case BR_DUP:
-				/* fix:  alter key field(s) in dup record(s) */
-				qs += qsprintf("Form '%s' has more than one card matching row %d, key %d, field '%s' of form '%s'",
-					       badrefs[i].fform->name, badrefs[i].row, badrefs[i].keyno,
-					       badrefs[i].form->items[badrefs[i].item]->name,
-					       badrefs[i].form->name);
-				break;
-			    case BR_INV_MISSING: {
-				/* fix:  clear fkey or delete foreign record */
-				const ITEM *item = badrefs[i].form->items[badrefs[i].item];
-				const ITEM *fitem = 0;
-				for(int j = 0; j < item->nfkey; j++)
-					if(item->fkey[j].key) {
-						fitem = item->fkey[j].item;
-						break;
-					}
-				qs += qsprintf("This form ('%s') has no card matching row %d, key %d, field '%s' of form '%s'",
-					       badrefs[i].form->name, badrefs[i].row, badrefs[i].keyno,
-					       fitem->name,
-					       badrefs[i].fform->name);
+			    case BR_MISSING: {
+				/* FIXME:  only give "Delete card" for first
+				 *         occurence of this card if more than
+				 *         one badref applies to it */
+				ITEM *item = badrefs[i].form->items[badrefs[i].item];
+				char *data = dbase_get(badrefs[i].dbase,
+						       badrefs[i].row,
+						       item->column);
+				if(IFL(item->,FKEY_MULTI))
+					data = unesc_elt_at(badrefs[i].form,
+							    data, badrefs[i].keyno);
+				form->addWidget(new QLabel(
+					qsprintf("Form '%s' has no card matching"
+						 " row %d, key %d, field '%s'"
+						 " of form '%s' (%s)",
+						 badrefs[i].fform->name, badrefs[i].row, badrefs[i].keyno,
+						 badrefs[i].form->items[badrefs[i].item]->name,
+						 badrefs[i].form->name, data)),
+						r++, 0, 1, 3);
+				if(IFL(item->,FKEY_MULTI))
+					zfree(data);
+				card.form = const_cast<FORM *>(badrefs[i].form);
+				card.dbase = const_cast<DBASE *>(badrefs[i].dbase);
+				make_summary_line(&sbuf, &sbuf_len, &card,
+						  badrefs[i].row);
+				form->addWidget(new QLabel(sbuf), r++, 0, 1, 3);
+				form->addWidget((cb = new QCheckBox), r, 0);
+				cb->setChecked(true);
+				form->addWidget(new QLabel("Set to:"), r, 1);
+				QGridLayout *l = new QGridLayout;
+				CARD *fcard = create_card_menu((FORM *)badrefs[i].fform,
+							       (DBASE *)badrefs[i].fdbase, 0, true);
+				fcard->fkey_next = &card;
+				fcard->qcurr = badrefs[i].item;
+				form->addLayout(l, r, 2);
+				FKeySelector *fks = 0;
+				int col = 0;
+				for(int n = 0; n < item->nfkey; n++)
+					    if(item->fkey[n].display) {
+						    fks = add_fkey_field(msgw, &card,
+									 badrefs[i].item,
+									 "", fks, l, 0, 0, col,
+									 *item, fcard, n, 0);
+						    set_popup_cb(reinterpret_cast<QComboBox *>(fks), fkey_callback(fks), int,);
+					    }
+				l->addItem(new QSpacerItem(1, 1), 0, col);
+				l->setColumnStretch(col, 1);
+				refilter_fkey(fks);
+				form->addWidget((cb2 = new QCheckBox), r + 1, 0);
+				form->addWidget(new QLabel("Delete card"), r + 1, 1);
+				set_button_cb(cb, if(c) cb2->setChecked(false),
+					      bool c);
+				set_button_cb(cb2, if(c) cb->setChecked(false),
+					      bool c);
+				r += 2;
 				break;
 			    }
-			    case BR_INV_DUP: {
-				/* fix:  alter key field(s) in dup record(s) */
-				const ITEM *item = badrefs[i].form->items[badrefs[i].item];
-				const ITEM *fitem = 0;
-				for(int j = 0; j < item->nfkey; j++)
-					if(item->fkey[j].key) {
-						fitem = item->fkey[j].item;
+			    case BR_DUP: {
+				const ITEM *pitem;
+				char *pdata = 0;
+				while(i < nbadref && badrefs[i].reason == BR_DUP) {
+					const ITEM *item = badrefs[i].form->items[badrefs[i].item];
+					char *data = dbase_get(badrefs[i].dbase,
+							       badrefs[i].row,
+							       item->column);
+					if(IFL(item->,FKEY_MULTI))
+						data = unesc_elt_at(badrefs[i].form,
+								    data, badrefs[i].keyno);
+					if(!pdata) {
+						pdata = strdup(data);
+						form->addWidget(new QLabel(
+					qsprintf("Form '%s' has more than one card matching row %d, key %d, field '%s' of form '%s' (%s)",
+						 badrefs[i].fform->name, badrefs[i].row, badrefs[i].keyno,
+						 badrefs[i].form->items[badrefs[i].item]->name,
+						 badrefs[i].form->name, pdata)),
+						r++, 0, 1, 3);
+					} else if(strcmp(pdata, data))
 						break;
-					}
-				qs += qsprintf("This form ('%s') has more than one card matching row %d, key %d, field '%s' of form '%s'",
-					       badrefs[i].form->name, badrefs[i].row, badrefs[i].keyno,
-					       fitem->name,
-					       badrefs[i].fform->name);
+					else if(badrefs[i-1].form != badrefs[i].form)
+						form->addWidget(new QLabel(QString(badrefs[i].form->name) + ':'));
+					pitem = item;
+					card.form = const_cast<FORM *>(badrefs[i].form);
+					card.dbase = const_cast<DBASE *>(badrefs[i].dbase);
+					make_summary_line(&sbuf, &sbuf_len, &card,
+							  badrefs[i].row);
+					form->addWidget(new QLabel(sbuf), r++, 0, 1, 3);
+					if(IFL(item->,FKEY_MULTI))
+						zfree(data);
+					i++;
+				}
+				i--;
+				zfree(pdata);
+				pdata = dbase_get(badrefs[i].dbase,
+						  badrefs[i].row,
+						  pitem->column);
+				for(int start = 0;; start++) {
+					start = fkey_lookup(badrefs[i].fdbase,
+							    badrefs[i].form,
+							    pitem, pdata,
+							    badrefs[i].keyno,
+							    start);
+					if(start < 0)
+						break;
+					QAbstractButton *b;
+					b = mk_button(0, "Change", 0);
+					form->addWidget(b, r, 0);
+					set_button_cb(b, (new ItemEd(dlg,
+								     badrefs[i].fform,
+								     badrefs[i].fdbase,
+								     start))->exec());
+					card.form = const_cast<FORM *>(badrefs[i].fform);
+					card.dbase = const_cast<DBASE *>(badrefs[i].fdbase);
+					make_summary_line(&sbuf, &sbuf_len, &card, start);
+					form->addWidget(new QLabel(sbuf), r, 1, 1, 2);
+					r++;
+				}
 				break;
 			    }
 			    case BR_NO_INVREF:
-				/* fix:  add invref to foreign form def */
-				qs += qsprintf("Form '%s' does not list '%s' as a referer\n",
-					       badrefs[i].fform->name, badrefs[i].form->name);
+				form->addWidget(new QLabel(
+					qsprintf("Form '%s' does not list '%s' as a referer",
+						 badrefs[i].fform->name, badrefs[i].form->name)),
+						r++, 0, 1, 3);
+				form->addWidget((cb = new QCheckBox), r, 0);
+				cb->setChecked(true);
+				form->addWidget(new QLabel("Add to form's Referers list"),
+						r++, 1, 1, 2);
 				break;
-			    case BR_NO_FORM:
-				/* fix: try again or rename in form def */
-				qs += qsprintf("Can't load foreign db '%s'\n",
-					       badrefs[i].form->items[badrefs[i].item]->fkey_form_name);
+			    case BR_NO_FORM: {
+				form->addWidget(new QLabel(
+					qsprintf("Can't load foreign db '%s'",
+						 badrefs[i].form->items[badrefs[i].item]->fkey_form_name)),
+					       r++, 0, 1, 3);
+				form->addWidget((cb = new QCheckBox), r, 0);
+				cb->setChecked(true);
+				form->addWidget(new QLabel("Change to:"), r, 1);
+				QComboBox *db = new QComboBox;
+				QStringList sl;
+				add_dbase_list(sl);
+				db->addItems(sl);
+				form->addWidget(db, r++, 2);
+				break;
+			    }
+			    case BR_NO_CFORM: {
+				form->addWidget(new QLabel(
+					qsprintf("Can't load foreign db '%s'",
+						 badrefs[i].form->children[badrefs[i].item])),
+						r++, 0, 1, 3);
+				form->addWidget((cb = new QCheckBox), r, 0);
+				cb->setChecked(true);
+				form->addWidget(new QLabel("Change to:"), r, 1);
+				QComboBox *db = new QComboBox;
+				QStringList sl;
+				add_dbase_list(sl);
+				db->addItem("");
+				db->setCurrentIndex(0);
+				db->addItems(sl);
+				form->addWidget(db, r++, 2);
+				break;
+			    }
+			    case BR_NO_FREF:
+				form->addWidget(new QLabel(
+					qsprintf("Database '%s' listed as referer, but does not reference '%s'",
+						 badrefs[i].form->children[badrefs[i].item], badrefs[i].form->name)),
+						r++, 0, 1, 3);
+				form->addWidget((cb = new QCheckBox), r, 0);
+				cb->setChecked(true);
+				form->addWidget(new QLabel("Remove from form's Referers list"),
+						r++, 1, 1, 2);
 				break;
 			}
-		char *s = qstrdup(qs);
-		create_error_popup(mainwindow, 0, s);
-		free(s);
+		}
+		zfree(sbuf);
+		if(!dlg->exec())
+			return;
+		QListIterator<QObject *>iter(form->children());
+#define getcb(v) do { \
+	while(iter.hasNext()) \
+		if((v = dynamic_cast<QCheckBox *>(iter.next()))) \
+			break; \
+} while(0)
+		for(int i = 0; i < nbadref; i++)
+			switch(badrefs[i].reason) {
+			    case BR_MISSING:
+				getcb(cb);
+				if(cb->isChecked()) {
+					/* FIXME:  get pulldown values */
+					/* FIXME:  set new value for fkey field */
+				}
+				getcb(cb2);
+				if(cb->isChecked()) {
+					/* FIXME: delete badrefs[i].row */
+					/*   note: adjust any other rows in same dbase */
+				}
+				break;
+			    case BR_DUP:
+				/* nothing to do; change is in popup */
+				break;
+			    case BR_NO_INVREF:
+				getcb(cb);
+				if(cb->isChecked()) {
+					/* FIXME: add form to fform's children */
+				}
+				break;
+			    case BR_NO_FORM:
+				getcb(cb);
+				if(cb->isChecked()) {
+					/* FIXME:  read db pulldown & update form def */
+				}
+				break;
+			    case BR_NO_CFORM:
+				getcb(cb);
+				if(cb->isChecked()) {
+					/* FIXME:  read db pulldown & update children */
+					/*  note: and adjust CFORM/FREF indices if deleting */
+				}
+				break;
+			    case BR_NO_FREF:
+				getcb(cb);
+				if(cb->isChecked()) {
+					/* FIXME:  remove form.children[item] */
+					/*  note: and adjust CFORM/FREF indices */
+				}
+				break;
+			}
 	}
 	zfree(badrefs);
 }

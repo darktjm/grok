@@ -253,6 +253,12 @@
 	     search mode "Find & select" and pressing the Search button. It's
 	     here primarily to allow the Ctrl-F shortcut.
 
+	Check References:
+	     Unlike standard relational databases, grok cannot enforce the
+	     usual rules for foreign references.  This means that it may
+	     be necessary to check references manually.  Any detected
+	     inconsistencies are shown in a popup, along with suggested fixes.
+
 	Print:
 	     Print selected cards to a printer or to a file.
 
@@ -297,6 +303,41 @@
 	     main window normally.  Warning - if a grok window is
 	     destroyed rather than closed, grok will NOT save, and exit
 	     without warning.
+%% refcheck
+	CHECK REFERENCES
+
+	If the database passes the reference check, a popup will appear to
+	report this.  Otherwise, all problems are reported, along with
+	potential fixes.  The following errors are reported:
+	
+		No form:  foreign form of Reference or Referers field can't
+		be loaded.  Suggested fix:  try again later or change to a
+		different form.  Note that changing to a different form may
+		invalidate field names.
+
+		No child form:  foreign form of form-wide Referers list can't
+		be loaded.  Suggested fix:  try again later, change to a
+		different form, or remove this reference.
+
+		No reference:  a form-wide Referrer list entry does not
+		actually refer to this form.  Suggested fix:  remove this
+		reference.
+
+		No match:  a reference has no corresponding match in the
+		foreign database.  This is detected both for Reference fields
+		in this database and Reference fields in referer databases.
+		Suggested fix:  clear the reference, change the reference,
+		or delete the card containing the reference.
+
+		Multiple matches:  a reference matches more than one card in the
+		foreign database.  This is detected both for Reference fields
+		in this database and Reference fields in referer databases.
+		Suggested fix:  alter the key field(s) in the duplicate cards.
+
+		No referer set in foreign form:  a Reference field refers to
+		a form which does not have a Referer field or form-wide
+		Referer form set to this form.  Suggested fix:  add this
+		form to the foreign database's form-wide Referers.
 %% quit
 	QUIT
 
@@ -421,8 +462,9 @@
 	File->Preferences menu, in which case only those cards already in the
 	summary are searched.
 
-	There are seven search modes. The first six put a new set of cards
+	There are six search modes. The first five put a new set of cards
 	into the summary table, and the last just moves the selection bar.
+	The first submenu in the query menu can be used to change this mode.
 
 	  All               search all cards
 	  In query          search all cards selected by the last menu query
@@ -437,8 +479,8 @@
 	from the Query pulldown can be shown as search strings, see the
 	File->Preferences popup.
 
-	The Clear button clears the search input area and selects it. The 20
-	remembered searches are not affected.
+	The Clear button (C) clears the search input area and selects it. The
+	20 remembered searches are not affected.
 
 	The Requery button repeats the last query performed with the Query
 	pulldown menu in the menu bar. If no query was done, the default query

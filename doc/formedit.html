@@ -278,6 +278,10 @@ not be put into the static part of the canvas.
 	HTML-style link which switches to the other database, with the
 	card referred to by this one selected for editing.<P>
 
+	Grok cannot generally enforce consistency of reference fields.  The
+	<B>File</B> menu option <B>Check References</B> should be run regularly
+	in order to at least check the consistency.<P>
+
 <LI><B>Referers</B><BR>
 	A referers field displays data from all cards of another database which
 	refer to this card.  The Reference field referring to this database
@@ -291,9 +295,11 @@ not be put into the static part of the canvas.
 	possible to create cards in the other database directly by editing
 	values in the bottom (editable) row of the table.<P>
 
-	A special form of this field where the label takes up the entire
-	widget needs/allows no displayed fields; it is just a link to the
-	referring database (in parent restricted mode).<P>
+	A special degenerate form of this widget can also be made.  If the
+	label takes up the entire widget, the referer field needs and allows
+	no displayed foreign fields.  In this case, the widget is just the
+	label as the HTML-style link to the referer database (in parent
+	restricted mode).<P>
 
 </UL>
 

@@ -1627,7 +1627,7 @@ static void pr_sql_fkey_tables(FILE *fp, const char *db, ITEM *item,
 
 static void add_ref_keys(QStringList &sl, const char *cform, const FORM *form)
 {
-	const FORM *fform = read_form(cform);
+	const FORM *fform = read_form(cform, false, 0);
 	if(!fform)
 		return;
 	for(int i = 0; i < fform->nitems; i++) {

@@ -317,7 +317,8 @@ static std::set<tab_loading> loading_forms;
 
 FORM *read_form(
 	const char		*path,		/* file to read list from */
-	bool			force)		/* overrwrite loaded forms */
+	bool			force,		/* overrwrite loaded forms */
+	QWidget			*parent)	/* error popup parent */
 {
 	FORM			*form;
 	FILE			*fp;		/* open file */
@@ -361,7 +362,7 @@ FORM *read_form(
 		fp = fopen(path, "r");
 	}
 	if (!fp) {
-		create_error_popup(mainwindow, errno,
+		create_error_popup(parent, errno,
 			"Failed to open form file %s", path);
 		return NULL;
 	}
@@ -459,9 +460,10 @@ FORM *read_form(
 			else if (!strcmp(key, "planquery"))
 					STORE(form->planquery, p);
 			else if (!strcmp(key, "child")) {
-					grow(0, "form file", char *, form->children,
-					     ++form->nchild, 0);
-					STORE(form->children[form->nchild - 1], p);
+					zgrow(0, "form file", char *, form->children,
+					      form->nchild, form->nchild + 1, 0);
+					STORE(form->children[form->nchild], p);
+					++form->nchild;
 			} else if (!strcmp(key, "query_s")) {
 				if ((dq = add_dquery(form)))
 					dq->suspended = *p != '0';
@@ -667,7 +669,7 @@ FORM *read_form(
 	}
 	fclose(fp);
 	/* verify_form() will also create the symtab */
-	if(!verify_form(form, NULL, mainwindow)) {
+	if(!verify_form(form, NULL, parent)) {
 		form_delete(form);
 		loading_forms.erase(tl);
 		return NULL;

@@ -341,8 +341,12 @@ just convert that into a shorter-named shell script.
 
 Version 2.4 (in progress)
  * Removed a debugging printf that I left in 2.3.
+ * Search mode is now in Query menu instead of next to search entry
+ * Default search mode is now find+select
  * Added Reference and Referers fields for foreign database access
    * List of key and/or card-displayed fields editable in form editor
+   * Reference fields appear as sequence of pulldown menus in card
+   * Reference fields' labels provide convenient table switching
    * List of referred-to databases editable in form editor
    * Added deref(), which provides the displayed value of a reference.
    * Added _fkey _x (juxtaposition) to syntax to access field named x in
@@ -354,6 +358,7 @@ Version 2.4 (in progress)
    * Added _fkey this and _fkey last to get row numbers from
      referenced database.  _fkey can be a chain as above.
  * Fixed a few memory leaks
+ * Fixed some sources of crashing when form errors appear at startup
  * Removed many string length limits
  * Letter buttons now work as I expect them to (i.e., pressing one after
    another switches to the other letter, rather than adding it to the
@@ -388,7 +393,6 @@ Version 2.4 (in progress)
    doesn't lose changes and can be saved/reverted on exit.
    * @"dbase"/"search"+"field"-"field": prefixes expr to work on other db
    * @dbase on FOREACH switches to alternate database
-   * _ref _x refers to the value of _x in the row referred to by _ref
  * FOREACH supports changing the sort order for foreign or same database
  * Generic SQL exporter (create table & views, import data into table).
  * The automatically generated column field for new items now takes

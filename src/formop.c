@@ -1089,7 +1089,7 @@ void resolve_fkey_fields(ITEM *item)
 	if(item->type != IT_FKEY && item->type != IT_INV_FKEY)
 		return;
 	if(!item->fkey_form) {
-		if(!(item->fkey_form = read_form(item->fkey_form_name)))
+		if(!(item->fkey_form = read_form(item->fkey_form_name, false, 0)))
 			return;
 		for(int i = 0; i < item->nfkey; i++) {
 			item->fkey[i].item = 0;

@@ -950,11 +950,6 @@ Major Feature: Foreign Database References
   sort of limits need to be placed on the arguments so that IMPORT
   can parse them.
 
-- A menu option is
-  provided to check a "child" database for bad references, with
-  automatic resolution either blanking the reference or removing the
-  child entirely.
-
   - A text field below (optional?) is a
     search expression applied to the parent database to restrict
     what parents are selectable (although it never removes the
@@ -998,11 +993,6 @@ Major Feature: Foreign Database References
     never-blank, or the delete popup gives options for what to do,
     defaulted to what it thinks is right.  Cascade deletes are only
     possible if the parent expliclitly lists child databases.
-
-- For convenience and safety, rather than using virtual
-  references, the "parent" can be given a stored reference like the
-  "child", making them full peers, but duplicating the key list in
-  the inverse direction.
 
 Major Feature:  SQL Support
 ---------------------------
