@@ -557,6 +557,12 @@
 	not disable Autoquery in the Query pulldown because if the current
 	card matched the query then so will the copy, but care should be
 	taken when making changes that would remove the card from the query.
+%% delinvref
+	DELETE REFERENCE
+
+	The selected card which references this one is displayed.
+	Either clear out the reference to this card (No/default) or remove
+	the entire card referencing this one (Yes).  Cancel will do nothing.
 %% sect
 	SECTION
 
@@ -1610,20 +1616,18 @@
 	add the selected table to the form's list of referers; i.e., no data is
 	stored.  Instead, the foreign db must have a Reference field which refers
 	to this database; this is the one and only key field for referers.  When
-	the card is displayed, a table similar to the Multi-Ref field is shown,
-	using the values in displayed fields from the referring database.  The
-	key field may not be displayed (it is redundant:  the key field refers
-	to the displayed card).  As with Multi-Ref fields, Headers and Subsearch
-	are supported.  In the latter case, this limits which foreign cards are
-	displayed.  If Editable is enabled, the displayed fields themselves
-	may be edited directly in the interface, and new entries may be added via
-	a blank row at the bottom and the + (Add) button.  Otherwise, pressing +
-	(Add) switches to the foreign db in a special restricted mode which sets or
-	retains the referred-to card.  This mode is also used when switching for
-	the = (Edit) button and using the label link.  The - (Delete) button will
-	prompt to either delete the reference or delete the entire referring card.
-	The circular arrow button will refresh the list; otherwise tracking is
-	generally not done.
+	the card is displayed, a table of text values of the foreign db's visible
+	fields is shown,  The key field may not be displayed (it is redundant:
+	the key field refers to the displayed card).  As with Reference fields, 
+	Headers and Subsearch are supported.  In the latter case, this limits
+	which foreign cards are displayed.  Additionally, four buttons appear
+	under the table.  The cycle symbol (Refresh) button updates the table,
+	in case the foreign database changed.  The + (Add) button addds a new
+	card to the foreign db and pops up a card editor window for it.  The
+	- (Delete) button deletes the currently selected row.  The open document
+	symbol (Edit) button pops up a card editor for the currently selected
+	table row.  The label link and popup card forms restrict the key
+	Reference field to point to the card that was being edited.
 	
 	To only provide a link to a foreign db, make the height of the Referers widget
 	equal to the height of the label.  No visible fields are needed or allowed.

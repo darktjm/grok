@@ -106,6 +106,9 @@ FORM *form_clone(
 			form->query[i].query= mystrdup(parent->query[i].query);
 		}
 	}
+	form->children = alloc(mainwindow, "clone form fields", char *, form->nchild);
+	for (i = 0; i < form->nchild; i++)
+		form->children[i] = mystrdup(parent->children[i]);
 	form->fields = NULL;
 	return(form);
 }
@@ -1050,6 +1053,7 @@ ITEM *item_clone(
 	item->pressed	   = mystrdup(parent->pressed);
 	item->ch_bar	   = 0;
 	item->ch_nbars	   = 0;
+	item->fkey_form_name = mystrdup(parent->fkey_form_name);
 
 	if (item->nmenu) {
 		item->menu = alloc(0, "clone form field", MENU, item->nmenu);
@@ -1067,10 +1071,8 @@ ITEM *item_clone(
 	if (item->nfkey) {
 		item->fkey = alloc(0, "clone form field", FKEY, item->nfkey);
 		tmemcpy(FKEY, item->fkey, parent->fkey, item->nfkey);
-		for(i=0; i < item->nmenu; i++) {
-			item->menu[i] = parent->menu[i];
-			menu_clone(&item->menu[i]);
-		}
+		for(i=0; i < item->nfkey; i++)
+			item->fkey[i].name = mystrdup(parent->fkey[i].name);
 	}
 	return(item);
 }

@@ -284,16 +284,24 @@ not be put into the static part of the canvas.
 
 <LI><B>Referers</B><BR>
 	A referers field displays data from all cards of another database which
-	refer to this card.  The Reference field referring to this database
-	must be specified as the key, and may not be displayed (since
-	it just repeats data in the current card).  Like reference fields,
+	refer to this card in a table.  The Reference field referring to this
+	database must be specified as the key, and may not be displayed (since
+	it just repeats data in the current card).  Under the table
+	appear four buttons:  <TT>Refresh</TT> (cycle symbol), <TT>Add</TT>
+	(plus), <TT>Remove</TT> (minus), and <TT>Edit</TT> (Open Document
+	symbol).  The <TT>Refresh</TT> button reloads the table contents,
+	in case the foreign database was modified.  The <TT>Add</TT> button
+	adds a new card to the foreign database, and pops up a card form to
+	edit it (the Reference field pointing to this card is initialized
+	and uneditable).  The <TT>Edit</TT> button also pops up a card form,
+	but to edit the selected table row.  The <TT>Remove</TT> button
+	removes the row from the table, either by clearing the Reference
+	field (the default) or by deleting the entire foreign card; the user
+	is asked which action to perform.  Like reference fields,
 	the label is an HTML-style link to the other database.  This
 	switches to the other databse in a special parent-restricted mode,
 	where the specified key field is restricted to point to the card
-	from which the link was pressed.  If all fields of the other database
-	are displayed (except for the key field(s), of course), it is
-	possible to create cards in the other database directly by editing
-	values in the bottom (editable) row of the table.<P>
+	from which the link was pressed.<P>
 
 	A special degenerate form of this widget can also be made.  If the
 	label takes up the entire widget, the referer field needs and allows

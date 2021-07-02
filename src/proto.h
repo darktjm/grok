@@ -31,6 +31,17 @@ CARD *create_card_menu(
 void build_card_menu(
 	CARD		*card,		/* initialized non-GUI card */
 	QWidget		*wform);	/* form widget to install into, or 0 */
+class ItemEd : public QDialog {
+    public:
+	ItemEd(QWidget *parent,		/* parent for modal dialog */
+	       const FORM *form,	/* form of card to edit */
+	       const DBASE *dbase,	/* database of card to edit */
+	       int row,			/* row in dbase of card to edit */
+	       bool init = false);	/* true if row needs initialization */
+	~ItemEd();
+    private:
+	CARD *card;
+};
 void card_readback_texts(
 	CARD		*card,		/* card that is displayed in window */
 	int		which);		/* all -f < 0, one item only if >= 0 */
@@ -47,7 +58,7 @@ void fillout_item(
 	CARD		*card,		/* card to draw into menu */
 	int		i,		/* item index */
 	bool		deps);		/* if true, dependencies only */
-class FKeySelector;
+struct FKeySelector;
 void refilter_fkey(FKeySelector *fks);
 int fkey_group_val(FKeySelector *fks);
 void fkey_group_setval(

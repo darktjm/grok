@@ -35,6 +35,54 @@ public:
     ~CardWindow() { free_card(card); }
 };
 
+/* ItemEd is like CardWindow, but actually edits an item */
+ItemEd::ItemEd(QWidget *parent, const FORM *form, const DBASE *dbase, int row,
+	       bool init) : QDialog(parent ? parent : mainwindow)
+{
+	setAttribute(Qt::WA_DeleteOnClose);
+	QBoxLayout *l = new QBoxLayout(QBoxLayout::TopToBottom, this);
+	QWidget *w = new QWidget;
+	w->setObjectName("wform");
+	l->addWidget(w);
+	l->addWidget(mk_separator());
+	QDialogButtonBox *bb = new QDialogButtonBox;
+	QAbstractButton *b = mk_button(bb, "Done", dbbr(Accept));
+	set_button_cb(b, accept()); /* why is this necessary? */
+	l->addWidget(bb);
+	card = create_card_menu(const_cast<FORM *>(form),
+				const_cast<DBASE *>(dbase),
+				w, false);
+	card->row = row;
+	card->shell = this;
+	/* following is from mainwin.c: add_card */
+	if (init)
+		for (int i=0; i < form->nitems; i++) {
+			const ITEM *item = form->items[i];
+			if (IN_DBASE(item->type) && item->idefault)
+				dbase_put(card->dbase, row, item->column,
+					  evaluate(card, item->idefault));
+		}
+	fillout_card(card, false);
+	/* select first text input widget for focus if possible */
+	for (int i=0; i < form->nitems; i++) {
+		const ITEM *item = form->items[i];
+		if (item->type == IT_INPUT || item->type == IT_TIME
+					   || item->type == IT_NOTE
+					   || item->type == IT_NUMBER) {
+			card->items[i].w0->setFocus();
+			break;
+		}
+	}
+	setWindowTitle("Edit Card");
+	set_icon(this, 1);
+	setModal(true);
+}
+
+ItemEd::~ItemEd()
+{
+	card_readback_texts(card, -1);
+	free_card(card);
+}
 
 CARD *card_list;	/* all allocated cards */
 
@@ -1159,11 +1207,48 @@ static void create_item_widgets(
 		FKeySelector *fks = 0;
 		QTableWidget *mw = multi ? new QTableWidget(carditem->w0) : 0;
 		if (multi) {
+			mw->setSelectionBehavior(QAbstractItemView::SelectRows);
 			l->addWidget(mw, 0, 0);
 			if (!IFL(item.,FKEY_HEADER))
 				mw->horizontalHeader()->setVisible(false);
 			mw->verticalHeader()->setVisible(false);
 		}
+		if (item.type == IT_INV_FKEY) {
+			// I originally added these to any multi, but
+			// all FKEY_MULTI functions can be done w/o buttons
+			QBoxLayout *bb = new QBoxLayout(QBoxLayout::RightToLeft);
+			l->addLayout(bb, 1, 0);
+			QPushButton *b;
+			// b = new QPushButton("=");
+			b = new QPushButton(QIcon::fromTheme("document-open"), "");
+			b->setMinimumWidth(1);
+			b->setEnabled(!IFL(item.,RDONLY));
+			set_button_cb(b, card_callback(nitem, card, false, -4));
+			bb->addWidget(b, 1);
+			// b = new QPushButton("-");
+			b = new QPushButton(QIcon::fromTheme("list-remove"), "");
+			b->setMinimumWidth(1);
+			set_button_cb(b, card_callback(nitem, card, false, -3));
+			b->setEnabled(!IFL(item.,RDONLY));
+			bb->addWidget(b, 1);
+			// b = new QPushButton("+");
+			b = new QPushButton(QIcon::fromTheme("list-add"), "");
+			b->setMinimumWidth(1);
+			b->setEnabled(!IFL(item.,RDONLY));
+			set_button_cb(b, card_callback(nitem, card, false, -2));
+			bb->addWidget(b, 1);
+			b = new QPushButton(QIcon::fromTheme("view-refresh"), "");
+			b->setMinimumWidth(1);
+			set_button_cb(b, card_callback(nitem, card, false, -5));
+			bb->addWidget(b, 1);
+			if (IFL(item.,FKEY_SEARCH)) {
+				CardLineEdit *le = new CardLineEdit(card, nitem, carditem->w0);
+				set_text_cb(le, card_callback(nitem, card, false, -1));
+				bb->addWidget(le);
+				bb->setStretchFactor(le, 5);
+			}
+		}
+		/* add dummies/headers for inv as well */
 		for (n = 0; n < item.nfkey; n++)
 			if (item.fkey[n].display)
 				  fks = add_fkey_field(carditem->w0, card, nitem,
@@ -1171,42 +1256,15 @@ static void create_item_widgets(
 						       l, mw, 0, col,
 						       item, fcard, n,
 						       0);
-		QBoxLayout *bb = 0;
 		if (item.type == IT_INV_FKEY) {
-			// I originally added these to any multi, but
-			// all FKEY_MULTI funcitions can be done w/o buttons
-			bb = new QBoxLayout(QBoxLayout::RightToLeft);
-			l->addLayout(bb, 1, 0);
-			QPushButton *b;
-			// b = new QPushButton("=");
-			b = new QPushButton(QIcon::fromTheme("document-open"), "");
-			b->setMinimumWidth(1);
-			set_button_cb(b, card_callback(nitem, card, false, -4));
-			bb->addWidget(b, 1);
-			// b = new QPushButton("-");
-			b = new QPushButton(QIcon::fromTheme("list-remove"), "");
-			b->setMinimumWidth(1);
-			set_button_cb(b, card_callback(nitem, card, false, -3));
-			bb->addWidget(b, 1);
-			// b = new QPushButton("+");
-			b = new QPushButton(QIcon::fromTheme("list-add"), "");
-			b->setMinimumWidth(1);
-			set_button_cb(b, card_callback(nitem, card, false, -2));
-			bb->addWidget(b, 1);
-			b = new QPushButton(QIcon::fromTheme("view-refresh"), "");
-			b->setMinimumWidth(1);
-			set_button_cb(b, card_callback(nitem, card, false, -5));
-			bb->addWidget(b, 1);
+			mw->removeRow(0);
+			break;
 		}
 		if (IFL(item.,FKEY_SEARCH)) {
 			CardLineEdit *le = new CardLineEdit(card, nitem, carditem->w0);
 			set_text_cb(le, card_callback(nitem, card, false, -1));
-			if (item.type == IT_INV_FKEY) {
-				bb->addWidget(le);
-				bb->setStretchFactor(le, 5);
-			} else
-				l->addWidget(le, IFL(item.,FKEY_HEADER) ? 2 : 1, 0,
-					     1, col);
+			l->addWidget(le, IFL(item.,FKEY_HEADER) ? 2 : 1, 0,
+				     1, col);
 		}
 		break;
 	  }
@@ -1268,8 +1326,8 @@ void FKeySelector::group_setval(int row, const char *key, int keyno)
 				w->setCurrentIndex(0);
 				w = w->next;
 			} while(w != this);
-			refilter();
 		}
+		refilter();
 		return;
 	}
 	DBASE *fdbase = 0;
@@ -1628,45 +1686,154 @@ static void card_callback(
 				free(str);
 			return;
 		}
-		switch(index) {
-		    case -1: /* search */
-			// FIXME: filter fkey db
-		    case -2: /* + */
-			// FIXME: pop to child table w/ empty new record
-		    case -3: /* - */
-			// FIXME: del selected row (ask: clear ref or del?)
-		    case -4: /* = */
-			// FIXME: pop to child table w/ selected record
-			break;
-		}
 		bool multi = IFL(item->,FKEY_MULTI) || item->type == IT_INV_FKEY;
 		FKeySelector *w = 0;
 		QListIterator<QObject *>iter(card->items[nitem].w0->children());
+		QTableWidget *tw = 0;
 		int elt = 0;
 		bool endrow = false;
-		QTableWidget *tw = 0;
 		if (multi) {
 			while(iter.hasNext()) {
 				tw = dynamic_cast<QTableWidget *>(iter.next());
-				if(tw) {
+				if(tw && item->type == IT_FKEY && index >=0) {
 					int nvis = tw->columnCount();
 					elt = index / nvis;
 					index %= nvis;
 					w = static_cast<FKeySelector *>(
 					    tw->cellWidget(elt, index));
 					endrow = elt == tw->rowCount() - 1;
+				} else if(tw)
+					elt = tw->currentRow();
+				if(tw)
 					break;
-				}
 			}
 		} else {
 			while(iter.hasNext()) {
 				w = dynamic_cast<FKeySelector *>(iter.next());
 				if(!w)
 					continue;
-				if(!index--)
+				if(index <= 0)
 					break;
+				index--;
 				w = 0;
 			}
+		}
+		switch(index) {
+		    case -1: /* search */
+			// FIXME: filter fkey db
+			break;
+		    case -2: /* + Add */ {
+			/* partly copied from mainwin:add_card() */
+			DBASE *dbase = read_dbase(item->fkey_form);
+			/* presumably dbase->currsect is correct */
+			if (!dbase_addrow(&elt, dbase)) {
+				/* this is stupid:  if there's no room for a row,
+				 * there's probably also no room for a new popup window */
+				create_error_popup(mainwindow, errno,
+						   "No memory for new database row");
+				return;
+			}
+			const ITEM *fitem = 0;
+			for(int n = 0; n < item->nfkey; n++)
+				    if(item->fkey[n].key) {
+					    fitem = item->fkey[n].item;
+					    break;
+				    }
+			char *key = fkey_of(card->dbase, card->row,
+					    item->fkey_form, fitem);
+			dbase_put(dbase, elt, fitem->column, key);
+			free(key);
+			/* FIXME:  make key read-only */
+			(new ItemEd(card->shell, item->fkey_form, dbase,
+				    elt, true))->exec();
+			fillout_item(card, nitem, false);
+		  	return;
+		    }
+		    case -3: /* - Remove */ {
+			if(elt < 0)
+				    return;
+			/* partly copied from popup.c:create_save_popup */
+			QString msg("Removing:\n");
+			CARD fcard = {};
+			fcard.form = item->fkey_form;
+			fcard.dbase = read_dbase(item->fkey_form);
+			const ITEM *fitem = 0;
+			for(int n = 0; n < item->nfkey; n++)
+				    if(item->fkey[n].key) {
+					    fitem = item->fkey[n].item;
+					    break;
+				    }
+			char *sbuf = 0;
+			size_t sbuf_len = 0;
+			elt = tw->item(elt, 0)->data(Qt::UserRole).toInt();
+			make_summary_line(&sbuf, &sbuf_len, &fcard, elt);
+			msg += sbuf;
+			msg += "\n\nDelete entire card?\n"
+			       "If not, just clear reference.\n";
+			bool cont = true;
+			while(cont) {
+				cont = false;
+				switch(QMessageBox::question(card->shell,
+							     "Delete Reference",
+							     msg,
+							     QMessageBox::Yes |
+							     QMessageBox::No |
+							     QMessageBox::Cancel |
+							     QMessageBox::Help,
+							     QMessageBox::No)) {
+				    case QMessageBox::Yes:
+					dbase_delrow(elt, fcard.dbase);
+					fillout_item(card, nitem, false);
+					break;
+				    case QMessageBox::No:
+					if(!IFL(fitem->,FKEY_MULTI))
+						dbase_put(fcard.dbase, elt, fitem->column, 0);
+					else {
+						char *key = fkey_of(card->dbase,
+								    card->row,
+								    item->fkey_form,
+								    fitem);
+						char *oval = dbase_get(fcard.dbase, elt, fitem->column);
+						int begin, after;
+						char esc, sep;
+						get_form_arraysep(item->fkey_form, &esc, &sep);
+						if(find_unesc_elt(oval, key,
+								  &begin, &after,
+								  esc, sep)) {
+							if(!begin && !oval[after])
+								dbase_put(fcard.dbase, elt, fitem->column, 0);
+							else {
+								if (begin)
+									--begin;
+								/* this modifies value in dbase */
+								memmove(oval + begin, oval + after, strlen(oval + after) + 1);
+							}
+						}
+					}
+					fillout_item(card, nitem, false);
+					break;
+				    case QMessageBox::Help:
+					help_callback(card->shell, "delinvref");
+					cont = true;
+					break;
+				    default:
+					break;
+				}
+			}
+			return;
+		    }
+		    case -4: /* = Edit */
+			if(elt < 0)
+				    return;
+			/* FIXME:  make key read-only */
+			(new ItemEd(card->shell, item->fkey_form,
+				    read_dbase(item->fkey_form),
+				    tw->item(elt, 0)->data(Qt::UserRole).toInt()))->exec();
+			fillout_item(card, nitem, false);
+		  	return;
+		    case -5: /* refresh */
+			fillout_item(card, nitem, false);
+			return;
 		}
 		bool blank = w->currentIndex() <= 0;
 		if (blank && multi && !endrow) {
@@ -1855,7 +2022,7 @@ static bool store(
 		do_query(card->form->autoquery);
 		newsum = true;
 	}
-	if (newsum) {
+	if (newsum && card->form == mainwindow->card->form) {
 		create_summary_menu(card);
 		scroll_summary(card);
 	}
@@ -2161,8 +2328,9 @@ void fillout_item(
 			if (!tw)
 				break; // invalid form??
 			if (BLANK(data)) {
-				// FIXME:  readonly deletes all
 				while (tw->rowCount() > 1)
+					tw->removeRow(0);
+				if (IFL(item->,RDONLY) && tw->rowCount() == 1)
 					tw->removeRow(0);
 				break;
 			}
@@ -2187,7 +2355,7 @@ void fillout_item(
 			}
 			if (!w)
 				break; // invalid form??
-			fkey_group_setval(w, -1, data, 0);
+			w->group_setval(-1, data, 0);
 		}
 		/* FIXME: */
 		/* disable all widgets if read-only; remove multi last blank row */
@@ -2222,7 +2390,8 @@ void fillout_item(
 		 *  IT_FLAGS   IT_MULTI
 		 *  IT_FKEY    line of sel widgets
 		 */
-		while(tw->rowCount() > 1)
+		/* or, just screw it and pop up a cardwin when needed */
+		while(tw->rowCount() >0)
 			  tw->removeRow(0);
 		resolve_fkey_fields(item);
 		ITEM *fit = 0;
@@ -2268,7 +2437,10 @@ void fillout_item(
 						col = item->fkey[f].menu->column;
 					else
 						col = dit->column;
-					tw->setItem(tr, tc++, new QTableWidgetItem(dbase_get(db, r, col)));
+					/* FIXME: split out fkey fields */
+					QTableWidgetItem *twi = new QTableWidgetItem(dbase_get(db, r, col));
+					twi->setData(Qt::UserRole, r);
+					tw->setItem(tr, tc++, twi);
 				}
 				tr++;
 			}

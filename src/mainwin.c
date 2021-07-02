@@ -1422,13 +1422,13 @@ static void add_card(
 	if (dup)
 		for (i=0; i < dbase->maxcolumns; i++)
 			dbase_put(dbase, card->row, i,
-				mystrdup(dbase_get(dbase, oldrow, i)));
+				  dbase_get(dbase, oldrow, i));
 	else
-		for (i=0; i < card->form->nitems; i++, item++) {
+		for (i=0; i < card->form->nitems; i++) {
 			item = card->form->items[i];
 			if (IN_DBASE(item->type) && item->idefault)
 				dbase_put(dbase, card->row, item->column,
-				     mystrdup(evaluate(card, item->idefault)));
+					  evaluate(card, item->idefault));
 		}
 	if ((card->qcurr = card->nquery)) {
 		grow(0, "No memory for query", int, card->query, card->dbase->nrows, NULL);
@@ -1439,7 +1439,7 @@ static void add_card(
 	fillout_card(card, false);
 	scroll_summary(card);
 	print_info_line();
-	for (i=0; i < card->form->nitems; i++, item++) {
+	for (i=0; i < card->form->nitems; i++) {
 		item = card->form->items[i];
 		if (item->type == IT_INPUT || item->type == IT_TIME
 					   || item->type == IT_NOTE
@@ -1743,35 +1743,6 @@ static void fkey_callback(FKeySelector *fks)
 	refilter_fkey(fks);
 }
 
-class ItemEd : public QDialog {
-    public:
-    ItemEd(QWidget *parent, const FORM *form, const DBASE *dbase, int row) :
-        QDialog(parent) {
-		setAttribute(Qt::WA_DeleteOnClose);
-		QBoxLayout *l = new QBoxLayout(QBoxLayout::TopToBottom, this);
-		QWidget *w = new QWidget;
-		w->setObjectName("wform");
-		l->addWidget(w);
-		l->addWidget(mk_separator());
-		QDialogButtonBox *bb = new QDialogButtonBox;
-		QAbstractButton *b = mk_button(bb, "Done", dbbr(Accept));
-		set_button_cb(b, accept()); /* why is this necessary? */
-		l->addWidget(bb);
-		card = create_card_menu(const_cast<FORM *>(form),
-					const_cast<DBASE *>(dbase),
-					w, false);
-		card->row = row;
-		card->shell = this;
-		fillout_card(card, false);
-		setWindowTitle("Edit Card");
-		set_icon(this, 1);
-		setModal(true);
-	}
-	~ItemEd() { card_readback_texts(card, -1); free_card(card); }
-    private:
-	CARD *card;
-};
-
 static void check_references(void)
 {
 	CARD *card = mainwindow->card;
@@ -1811,7 +1782,7 @@ static void check_references(void)
 		b = mk_button(bb, 0, dbbb(Ok));
 		set_button_cb(b, dlg->accept());
 		main->addWidget(bb);
-		QCheckBox *cb, *cb2;
+		QCheckBox *cb = 0, *cb2;  // init to shut gcc up
 		int r = 0;
 		char *sbuf = 0;
 		size_t sbuf_len = 0;
@@ -1879,7 +1850,7 @@ static void check_references(void)
 				break;
 			    }
 			    case BR_DUP: {
-				const ITEM *pitem;
+				const ITEM *pitem = 0;  // init to shut gcc up
 				char *pdata = 0;
 				while(i < nbadref && badrefs[i].reason == BR_DUP) {
 					const ITEM *item = badrefs[i].form->items[badrefs[i].item];

@@ -55,6 +55,7 @@ const char		plan_code[] = "tlwWrecnmsSTA";	/* code 0x260..0x26c */
 #define MUL 1U<<IT_MULTI | 1U<<IT_FLAGS
 #define MNU INP  | SNG | MUL
 #define BAS ITX | FLG | SNG | MUL | FKY
+#define RON BAS | 1U<<IT_INV_FKEY
 #define PLN ITX | FLG | SNG
 #define IDF TXT | FLG | SNG | MUL
 #define BUT 1U<<IT_BUTTON
@@ -451,7 +452,7 @@ static struct _template {
 	{ ANY, 'L',	 0,	"Flags:",		"fe_flags",	},
 	{   0, 'F',	 0,	" ",			0,		},
 	{ BAS, 'f',	0x200,	"Searchable",		"fe_flags",	},
-	{ BAS, 'f',	0x201,	"Read only",		"fe_flags",	},
+	{ RON, 'f',	0x201,	"Read only",		"fe_flags",	},
 	{ BAS, 'f',	0x202,	"Not sortable",		"fe_flags",	},
 	{ BAS, 'f',	0x203,	"Default sort",		"fe_flags",	},
 	{ MUL, 'f',	0x23e,	"Multi-field",		"fe_menu",	},

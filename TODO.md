@@ -47,22 +47,41 @@ Features in Progress
 
   - no way to display virtual fields (Print, Referers, Chart, etc)
 
-  - no data validity check:  all refs resolves to exactly 1,
-    referred-to table lists all referrers, fkey_multi value is a set
+  - no data validity check:  fkey_multi value is a set
 
-  - no dealing w/ missing db on load/form edit
+  - most data validity checks' suggested fixes don't work
 
   - no auto-add of referred-to table to ref by list in form editor for inv
 
   - no auto-adjust of key field names if changed in foreign db
 
-  - no parent-restricted mode
+  - no auto-delete/auto-clear of referers if referred-to row removed
+    (cascasde delete)
 
-  - inv_fkey only barely displays list; all functionality not yet there
+  - no auto-adjust/clear/delete of key values in other databases if
+    keu changes (cascade key field modification)
+
+  - no parent-restricted mode.    This restricts all searches to
+    include the parent, and makes the parent field read-only for
+    editing and adding (where it is obviously initialized to the
+    parent field value).
+
+  - No directly editable table for inv_fkey or fkey_multi; may never do
+    this.
+
+  - No sorting really for tables.  Should probably try to sort by
+    foreign table's default sort order, or by first displayed field
+
+  - inv_fkey displays some fields too widely
 
   - no testing of fkey_multi or multi-field keys
 
-  - search restriction text field does nothing
+  - search restriction text field does nothing.  should be a search
+    expression applied to the parent database to restrict
+    what parents are selectable (although it never removes the
+    current value, if any).  Clicking the label link adds this
+    search expression to the other table by default as well.  For multi
+    tables, this also filters what's displayed.
 
   - clearing title field of purchase in dlc always clears other 2
 
@@ -71,15 +90,25 @@ Features in Progress
   - make_summary_line() leaks CARDs
 
   - no testing (or coding, really) of template output (partial sql support)
+    ust doing a deref() is insufficent: summary should use juxt. fields to
+    display just one value, for example
 
   - searches don't search visible fields instead of fkey
-
-  - templmk: just doing a deref() is insufficent: summary should use
-    juxt. fields to display just one value, for example
 
   - I probably ought to disallow single fkey references to display multi
     fkey references, or make such a reference auto-convert the widget to
     a multi-reference widget
+
+  - Evaluate possibility of making FKEY_MULTI bidirectional:  every
+    pointer exists in both tables.
+
+  - Allow importing templates from other databases (and this database)
+    using \\{IMPORT *db* *template* *search*}.  Maybe an optional
+    first parameter is a variable to load template result into for
+    further text mangling, or auto-mangling with a set of regex
+    parameters and their associated replacements.  Once again, some
+    sort of limits need to be placed on the arguments so that IMPORT
+    can parse them.
 
  db menu fixes:
 
@@ -938,61 +967,6 @@ Major Card Features
   - At the very least, document the current chart operation a
     little better.  The HTML docs don't even cover the chart's
     item configuration.
-
-Major Feature: Foreign Database References
-------------------------------------------
-
-- Allow importing templates from other databases (and this database)
-  using \\{IMPORT *db* *template* *search*}.  Maybe an optional
-  first parameter is a variable to load template result into for
-  further text mangling, or auto-mangling with a set of regex
-  parameters and their associated replacements.  Once again, some
-  sort of limits need to be placed on the arguments so that IMPORT
-  can parse them.
-
-  - A text field below (optional?) is a
-    search expression applied to the parent database to restrict
-    what parents are selectable (although it never removes the
-    current value, if any).  The label link switches to the parent form (or
-    pops it up in a new window, if that functionality is
-    available), with the child's restriction expression as the
-    default search expression and the child's selected parent, if
-    any, loaded into the card.
-
-  - In the parent form, a virtual field may be added which is the
-    list of children currently pointing to it.  This is a
-    scrollable table widget, with buttons below it.  The table
-    widget shows the desired fields of the child database, with or
-    without a header. The buttons below the list are to add ("+")
-    an item or remove ("-") or edit ("=") the selected item in the
-    list.  Adding or editing pops to the child table (or pops up a
-    new window if that feature is available), but in a special
-    parent-restricted mode.  This restricts all searches to
-    include the parent, and makes the parent field read-only for
-    editing and adding (where it is obviously initialized to the
-    parent field value). Alternately, if all of the child form's
-    fields are visible in the widget, the table could become
-    directly editable, much like the query and menu editor tables.
-    I'm not sure how sorting should work, though.  It would have
-    to be by field, rather than the up/down arrows used by the
-    menu/query editors.  I think it would be best to only support
-    the child form's default search field, in forward order.
-    Deleting requires thought: do I actually delete the child, or
-    do I just clear out the child's reference? Maybe make that a
-    field option or pop up a question whenever deleting.
-
-    Deleting a record in a parent table (which explicitly lists
-    children via inv_fkey or explicit listing) does cascade
-    deletes (i.e., all children referencing this record are
-    deleted as well) and cascade foreign key modification (i.e.,
-    changing the key will either delete children or update their
-    reference; this means that all child forms must be loaded at
-    the same time to know what fields are actually being used as a
-    key).  Whether a child is deleted or just has its reference
-    blanked could just depend on whether or not the field is
-    never-blank, or the delete popup gives options for what to do,
-    defaulted to what it thinks is right.  Cascade deletes are only
-    possible if the parent expliclitly lists child databases.
 
 Major Feature:  SQL Support
 ---------------------------
