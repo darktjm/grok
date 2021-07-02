@@ -911,6 +911,8 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		didcol = true;
 		fputs("  ", fp);
 		const char *label = item->label;
+		char esc, sep;
+		get_form_arraysep(form, &sep, &esc);
 		switch(item->type) {
 		    case IT_INPUT:
 		    case IT_NOTE:
@@ -982,36 +984,35 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			for(j = 0; j < item->nmenu; j++)
 				if(strcmp(item->menu[j].label,
 					  item->menu[j].flagcode) ||
-				   strchr(item->menu[j].flagcode, form->aesc) ||
-				   strchr(item->menu[j].flagcode, form->asep) ||
+				   strchr(item->menu[j].flagcode, esc) ||
+				   strchr(item->menu[j].flagcode, sep) ||
 				   (item->menu[j].flagtext &&
 					   strcmp(item->menu[j].flagtext,
 						  item->menu[j].label)))
 					fputs("REPLACE(", fp);
 			putc('\'', fp);
-			pr_schar(fp, form->asep);
+			pr_schar(fp, sep);
 			fprintf(fp, "'||%s||'", item->name);
-			pr_schar(fp, form->asep);
-			putc('\'', fp);
+			pr_schar(fp, sep);
+			fputs("',", fp);
 			for(j = 0; j < item->nmenu; j++)
 				if(strcmp(item->menu[j].label,
 					  item->menu[j].flagcode) ||
-				   strchr(item->menu[j].flagcode, form->aesc) ||
-				   strchr(item->menu[j].flagcode, form->asep) ||
+				   strchr(item->menu[j].flagcode, esc) ||
+				   strchr(item->menu[j].flagcode, sep) ||
 				   (item->menu[j].flagtext &&
 					   strcmp(item->menu[j].flagtext,
 						  item->menu[j].label))) {
 					putc('\'', fp);
-					pr_schar(fp, form->asep);
+					pr_schar(fp, sep);
 					for(s = item->menu[j].flagcode; *s; s++) {
-						if(*s == form->asep ||
-						   *s == form->aesc)
-							pr_schar(fp, form->aesc);
-						pr_schar(fp, *s++);
+						if(*s == sep || *s == esc)
+							pr_schar(fp, esc);
+						pr_schar(fp, *s);
 					}
-					pr_schar(fp, form->asep);
+					pr_schar(fp, sep);
 					fputs("','", fp);
-					pr_schar(fp, form->asep);
+					pr_schar(fp, sep);
 					pr_dq(fp, item->menu[j].label, '\'');
 					if(item->menu[j].flagtext &&
 					   strcmp(item->menu[j].flagtext,
@@ -1020,17 +1021,17 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 						pr_dq(fp, item->menu[j].flagtext, '\'');
 						putc(')', fp);
 					}
-					pr_schar(fp, form->asep);
-					fputs("')", fp);
+					pr_schar(fp, sep);
+					fputs("'),", fp);
 				}
-			fputs(",'", fp);
-			pr_schar(fp, form->asep);
+			putc('\'', fp);
+			pr_schar(fp, sep);
 			fputs("'),'", fp);
-			pr_schar(fp, form->asep);
+			pr_schar(fp, sep);
 			fputs("',', '),'", fp);
-			pr_schar(fp, form->aesc);
+			pr_schar(fp, esc);
 			fputs(", ','", fp);
-			pr_schar(fp, form->asep);
+			pr_schar(fp, sep);
 			fputs("')", fp);
 			if(has_groupby)
 				putc(')', fp);
@@ -1130,8 +1131,11 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 
 static void pr_schar(FILE *fp, char c, char doub)
 {
-	if(!isprint(c))
-		fprintf(fp, "'||CH\\{IF +p}A\\{ENDIF}R(%d)||'", (int)c);
+	if(c == '\\') /* grok itself eats unescaped backslashes */
+		fputs("\\\\", fp);
+	else if(!isprint(c))
+		/* FIXME: should just forget this so Unicode works right */
+		fprintf(fp, "'||CH\\{IF +p}A\\{ENDIF}R(%d)||'", (int)(unsigned char)c);
 	else
 		putc(c, fp);
 	if(c == doub)
@@ -1189,6 +1193,8 @@ static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
 {
 	ITEM *item = form->items[itno];
 	int j;
+	char esc, sep;
+	get_form_arraysep(form, &sep, &esc);
 	switch(item->type) {
 	    case IT_INPUT:
 	    case IT_NOTE:
@@ -1318,32 +1324,31 @@ static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
 			if(item->menu[j].flagtext)
 				fputs("REPLACE(", fp);
 		putc('\'', fp);
-		pr_schar(fp, form->aesc);
+		pr_schar(fp, sep);
 		fputs("'||", fp);
 		pr_sql_tq(fp, db, seq, nseq);
 		fprintf(fp, "%s||'", item->name);
-		pr_schar(fp, form->asep);
+		pr_schar(fp, sep);
 		putc('\'', fp);
 		for(j = 0; j < item->nmenu; j++)
 			if(item->menu[j].flagtext) {
-				putc('\'', fp);
-				pr_schar(fp, form->asep);
+				fputs(",'", fp);
+				pr_schar(fp, sep);
 				for(const char *s = item->menu[j].flagcode; *s; s++) {
-					if(*s == form->asep ||
-					   *s == form->aesc)
-						pr_schar(fp, form->aesc);
-					pr_schar(fp, *s++);
+					if(*s == sep || *s == esc)
+						pr_schar(fp, esc);
+					pr_schar(fp, *s);
 				}
-				pr_schar(fp, form->asep);
+				pr_schar(fp, sep);
 				fputs("','", fp);
-				pr_schar(fp, form->asep);
+				pr_schar(fp, sep);
 				pr_dq(fp, item->menu[j].flagtext, '\'');
-				pr_schar(fp, form->asep);
+				pr_schar(fp, sep);
 				fputs("')", fp);
 			}
 		fputs(",'", fp);
-		pr_schar(fp, form->asep);
-		fprintf(fp, "'),1,%d)", item->sumwidth);
+		pr_schar(fp, sep);
+		fputs("')", fp);
 		break;
 	    case IT_FKEY:
 		pr_sql_fkey_fields(fp, db, item, &itno, 1, has_groupby);
