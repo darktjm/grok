@@ -1551,10 +1551,10 @@ static void card_callback(
 			/* no outlet for error, so fatal */
 			tmp = alloc(0, "flag extract", char, len + vlen + 2);
 			memcpy(tmp, old, obegin);
-			if(obegin)
+			if(!old[(oafter = obegin)])
 				tmp[obegin++] = sep;
 			memcpy(tmp + obegin, val, vlen);
-			if(!obegin)
+			if(old[oafter])
 				tmp[vlen + obegin++] = sep;
 			memcpy(tmp + vlen + obegin, old + obegin - 1, len - obegin + 2);
 		} else { // remove from old
@@ -1582,7 +1582,7 @@ static void card_callback(
 		if(IFL(item->,MULTICOL)) {
 			for(int m = 0; m < item->nmenu; m++) {
 				char *val = NULL;
-				if(lw->item(m)->checkState() == Qt::Checked)
+				if(lw->item(m)->isSelected())
 					val = item->menu[m].flagcode;
 				if (!store(card, nitem, val, m))
 					return;

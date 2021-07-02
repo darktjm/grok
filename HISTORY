@@ -371,6 +371,11 @@ Version 2.4 (in progress)
    and bison (byacc used to work, but not any more).
  * Fixed some bugs in setting array elements.  See the SVN log for
    details.  These bugs were all introduced in 2.1.
+ * Fixed single-column flag group flag insertion after 2nd element (find_elt)
+   (since 2.2)
+ * Fixed multi-column flag list ignoring input (since 2.2)
+ * Fixed crashing if summary includes blank single-field flag list/flag group
+   (since 2.2)
  * Accessing negative elements in an array used to always return blank
    (as documented).  Now it counts from the end of the array.  Note
    that underlying array traversal is still from the start, so accessing

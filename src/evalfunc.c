@@ -1583,7 +1583,8 @@ bool find_unesc_elt(const char *a, const char *s, int *begin, int *after,
 bool find_elt(const char *a, const char *s, int len, int *begin, int *after,
 	      char sep, char esc)
 {
-    int l = 0, h = strlen(a) - 1, m;
+    int alen = strlen(a);
+    int l = 0, h = alen - 1, m;
     int mb, ma;
 
     while(l <= h) {
@@ -1604,7 +1605,7 @@ bool find_elt(const char *a, const char *s, int len, int *begin, int *after,
 	    return true;
 	}
     }
-    *begin = l > len ? len : l;
+    *begin = l > alen ? alen : l;
     return false;
 }
 

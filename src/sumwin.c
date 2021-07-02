@@ -409,7 +409,8 @@ void make_summary_line(
 				get_form_arraysep(sorted[i].fcard->form, &sep, &esc);
 				for(j = 0; j < item->nmenu; j++) {
 					MENU *menu = &item->menu[j];
-					if(find_unesc_elt(data, menu->flagcode,
+					if(data &&
+					   find_unesc_elt(data, menu->flagcode,
 							  &qafter, &qbegin,
 							  sep, esc)) {
 						char *e = BLANK(menu->flagtext) ?
