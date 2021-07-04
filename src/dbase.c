@@ -255,7 +255,8 @@ bool dbase_put(
 	DBASE		*dbase,		/* database to put into */
 	int		nrow,		/* row to put into */
 	int		ncolumn,	/* column to put into */
-	const char	*data)		/* string to store */
+	const char	*data,		/* string to store */
+	bool		force)		/* true if dbase has been modified */
 {
 	ROW		*row;		/* row to put into */
 	char		*p;
@@ -278,11 +279,14 @@ bool dbase_put(
 	if (data && !*data)
 		data = 0;
 	p = row->data[ncolumn];
-	if ((!data && !p) || (data && p && !strcmp(data, row->data[ncolumn])))
-	    	return(false);
-	if (row->data[ncolumn])
-		free(row->data[ncolumn]);
-	row->data[ncolumn] = mystrdup(data);
+	if ((!data && !p) || (data && p && !strcmp(data, p))) {
+		if (!force)
+			return(false);
+	} else {
+		if (p)
+			free(p);
+		row->data[ncolumn] = mystrdup(data);
+	}
 	row->mtime = time(0);
 	dbase->modified = dbase->sect[row->section].modified = true;
 	return(true);
@@ -528,8 +532,8 @@ char *fkey_of(
 	return ret;
 }
 
-void check_db_references(const FORM *form, const DBASE *db, badref **badrefs,
-			 int *nbadref, const FORM *inv, const DBASE *invdb)
+void check_db_references(FORM *form, DBASE *db, badref **badrefs,
+			 int *nbadref, const FORM *inv, DBASE *invdb)
 {
 	int i, j, r, k;
 
@@ -537,7 +541,7 @@ void check_db_references(const FORM *form, const DBASE *db, badref **badrefs,
 		ITEM *item = form->items[i];
 		if(item->type == IT_FKEY) {
 			resolve_fkey_fields(item);
-			const FORM *fform = item->fkey_form;
+			FORM *fform = item->fkey_form;
 			if(inv && fform != inv)
 				continue;
 			if(!fform) {
@@ -554,7 +558,7 @@ void check_db_references(const FORM *form, const DBASE *db, badref **badrefs,
 				(*badrefs)[(*nbadref)++] = br;
 				continue;
 			}
-			const DBASE *fdb = invdb ? invdb : read_dbase(fform);
+			DBASE *fdb = invdb ? invdb : read_dbase(fform);
 			if(!inv) {
 				for(j = 0; j < fform->nchild; j++)
 					if(!strcmp(fform->children[j], form->name))
@@ -611,7 +615,7 @@ void check_db_references(const FORM *form, const DBASE *db, badref **badrefs,
 			}
 		} else if(!inv && item->type == IT_INV_FKEY) {
 			resolve_fkey_fields(item);
-			const FORM *fform = item->fkey_form;
+			FORM *fform = item->fkey_form;
 			if(!fform) {
 				badref br;
 				br.form = form;
@@ -635,7 +639,7 @@ void check_db_references(const FORM *form, const DBASE *db, badref **badrefs,
 	if(inv)
 		return;
 	for(i = 0; i < form->nchild; i++) {
-		const FORM *fform = read_form(form->children[i], false, 0);
+		FORM *fform = read_form(form->children[i], false, 0);
 		if(!fform) {
 			badref br;
 			br.form = form;

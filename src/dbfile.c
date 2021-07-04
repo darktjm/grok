@@ -492,6 +492,7 @@ static bool write_tfile(
 	if (!(p = strrchr(path, '.')) || strcmp(p, ".db"))
 		p = path + strlen(path);
 	grow(0, "db file name", char, pathbuf, (int)(p - path) + 4, &pathlen);
+	memcpy(pathbuf, path, (p - path));
 	strcpy(pathbuf + (p - path), ".ts");
 	path = pathbuf;
 	if (!dbase->form->syncable) {

@@ -25,7 +25,7 @@
 static void create_item_widgets(CARD *, int);
 static void card_callback(int, CARD *, bool f = false, int i = 0);
 void card_readback_texts(CARD *, int);
-static bool store(CARD *, int, const char *, int menu = 0);
+static bool store(CARD *, int, const char *, int menu = 0, bool force = false);
 
 // The Card window can be open multiple times, and should self-destruct on
 // close.  The old close callback also freed the card, as below.
@@ -122,11 +122,14 @@ void free_fkey_card(
  * destroy_card_menu().
  */
 
+static void free_card_fkey_cards(CARD *card);
+
 void destroy_card_menu(
 	CARD		*card)		/* card to destroy */
 {
 	if (!card)
 		return;
+	free_card_fkey_cards(card);
 	// Unlike original Motif, I don't ceate a subwidget inside the container
 	// So wform is either the mainwindow's widget or shell
 	if (card->shell) {
@@ -140,6 +143,7 @@ void destroy_card_menu(
 			delete card->wcard;
 		card->wstat = card->wcard = 0;
 	}
+	/* FIXME:  look for FKEY/INV_FKEY and call free_cards() */
 	tzero(struct carditem, card->items, card->nitems);
 	card->wform = card->shell = 0;
 }
@@ -574,6 +578,35 @@ struct FKeySelector : public CardComboBox {
 			prev = &(*prev)->next;
 		*prev = this;
 	}
+	/* this would be in ~FKeySelector, but it should only be called */
+	/* once per widget set */
+	void free_cards() {
+		FKeySelector *f = this;
+		do {
+			if (!f->fcard || !f->fcard->fkey_next) {
+				f = f->next;
+				continue;
+			}
+			for (FKeySelector *f2 = next; f2 != this; f2 = f2->next) {
+				if (!f2->fcard || !f2->fcard->fkey_next)
+					continue;
+				CARD *p = f->fcard;
+				do {
+					CARD **q = &f2->fcard;
+					while (*q != p && (*q)->fkey_next)
+						q = &(*q)->fkey_next;
+					if ((*q)->fkey_next) {
+						CARD *p2;
+						for (p2 = *q; p2->fkey_next; p2 = p2->fkey_next);
+						*q = p2;
+					}
+				} while ((p = p->fkey_next) && p->fkey_next);
+			}
+			free_fkey_card(f->fcard);
+			f->fcard = 0;
+			f = f->next;
+		} while (f != this);
+	}
 	void fcard_from(const FKeySelector *fk) {
 		fcard = fk->fcard;
 	}
@@ -611,6 +644,9 @@ struct FKeySelector : public CardComboBox {
 	void group_setval(int row, const char *key, int keyno);
     private:
 	typedef std::vector<bool> rowrestrict;
+	// Remove rows in c->dbase that don't match val in col
+	// Also, set base_row if using base card and only one row matches
+	// If br_only is true, just set base_row
 	void row_restrict(const CARD *c, int col, const char *val, rowrestrict &restrict,
 			  bool br_only = false)
 	{
@@ -621,6 +657,8 @@ struct FKeySelector : public CardComboBox {
 				bool is_ok = !strcmp(STR(dv), STR(val));
 				if (!br_only)
 					restrict[r] = !is_ok;
+				// card w/ fkey field has fkey_next == 0
+				// base card is card pointing to that
 				if (is_ok && !c->fkey_next->fkey_next)
 					base_row = base_row == -1 ? r : -2;
 				if (br_only && base_row == -2)
@@ -628,11 +666,14 @@ struct FKeySelector : public CardComboBox {
 			}
 	}
 
+	// Restrict an fkey field based on restrictions on foreign db value
+	// fc/frestrict = foreign db; item is def of fkey field
+	// fc->fkey_next is the child db to restrict
 	void fkey_restrict(const CARD *fc, const ITEM *item, rowrestrict &restrict,
-			   rowrestrict frestrict)
+			   rowrestrict &frestrict)
 	{
 		const CARD *c = fc->fkey_next;
-		for (int r = 0; r < fc->dbase->nrows; fc++)
+		for (int r = 0; r < fc->dbase->nrows; r++)
 			if (!frestrict[r]) {
 				char *v = fkey_of(fc->dbase, r, c->form, item);
 				row_restrict(c, item->column, v, restrict);
@@ -640,13 +681,16 @@ struct FKeySelector : public CardComboBox {
 			}
 	}
 
-	void restrict(const FKeySelector *fk, const CARD *fc, rowrestrict &ret,
-		      bool recurse = false) {
+	// Create a rowrestrict (ret) that is true if a row is to be suppressed
+	//  fk = widget to restrict
+	//  fc = card to restrict on (fc->dbase)
+	void restrict(const FKeySelector *fk, const CARD *fc, rowrestrict &ret) {
+		bool recurse = fk != this;
 		base_row = -1;
 		rowrestrict tmp;
 		rowrestrict &cur = fc == fk->fcard ? ret : tmp;
 		/* first, restrict based on current value */
-		cur.resize(fcard->dbase->nrows, false);
+		cur.resize(fk->fcard->dbase->nrows, false);
 		if (fk->currentIndex() > 0) {
 			resolve_fkey_fields(fk->item);
 			if(!fk->item->fkey_form)
@@ -662,9 +706,11 @@ struct FKeySelector : public CardComboBox {
 			int col = fit->column;
 			if (IFL(fit->,MULTICOL))
 				col = fk->item->fkey[fk->fkey].menu->column;
-			/* but actually only restrict on recurse */
-			row_restrict(fcard, col, val, cur, !recurse);
+			/* but actually only restrict if not current widget */
+			row_restrict(fk->fcard, col, val, cur, !recurse);
 			free(val);
+			/* if this value uniquely specifies a base_row,
+			 * no need to bother restricting any more */
 			if (base_row >= 0)
 				return;
 		}
@@ -680,34 +726,36 @@ struct FKeySelector : public CardComboBox {
 				if (!c)
 					continue;
 				base_row = -1;
-				restrict(ofk, c, cur, true);
+				restrict(ofk, c, cur);
 				if (base_row >= 0)
 					return;
 			}
 		/* then, restrict downwards if needed */
 		if (fk->fcard != fc) {
 			const ITEM *fit = fk->item;
-			const CARD *c;
-			
-			for (c = fk->fcard; /* c->fkey_next */; c = c->fkey_next) {
+			const CARD *c = fk->fcard;
+
+			do {
 				rowrestrict frestrict = cur;
-				cur = c == fc ? ret : tmp;
+				if (c->fkey_next == fc)
+					cur = ret;
+				else {
+					tmp.clear();
+					cur = tmp;
+				}
 				cur.resize(c->fkey_next->dbase->nrows, false);
 				fkey_restrict(c, fit, cur, frestrict);
 				if (base_row >= 0)
 					return;
-#if 0 /* continue all the way down to set base_row */
-				if (c == fc)
-#else /* but skip next 2 lines instead of relying on loop end condition */
-				if (!c->fkey_next->fkey_next)
-#endif
-					break;
-				tmp.clear();
 			        fit = c->fkey_next->form->items[c->qcurr];
-			}
+				c = c->fkey_next;
+			/* continue all the way down to set base_row if possible */
+			} while(c->fkey_next);
 		}
 	}
 
+	// Fill in menu from table, removing values that can't match due to
+	// restrictions
 	void set_filter() {
 		rowrestrict filter;
 		restrict(this, fcard, filter);
@@ -726,7 +774,7 @@ struct FKeySelector : public CardComboBox {
 			col = item->fkey[fkey].menu->column;
 		for (int r = 0; r < dbase->nrows; r++) {
 			if (!filter[r]) {
-				char *val = dbase_get(dbase, r, col);
+				const char *val = dbase_get(dbase, r, col);
 				sl.append(STR(val));
 			}
 		}
@@ -788,6 +836,37 @@ struct FKeySelector : public CardComboBox {
 	ITEM *item;
 	int fkey;
 };
+
+static void free_card_fkey_cards(CARD *card)
+{
+	for (int i = 0; i < card->nitems; i++) {
+		const ITEM *item = card->form->items[i];
+		if (!card->items[i].w0 ||
+		    (item->type != IT_FKEY && item->type != IT_INV_FKEY))
+			continue;
+		if (item->type == IT_INV_FKEY && item->ys - item->ym <= 4)
+			continue;
+		QListIterator<QObject *>it(card->items[i].w0->children());
+		bool multi = item->type == IT_INV_FKEY || IFL(item->,FKEY_MULTI);
+		while (it.hasNext()) {
+			FKeySelector *fks;
+			QTableWidget *tw;
+			if(multi) {
+				if(!(tw = dynamic_cast<QTableWidget *>(it.next())))
+					continue;
+				if(!tw->rowCount())
+					break;
+				fks = static_cast<FKeySelector *>(tw->cellWidget(0, 0));
+				fks->free_cards();
+			} else {
+				if(!(fks = dynamic_cast<FKeySelector *>(it.next())))
+					continue;
+				fks->free_cards();
+			}
+		}
+			
+	}
+}
 
 static void create_item_widgets(
 	CARD		*card,		/* card the item is added to */
@@ -1203,8 +1282,7 @@ static void create_item_widgets(
 		CARD *fcard = create_card_menu(fform, fform ? read_dbase(fform) : 0, 0, true);
 		fcard->fkey_next = card;
 		fcard->qcurr = nitem;
-		int col = 0;
-		FKeySelector *fks = 0;
+		/* FIXME:  mw never gets destroyed (shouldn't it die w/ w0?) */
 		QTableWidget *mw = multi ? new QTableWidget(carditem->w0) : 0;
 		if (multi) {
 			mw->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -1242,6 +1320,7 @@ static void create_item_widgets(
 			set_button_cb(b, card_callback(nitem, card, false, -5));
 			bb->addWidget(b, 1);
 			if (IFL(item.,FKEY_SEARCH)) {
+				/* FIXME:  le never gets destroyed (shouldn't it die w/ w0?) */
 				CardLineEdit *le = new CardLineEdit(card, nitem, carditem->w0);
 				set_text_cb(le, card_callback(nitem, card, false, -1));
 				bb->addWidget(le);
@@ -1249,14 +1328,10 @@ static void create_item_widgets(
 			}
 		}
 		/* add dummies/headers for inv as well */
-		for (n = 0; n < item.nfkey; n++)
-			if (item.fkey[n].display)
-				  fks = add_fkey_field(carditem->w0, card, nitem,
-						       "", fks,
-						       l, mw, 0, col,
-						       item, fcard, n,
-						       0);
+		FKeySelector *fks = add_fkey_row(carditem->w0, card, nitem,
+						 l, mw, 0, item, fcard);
 		if (item.type == IT_INV_FKEY) {
+			fks->free_cards();
 			mw->removeRow(0);
 			break;
 		}
@@ -1264,7 +1339,7 @@ static void create_item_widgets(
 			CardLineEdit *le = new CardLineEdit(card, nitem, carditem->w0);
 			set_text_cb(le, card_callback(nitem, card, false, -1));
 			l->addWidget(le, IFL(item.,FKEY_HEADER) ? 2 : 1, 0,
-				     1, col);
+				     1, l->columnCount());
 		}
 		break;
 	  }
@@ -1333,10 +1408,14 @@ void FKeySelector::group_setval(int row, const char *key, int keyno)
 	DBASE *fdbase = 0;
 	w = this;
 	char *bkey = 0;
-	if(row >= 0)
-		key = bkey = fkey_of(fcard->dbase, row, card->form,
+	if(row >= 0) {
+		const CARD *c;
+		for(c = fcard; c->fkey_next->fkey_next; c = c->fkey_next);
+		key = bkey = fkey_of(c->dbase, row, c->fkey_next->form,
 				     item);
+	}
 	do {
+		resolve_fkey_fields(w->item);
 		const FKEY *fk = &w->item->fkey[w->fkey];
 		ITEM *fitem = fk->item;
 		const MENU *menu = fk->menu;
@@ -1356,32 +1435,32 @@ void FKeySelector::group_setval(int row, const char *key, int keyno)
 		}
 		w = w->next;
 	} while(w != this);
+	zfree(bkey);
 	refilter();
 }
 
-FKeySelector *add_fkey_field(
+static FKeySelector *add_fkey_field(
 	QWidget *p, CARD *card, int nitem, /* widget & callback info */
 	QString toplab, FKeySelector *prev, /* context */
 	QGridLayout *l, QTableWidget *mw, int row, int &col,  /* where to put it */
 	ITEM &item, CARD *fcard, int n,    /* fkey info */
 	int ncol) /* ncol is set to # of cols if row > 0 (for callback) */
 {
-	bool multi = item.type == IT_INV_FKEY || IFL(item.,FKEY_MULTI);
 	resolve_fkey_fields(&item);
 	const FORM *fform = item.fkey_form;
 	if(!fform)
-		return new FKeySelector(card, nitem, multi ? 0 : p, fcard,
+		return new FKeySelector(card, nitem, mw ? 0 : p, fcard,
 					&item, n);
 	ITEM *fit = item.fkey[n].item;
 	if(!fit)
-		return new FKeySelector(card, nitem, multi ? 0 : p, fcard,
+		return new FKeySelector(card, nitem, mw ? 0 : p, fcard,
 					&item, n);
 	const MENU *fm = item.fkey[n].menu;
 	if (fit->type == IT_FKEY) {
 		resolve_fkey_fields(fit);
 		FORM *fitform = fit->fkey_form;
 		if(!fitform)
-			return new FKeySelector(card, nitem, multi ? 0 : p, fcard,
+			return new FKeySelector(card, nitem, mw ? 0 : p, fcard,
 						fit, n);
 		QString lab;
 		CARD *nfcard = 0;
@@ -1392,9 +1471,11 @@ FKeySelector *add_fkey_field(
 				else
 					lab = toplab + '/' + fit->label;
 			}
-			nfcard = create_card_menu(fitform, read_dbase(fitform), 0, true);
-			nfcard->fkey_next = fcard;
-			nfcard->qcurr = item.fkey[n].index % fform->nitems;
+			if(fcard) {
+				nfcard = create_card_menu(fitform, read_dbase(fitform), 0, true);
+				nfcard->fkey_next = fcard;
+				nfcard->qcurr = item.fkey[n].index % fform->nitems;
+			}
 		}
 		for (n = 0; n < fit->nfkey; n++)
 			if (fit->fkey[n].display)
@@ -1410,28 +1491,44 @@ FKeySelector *add_fkey_field(
 	if (!row && IFL(item.,FKEY_HEADER)) {
 		const char *lab = fm ? (fm->label ? fm->label : "") :
 					 fit->label ? fit->label : "";
-		if (multi)
+		if (mw)
 			mw->setHorizontalHeaderItem(col, new QTableWidgetItem(lab));
 		else
 			l->addWidget(new QLabel(lab), 0, col);
 	}
-	FKeySelector *w = new FKeySelector(card, nitem, multi ? 0 : p, fcard,
+	FKeySelector *w = new FKeySelector(card, nitem, mw ? 0 : p, fcard,
 					   &item, n);
-	if (multi) {
+	if (mw) {
 		/* FIXME:  only add row if not read-only */
 		if (row >= mw->rowCount())
 			mw->setRowCount(row + 1);
 		mw->setCellWidget(row, col, w);
-		if (row > 0)
-			w->fcard_from(static_cast<FKeySelector *>(mw->cellWidget(row - 1, col)));
+		if (!fcard)
+			w->fcard_from(static_cast<FKeySelector *>(mw->cellWidget(row ? row - 1 : 1, col)));
 	} else
 		l->addWidget(w, IFL(item.,FKEY_HEADER) ? 1 : 0, col);
-	set_popup_cb(w, card_callback(nitem, card, false, row * ncol + col), int,);
+	set_popup_cb(w, card_callback(nitem, card, false, col), int,);
 	if (prev)
 		w->AddGroup(prev);
 	++col;
 	return w;
 }
+
+FKeySelector *add_fkey_row(
+	QWidget *p, CARD *card, int nitem, /* widget & callback info */
+	QGridLayout *l, QTableWidget *mw, int row,  /* where to put it */
+	ITEM &item, CARD *fcard)	/* fkey info */
+{
+	int col = 0;
+	FKeySelector *fks = 0;
+	for (int k = 0; k < item.nfkey; k++)
+		if (item.fkey[k].display)
+			fks = add_fkey_field(p, card, nitem, "", fks,
+					     l, mw, row, col,
+					     item, fcard, k, 0);
+	return fks;
+}
+
 
 /*-------------------------------------------------- callbacks --------------*/
 
@@ -1691,21 +1788,15 @@ static void card_callback(
 		QListIterator<QObject *>iter(card->items[nitem].w0->children());
 		QTableWidget *tw = 0;
 		int elt = 0;
-		bool endrow = false;
 		if (multi) {
 			while(iter.hasNext()) {
 				tw = dynamic_cast<QTableWidget *>(iter.next());
-				if(tw && item->type == IT_FKEY && index >=0) {
-					int nvis = tw->columnCount();
-					elt = index / nvis;
-					index %= nvis;
-					w = static_cast<FKeySelector *>(
-					    tw->cellWidget(elt, index));
-					endrow = elt == tw->rowCount() - 1;
-				} else if(tw)
+				if(tw) {
 					elt = tw->currentRow();
-				if(tw)
+					w = static_cast<FKeySelector *>(
+				   		 tw->cellWidget(elt, index));
 					break;
+				}
 			}
 		} else {
 			while(iter.hasNext()) {
@@ -1836,59 +1927,106 @@ static void card_callback(
 			return;
 		}
 		bool blank = w->currentIndex() <= 0;
-		if (blank && multi && !endrow) {
-			tw->removeRow(elt);
-			break;
-		}
-		w->refilter();
-		if (blank && w->base_row)
+		int odbrow = w->base_row;
+		if (!blank || !multi)
+			  w->refilter();
+		if (blank && !multi && w->base_row)
 			/* need to clear out all widgets to ensure blank remains */
 			w->clear_group();
-		int dbrow = w->base_row;
+		int dbrow = blank ? -1 : w->base_row;
+		if(odbrow == dbrow)
+			break;
 		resolve_fkey_fields(item);
 		if (!item->fkey_form)
 			break;
 		char *v = dbrow < 0 ? 0 : fkey_of(read_dbase(item->fkey_form),
 						  dbrow, item->fkey_form, item);
 		if (multi) {
+			QSignalBlocker sb(tw);
+			char *ov = odbrow < 0 ? 0 :
+				          fkey_of(read_dbase(item->fkey_form),
+						  odbrow, item->fkey_form, item);
 			char *a = dbase_get(card->dbase, card->row, item->column);
+			char toesc[3];
+			char &sep = toesc[1], &esc = toesc[0];
+			int beg, aft;
+			get_form_arraysep(card->form, &sep, &esc);
+			bool force = false;
+			/* First, remove old value */
+			if (ov) {
+				if (a && find_unesc_elt(a, ov, &beg, &aft, sep, esc)) {
+					/* mangling a modifies dbase itself */
+					/* thus store only sees change if a->0 */
+					if (!beg && !a[aft])
+						a = 0;
+					else if (!a[aft]) {
+						a[beg - 1] = 0;
+						force = true;
+					} else {
+						memmove(a + beg, a + aft + 1, strlen(a + aft/* + 1*/)/* + 1*/);
+						force = true;
+					}
+				}
+				free(ov);
+			}
+			/* then, insert new value if non-blank */
 			if (!v) {
-				char sep, esc;
-				int beg, aft;
-				get_form_arraysep(card->form, &sep, &esc);
-				elt_at(a, elt, &beg, &aft, sep, esc);
-				if (beg == aft)
-					return; // already blank
-				if (!beg && !a[aft]) {
-					free(a);
-					a = 0;
-				} else if (!a[aft])
-					a[beg - 1] = 0;
-				else
-					memmove(a + beg, a + aft + 1, strlen(a + aft));
+				/* since dbrow != odbrow, odbrow was non-blank */
+				/* so just delete the table row */
+				if(tw->rowCount() == 1)
+					static_cast<FKeySelector *>(tw->cellWidget(0, 0))->free_cards();
 				tw->removeRow(elt);
-				if (!store(card, nitem, a))
+				if (!store(card, nitem, a, 0, force))
 					return;
 			} else {
-				a = zstrdup(a);
-				set_elt(&a, elt, v, card->form);
-				FKeySelector *fks = 0;
-				int col = 0;
-				for (int n = 0; n < item->nfkey; n++)
-					if (item->fkey[n].display)
-						fks = add_fkey_field(card->items[nitem].w0,
-								     card, nitem,
-								     "", fks,
-								     0, tw, elt + 1, col,
-								     *item, 0, n,
-								     0);
-				
-				if (!store(card, nitem, a))
+				if(!a) {
+					/* easy way to just escape v */
+					set_elt(&a, 0, v, card->form);
+					free(v);
+					v = a; /* for freeing later */
+				} else {
+					if (find_unesc_elt(a, v, &beg, &aft, sep, esc)) {
+						/* already there: ignore */
+						/* shouldn't need to free_cards() */
+						tw->removeRow(elt);
+						a = 0; /* flag for below */
+					} else {
+						/* insert at returned beg */
+						toesc[2] = 0;
+						int nesc = countchars(v, toesc);
+						int vlen = strlen(v) + nesc;
+						int alen = strlen(a);
+						char *na = alloc(0, "adding fkey", char, vlen + alen + 2);
+						memcpy(na, a, beg);
+						if(!a[(aft = beg)])
+							na[beg++] = sep;
+						escape(na + beg, v, vlen - nesc, esc, toesc);
+						if(a[aft])
+							na[vlen + beg++] = sep;
+						memcpy(na + beg + vlen, a + beg - 1, alen - beg + 2);
+						a = na;
+					}
+				}
+				if (!ov) {
+					/* adding entry inserts new blank row */
+					FKeySelector *fks = 0;
+					elt = tw->rowCount();
+					fks = add_fkey_row(card->items[nitem].w0,
+							   card, nitem,
+							   0, tw, elt, *item, 0);
+					fks->refilter();
+				}
+				if (a && !store(card, nitem, a)) {
+					free(v);
 					return;
+				}
 			}
 		} else
-			  if (!store(card, nitem, v))
+			  if (!store(card, nitem, v)) {
+				  free(v);
 				  return;
+			  }
+		zfree(v);
 		break;
 	  }
 	  default: ;
@@ -1994,7 +2132,8 @@ static bool store(
 	CARD		*card,		/* card the item is added to */
 	int		nitem,		/* number of item being added */
 	const char	*string,	/* string to store in dbase */
-	int		menu)		/* menu item to store, if applicable */
+	int		menu,		/* menu item to store, if applicable */
+	bool		force)		/* dbase changed even if string same */
 {
 	bool		newsum = false;	/* must redraw summary? */
 	const ITEM	*item;
@@ -2008,7 +2147,7 @@ static bool store(
 
 	item = card->form->items[nitem];
 	col = IFL(item->,MULTICOL) ? item->menu[menu].column : item->column;
-	if (!dbase_put(card->dbase, card->row, col, string))
+	if (!dbase_put(card->dbase, card->row, col, string, force))
 		return(true);
 
 	print_info_line();
@@ -2301,7 +2440,6 @@ void fillout_item(
 			char desc[3], &sep = desc[1], &esc = desc[0];
 			get_form_arraysep(card->form, &sep, &esc);
 			desc[2] = 0;
-			get_form_arraysep(card->form, &sep, &esc);
 			QSignalBlocker blk(l);
 			for(int n = 0; n < item->nmenu; n++) {
 				char *code = item->menu[n].flagcode;
@@ -2330,21 +2468,56 @@ void fillout_item(
 			if (BLANK(data)) {
 				while (tw->rowCount() > 1)
 					tw->removeRow(0);
-				if (IFL(item->,RDONLY) && tw->rowCount() == 1)
+				if (IFL(item->,RDONLY) && tw->rowCount() == 1) {
+					static_cast<FKeySelector *>(tw->cellWidget(0, 0))->free_cards();
 					tw->removeRow(0);
+				} else
+					static_cast<FKeySelector *>(tw->cellWidget(tw->rowCount() - 1, 0))->group_setval(-1, 0, 0);
 				break;
 			}
 			resolve_fkey_fields(item);
 			if(!item->fkey_form)
 				break;
 			DBASE *fdbase = static_cast<FKeySelector *>(tw->cellWidget(0, 0))->fcard->dbase;
-			for(int n = 0;;n++) {
+			/* This ensures entries are in fkey set order */
+			/* FIXME:  support other sort orders */
+			int n;
+			for(n = 0;;n++) {
 				int row = fkey_lookup(fdbase, card->form, item, data, n);
-				if(row < 0)
+				if(row < 0) /* -2 needs Check References */
 					break;
-				// FIXME:
-				// scan table to see if row already in
-				// if not, append row before last/blank row
+				int r;
+				for(r = n; r < tw->rowCount(); r++)
+					if(static_cast<FKeySelector *>(tw->cellWidget(r, 0))->base_row == row) {
+						while(r-- > n)
+							tw->removeRow(n);
+						break;
+					}
+				if(r < tw->rowCount())
+					continue;
+				tw->insertRow(n);
+				FKeySelector *fks = add_fkey_row(w0, card, i,
+								 0, tw, n,
+								 *item, 0);
+				fks->group_setval(row, 0, -1);
+			}
+			while(tw->rowCount() > n + 1)
+				tw->removeRow(n);
+			if(IFL(item->,RDONLY)) {
+				if(tw->rowCount() == n + 1)
+					/* n should be > 0, so no need to free_cards() */
+					tw->removeRow(n);
+			} else {
+				if(tw->rowCount() == n) {
+					FKeySelector *fks = add_fkey_row(w0, card, i,
+									 0, tw, n,
+									 *item, 0);
+					fks->group_setval(-1, 0, -1);
+				} else {
+					FKeySelector *bl = static_cast<FKeySelector *>(tw->cellWidget(n, 0));
+					if(bl->count() == 0)
+						bl->refilter();
+				}
 			}
 		} else {
 			FKeySelector *w = 0;
@@ -2391,7 +2564,9 @@ void fillout_item(
 		 *  IT_FKEY    line of sel widgets
 		 */
 		/* or, just screw it and pop up a cardwin when needed */
-		while(tw->rowCount() >0)
+		if(tw->rowCount())
+			static_cast<FKeySelector *>(tw->cellWidget(0, 0))->free_cards();
+		while(tw->rowCount() > 0)
 			  tw->removeRow(0);
 		resolve_fkey_fields(item);
 		ITEM *fit = 0;

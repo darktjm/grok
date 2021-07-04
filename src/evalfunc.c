@@ -1133,7 +1133,7 @@ char *unesc_elt_at(const FORM *form, const char *array, int n)
     elt_at(array, n, &b, &a, sep, esc);
     if (b == a)
 	return 0;
-    char *ret = alloc(0, "aelt", char, b - a + 1);
+    char *ret = alloc(0, "aelt", char, a - b + 1);
     *unescape(ret, array + b, a - b, esc) = 0;
     return ret;
 }
@@ -1157,7 +1157,7 @@ char **split_array(const FORM *form, const char *array, int *len)
 	    ret[(*len)++] = 0;
 	else {
 	    ret[*len] = alloc(0, "split array", char, after - begin + 1);
-	    *unescape(ret[(*len)++], array + begin, begin - after, esc) = 0;
+	    *unescape(ret[(*len)++], array + begin, after - begin, esc) = 0;
 	}
     }
     return ret;

@@ -59,6 +59,7 @@ GrokCanvas::GrokCanvas() : moving(false) {
 		font[i]->ensurePolished();
 		font[i]->hide();
 	}
+	setMouseTracking(true);
 }
 
 GrokCanvas *create_canvas_window(
@@ -213,6 +214,8 @@ void GrokCanvas::canvas_callback(
 		  case M_YMID: draw_rubberband(true, x, ym+y, xs, 1, false); break;
 		  default:     draw_rubberband(true, x, y, xs, ys);
 	    }
+	    if (!(event->buttons() & Qt::LeftButton))
+		set_cursor(canvas, cursorglyph[locate_item(0, event->x(), event->y())]);
 	} else if (press < 0) { // button up
 		draw_rubberband(false, 0, 0, 0, 0);
 		if (mode == M_OUTSIDE) {
@@ -431,7 +434,8 @@ void GrokCanvas::paintEvent(QPaintEvent *e)
 
 static const char * const datatext[NITEMS] = {
 	"None", "", "Print", "Input", "Time", "Note", "", "", "", "",
-	"Number", "Choice Menu", "Choice Group", "Flag List", "Flag Group" };
+	"Number", "Choice Menu", "Choice Group", "Flag List", "Flag Group",
+	"Reference", "Referer" };
 
 void GrokCanvas:: redraw_canvas_item(
 	QPainter	&painter,	/* widget into which to draw */

@@ -477,8 +477,6 @@ Important UI improvements
   immediately; this has the side benefit of showing the tab order
   during form design.
 
-- Adjust the editor canvas cursor during hover, rather than just on click.
-
 - Support a Fiasco-like GUI:
 
   - Support detachable/hidable card, listing, navigation buttons,

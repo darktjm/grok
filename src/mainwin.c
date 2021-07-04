@@ -21,6 +21,7 @@
 #include "grok.h"
 #include "form.h"
 #include "proto.h"
+#include <unordered_set>
 
 #define OFF		16		/* margin around summary and card */
 #define NHIST		20		/* remember this many search strings */
@@ -1738,9 +1739,9 @@ static int cmp_badref(const void *_a, const void *_b)
 	return a->row - b->row;
 }
 
-static void fkey_callback(FKeySelector *fks)
+static void fkey_callback(QWidget *fks)
 {
-	refilter_fkey(fks);
+	refilter_fkey(reinterpret_cast<FKeySelector *>(fks));
 }
 
 static void check_references(void)
@@ -1813,7 +1814,7 @@ static void check_references(void)
 						r++, 0, 1, 3);
 				if(IFL(item->,FKEY_MULTI))
 					zfree(data);
-				card.form = const_cast<FORM *>(badrefs[i].form);
+				card.form = badrefs[i].form;
 				card.dbase = const_cast<DBASE *>(badrefs[i].dbase);
 				make_summary_line(&sbuf, &sbuf_len, &card,
 						  badrefs[i].row);
@@ -1828,15 +1829,14 @@ static void check_references(void)
 				fcard->qcurr = badrefs[i].item;
 				form->addLayout(l, r, 2);
 				FKeySelector *fks = 0;
-				int col = 0;
-				for(int n = 0; n < item->nfkey; n++)
-					    if(item->fkey[n].display) {
-						    fks = add_fkey_field(msgw, &card,
-									 badrefs[i].item,
-									 "", fks, l, 0, 0, col,
-									 *item, fcard, n, 0);
-						    set_popup_cb(reinterpret_cast<QComboBox *>(fks), fkey_callback(fks), int,);
-					    }
+				fks = add_fkey_row(msgw, &card, badrefs[i].item,
+						   l, 0, 0, *item, fcard);
+				int col = l->columnCount();
+				for(int j = 0; j < col; j++) {
+					QWidget *w = l->itemAtPosition(0, j)->widget();
+					set_popup_cb(reinterpret_cast<QComboBox *>(w),
+						     fkey_callback(w), int,);
+				}
 				l->addItem(new QSpacerItem(1, 1), 0, col);
 				l->setColumnStretch(col, 1);
 				refilter_fkey(fks);
@@ -1873,7 +1873,7 @@ static void check_references(void)
 					else if(badrefs[i-1].form != badrefs[i].form)
 						form->addWidget(new QLabel(QString(badrefs[i].form->name) + ':'));
 					pitem = item;
-					card.form = const_cast<FORM *>(badrefs[i].form);
+					card.form = badrefs[i].form;
 					card.dbase = const_cast<DBASE *>(badrefs[i].dbase);
 					make_summary_line(&sbuf, &sbuf_len, &card,
 							  badrefs[i].row);
@@ -1968,23 +1968,94 @@ static void check_references(void)
 		if(!dlg->exec())
 			return;
 		QListIterator<QObject *>iter(form->children());
-#define getcb(v) do { \
+#define getw(v, t) do { \
 	while(iter.hasNext()) \
-		if((v = dynamic_cast<QCheckBox *>(iter.next()))) \
+		if((v = dynamic_cast<t *>(iter.next()))) \
 			break; \
 } while(0)
+#define getcb(v) getw(v, QCheckBox)
+		std::unordered_set<FORM *> forms_to_save;
 		for(int i = 0; i < nbadref; i++)
 			switch(badrefs[i].reason) {
 			    case BR_MISSING:
 				getcb(cb);
 				if(cb->isChecked()) {
-					/* FIXME:  get pulldown values */
-					/* FIXME:  set new value for fkey field */
+					QComboBox *fks = 0;
+					getw(fks, QComboBox);
+					int row = fkey_group_val((FKeySelector *)fks);
+					const ITEM *item = badrefs[i].form->items[badrefs[i].item];
+					char *val = row < 0 ? 0 :
+						    fkey_of(badrefs[i].fdbase,
+							    row, badrefs[i].fform,
+							    item);
+					/* FIXME:  invalidate card somehow */
+					/*         and update mainwin like store() */
+					if(IFL(item->,FKEY_MULTI)) {
+						char *oval = dbase_get(badrefs[i].dbase, badrefs[i].row, item->column);
+						char desc[3], &sep = desc[1], &esc = desc[0];
+						get_form_arraysep(badrefs[i].form, &sep, &esc);
+						desc[2] = 0;
+						int beg, aft;
+						elt_at(oval, badrefs[i].keyno,
+						       &beg, &aft, sep, esc);
+						if(aft < 0)
+							break; /* error: something happened to value */
+						if(beg)
+							beg--;
+						memmove(oval + beg, oval + aft, strlen(oval + aft) + 1);
+						int vlen = val ? strlen(val) : 0;
+						if(val) {
+							int nesc = countchars(val, desc);
+							if(nesc) {
+								char *nval = alloc(0, "escaping", char, nesc + vlen + 1);
+								*escape(nval, val, vlen, esc, desc) = 0;
+								vlen += nesc;
+								free(val);
+								val = nval;
+							}
+						}
+						if(!val ||
+						   find_elt(oval, val, vlen,
+							    &beg, &aft,
+							    sep, esc)) {
+							zfree(val);
+							for(int j = i; j < nbadref; j++)
+								if(badrefs[i].dbase == badrefs[j].dbase &&
+								   badrefs[i].row == badrefs[j].row &&
+								   badrefs[i].item == badrefs[j].item &&
+								   badrefs[j].reason == BR_MISSING &&
+								   badrefs[j].keyno > badrefs[i].keyno)
+									badrefs[j].keyno--;
+							/* altering oval directly modifies dbase */
+							dbase_put(badrefs[i].dbase, badrefs[i].row, item->column, oval, true);
+							break;
+						}
+						int olen = strlen(oval);
+						char *nval = alloc(0, "fkey add", char, olen + vlen + 2);
+						memcpy(nval, oval, beg);
+						if((aft = beg))
+							nval[beg++] = sep;
+						memcpy(nval + beg, val, vlen);
+						free(val);
+						if(oval[aft])
+							nval[vlen + beg++] = sep;
+						memcpy(nval + beg + vlen, oval + aft, olen - aft + 1);
+						dbase_put(badrefs[i].dbase, badrefs[i].row, item->column, nval);
+						free(nval);
+					} else
+						dbase_put(badrefs[i].dbase, badrefs[i].row, item->column, val);
+					zfree(val);
 				}
 				getcb(cb2);
 				if(cb->isChecked()) {
-					/* FIXME: delete badrefs[i].row */
-					/*   note: adjust any other rows in same dbase */
+					dbase_delrow(badrefs[i].row,
+						     const_cast<DBASE *>(badrefs[i].dbase));
+					for(int j = i + 1; j < nbadref; j++)
+						if(badrefs[i].dbase == badrefs[j].dbase &&
+						   (badrefs[j].reason == BR_MISSING ||
+						    badrefs[j].reason == BR_DUP) &&
+						  badrefs[j].row > badrefs[i].row)
+							badrefs[j].row--;
 				}
 				break;
 			    case BR_DUP:
@@ -1993,30 +2064,82 @@ static void check_references(void)
 			    case BR_NO_INVREF:
 				getcb(cb);
 				if(cb->isChecked()) {
-					/* FIXME: add form to fform's children */
+					FORM *fform = badrefs[i].fform;
+					int j;
+					for(j = 0; j < fform->nchild; j++) {
+						const FORM *cform = read_form(fform->children[i], false, 0);
+						if(cform && cform == badrefs[i].form)
+							break;
+					}
+					if(j < fform->nchild)
+						break; /* already in via some other means */
+					grow(0, "form referers", char *, fform->children, fform->nchild + 1, 0);
+					fform->children[fform->nchild] = mystrdup(badrefs[i].form->name);
+					fform->nchild++;
+					forms_to_save.insert(fform);
 				}
 				break;
 			    case BR_NO_FORM:
 				getcb(cb);
 				if(cb->isChecked()) {
-					/* FIXME:  read db pulldown & update form def */
+					QComboBox *db = 0;
+					getw(db, QComboBox);
+					const char *dbn = read_text_button(db, 0);
+					ITEM *item = badrefs[i].form->items[badrefs[i].item];
+					if(!strcmp(dbn, item->fkey_form_name))
+						break;
+					zfree(item->fkey_form_name);
+					item->fkey_form_name = zstrdup(dbn);
+					forms_to_save.insert(badrefs[i].form);
 				}
 				break;
 			    case BR_NO_CFORM:
 				getcb(cb);
 				if(cb->isChecked()) {
-					/* FIXME:  read db pulldown & update children */
-					/*  note: and adjust CFORM/FREF indices if deleting */
+					QComboBox *db = 0;
+					getw(db, QComboBox);
+					const char *dbn = read_text_button(db, 0);
+					char **ch = badrefs[i].form->children;
+					int chno = badrefs[i].item;
+					if(!strcmp(STR(dbn), STR(ch[chno])))
+						break;
+					free(ch[chno]);
+					if(BLANK(dbn)) {
+						memmove(ch + chno, ch + chno + 1,
+							badrefs[i].form->nchild - chno - 1);
+						badrefs[i].form->nchild--;
+						for(int j = i + 1; j < nbadref; j++)
+							if(badrefs[j].form == badrefs[i].form &&
+							   (badrefs[j].reason == BR_NO_CFORM ||
+							    badrefs[j].reason == BR_NO_FREF) &&
+							   (badrefs[j].item > badrefs[i].item))
+								badrefs[j].item--;
+					} else
+						ch[chno] = mystrdup(dbn);
+					forms_to_save.insert(badrefs[i].form);
 				}
 				break;
 			    case BR_NO_FREF:
 				getcb(cb);
 				if(cb->isChecked()) {
-					/* FIXME:  remove form.children[item] */
-					/*  note: and adjust CFORM/FREF indices */
+					char **ch = badrefs[i].form->children;
+					int chno = badrefs[i].item;
+					free(ch[chno]);
+					memmove(ch + chno, ch + chno + 1,
+						badrefs[i].form->nchild - chno - 1);
+					badrefs[i].form->nchild--;
+					for(int j = i + 1; j < nbadref; j++)
+						if(badrefs[j].form == badrefs[i].form &&
+						   (badrefs[j].reason == BR_NO_CFORM ||
+							   badrefs[j].reason == BR_NO_FREF) &&
+						   (badrefs[j].item > badrefs[i].item))
+							badrefs[j].item--;
+					forms_to_save.insert(badrefs[i].form);
 				}
 				break;
 			}
+		for(auto it = forms_to_save.begin(); it != forms_to_save.end(); it++)
+			write_form(*it);
 	}
 	zfree(badrefs);
 }

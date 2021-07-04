@@ -357,6 +357,7 @@ Version 2.4 (in progress)
      references in the above format
    * Added _fkey this and _fkey last to get row numbers from
      referenced database.  _fkey can be a chain as above.
+ * Canvas cursor changes shape on hover, not just on click
  * Fixed a few memory leaks
  * Fixed some sources of crashing when form errors appear at startup
  * Removed many string length limits

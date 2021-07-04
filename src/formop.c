@@ -1090,6 +1090,8 @@ void resolve_fkey_fields(ITEM *item)
 {
 	if(item->type != IT_FKEY && item->type != IT_INV_FKEY)
 		return;
+	if(!item->fkey_form_name)
+		return;
 	if(!item->fkey_form) {
 		if(!(item->fkey_form = read_form(item->fkey_form_name, false, 0)))
 			return;
@@ -1103,7 +1105,7 @@ void resolve_fkey_fields(ITEM *item)
 	const FIELDS *s = fform->fields;
 	for(int i = 0; i < item->nfkey; i++) {
 		FKEY &fk = item->fkey[i];
-		if(!fk.item) {
+		if(!fk.item && fk.name) {
 			auto it = s->find(fk.name);
 			if(it == s->end())
 				continue;

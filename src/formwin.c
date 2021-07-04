@@ -1018,7 +1018,7 @@ void create_formedit_window(
 		else if(tp->type == 'I')
 			set_popup_cb(w, formedit_callback(t), int, i);
 		else if(tp->type == 'C' || tp->type == 'D')
-			set_combo_cb(w, formedit_callback(t));
+			set_combo_text_cb(w, formedit_callback(t));
 
 		if(w && tp->help)
 			bind_help(w, tp->help);

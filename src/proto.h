@@ -66,12 +66,10 @@ void fkey_group_setval(
 	int row,			/* row in displayed db; <0 use key */
 	const char *key,		/* full key if row <0; 0/blank ok */
 	int keyno);			/* if >=0, FKEY_MULTI array item */
-FKeySelector *add_fkey_field(
+FKeySelector *add_fkey_row(
 	QWidget *p, CARD *card, int nitem, /* widget & callback info */
-	QString toplab, FKeySelector *prev, /* context */
-	QGridLayout *l, QTableWidget *mw, int row, int &col,  /* where to put it */
-	ITEM &item, CARD *fcard, int n,    /* fkey info */
-	int ncol); /* ncol is set to # of cols if row > 0 (for callback) */
+	QGridLayout *l, QTableWidget *mw, int row,  /* where to put it */
+	ITEM &item, CARD *fcard);	/* fkey info */
 
 /* property names for widget fonts */
 extern const char * const font_prop[F_NFONTS];
@@ -133,7 +131,8 @@ bool dbase_put(
 	DBASE		*dbase,		/* database to put into */
 	int		nrow,		/* row to put into */
 	int		ncolumn,	/* column to put into */
-	const char	*data);		/* string to store */
+	const char	*data,		/* string to store */
+	bool		force = false);	/* true if dbase has been modified */
 void dbase_sort(
 	CARD		*card,		/* database and form to sort */
 	int		col,		/* column to sort by */
@@ -161,18 +160,18 @@ enum badref_reason {
     BR_MISSING, BR_DUP, BR_NO_INVREF, BR_NO_FORM, BR_NO_CFORM, BR_NO_FREF
 };
 struct badref {
-    const FORM *form, *fform;
-    const DBASE *dbase, *fdbase;
+    FORM *form, *fform;  /* writable for fixes */
+    DBASE *dbase, *fdbase;
     int item, row, keyno;
     enum badref_reason reason;
 };
 void check_db_references(
-	const FORM	*form,
-	const DBASE	*db,
+	FORM		*form, /* not modified here, but stored for modification by fixes */
+	DBASE		*db,
 	badref		**badrefs,
 	int		*nbadref,
 	const FORM	*inv = 0,
-	const DBASE	*invdb = 0);
+	DBASE		*invdb = 0);
 
 /*---------------------------------------- dbfile.c ------------*/
 
@@ -775,6 +774,7 @@ void add_layout_qss(
 #define set_popup_cb(_w, _f, _t, _v) \
     set_qt_cb_ov1(QComboBox, currentIndexChanged, _t, _w, _f, UNUSED _t _v)
 #define set_combo_cb(_w, _f, ...) set_qt_cb(QComboBox, currentTextChanged, _w, _f, __VA_ARGS__)
+#define set_combo_text_cb(_w, _f) set_text_cb(dynamic_cast<QComboBox *>(_w)->lineEdit(), _f)
 // Make the calls needed to pop up a non-modal dialog (use exec for modal)
 void popup_nonmodal(
 	QDialog		*d);

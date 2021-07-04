@@ -274,16 +274,12 @@ void free_summary_cols(
 							q = &(*q)->fkey_next;
 						if ((*q)->fkey_next) {
 							CARD *p2;
-							for (p2 = *q; p->fkey_next; p = p->fkey_next);
+							for (p2 = *q; p2->fkey_next; p2 = p2->fkey_next);
 							*q = p2;
 						}
 					}
-			} while ((p = p->fkey_next));
-			for (p = cols[i].fcard; p->fkey_next; ) {
-				CARD *q = p->fkey_next;
-				free_card(p);
-				p = q;
-			}
+			} while ((p = p->fkey_next) && p->fkey_next);
+			free_fkey_card(cols[i].fcard);
 		}
 	free(cols);
 }

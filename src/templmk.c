@@ -972,6 +972,9 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			fprintf(fp, " ELSE %s END", item->name);
 			if(has_groupby)
 				putc(')', fp);
+			fputs(" \"", fp);
+			pr_dq(fp, label, '"');
+			putc('"', fp);
 			break;
 		    case IT_MULTI:
 		    case IT_FLAGS:
@@ -1035,6 +1038,9 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			fputs("')", fp);
 			if(has_groupby)
 				putc(')', fp);
+			fputs(" \"", fp);
+			pr_dq(fp, label, '"');
+			putc('"', fp);
 			break;
 		    case IT_FKEY:
 			pr_sql_fkey_fields(fp, form->name, item, &i, 1, has_groupby);
