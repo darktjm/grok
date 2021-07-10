@@ -1090,17 +1090,18 @@ void resolve_fkey_fields(ITEM *item)
 {
 	if(item->type != IT_FKEY && item->type != IT_INV_FKEY)
 		return;
-	if(!item->fkey_form_name)
-		return;
-	if(!item->fkey_form) {
-		if(!(item->fkey_form = read_form(item->fkey_form_name, false, 0)))
-			return;
+	if(!item->fkey_form_name || !item->fkey_form) {
 		for(int i = 0; i < item->nfkey; i++) {
 			item->fkey[i].item = 0;
 			item->fkey[i].menu = 0;
 			item->fkey[i].index = -1;
 		}
+		if(!item->fkey_form_name)
+			return;
 	}
+	if(!item->fkey_form &&
+	   !(item->fkey_form = read_form(item->fkey_form_name, false, 0)))
+			return;
 	const FORM *fform = item->fkey_form;
 	const FIELDS *s = fform->fields;
 	for(int i = 0; i < item->nfkey; i++) {

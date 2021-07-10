@@ -1964,6 +1964,8 @@ static void check_references(void)
 				break;
 			}
 		}
+		form->addItem(new QSpacerItem(1, 1), r, 0, 1, 3);
+		form->setRowStretch(r, 1);
 		zfree(sbuf);
 		if(!dlg->exec())
 			return;

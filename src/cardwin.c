@@ -2499,6 +2499,7 @@ void fillout_item(
 				FKeySelector *fks = add_fkey_row(w0, card, i,
 								 0, tw, n,
 								 *item, 0);
+				tw->resizeRowsToContents();
 				fks->group_setval(row, 0, -1);
 			}
 			while(tw->rowCount() > n + 1)
@@ -2564,8 +2565,6 @@ void fillout_item(
 		 *  IT_FKEY    line of sel widgets
 		 */
 		/* or, just screw it and pop up a cardwin when needed */
-		if(tw->rowCount())
-			static_cast<FKeySelector *>(tw->cellWidget(0, 0))->free_cards();
 		while(tw->rowCount() > 0)
 			  tw->removeRow(0);
 		resolve_fkey_fields(item);
@@ -2620,6 +2619,7 @@ void fillout_item(
 				tr++;
 			}
 		}
+		tw->resizeColumnsToContents();
 		free(key);
 		break;
 	  }

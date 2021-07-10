@@ -41,66 +41,66 @@ Features in Progress
 --------------------
 
 - fkey issues:
-  - typing in a fkey_db name tries loading after every keystroke,
-    giving errors and popping up main window (i.e., db name must be
-    selected from menu)
-
-  - no way to display virtual fields (Print, Referers, Chart, etc)
-
   - no data validity check:  fkey_multi value is a set
 
-  - most data validity checks' suggested fixes don't work
+  - most data validity checks' suggested fixes untested
 
-  - no auto-add of referred-to table to ref by list in form editor for inv
-
-  - no auto-adjust of key field names if changed in foreign db
+  - no auto-adjust of key field names if changed in foreign db (cascade
+    key field definition)
 
   - no auto-delete/auto-clear of referers if referred-to row removed
-    (cascasde delete)
+    (cascade delete)
 
   - no auto-adjust/clear/delete of key values in other databases if
-    keu changes (cascade key field modification)
+    key changes (cascade key field modification)
 
   - no parent-restricted mode.    This restricts all searches to
     include the parent, and makes the parent field read-only for
     editing and adding (where it is obviously initialized to the
     parent field value).
 
-  - No directly editable table for inv_fkey or fkey_multi; may never do
-    this.
-
-  - No sorting really for tables.  Should probably try to sort by
-    foreign table's default sort order, or by first displayed field
-
-  - inv_fkey displays some fields too widely
-
-  - no testing of fkey_multi or multi-field keys
+  - little testing of fkey_multi or multi-field keys
 
   - search restriction text field does nothing.  should be a search
     expression applied to the parent database to restrict
     what parents are selectable (although it never removes the
     current value, if any).  Clicking the label link adds this
     search expression to the other table by default as well.  For multi
-    tables, this also filters what's displayed.
-
-  - clearing title field of purchase in dlc always clears other 2
+    and inv tables, this also filters what's displayed.
 
   - only summary testing is of single-level single-field fkey
 
   - make_summary_line() leaks CARDs
 
   - no testing (or coding, really) of template output (partial sql support)
-    ust doing a deref() is insufficent: summary should use juxt. fields to
+    just doing a deref() is insufficent: summary should use juxt. fields to
     display just one value, for example
 
   - searches don't search visible fields instead of fkey
 
+  - changing db of fkey field spews errors on stderr.  Probably won't
+    fix before 2.4
+
+  - no way to display virtual fields (Print, Referers, Chart, etc)
+    Probably won't fix before 2.4
+
+  - No directly editable table for inv_fkey or fkey_multi; may never do
+    this.  Definitely doesn't block 2.4
+
+  - No sorting really for tables.  Should probably try to sort by
+    foreign table's default sort order, or by first displayed field.
+    Actually, multi-fkey sorted by key set order.
+    Probably won't fix before 2.4.
+
+  - clearing title field of purchase in dlc always clears other 2
+    Harmless; maybe intentional.  Probably won't fix before 2.4.
+
   - I probably ought to disallow single fkey references to display multi
     fkey references, or make such a reference auto-convert the widget to
-    a multi-reference widget
+    a multi-reference widget.  Probably won't fix before 2.4.
 
   - Evaluate possibility of making FKEY_MULTI bidirectional:  every
-    pointer exists in both tables.
+    pointer exists in both tables.  Probably not before 2.4.
 
   - Allow importing templates from other databases (and this database)
     using \\{IMPORT *db* *template* *search*}.  Maybe an optional
@@ -108,7 +108,7 @@ Features in Progress
     further text mangling, or auto-mangling with a set of regex
     parameters and their associated replacements.  Once again, some
     sort of limits need to be placed on the arguments so that IMPORT
-    can parse them.
+    can parse them.  May not do before 2.4.
 
  db menu fixes:
 

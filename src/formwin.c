@@ -205,26 +205,6 @@ static void resize_menu_table(QTableWidget *tw)
 	tw->updateGeometry();
 }
 
-static int fkey_index(const FORM *f, int index) {
-	int sel = 0;
-	int item = index % f->nitems, menu = index / f->nitems;
-	for (int i=0; i < f->nitems; i++) {
-		const ITEM *it = f->items[i];
-		if (!IN_DBASE(it->type))
-			continue;
-		if (IFL(it->,MULTICOL)) {
-			for (int m=0; m < it->nmenu; m++, sel++)
-				if (i == item && m == menu)
-					return sel;
-		} else {
-			if (i == item)
-				return sel;
-			sel++;
-		}
-	}
-	return -1;
-}
-
 static void fkey_at(const FORM *f, int idx, FKEY &fk)
 {
 	int item = -1, menu;
@@ -312,14 +292,13 @@ static void fill_key_row(QTableWidget *tw, ITEM *item, int row)
 	}
 	if (blank)
 		cb->setCurrentIndex(0);
-	else if (!fform)
+	else if (!fk->item) {
+		cb->addItem(fk->name);
 		cb->setCurrentText(fk->name);
-	else {
-		if(fk->index < 0)
-			cb->setCurrentText(fk->name);
-		else
-			cb->setCurrentIndex(fkey_index(fform, fk->index) + 1);
-	}
+	} else
+		cb->setCurrentText(fkey_name(item->fkey_form,
+					     fk->index % item->fkey_form->nitems,
+					     fk->index / item->fkey_form->nitems));
 	tw->setCellWidget(row, KEY_FIELD_FIELD, cb);
 	set_popup_cb(cb, key_callback(KEY_FIELD_FIELD, row, c), int, c);
 	QCheckBox *chk = new QCheckBox;
@@ -344,7 +323,7 @@ static void fill_key_table(QTableWidget *tw)
 	}
 	ITEM *item = form->items[canvas->curr_item];
 	if(!((1U<<item->type) & (AFK))) {
-		tw->setRowCount(8);
+		tw->setRowCount(0);
 		return;
 	}
 	int row, col;
@@ -1018,7 +997,7 @@ void create_formedit_window(
 		else if(tp->type == 'I')
 			set_popup_cb(w, formedit_callback(t), int, i);
 		else if(tp->type == 'C' || tp->type == 'D')
-			set_combo_text_cb(w, formedit_callback(t));
+			set_combo_cb(w, formedit_callback(t));
 
 		if(w && tp->help)
 			bind_help(w, tp->help);
@@ -1788,7 +1767,10 @@ static int readback_item(
 		       break;
 	  case 0x244: {
 		  const char *s = read_text_button(w, 0);
-		  item->fkey_form_name = BLANK(s) ? NULL : strdup(s);
+	  	  zfree(item->fkey_form_name);
+		  item->fkey_form_name = zstrdup(s);
+		  item->fkey_form = NULL;
+		  fill_key_table(key_w);
 		  break;
 	  }
 	  case 0x23e:  IFT(item->,MULTICOL);

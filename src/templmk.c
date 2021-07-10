@@ -675,13 +675,13 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 	fputs("-- note that some databases may need additional editing\n", fp);
 	fprintf(fp,
 		"\\{IF +s}\n"
-		"DROP VIEW IF EXISTS %s_view;\n"
+		"DROP VIEW\\{IF +f} IF EXISTS\\{ENDIF} %s_view;\n"
 		"\\{ENDIF}\n"
 		"\\{IF +d}\n"
-		"DROP VIEW IF EXISTS %s_sum;\n"
+		"DROP VIEW\\{IF +f} IF EXISTS\\{ENDIF} %s_sum;\n"
 		"\\{ENDIF}\n"
-		"DROP TABLE IF EXISTS %s\\{IF -p} CASCADE\\{ENDIF};\n"
-		"BEGIN;\n"
+		"DROP TABLE\\{IF +f} IF EXISTS\\{ENDIF} %s\\{IF -p} CASCADE\\{ENDIF};\n"
+		"\\{IF +f}BEGIN;\n\\{ENDIF}"
 		"CREATE TABLE %s (\n", form->name, form->name, form->name, form->name);
 	if(form->help) {
 		/* should be COMMENT ('....') but sqlite3 doesn't support it */
@@ -776,7 +776,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 	/*       so does sqlite3, sort of, but not permanently */
 	for(i = 0; i < sl.length(); i++) {
 		char *s = qstrdup(sl[i]);
-		fprintf(fp, "DROP INDEX IF EXISTS %s_%d;\n"
+		fprintf(fp, "DROP INDEX\\{IF +f} IF EXISTS\\{ENDIF} %s_%d;\n"
 			"CREATE INDEX %s_%d ON %s (%s);\n", card->form->name, i,
 			card->form->name, i, card->form->name, s);
 		free(s);
@@ -810,7 +810,8 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		}
 		const char *label = label_of(item, menu);
 		/* LEFT(x,y) -> SUBSTR(x,1,y) (sqlite3 doesn't support LEFT) */
-		fputs("  SUBSTR(", fp);
+		/* and firebird doesn't support SUBSTR, so use LEFT there */
+		fputs("  \\{IF -f}LEFT\\{ELSE}SUBSTR\\{ENDIF}(", fp);
 		bool is_agg = false;
 		if(has_groupby) {
 			int it = itemorder[i].fcard->qcurr;
@@ -836,7 +837,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			if(fform->items[itno] == item)
 				break;
 		pr_sql_item(fp, form->name, fform, itno, menu, label, seq, nseq, has_groupby);
-		fprintf(fp, ",1,%d)", menu ? menu->sumwidth : item->sumwidth);
+		fprintf(fp, "\\{IF +f},1\\{ENDIF},%d)", menu ? menu->sumwidth : item->sumwidth);
 		if(has_groupby) {
 			if(is_agg)
 				/* FIXME:  should this be arraysep? */
@@ -973,7 +974,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			if(has_groupby)
 				putc(')', fp);
 			fputs(" \"", fp);
-			pr_dq(fp, label, '"');
+			pr_dq(fp, label ? label : item->name, '"');
 			putc('"', fp);
 			break;
 		    case IT_MULTI:
@@ -1039,7 +1040,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			if(has_groupby)
 				putc(')', fp);
 			fputs(" \"", fp);
-			pr_dq(fp, label, '"');
+			pr_dq(fp, label ? label : item->name, '"');
 			putc('"', fp);
 			break;
 		    case IT_FKEY:
@@ -1119,7 +1120,11 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			else if(item->type == IT_FLAG)
 				fprintf(fp, "   \\{_%s?\"TRUE\":\"FALSE\"}", item->name);
 			else if(item->type == IT_TIME)
-				fprintf(fp, "   \\{IF -p}to_timestamp\\{ENDIF}(\\{_%s?_%s:\"0\"})",
+				fprintf(fp, "   \\{IF -f}DATEADD\\{ENDIF}"
+					        "\\{IF -p}to_timestamp\\{ENDIF}"
+					"(\\{_%s?_%s:\"0\"}"
+					"\\{IF -f} SECOND TO DATE '1/1/1970'\\{ENDIF}"
+					")",
 					item->name, item->name);
 			else if(item->type == IT_FKEY)
 				fprintf(fp, "   \\{IF (!#_%s)}NULL\\{ELSE}'\\{_%s}'\\{ENDIF}",
@@ -1141,7 +1146,7 @@ static void pr_schar(FILE *fp, char c, char doub)
 		fputs("\\\\", fp);
 	else if(!isprint(c))
 		/* FIXME: should just forget this so Unicode works right */
-		fprintf(fp, "'||CH\\{IF +p}A\\{ENDIF}R(%d)||'", (int)(unsigned char)c);
+		fprintf(fp, "'||\\{IF -f}ASCII_\\{ENDIF}CH\\{IF +p}A\\{ENDIF}R(%d)||'", (int)(unsigned char)c);
 	else
 		putc(c, fp);
 	if(c == doub)
@@ -1210,11 +1215,12 @@ static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
 		break;
 	    case IT_TIME: {
 		    /* there is no standard way of doing this */
-		    /* sqlite3 by default; postgres with -p */
-		    fprintf(fp, "\\{IF -p}to_char(\\{ELSE}"
-			        "strftime(\"%s\",\\{ENDIF}", sqlite_date_fmt(item));
+		    /* sqlite3 by default; postgres with -p, firebird -f */
+		    /* note that firebird has no control of output format */
+		    fprintf(fp, "\\{IF -p}to_char(\\{ELSEIF -f}CAST(\\{ELSE}"
+			        "strftime('%s',\\{ENDIF}", sqlite_date_fmt(item));
 		    pr_sql_tq(fp, db, seq, nseq);
-		    fprintf(fp, "%s,\\{IF -p}'%s'\\{ELSE}"
+		    fprintf(fp, "%s\\{IF +f},\\{ENDIF}\\{IF -p}'%s'\\{ELSEIF -f} AS VARCHAR(20)\\{ELSE}"
 			        "'unixepoch'\\{ENDIF})",
 			    item->name, postgres_date_fmt(item));
 		    break;
@@ -1390,9 +1396,9 @@ static void pr_sql_type(FILE *fp, const FORM *form, int i, bool null)
 		break;
 	    case IT_NUMBER:
 		if(item->digits)
-			/* fprintf(fp, "DECIMAL(15,%d)", item->digits): */
+			fprintf(fp, "DECIMAL(15,%d)", item->digits);
 			/* fputs("REAL", fp); */
-			fputs("FLOAT(15)", fp);
+			/* fputs("FLOAT(15)", fp); */
 		else
 			fputs("BIGINT", fp);
 		if(!null)

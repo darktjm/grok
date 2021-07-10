@@ -18,13 +18,14 @@
 static void create_refby_rows(void);
 static void delete_callback(void);
 static void done_callback  (void);
-static void list_callback  (int y, const QString &sel);
+static void list_callback  (const QString &sel);
 
 static FORM		*form;		/* form whose refbys are edited */
 static bool		have_shell = false;	/* message popup exists if true */
 static QDialog		*shell;		/* popup menu shell */
 static QPushButton	*del;		/* buttons, for desensitizing */
 static QListWidget	*rlist;		/* refby list table widget */
+static int		ninv = 0;	/* # of uneditable inv_fkey entries */
 
 
 /*
@@ -113,18 +114,16 @@ static void set_row_widgets(int y)
 	cb->addItem("");
 	cb->addItems(sl);
 	cb->setCurrentText(y >= form->nchild ? "" : form->children[y]);
-	set_combo_cb(cb, list_callback(y, sel), const QString &sel);
-	rlist->setItemWidget(rlist->item(y), cb);
+	set_combo_cb(cb, list_callback(sel), const QString &sel);
+	rlist->setItemWidget(rlist->item(y + ninv), cb);
 }
 
 static void del_refby(int y)
 {
-	int n;
-
 	form->nchild--;
 	zfree(form->children[y]);
-	for (n=y; n < form->nchild; n++)
-		form->children[n] = form->children[n+1];
+	tmemmove(char *, form->children + y, form->children + y + 1,
+		 form->nchild - y);
 }
 
 static bool remove_if_blank(int y)
@@ -132,7 +131,6 @@ static bool remove_if_blank(int y)
 	if(form->children[y] && *form->children[y])
 		return false;
 	del_refby(y);
-	delete rlist->item(y);
 	return true;
 }
 
@@ -141,6 +139,22 @@ static void create_refby_rows(void)
 	int			y;
 
 	rlist->clear();
+	ninv = 0;
+	for (int i = 0; i < form->nitems; i++) {
+		if (form->items[i]->type == IT_INV_FKEY &&
+		    !BLANK(form->items[i]->fkey_form_name)) {
+			int j;
+			for (j = 0; j < i; j++)
+				if (form->items[i]->type == IT_INV_FKEY &&
+				    !strcmp(form->items[i]->fkey_form_name,
+					    STR(form->items[j]->fkey_form_name)))
+					break;
+			if (j < i)
+				continue;
+			rlist->addItem(form->items[i]->fkey_form_name);
+			ninv++;
+		}
+	}
 	for (y=0; y < form->nchild; y++) {
 		if(remove_if_blank(y)) {
 			y--;
@@ -162,12 +176,12 @@ static void create_refby_rows(void)
 
 static void delete_callback(void)
 {
-	int				ycurr = rlist->currentRow();
+	int				ycurr = rlist->currentRow() - ninv;
 
 	if (ycurr >= 0 && ycurr < form->nchild) {
 		del_refby(ycurr);
 		QSignalBlocker sb(rlist);
-		rlist->removeItemWidget(rlist->item(ycurr));
+		delete rlist->item(ycurr + ninv);
 	}
 	if (!form->nchild)
 		del->setEnabled(false);
@@ -185,13 +199,35 @@ static void done_callback(void)
  */
 
 static void list_callback(
-	int				y,
 	const QString			&sel)
 {
+	int y = rlist->currentRow() - ninv;
 	char **ch = &form->children[y];
 	bool onblank = y >= form->nchild, wasblank = onblank;
+	bool isblank = sel.isEmpty();
 
-	if (onblank && !sel.isEmpty()) {
+	/* silently ignore attempts at adding duplicates */
+	if (!isblank)
+		for (int i = 0; i < form->nchild; i++)
+			if (sel == form->children[i]) {
+				isblank = true;
+				return;
+		}
+	if (!isblank && sel == form->name)
+		isblank = true;
+	if (!isblank)
+		for (int i = 0; i < form->nitems; i++)
+			if (form->items[i]->type == IT_INV_FKEY &&
+			    form->items[i]->fkey_form_name &&
+			    sel == form->items[i]->fkey_form_name) {
+				isblank = true;
+				break;
+			}
+	if (isblank && !sel.isEmpty()) {
+		static_cast<QComboBox *>(rlist->itemWidget(rlist->item(y + ninv)))->setCurrentText("");
+		return;
+	}
+	if (onblank && !isblank) {
 		zgrow(0, "children", char *, form->children, form->nchild,
 		      form->nchild + 1, 0);
 		form->nchild++;
@@ -206,6 +242,10 @@ static void list_callback(
 		QSignalBlocker sb(rlist);
 		rlist->addItem("");
 		set_row_widgets(form->nchild);
+	}
+	if (!wasblank && onblank) {
+		QSignalBlocker sb(rlist);
+		delete rlist->item(y + ninv);
 	}
 	del->setEnabled(!onblank);
 }

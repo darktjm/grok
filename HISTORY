@@ -401,6 +401,7 @@ Version 2.4 (in progress)
    * @dbase on FOREACH switches to alternate database
  * FOREACH supports changing the sort order for foreign or same database
  * Generic SQL exporter (create table & views, import data into table).
+   Supports sqlite3, postgres (at least 11), firebird 3 (partly).
  * The automatically generated column field for new items now takes
    multi-column fields into account.
  * fixed loss of digits field on form edit load

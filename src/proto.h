@@ -688,12 +688,12 @@ void *abort_malloc(
 /* type-safe memcpy/memmove/memset */
 #define tmemcpy(t, d, s, n) do { \
 	t *tmc_pd_ = d; \
-	const t *tmc_ps_ = s; \
+	t const *tmc_ps_ = s; \
 	memcpy(tmc_pd_, tmc_ps_, (n)*sizeof(t)); \
 } while(0)
 #define tmemmove(t, d, s, n) do { \
 	t *tmm_pd_ = d; /* type check */ \
-	const t *tmm_ps_ = s; /* type check */ \
+	t const *tmm_ps_ = s; /* type check */ \
 	memmove(tmm_pd_, tmm_ps_, (n)*sizeof(t)); \
 } while(0)
 #define tzero(t, p, n) do { \
