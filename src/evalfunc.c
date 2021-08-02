@@ -1799,7 +1799,7 @@ CARD *f_db_start(
 	if(!dbase)
 		dbase = dbase_create(form);
 	form->dbpath = dbase->path;
-	g->card = create_card_menu(form, dbase, 0, true);
+	g->card = create_card_menu(form, dbase);
 	g->card->prev_form = zstrdup(ocard->form->name);
 	g->card->last_query = -1;
 	/* searching may be by expr, so save state */

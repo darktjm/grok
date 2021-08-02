@@ -1824,7 +1824,7 @@ static void check_references(void)
 				form->addWidget(new QLabel("Set to:"), r, 1);
 				QGridLayout *l = new QGridLayout;
 				CARD *fcard = create_card_menu((FORM *)badrefs[i].fform,
-							       (DBASE *)badrefs[i].fdbase, 0, true);
+							       (DBASE *)badrefs[i].fdbase);
 				fcard->fkey_next = &card;
 				fcard->qcurr = badrefs[i].item;
 				form->addLayout(l, r, 2);

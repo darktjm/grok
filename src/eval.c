@@ -384,8 +384,7 @@ int Xparserlex(YYSTYPE *lvalp, PG)
 			if (fit.card) {
 				resolve_fkey_fields(fit.item);
 				c = create_card_menu(fit.item->fkey_form,
-						     read_dbase(fit.item->fkey_form),
-						     0, true);
+						     read_dbase(fit.item->fkey_form));
 				c->fkey_next = fit.card;
 				row = fit.card->row;
 			}

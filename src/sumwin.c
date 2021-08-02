@@ -189,7 +189,7 @@ static void add_fkey_summary(struct sum_item **res, size_t *nres,
 	FORM *fform = item->fkey_form;
 	if(!fform)
 		return;
-	CARD *card = create_card_menu(fform, read_dbase(fform), 0, true);
+	CARD *card = create_card_menu(fform, read_dbase(fform));
 	card->fkey_next = rcard;
 	card->qcurr = itemno;
 	if (fkno >= 0)
@@ -298,6 +298,65 @@ static int get_fkey_field(const CARD *fcard, int r)
 	return fkey_lookup(fcard->dbase, fcard->fkey_next->form, fitem, key);
 }
 
+char *summary_display(const char *&data, CARD *card, int row, const ITEM *item,
+		      const MENU *menu)
+{
+	int j;
+	const FORM *form = card->form;
+
+	if (item->sumprint) {
+		int saved_row = card->row;
+		card->row = row;
+		data = evaluate(card, item->sumprint);
+		card->row = saved_row;
+	}
+	if (!data)
+		return 0;
+	if ((item->type == IT_CHOICE || item->type == IT_FLAG)
+	    && item->flagtext && item->flagcode
+	    && !strcmp(data, item->flagcode))
+		data = item->flagtext;
+	if ((item->type == IT_MENU || item->type == IT_RADIO)) {
+		for(j = 0; j < item->nmenu; j++)
+			if(!strcmp(item->menu[j].flagcode, data))
+				break;
+		if(j < item->nmenu && /* else invalid code! */
+		   !BLANK(item->menu[j].flagtext))
+			data = item->menu[j].flagtext;
+	}
+	if (menu && !BLANK(menu->flagtext) &&
+	    !strcmp(data, menu->flagcode))
+		data = menu->flagtext;
+	if (!IFL(item->,MULTICOL) && (item->type == IT_FLAGS || item->type == IT_MULTI)) {
+		int qbegin, qafter;
+		char sep, esc;
+		char *v = NULL;
+		int nv = 0;
+		get_form_arraysep(form, &sep, &esc);
+		for(j = 0; j < item->nmenu; j++) {
+			MENU *menu = &item->menu[j];
+			if(find_unesc_elt(data, menu->flagcode,
+					  &qafter, &qbegin,
+					  sep, esc)) {
+				char *e = BLANK(menu->flagtext) ?
+					menu->flagcode : menu->flagtext;
+				if(!set_elt(&v, nv++, e, form))
+					fatal("No memory");
+				if(v == e)
+					v = mystrdup(v);
+			}
+		}
+		data = v;
+		return v;
+	}
+	if (item->type == IT_NUMBER && item->digits >= 0) {
+		char *v = qstrdup(qsprintf("%.*f", item->digits, atof(data)));
+		data = v;
+		return v;
+	}
+	return 0;
+}
+
 void make_summary_line(
 	char		**buf,		/* text buffer for result line */
 	size_t		*buf_len,	/* allocated length of *buf */
@@ -336,14 +395,7 @@ void make_summary_line(
 		int r = row;
 		if (r >= 0 && sorted[i].fcard->fkey_next)
 			r = get_fkey_field(sorted[i].fcard, r);
-		if (r >= 0 && item->sumprint) {
-			CARD *c = sorted[i].fcard;
-			int saved_row = c->row;
-			c->row = r;
-			data = evaluate(c, item->sumprint);
-			c->row = saved_row;
-			data_len = BLANK(data) ? 0 : strlen(data);
-		} else if(r < 0 && row >= 0) {
+		if(r < 0 && row >= 0) {
 			data = 0;
 			data_len = 0;
 		} else if(r < 0) {
@@ -364,9 +416,9 @@ void make_summary_line(
 				i--;
 			}
 		} else {
-			data = dbase_get(sorted[i].fcard->dbase,r, menu?
-						    menu->column :
-						    item->column);
+			data = dbase_get(sorted[i].fcard->dbase, r, menu?
+					 menu->column :
+					 item->column);
 			// skip over rest of IT_CHOICE group
 			// only save the matching choice, if any
 			if (item->type == IT_CHOICE) {
@@ -381,44 +433,8 @@ void make_summary_line(
 				}
 				i--;
 			}
-			if ((item->type == IT_CHOICE || item->type == IT_FLAG)
-				    && item->flagtext && item->flagcode && data
-				    && !strcmp(data, item->flagcode))
-				data = item->flagtext;
-			if ((item->type == IT_MENU || item->type == IT_RADIO)) {
-				for(j = 0; j < item->nmenu; j++)
-					if(!strcmp(STR(item->menu[j].flagcode),
-						   STR(data)))
-						break;
-				if(j < item->nmenu && /* else invalid code! */
-				   !BLANK(item->menu[j].flagtext))
-					data = item->menu[j].flagtext;
-			}
-			if (menu && !BLANK(menu->flagtext) &&
-			    !strcmp(STR(data), menu->flagcode))
-				data = menu->flagtext;
-			if (!IFL(item->,MULTICOL) && (item->type == IT_FLAGS || item->type == IT_MULTI)) {
-				int qbegin, qafter;
-				char sep, esc;
-				char *v = NULL;
-				int nv = 0;
-				get_form_arraysep(sorted[i].fcard->form, &sep, &esc);
-				for(j = 0; j < item->nmenu; j++) {
-					MENU *menu = &item->menu[j];
-					if(data &&
-					   find_unesc_elt(data, menu->flagcode,
-							  &qafter, &qbegin,
-							  sep, esc)) {
-						char *e = BLANK(menu->flagtext) ?
-							menu->flagcode : menu->flagtext;
-						if(!set_elt(&v, nv++, e, card->form))
-							fatal("No memory");
-						if(v == e)
-							v = mystrdup(v);
-					}
-				}
-				data = allocdata = v;
-			}
+			allocdata = summary_display(data, sorted[i].fcard, r,
+						    item, menu);
 			data_len = BLANK(data) ? 0 : strlen(data);
 		}
 		sumwidth = menu ? menu->sumwidth : item->sumwidth;

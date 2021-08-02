@@ -680,7 +680,7 @@ static const char *eval_command(
 			if(!(dbase = read_dbase(form)))
 				dbase = dbase_create(form);
 			form->dbpath = dbase->path;
-			other_db = create_card_menu(form, dbase, 0, true);
+			other_db = create_card_menu(form, dbase);
 			other_db->prev_form = zstrdup(card->form->name);
 			other_db->last_query = -1;
 			*word = c;
@@ -688,7 +688,7 @@ static const char *eval_command(
 		CARD *ncard = other_db ? other_db : card;
 		/* sorting this db requires a new card to avoid resorting old */
 		if (!other_db && (*word == '+' || *word == '-')) {
-			other_db = create_card_menu(card->form, card->dbase, 0, true);
+			other_db = create_card_menu(card->form, card->dbase);
 			other_db->prev_form = zstrdup(card->prev_form);
 			other_db->last_query = -1;
 			ncard = other_db;

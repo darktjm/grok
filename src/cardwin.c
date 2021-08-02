@@ -702,7 +702,7 @@ struct FKeySelector : public CardComboBox {
 			const ITEM *fit = fk->item->fkey[fk->fkey].item;
 			if(!fit)
 				return;
-			char *val = qstrdup(fk->currentText());
+			char *val = qstrdup(fk->currentData().toString());
 			int col = fit->column;
 			if (IFL(fit->,MULTICOL))
 				col = fk->item->fkey[fk->fkey].menu->column;
@@ -759,7 +759,8 @@ struct FKeySelector : public CardComboBox {
 	void set_filter() {
 		rowrestrict filter;
 		restrict(this, fcard, filter);
-		QStringList sl;
+		struct str2 { QString data, disp; };
+		QList<str2> sl;
 		/* const */ DBASE *dbase = fcard->dbase;
 		resolve_fkey_fields(item);
 		if (item->fkey_form != fcard->form) {
@@ -774,28 +775,36 @@ struct FKeySelector : public CardComboBox {
 			col = item->fkey[fkey].menu->column;
 		for (int r = 0; r < dbase->nrows; r++) {
 			if (!filter[r]) {
-				const char *val = dbase_get(dbase, r, col);
-				sl.append(STR(val));
+				const char *disp = dbase_get(dbase, r, col), *data = disp;
+				char *f = summary_display(disp, fcard, r, fit,
+							  item->fkey[fkey].menu);
+				QString d = QString(STR(data));
+				sl.append({d, data == disp ? d : QString(STR(disp))});
+				zfree(f);
 			}
 		}
 		if (sl.count() == 0) {
 			/* either foreign db empty or invalid key */
 			/* in any case, add all possible values */
 			for (int r = 0; r < dbase->nrows; r++) {
-				char *val = dbase_get(dbase, r, col);
-				sl.append(STR(val));
+				const char *disp = dbase_get(dbase, r, col), *data = disp;
+				char *f = summary_display(disp, fcard, r, fit,
+							  item->fkey[fkey].menu);
+				QString d = QString(STR(data));
+				sl.append({d, data == disp ? d : QString(STR(disp))});
+				zfree(f);
 			}
 		}
 		switch (fit->type) {
 		    case IT_TIME:
 			std::sort(sl.begin(), sl.end(),
-				  [&](const QString &a, const QString &b) {
-					  if (b.isEmpty())
+				  [&](const str2 &a, const str2 &b) {
+					  if (b.data.isEmpty())
 						  return false;
-					  if (a.isEmpty())
+					  if (a.data.isEmpty())
 						  return true;
-					  char *as = qstrdup(a);
-					  char *bs = qstrdup(b);
+					  char *as = qstrdup(a.data);
+					  char *bs = qstrdup(b.data);
 					  time_t at = parse_time_data(as, fit->timefmt);
 					  time_t bt = parse_time_data(bs, fit->timefmt);
 					  zfree(as);
@@ -805,27 +814,32 @@ struct FKeySelector : public CardComboBox {
 			break;
 		    case IT_NUMBER:
 			std::sort(sl.begin(), sl.end(),
-				  [&](const QString &a, const QString &b) {
-					  return a.toDouble() < b.toDouble();
+				  [&](const str2 &a, const str2 &b) {
+					  return a.data.toDouble() < b.data.toDouble();
 				  });
 			break;
 		    default:
-			sl.sort(Qt::CaseInsensitive);
+			std::sort(sl.begin(), sl.end(),
+				  [&](const str2 &a, const str2 &b) {
+					  return a.data.compare(b.data, Qt::CaseInsensitive) < 0;
+				  });
 		}
-		/* FIXME: replace w/ version that knows list is sorted */
-		sl.removeDuplicates();
-		QString sel = currentText();
+		for(auto s = sl.begin(); s != sl.end(); s++)
+			while(s + 1 != sl.end() && s[1].data == s->data)
+				s = sl.erase(s);
+		QString sel = currentData().toString();
 		bool blank = currentIndex() <= 0;
 		QSignalBlocker sb(this);
 		clear();
 		addItem("");
-		addItems(sl);
+		for(auto s = sl.begin(); s != sl.end(); s++)
+			addItem(s->disp, s->data);
 		if (count() == 2)
 			setCurrentIndex(1);
 		else if (blank)
 			setCurrentIndex(0);
 		else
-			setCurrentIndex(sl.indexOf(sel) + 1);
+			setCurrentIndex(findData(sel));
 		return;
 	}
     public:
@@ -841,13 +855,10 @@ static void free_card_fkey_cards(CARD *card)
 {
 	for (int i = 0; i < card->nitems; i++) {
 		const ITEM *item = card->form->items[i];
-		if (!card->items[i].w0 ||
-		    (item->type != IT_FKEY && item->type != IT_INV_FKEY))
-			continue;
-		if (item->type == IT_INV_FKEY && item->ys - item->ym <= 4)
+		if (!card->items[i].w0 || item->type != IT_FKEY)
 			continue;
 		QListIterator<QObject *>it(card->items[i].w0->children());
-		bool multi = item->type == IT_INV_FKEY || IFL(item->,FKEY_MULTI);
+		bool multi = IFL(item->,FKEY_MULTI);
 		while (it.hasNext()) {
 			FKeySelector *fks;
 			QTableWidget *tw;
@@ -1279,7 +1290,7 @@ static void create_item_widgets(
 				  nvis++;
 		resolve_fkey_fields(&item);
 		FORM *fform = item.fkey_form;
-		CARD *fcard = create_card_menu(fform, fform ? read_dbase(fform) : 0, 0, true);
+		CARD *fcard = create_card_menu(fform, fform ? read_dbase(fform) : 0);
 		fcard->fkey_next = card;
 		fcard->qcurr = nitem;
 		/* FIXME:  mw never gets destroyed (shouldn't it die w/ w0?) */
@@ -1430,7 +1441,7 @@ void FKeySelector::group_setval(int row, const char *key, int keyno)
 			w->setCurrentIndex(0);
 		} else {
 			fdbase = w->fcard->dbase;
-			w->addItem(dbase_get(fdbase, row, col));
+			w->addItem(dbase_get(fdbase, row, col), dbase_get(fdbase, row, col));
 			w->setCurrentIndex(1);
 		}
 		w = w->next;
@@ -1472,7 +1483,7 @@ static FKeySelector *add_fkey_field(
 					lab = toplab + '/' + fit->label;
 			}
 			if(fcard) {
-				nfcard = create_card_menu(fitform, read_dbase(fitform), 0, true);
+				nfcard = create_card_menu(fitform, read_dbase(fitform));
 				nfcard->fkey_next = fcard;
 				nfcard->qcurr = item.fkey[n].index % fform->nitems;
 			}
@@ -2250,6 +2261,53 @@ static const char *idefault(CARD *card, ITEM *item)
 	return STR(eval);
 }
 
+static void ifkey_display(QTableWidget *tw, int tr, int &tc, ITEM *item,
+			  CARD *card, int r, int mr)
+{
+	for (int f = 0; f < item->nfkey; f++) {
+		if (!item->fkey[f].display)
+			continue;
+		ITEM *dit = item->fkey[f].item;
+		const char *data = dit ? NULL : "???";
+		if (dit && r >= 0) {
+			int col;
+			if (IFL(dit->,MULTICOL))
+				col = item->fkey[f].menu->column;
+			else
+				col = dit->column;
+			data = dbase_get(card->dbase, r, col);
+		}
+		if (dit && dit->type == IT_FKEY) {
+			resolve_fkey_fields(dit);
+			if (dit->fkey_form) {
+				DBASE *db = read_dbase(dit->fkey_form);
+				/* FIXME:  FKEY_MULTI? */
+				int nr = fkey_lookup(db, card->form, dit, data);
+				int otc = tc;
+				CARD *fcard = create_card_menu(dit->fkey_form, db);
+				ifkey_display(tw, tr, tc, dit, fcard, nr, mr);
+				free_card(fcard);
+				if(data && nr < 0) {
+					QTableWidgetItem *twi = new QTableWidgetItem(data);
+					twi->setData(Qt::UserRole, mr);
+					/* FIXME:  colspan=(tc-otc+1) */
+					/* QTableWidget doesn't seem to support colspan */
+					tw->setItem(tr, otc, twi);
+				}
+				continue;
+			}
+			/* just show raw fkey if form lookup fails */
+			/* FIXME:  colspan=(tc-otc+1) */
+		}
+		char *fr = summary_display(data, card, r, dit ? dit : item,
+					   item->fkey[f].menu);
+		QTableWidgetItem *twi = new QTableWidgetItem(data);
+		twi->setData(Qt::UserRole, mr);
+		tw->setItem(tr, tc++, twi);
+		zfree(fr);
+	}
+}
+
 void fillout_item(
 	CARD		*card,		/* card to draw into menu */
 	int		i,		/* item index */
@@ -2585,6 +2643,7 @@ void fillout_item(
 		char sep, esc;
 		get_form_arraysep(item->fkey_form, &sep, &esc);
 		DBASE *db = read_dbase(item->fkey_form);
+		CARD *fcard = create_card_menu(item->fkey_form, db);
 		bool multi = !!IFL(fit->,FKEY_MULTI);
 		for (int r = 0, tr = 0; r < db->nrows; r++) {
 			bool match = false;
@@ -2602,23 +2661,12 @@ void fillout_item(
 				match = !strcmp(key, fk);
 			if (match) {
 				tw->insertRow(tr);
-				for (int f = 0, tc = 0; f < item->nfkey; f++) {
-					if (!item->fkey[f].display)
-						continue;
-					int col;
-					const ITEM *dit = item->fkey[f].item;
-					if (IFL(dit->,MULTICOL))
-						col = item->fkey[f].menu->column;
-					else
-						col = dit->column;
-					/* FIXME: split out fkey fields */
-					QTableWidgetItem *twi = new QTableWidgetItem(dbase_get(db, r, col));
-					twi->setData(Qt::UserRole, r);
-					tw->setItem(tr, tc++, twi);
-				}
+				int tc = 0;
+				ifkey_display(tw, tr, tc, item, fcard, r, r);
 				tr++;
 			}
 		}
+		free_card(fcard);
 		tw->resizeColumnsToContents();
 		free(key);
 		break;

@@ -26,8 +26,8 @@ void free_fkey_card(
 CARD *create_card_menu(
 	FORM		*form,		/* form that controls layout */
 	DBASE		*dbase,		/* database for callbacks, or 0 */
-	QWidget		*wform,		/* form widget to install into, or 0 */
-	bool		no_gui);	/* true to just init card */
+	QWidget		*wform = 0,	/* form widget to install into, or 0 */
+	bool		no_gui = true);	/* true to just init card */
 void build_card_menu(
 	CARD		*card,		/* initialized non-GUI card */
 	QWidget		*wform);	/* form widget to install into, or 0 */
@@ -575,6 +575,12 @@ int get_summary_cols(
 void free_summary_cols(
 	struct sum_item	*cols,
 	size_t		ncols);
+char *summary_display(		/* returns non-0 data to be freed */
+	const char	*&data,	/* data read from db */
+	CARD		*card,	/* form and context for sumprint eval */
+	int		row,	/* db row data came from (for eval) */
+	const ITEM	*item,	/* item desc for data */
+	const MENU	*menu);
 void make_summary_line(
 	char		**buf,		/* text buffer for result line */
 	size_t		*buf_len,	/* allocated length of *buf */
