@@ -67,17 +67,15 @@ user-created templates, and Delete deletes them (with no undo).
 	a similar structure to the form.  The database name and field names
 	are assumed to be valid SQL.  Some manual editing may still be
 	needed to adjust data types to your target database and perform
-	any other desired tweaks.  By default, an attempt is made to make the
-	SQL compatible with SQLite 3.  With the <B>-p</B> flag, the SQL is made
-	compatible with PostgreSQL 12.  The table is created with the same
-	name as the grok database.  If the summary listing is enabled,
-	a vew is created with the same name, but with <TT>_sum</TT>
-	appended.  If data listing is enabled, a view is created with
-	the same name, but with <TT>_view</TT> appended.  The views
-	name their columns using the labels, rather than the raw field
-	names, and attempt to adjust the data to look more user-friendly.
-	Except for Flag and multi-column fields, data is exported verbatim.
-	Flags and multi-column fields are exported as booleans (TRUE or
+	any other desired tweaks.  The table is created with the same name
+	as the grok database.  If the summary listing is enabled, a view is
+	created with the same name, but with <TT>_sum</TT>  appended.  If
+	data listing is enabled, a view is created with the same name, but
+	with <TT>_view</TT> appended.  The views name their columns using
+	the labels, rather than the raw field names, and attempt to adjust the
+	data to look more user-friendly.  Except for Flag and
+	multi-column fields, data is exported verbatim. Flags and
+	multi-column fields are exported as booleans (TRUE or
 	FALSE) rather than the raw flag codes.
 </UL>
 
@@ -101,10 +99,24 @@ summary listing, if present.  This does not affect the sql template.
 
 <P>In the GUI, the above three flags are exposed through checkboxes.
 The Summary checkbox shows and sets the inverse of the d flag.  The
-Notes checkbox shoes and sets the n flag.  The Cards bcheckbox shows
+Notes checkbox shoes and sets the n flag.  The Cards checkbox shows
 and sets the inverse of the s flag.  Specifying any of the three flags
 in the text box adjusts the checkboxes and removes them from the text,
 as they are meant to only be managed via the checkboxes.
+
+<P>Since some aspects of database creation and data types are not well
+standardized (or not well supported), the built-in SQL template makes
+its SQL compatible with specific databases.  By default, an attempt is
+made to make the SQL compatible with SQLite 3.  There are two flags to
+support other databases, instead:
+
+<UL>
+<LI> <B>-p</B> attempts to make the SQL compatible with PostgreSQL 13.
+It may be compatible with other versions, as well; earlier tests were
+made with version 12 at least.
+<LI> <B>-f</B> attempts to make the SQL compatible with Firebird 3.
+It may be compatible with later versions, as well.
+</UL>
 
 <P>After selecting a template, the full path of the output file
 must be entered into the text field under the template list, or
@@ -182,7 +194,7 @@ but are evaluated. The result of the evaluation is copied into the export
 output file. For example, the following text fragment in a template:
 
 <PRE>
-     Six multiplied by eight is n \{(6*8)}, approximately.
+     Six multiplied by eight is \{(6*8)}, approximately.
 </PRE>
 
 <P>produces the following text in the output file:
@@ -198,7 +210,8 @@ numerical expressions directly. Backslashes followed by any character
 other than an open brace escapes the next character.  Any backslashes
 being used as anything other than introducing expressions must be
 escaped by doubling them. The <TT>switch</TT> statement is ignored in
-a template.
+a template; use <TT>@</TT> or field juxtaposition in appropriate
+places to access other databases instead.
 
 <P>Most templates use more complicated expressions that reference fields
 in the database. For example, suppose an export file is to be generated
@@ -312,8 +325,8 @@ can be put into lines of their own without introducing unwanted newlines.
 	<TT>ENDIF</TT>.  Similarly, <TT>ELSE</TT> is evaluated only if
 	all prior conditions were false; this is then executed
 	always.  Either no or exactly one <TT>ELSE</TT> should be
-	present, and any further <TT>\{ELSE}</TT> or <TT>ELSEIF</TT>
-	directives following that are complete ignored, although they
+	present, and any further <TT>ELSE</TT> or <TT>ELSEIF</TT>
+	directives following that are completely ignored, although they
 	may trigger an error in a future release.  In short, either
 	only one branch of <I>text</I> is evaluated, or none.<P>
 

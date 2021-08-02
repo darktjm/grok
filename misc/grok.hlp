@@ -1772,7 +1772,7 @@
 	  (n)		in string context, convert number to string
 	  s1 ; s2		evaluate both strings, return second
 	  s1 . s2		concatenate strings
-	  s1 ? s2 : s3	select s2 if s1 evaluates nz, s3 if zero
+	  s1 ? s2 : s3		select s2 if s1 evaluates nz, s3 if zero
 	  s1 == s2		strings are equal
 	  s1 != s2		strings are not equal
 	  s1 < s2		lexicographically less than
@@ -1784,7 +1784,7 @@
 	  s1 !~ s2		s1 mismatches regex s2
 	  chop(s)		s without trailing newline
 	  substr(s,n1,n2)	substring of s; n1 is start offset and n2 is length
-	  printf (args)	formatted string, args is comma-separated expr list
+	  printf (args)		formatted string, args is comma-separated expr list
 	  tr (s1, s2)		translate s1 according to rules in s2
 			rules are a space-separated list of c=s, where c
 			is replaced by s.  bsub is performed on s2.
@@ -1796,7 +1796,7 @@
 	  		expression s2 replaced by s3.  \0 .. \9 and \{n} in s3 refer to
 			subexpressions in s2.
 	  gsub(s1, s2, s3)	Like sub(s1, s2, s3), except all occurrences are replaced
-	  esc(s1, s2)	A copy of s1 with any chars in s2 prefixed by 1st char in s2
+	  esc(s1, s2)		A copy of s1 with any chars in s2 prefixed by 1st char in s2
 	  align(s1, n1, s2, n2)	Align s1 in field of width n1, padding with s2 and aligned
 	  		according to n1.  s2 is optional, space if missing or blank.
 			n2 is optional, negative if missing.  Alignment location is left if
@@ -1867,7 +1867,7 @@
 	Database Access
 
 	  _field ...		database field of current card, field is number or name
-	  _field [n] ...	database field from any card
+	  _field [n] ...		database field from any card
 	  		The ... part may be _field if the preceding field is a Reference.
 			In this case, the field number or name comes from the databasae being referred
 			to, and the value is that of the first card matching the reference,
@@ -1882,13 +1882,13 @@
 	  last		number of last card
 	  _field ... last	number of last card in database referred to by reference field
 	  _field [n] ... last	number of last card in database referred to by reference field
-	  avg (_field)	average of field in all cards
+	  avg (_field)		average of field in all cards
 	  qavg (_field)	average of field in current query result
 	  savg (_field)	average of field in all cards of this section
-	  dev (_field)	standard deviation of field in all cards
+	  dev (_field)		standard deviation of field in all cards
 	  qdev (_field)	standard deviation of field in current query result
 	  sdev (_field)	standard deviation of field in all cards of this section
-	  min (_field)	minimum value of field in all cards
+	  min (_field)		minimum value of field in all cards
 	  qmin (_field)	minimum value of field in current query result
 	  smin (_field)	minimum value of field in all cards of this section
 	  max (_field)	maximum value of field in all cards
@@ -1902,21 +1902,23 @@
 	  prevform		name of the previous form file
 	  expand (_field ...)	returns the mnemonic value of choice and flag fields
 	  expand (_field[n] ...)	same for card n
-	  deref (_field ...[, [s][, s])	expand reference field to visible value
-	  		visible values are separated by the first string (" " if unspecified)
-			multi-references are separated by the second string ("\n" if unspecified)
-	  deref (_field[n] ...)		same for card n
+	  deref (_field ...[, [s1][, s2])
+			expand reference field to visible value
+	  		visible values are separated by s1 (" " if unspecified)
+			multi-references are separated by s2 ("\n" if unspecified)
+	  deref (_field[n] ...[, [s1][, s2])
+	  		same for card n
 	  dereff (_field)	expand reference field to visible field reference array
 	  section		the current card's section
 			this is a section number if in numeric context,
 			and a name in string context
-	  section [n]	the section of card n
+	  section [n]		the section of card n
 
 	  The foreach functions do not return a value, and do not affect
 	  the return value of the expression.  The expression is evaluated
 	  only for side effects.
 
-	  foreach (s)	evaluate s as an expression for all cards
+	  foreach (s)		evaluate s as an expression for all cards
 	  foreach (s1, s2)	evaluate s2 as an expression for all cards where
 			expression s1 returns true (after stripping spaces, not
 			blank and first character is not 0, f, or F.
@@ -1942,15 +1944,15 @@
 
 	Operating System Access
 
-	  system (s)	execute shell command and return stdout
+	  system (s)		execute shell command and return stdout
 	  $envvar		environment variable
 	  host		local host name
 	  user		user's login name
 	  uid		user's numeric user ID
 	  gid		user's numeric group ID
-	  access(s,n)	1 if any/r/w/x permission for file s for n=0/1/2/4
+	  access(s,n)		1 if any/r/w/x permission for file s for n=0/1/2/4
 	  beep		ring terminal bell, return ""
-	  error (args)	like printf but into a window, return ""
+	  error (args)		like printf but into a window, return ""
 
 
 	Time Conversion: dates and times are stored as number of seconds since
@@ -1962,13 +1964,13 @@
 	  time (n)		number as hh:mm or hh:mm[ap]
 	  date		today's date as dd.mm.yy or mm/dd/yy (string)
 	  date (n)		number as dd.mm.yy or mm/dd/yy
-	  duration(n)	number of seconds as hh:mm
+	  duration(n)		number of seconds as hh:mm
 	  date		seconds since January 1, 1970 (number)
 	  year (n)		n as four-digit year
 	  month (n)		n as month 1..12
 	  day (n)		n as day 1..31
 	  hour (n)		n as hour 0..23
-	  minute (n)	n as minute 0..59
-	  second (n)	n as second 0..59
+	  minute (n)		n as minute 0..59
+	  second (n)		n as second 0..59
 	  julian (n)		n as julian date 0..365
 	  leap (n)		1 if the time n is in a leap year, 0 otherwise
