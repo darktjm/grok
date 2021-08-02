@@ -128,7 +128,7 @@ void create_query_window(
 
 							/*-- infotext -- */
 	info = new QTextEdit();
-	info->setLineWrapMode(QTextEdit::NoWrap);
+	info->setLineWrapMode(QTextEdit::WidgetWidth);
 	info->setReadOnly(true);
 	// QSS doesn't support :read-only for QTextEdit
 	info->setProperty("readOnly", true);
@@ -162,7 +162,7 @@ void create_query_window(
 	// bind_help(w, "queries");  // same as main window
 
 	create_query_rows();	/* have_shell must be false here */
-	print_query_info();
+	info->setPlainText(print_query_info(form));
 
 	// This is only called after a cell has been edited
 	// It takes the place of QLineEdit's set_text_cb().
@@ -304,10 +304,9 @@ static void create_query_rows(void)
  * FIXME: make this a separate popup that can be called from help menu
  */
 
-void print_query_info(void)
+QString print_query_info(const FORM *form)
 {
-	QString		msg("FIelds:");	/* message buffer */
-	int		n;		/* index to next free char in msg */
+	QString		msg("Fields:");	/* message buffer */
 	char		comma = ' ';	/* delimiter between message items */
 	int		item;		/* item (field) counter */
 	int		mi;		/* menu counter */
@@ -317,7 +316,6 @@ void print_query_info(void)
 #define append_comma append(comma); msg.append(' ')
 
 	get_form_arraysep(form, &sep, &esc);
-	n = 0;
 	for (item=0, mi = -1; item < form->nitems; item++) {
 		ip = form->items[item];
 		switch(ip->type) {
@@ -370,14 +368,10 @@ void print_query_info(void)
 			continue;
 		}
 		comma = ',';
-		if(msg.size() - n > 60) {
-			comma = '\n';
-			n = msg.size();
-		}
 	}
 	if (comma == ' ')
 		msg.append("none");
-	info->setPlainText(msg);
+	return msg;
 }
 
 

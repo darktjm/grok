@@ -72,6 +72,8 @@ static char *yyzstrdup(PG, const char *s)
 static int	f_len	(char  *s)  { return(s ? strlen(s) : 0); }
 static char    *f_str	(PG, double d)  { char buf[100]; sprintf(buf,"%.*lg",DBL_DIG + 1, d);
 					return(yyzstrdup(g, buf)); }
+static char    *f_str2	(PG, double d1, double d2)  { char buf[100]; sprintf(buf,"%.*lg %.*lg",DBL_DIG + 1, d1, DBL_DIG + 1, d2);
+					return(yyzstrdup(g, buf)); }
 static int	f_cmp	(char  *s,
 			 char  *t)  { int r = strcmp(STR(s), STR(t));
 				      zfree(s); zfree(t); return r;}
@@ -138,6 +140,19 @@ static char *f_concat(PG, char *a, char *b)
 		strcpy(r + alen, b);
 	zfree(b);
 	return r;
+}
+
+static int row_from_id(char *id, const DBASE *db)
+{
+	double ct, ctx;
+	int ret;
+
+	if(sscanf(STR(id), "%lg %lg", &ct, &ctx) == 2)
+		ret = row_with_ctime(db, ct, ctx);
+	else
+		ret = -1;
+	zfree(id);
+	return ret;
 }
 
 }
@@ -362,7 +377,7 @@ char *f_dereff(
 %destructor { f_db_end(g, $$); } <cval>
 %destructor { free_fkey_card($$.card); } <fval>
 
-%type	<dval>	number numarg
+%type	<dval>	number numarg timestamp card
 %type	<sval>	string
 %type	<aval>	args
 %type	<cval>	db_prefix
@@ -374,6 +389,7 @@ char *f_dereff(
 %token	<fval>	FIELD
 %token		EQ NEQ LE GE SHR SHL AND OR IN UNION INTERSECT DIFF REQ RNEQ
 %token		PLA MIA MUA MOA DVA ANA ORA INC DEC_ APP AAS ALEN_ DOTDOT
+%token		LBRLBR RBRBR
 %token		AVG DEV AMIN AMAX SUM
 %token		QAVG QDEV QMIN QMAX QSUM
 %token		SAVG SDEV SMIN SMAX SSUM
@@ -383,7 +399,7 @@ char *f_dereff(
 %token		YEAR MONTH DAY HOUR MINUTE SECOND LEAP JULIAN
 %token		SECTION_ DBASE_ FORM_ PREVFORM SWITCH THIS LAST DISP FOREACH
 %token		HOST USER UID GID SYSTEM ACCESS BEEP ERROR PRINTF MATCH SUB
-%token		GSUB BSUB ESC TOSET DETAB ALIGN DEREF DEREFF
+%token		GSUB BSUB ESC TOSET DETAB ALIGN DEREF DEREFF ID MTIME CTIME
 
 %left 's' /* Force a shift; i.e., prefer longer versions */
 %left ',' ';'
@@ -403,7 +419,7 @@ char *f_dereff(
 %left '*' '/' '%'
 %nonassoc '!' '~' UMINUS '#' ALEN_
 %left '.'
-%left '['
+%left '[' LBRBR
 
 %start stmt
 
@@ -487,18 +503,14 @@ string	: STRING			{ $$ = $1; }
 					  $$ = s; check_error; }
 	| USER				{ yystrdup($$, getenv("USER")); }
 	| PREVFORM			{ yystrdup($$, g->card->prev_form); }
-	| SECTION_ %prec 's'		{ if(!g->card || !g->card->dbase)
+	/* sections are deprecated, so don't support fkey prefix */
+	/* @db can always be used to get it anyway */
+	| SECTION_ card			{ if(!g->card || !g->card->dbase)
 						$$ = 0;
 					  else
 						yystrdup($$, section_name(
 						    g->card->dbase,
-						    g->card->dbase->currsect));}
-	| SECTION_ '[' number ']' 	{ if(!g->card || !g->card->dbase)
-						$$ = 0;
-					  else
-						yystrdup($$, section_name(
-						    g->card->dbase,
-						    f_section(g, $3))); }
+						    f_section(g, $2)));}
 	| FORM_				{ if(!g->card || !g->card->form
 						     || !g->card->form->name)
 						$$ = 0;
@@ -513,6 +525,31 @@ string	: STRING			{ $$ = $1; }
 							(g->card->form->dbase,
 							 g->card->form->proc ?
 								0 : "db"));}
+	| ID %prec 's'			{ if(!g->card || !g->card->dbase || g->card->row < 0)
+						$$ = 0;
+					  else {
+						ROW *r = g->card->dbase->row[g->card->row];
+						$$ = f_str2(g, r->ctime, r->ctimex); }}
+	| field ID			{ if(!$1.card || !$1.card->dbase || $1.row < 0)
+						$$ = 0;
+					  else {
+						ROW *r = $1.card->dbase->row[$1.row];
+						$$ = f_str2(g, r->ctime, r->ctimex); }}
+	| ID '[' number ']'		{ if(!g->card || !g->card->dbase || $3 < 0 || $3 >= g->card->dbase->nrows)
+						$$ = 0;
+					  else {
+						ROW *r = g->card->dbase->row[(int)$3];
+						$$ = f_str2(g, r->ctime, r->ctimex); }}
+	| timestamp card		{ if(!g->card || !g->card->dbase || $2 < 0)
+						$$ = 0;
+					  else {
+						ROW *r = g->card->dbase->row[(int)$2];
+						yystrdup($$, mkdatetimestring($1 ? r->ctime : r->mtime)); }}
+	| field timestamp		{ if(!$1.card || !$1.card->dbase || $1.row < 0)
+						$$ = 0;
+					  else {
+						ROW *r = $1.card->dbase->row[$1.row];
+						yystrdup($$, mkdatetimestring($2 ? r->ctime : r->mtime));}}
 	| SWITCH '(' string ',' string ')'
 					{ char *name = $3, *expr = $5;
 					  zfree(g->switch_name);
@@ -562,8 +599,14 @@ string	: STRING			{ $$ = $1; }
 	| DEREFF '(' field ')'		{ $$ = f_dereff(g, $3); check_error; }
 	;
 
-field	: FIELD %prec 's'		{ $$ = $1; }
-	| FIELD '[' number ']'		{ $$ = $1; $$.row = $3; }
+timestamp : MTIME {$$ = 0;} | CTIME {$$ = 1;} ;
+
+card	: %prec 's'			{ $$ = g->card ? g->card->row : -1; }
+	| '[' number ']'		{ $$ = $2; }
+	| LBRBR string RBRBR		{ $$ = row_from_id($2, g->card->dbase); }
+	;
+
+field	: FIELD card			{ $$ = $1; $$.row = $2; }
 	| field FIELD %prec 's'		{ $1.card = 0; $$ = $2; }
 	/* better to use @dp: to access any row in other db */
 /*	| field FIELD '[' number ']'	{ $$ = $2; $$.row = $4; } */
@@ -651,9 +694,20 @@ numarg	: NUMBER			{ $$ = $1; }
 					       g->card->row : 0; }
 	| LAST				{ $$ = g->card && g->card->dbase ?
 					       g->card->dbase->nrows - 1 : -1; }
-	| field THIS				{ $$ = $1.row; }
-	| field LAST				{ DBASE *db = $1.card->dbase; $$ = db ?
+	| field THIS			{ $$ = $1.row; }
+	| field LAST			{ DBASE *db = $1.card->dbase; $$ = db ?
 						db->nrows - 1 : -1; }
+	| THIS LBRBR string RBRBR	{ $$ = row_from_id($3, g->card->dbase); }
+	| timestamp card		{ if(!g->card || !g->card->dbase || g->card->row < 0)
+						$$ = 0;
+					  else {
+						ROW *r = g->card->dbase->row[(int)$2];
+						$$ = $1 ? r->ctime : r->mtime; }}
+	| field timestamp			{ if(!$1.card || !$1.card->dbase || $1.row < 0)
+						$$ = 0;
+					  else {
+						ROW *r = $1.card->dbase->row[$1.row];
+						$$ = $2 ? r->ctime : r->mtime;}}
 	| DISP				{ $$ = g->card && g->card->dbase
 						      && g->card->disprow >= 0
 						      && g->card->disprow <
@@ -699,9 +753,7 @@ numarg	: NUMBER			{ $$ = $1; }
 	| ATAN  '(' number ')'		{ $$ = atan($3); }
 	| ATAN2 '(' numarg ',' number ')'
 					{ $$ = atan2($3, $5); }
-	| SECTION_			{ $$ = g->card && g->card->dbase ?
-						g->card->dbase->currsect : 0; }
-	| SECTION_ '[' number ']'	{ $$ = f_section(g, $3); }
+	| SECTION_ card			{ $$ = f_section(g, $2); }
 	| DATE				{ $$ = time(0); }
 	| DATE  '(' string ')'		{ $$ = $3 ? parse_datetimestring($3) : 0; zfree($3);}
 	| TIME  '(' string ')'		{ $$ = $3 ? parse_timestring($3, false) : 0; zfree($3);}

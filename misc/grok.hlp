@@ -1,9 +1,8 @@
 # Note that grok.hlp skips any lines starting with a #.
 # Note that a single initial tab character is skipped (but not 8 spaces!)
 # Some of this text is displayed in a help dialog, and most of the
-# text is instead displayed by Qt's Whats This? mechanism.  For now,
-# all text is assumed to be plain text, although there isn't much
-# reason not to support HTML, since both display methods support it.
+# text is instead displayed by Qt's Whats This? mechanism.  The text may
+# be either plain text or HTML; HTML is auto-detected.
 %% intro
 	INTRODUCTION
 
@@ -1707,270 +1706,308 @@
 	to sweeping changes in the future, so only use it to play.  See the
 	weather demo for an example.
 %% grammar
-	GRAMMAR
+<H1>GRAMMAR</H1>
 
-	This is a quick reference only. For details, refer to the manual. n
-	stands for numerical expressions, and s stands for string expressions.
-	In general, numerical expressions are enclosed in (), and string
-	expressions are enclosed in {}. Booleans use 0 or "0" for false and 1
-	or "1" for true. Note that short-circuiting with ?: && || does not work.
+<P>This is a quick reference only. For details, refer to the manual. n
+stands for numerical expressions, and s stands for string expressions.
+In general, numerical expressions are enclosed in (), and string
+expressions are enclosed in {}. Booleans use 0 or "0" for false and 1
+or "1" for true. Note that short-circuiting with ?: && || does not work.</P>
 
-	Numerical Operations: arithmetic operators use standard C precedences.
+<H2>Numerical Operations</H2>
 
-	  (n)		number
-	  {s}		in number context, convert string to a number
-	  n1 ? n2 : n3	select n2 if n1 is nonzero, n3 if zero
-	  n1 , n2		evaluate both numbers, return second
-	  -n		sign change
-	  !n		boolean NOT
-	  ~n		bit-wise NOT
-	  n1 + n2		add
-	  n1 - n2		subtract
-	  n1 * n2		multiply
-	  n1 / n2		divide, n1/0 is 1
-	  n1 % n2		modulus, n1%0 is 1
-	  n1 & n2		bit-wise AND
-	  n1 && n2		boolean AND
-	  n1 | n2		bit-wise OR
-	  n1 || n2		boolean OR
-	  n1 ^ n2		bit-wise XOR
-	  n1 << n2		bit-wise left shift
-	  n1 >> n2		bit-wise right shift
-	  n1 == n2		equal
-	  n1 != n2		not equal
-	  n1 < n2		less than
-	  n1 > n2		greater than
-	  n1 <= n2		less than or equal
-	  n1 >= n2		greater than or equal
-	  abs (n)		absolute value
-	  int (n)		number truncated to integer
-	  sqrt (n)		square root
-	  exp (n)		exponential
-	  log (n)		logarithm to base 10
-	  ln (n)		logarithm to base e
-	  pow(n1, n2)	n1 raised to n2
-	  sin (n)		sine
-	  cos (n)		cosine
-	  tan (n)		tangent
-	  asin (n)		arc sine
-	  acos (n)		arc cosine
-	  atan (n)		arc tangent
-	  atan2(n1,n2)	quadrant-aligned arc tangent
-	  len (s)		string length
-	  # s		string length
-	  bound(n1,n2,n3)	n1 bounded by n2 and n3
-	  random		a random number in the range [0.0, 1.0]
+<P>Arithmetic operators use standard C precedences.</P>
 
+<BLOCKQUOTE><TABLE>
+<TR><TD>(n)</TD><TD>number</TD></TR>
+<TR><TD>{s}</TD><TD>in number context, convert string to a number</TD></TR>
+<TR><TD>n1 ? n2 : n3</TD><TD>select n2 if n1 is nonzero, n3 if zero</TD></TR>
+<TR><TD>n1 , n2</TD><TD>evaluate both numbers, return second</TD></TR>
+<TR><TD>-n</TD><TD>sign change</TD></TR>
+<TR><TD>!n</TD><TD>boolean NOT</TD></TR>
+<TR><TD>~n</TD><TD>bit-wise NOT</TD></TR>
+<TR><TD>n1 + n2</TD><TD>add</TD></TR>
+<TR><TD>n1 - n2</TD><TD>subtract</TD></TR>
+<TR><TD>n1 * n2</TD><TD>multiply</TD></TR>
+<TR><TD>n1 / n2</TD><TD>divide, n1/0 is 1</TD></TR>
+<TR><TD>n1 % n2</TD><TD>modulus, n1%0 is 1</TD></TR>
+<TR><TD>n1 &gt; n2</TD><TD>bit-wise AND</TD></TR>
+<TR><TD>n1 &gt;&gt; n2</TD><TD>boolean AND</TD></TR>
+<TR><TD>n1 | n2</TD><TD>bit-wise OR</TD></TR>
+<TR><TD>n1 || n2</TD><TD>boolean OR</TD></TR>
+<TR><TD>n1 ^ n2</TD><TD>bit-wise XOR</TD></TR>
+<TR><TD>n1 &lt;&lt; n2</TD><TD>bit-wise left shift</TD></TR>
+<TR><TD>n1 &gt;&gt; n2</TD><TD>bit-wise right shift</TD></TR>
+<TR><TD>n1 == n2</TD><TD>equal</TD></TR>
+<TR><TD>n1 != n2</TD><TD>not equal</TD></TR>
+<TR><TD>n1 &lt; n2</TD><TD>less than</TD></TR>
+<TR><TD>n1 &gt; n2</TD><TD>greater than</TD></TR>
+<TR><TD>n1 &lt;= n2</TD><TD>less than or equal</TD></TR>
+<TR><TD>n1 &gt;= n2</TD><TD>greater than or equal</TD></TR>
+<TR><TD>abs (n)</TD><TD>absolute value</TD></TR>
+<TR><TD>int (n)</TD><TD>number truncated to integer</TD></TR>
+<TR><TD>sqrt (n)</TD><TD>square root</TD></TR>
+<TR><TD>exp (n)</TD><TD>exponential</TD></TR>
+<TR><TD>log (n)</TD><TD>logarithm to base 10</TD></TR>
+<TR><TD>ln (n)</TD><TD>logarithm to base e</TD></TR>
+<TR><TD>pow(n1, n2)</TD><TD>n1 raised to n2</TD></TR>
+<TR><TD>sin (n)</TD><TD>sine</TD></TR>
+<TR><TD>cos (n)</TD><TD>cosine</TD></TR>
+<TR><TD>tan (n)</TD><TD>tangent</TD></TR>
+<TR><TD>asin (n)</TD><TD>arc sine</TD></TR>
+<TR><TD>acos (n)</TD><TD>arc cosine</TD></TR>
+<TR><TD>atan (n)</TD><TD>arc tangent</TD></TR>
+<TR><TD>atan2(n1,n2)</TD><TD>quadrant-aligned arc tangent</TD></TR>
+<TR><TD>len (s)</TD><TD>string length</TD></TR>
+<TR><TD># s</TD><TD>string length</TD></TR>
+<TR><TD>bound(n1,n2,n3)</TD><TD>n1 bounded by n2 and n3</TD></TR>
+<TR><TD>random</TD><TD>a random number in the range [0.0, 1.0]</TD></TR>
+</TABLE></BLOCKQUOTE>
 
-	String Operations: note that string comparisons return strings, and
-	must be enclosed in braces {} if && or || or other numerical operators
-	are used on the result. Printf arguments generally need to be
-	parenthesized also.
+<H2>String Operations</H2>
 
-	  "string"		literal string
-	  {s}		string
-	  (n)		in string context, convert number to string
-	  s1 ; s2		evaluate both strings, return second
-	  s1 . s2		concatenate strings
-	  s1 ? s2 : s3		select s2 if s1 evaluates nz, s3 if zero
-	  s1 == s2		strings are equal
-	  s1 != s2		strings are not equal
-	  s1 < s2		lexicographically less than
-	  s1 > s2		lexicographically greater than
-	  s1 <= s2		lexicographically less than or equal
-	  s1 >= s2		lexicographically greater than or equal
-	  s1 in s2		s1 is contained in s2
-	  s1 =~ s2		s1 matches regex s2
-	  s1 !~ s2		s1 mismatches regex s2
-	  chop(s)		s without trailing newline
-	  substr(s,n1,n2)	substring of s; n1 is start offset and n2 is length
-	  printf (args)		formatted string, args is comma-separated expr list
-	  tr (s1, s2)		translate s1 according to rules in s2
-			rules are a space-separated list of c=s, where c
-			is replaced by s.  bsub is performed on s2.
-	  bsub(s)		Perform simple backslash-escape substitution on s.
-			Recognized escapes are \<octal>, \n, \t, \r.  All
-			others just escape the next character.
-	  match(s1, s2)	The offset, plus one, of regular expression s2 in s1 (0=fail)
-	  sub(s1, s2, s3)	A copy of s1 with the first occurrence of regular
-	  		expression s2 replaced by s3.  \0 .. \9 and \{n} in s3 refer to
-			subexpressions in s2.
-	  gsub(s1, s2, s3)	Like sub(s1, s2, s3), except all occurrences are replaced
-	  esc(s1, s2)		A copy of s1 with any chars in s2 prefixed by 1st char in s2
-	  align(s1, n1, s2, n2)	Align s1 in field of width n1, padding with s2 and aligned
-	  		according to n1.  s2 is optional, space if missing or blank.
-			n2 is optional, negative if missing.  Alignment location is left if
-			n2<0, right if n2>0, centered if n2=0
-	  detab(s, n1, n2)	Expand tabs in s to spaces.  n1 is initial offset from
-	  		left, n2 is tabstop.  n1 and n2 are optional, 0 and 8 by default.
+<P>Note that string comparisons return strings, and
+must be enclosed in braces {} if &gt;&gt; or || or other numerical operators
+are used on the result. Printf arguments generally need to be
+parenthesized also.</P>
 
-	Strings as arrays: a string may be interpreted as an array of
-	strings, stored as the elements, separated by a separator.
-	Occurrences of the separator or the escape character are prefixed
-	by the escape character.  An empty string is ambiguous; it is
-	interpreted as a 1-element array with a blank value.
+<BLOCKQUOTE><TABLE>
+<TR><TD>"string"</TD><TD>literal string</TD></TR>
+<TR><TD>{s}</TD><TD>string</TD></TR>
+<TR><TD>(n)</TD><TD>in string context, convert number to string</TD></TR>
+<TR><TD>s1 ; s2</TD><TD>evaluate both strings, return second</TD></TR>
+<TR><TD>s1 . s2</TD><TD>concatenate strings</TD></TR>
+<TR><TD>s1 ? s2 : s3</TD><TD>select s2 if s1 evaluates nz, s3 if zero</TD></TR>
+<TR><TD>s1 == s2</TD><TD>strings are equal</TD></TR>
+<TR><TD>s1 != s2</TD><TD>strings are not equal</TD></TR>
+<TR><TD>s1 &lt; s2</TD><TD>lexicographically less than</TD></TR>
+<TR><TD>s1 &gt; s2</TD><TD>lexicographically greater than</TD></TR>
+<TR><TD>s1 &lt;= s2</TD><TD>lexicographically less than or equal</TD></TR>
+<TR><TD>s1 &gt;= s2</TD><TD>lexicographically greater than or equal</TD></TR>
+<TR><TD>s1 in s2</TD><TD>s1 is contained in s2</TD></TR>
+<TR><TD>s1 =~ s2</TD><TD>s1 matches regex s2</TD></TR>
+<TR><TD>s1 !~ s2</TD><TD>s1 mismatches regex s2</TD></TR>
+<TR><TD>chop(s)</TD><TD>s without trailing newline</TD></TR>
+<TR><TD>substr(s,n1,n2)</TD><TD>substring of s; n1 is start offset and n2 is length</TD></TR>
+<TR><TD>printf (args)</TD><TD>formatted string, args is comma-separated expr list</TD></TR>
+<TR><TD>tr (s1, s2)</TD><TD>translate s1 according to rules in s2<BR>
+			    rules are a space-separated list of c=s, where c<BR>
+			    is replaced by s.  bsub is performed on s2.</TD></TR>
+<TR><TD>bsub(s)</TD><TD>Perform simple backslash-escape substitution on s.<BR>
+			Recognized escapes are \&lt;octal&gt;, \n, \t, \r.  All
+			others just escape the next character.</TD></TR>
+<TR><TD>match(s1, s2)</TD><TD>The offset, plus one, of regular expression s2 in s1 (0=fail)</TD></TR>
+<TR><TD>sub(s1, s2, s3)</TD><TD>A copy of s1 with the first occurrence of regular
+				expression s2 replaced by s3.  \0 .. \9 and \{n} in s3 refer to
+				subexpressions in s2.</TD></TR>
+<TR><TD>gsub(s1, s2, s3)</TD><TD>Like sub(s1, s2, s3), except all occurrences are replaced</TD></TR>
+<TR><TD>esc(s1, s2)</TD><TD>A copy of s1 with any chars in s2 prefixed by 1st char in s2</TD></TR>
+<TR><TD>align(s1, n1, s2, n2)</TD><TD>Align s1 in field of width n1, padding with s2 and aligned
+				      according to n1.  s2 is optional, space if missing or blank.
+				      n2 is optional, negative if missing.  Alignment location is left if
+				      n2&lt;0, right if n2&gt;0, centered if n2=0</TD></TR>
+<TR><TD>detab(s, n1, n2)</TD><TD>Expand tabs in s to spaces.  n1 is initial offset from
+				 left, n2 is tabstop.  n1 and n2 are optional, 0 and 8 by default.</TD></TR>
+</TABLE></BLOCKQUOTE>
 
-	  esc(s)		Escape s like an array element
-	  ## s		Number of array elements in s
-	  s [ n ]		Array element #n (0-based) of s, (unescaped)
-	  s [ n1 .. n2 ]	Array of elements of s from n1 to n2, inclusive.  n1 or n2
-	  		is optional (but not both); if either is missing, use beginning/end
-	  s [ .. ]		Array s, with trailing blank elements removed
-	  s1 [ n ] -> s2	Array s1, but with element #n is set to s2 (s2 is unescaped)
-			If n is larger than ## s1, blanks are inserted
-			If n is negative, append.  Note that appending to
-			an empty string will set element 1, not element 0.
-	  foreach ( var, s1, s2 )	Evaluate s2 for each element in array s1, setting
-			var to the current element before evaluation.
-	  foreach ( var, + s1, s2 )	The same as above, but only for non-blank elements
-	  foreach ( var, s1, s2, s3 )
-	  		Evaluate s3 for each element in array s1 when evaluating s2 returns
-			true, setting var to the current element before either evaluation
-	  foreach ( var, + s1, s2, s3 )
-	  		The same as above, but only for non-blank elements
+<H2>Strings as arrays</H2>
 
+<P>A string may be interpreted as an array of
+strings, stored as the elements, separated by a separator.
+Occurrences of the separator or the escape character are prefixed
+by the escape character.  An empty string is ambiguous; it is
+interpreted as a 1-element array with a blank value.</P>
 
-	Arrays as sets: sets are arrays with no blank or duplicate
-	elements, sorted by an internal sorter.  A single-element set can
-	be made using esc(s).  To test for the presence of e in s, use
-	s |* esc(e) != ""
+<BLOCKQUOTE><TABLE>
+<TR><TD>esc(s)</TD><TD>Escape s like an array element</TD></TR>
+<TR><TD>## s</TD><TD>Number of array elements in s</TD></TR>
+<TR><TD>s [ n ]</TD><TD>Array element #n (0-based) of s, (unescaped)</TD></TR>
+<TR><TD>s [ n1 .. n2 ]</TD><TD>Array of elements of s from n1 to n2, inclusive.  n1 or n2
+			       is optional (but not both); if either is missing, use beginning/end</TD></TR>
+<TR><TD>s [ .. ]</TD><TD>Array s, with trailing blank elements removed</TD></TR>
+<TR><TD>s1 [ n ] -> s2</TD><TD>Array s1, but with element #n is set to s2 (s2 is unescaped)<BR>
+			       If n is larger than ## s1, blanks are inserted<BR>
+			       If n is negative, append.  Note that appending to
+			       an empty string will set element 1, not element 0.</TD></TR>
+<TR><TD>foreach ( var, s1, s2 )</TD><TD>Evaluate s2 for each element in array s1, setting
+					var to the current element before evaluation.</TD></TR>
+<TR><TD>foreach ( var, + s1, s2 )</TD><TD>The same as above, but only for non-blank elements</TD></TR>
+<TR><TD>foreach ( var, s1, s2, s3 )</TD><TD>Evaluate s3 for each element in array s1 when evaluating s2 returns
+					    true, setting var to the current element before either evaluation</TD></TR>
+<TR><TD>foreach ( var, + s1, s2, s3 )</TD><TD>The same as above, but only for non-blank elements</TD></TR>
+</TABLE></BLOCKQUOTE>
 
-	  toset (s)		Returns array s converted to a valid set
-	  s1 |+ s2		Returns the union of two sets.
-	  s1 |* s2		Returns the intersection of two sets.
-	  s1 |- s2		Returns s1, with all elements of s2 removed
+<H2>Arrays as sets</H2>
 
+<P>Sets are arrays with no blank or duplicate
+elements, sorted by an internal sorter.  A single-element set can
+be made using esc(s).  To test for the presence of e in s, use
+s |* esc(e) != ""</P>
 
-	Variables: variables are letters a through z and A through Z that can
-	hold strings or numbers. When a variable is assigned to, the result
-	of the assignment is returned. All lower-case variables are database
-	locals and are reset to the empty string (or 0) when a database is
-	loaded from disk.
+<BLOCKQUOTE><TABLE>
+<TR><TD>toset (s)</TD><TD>Returns array s converted to a valid set</TD></TR>
+<TR><TD>s1 |+ s2</TD><TD>Returns the union of two sets.</TD></TR>
+<TR><TD>s1 |* s2</TD><TD>Returns the intersection of two sets.</TD></TR>
+<TR><TD>s1 |- s2</TD><TD>Returns s1, with all elements of s2 removed</TD></TR>
+</TABLE></BLOCKQUOTE>
 
-	  var		value of variable
-	  var = s		assign string to variable
-	  var = n		assign number to variable
-	  var .= s		append string to variable
-	  var += n		add number to variable
-	  var -= n		subtract number from variable
-	  var *= n		multiply variable by number
-	  var /= n		divide variable by number
-	  var %= n		assign modulo with number to variable
-	  var &= n		logical AND with variable
-	  var |= n		logical OR with variable
-	  var++		post-increment
-	  var--		post-decrement
-	  ++var		pre-increment
-	  --var		pre-decrement
+<H2>Variables</H2>
 
+<P>Variables are letters a through z and A through Z that can
+hold strings or numbers. When a variable is assigned to, the result
+of the assignment is returned. All lower-case variables are database
+locals and are reset to the empty string (or 0) when a database is
+loaded from disk.</P>
 
-	Database Access
+<BLOCKQUOTE><TABLE>
+<TR><TD>var</TD><TD>value of variable</TD></TR>
+<TR><TD>var = s</TD><TD>assign string to variable</TD></TR>
+<TR><TD>var = n</TD><TD>assign number to variable</TD></TR>
+<TR><TD>var .= s</TD><TD>append string to variable</TD></TR>
+<TR><TD>var += n</TD><TD>add number to variable</TD></TR>
+<TR><TD>var -= n</TD><TD>subtract number from variable</TD></TR>
+<TR><TD>var *= n</TD><TD>multiply variable by number</TD></TR>
+<TR><TD>var /= n</TD><TD>divide variable by number</TD></TR>
+<TR><TD>var %= n</TD><TD>assign modulo with number to variable</TD></TR>
+<TR><TD>var &gt;= n</TD><TD>logical AND with variable</TD></TR>
+<TR><TD>var |= n</TD><TD>logical OR with variable</TD></TR>
+<TR><TD>var++</TD><TD>post-increment</TD></TR>
+<TR><TD>var--</TD><TD>post-decrement</TD></TR>
+<TR><TD>++var</TD><TD>pre-increment</TD></TR>
+<TR><TD>--var</TD><TD>pre-decrement</TD></TR>
+</TABLE></BLOCKQUOTE>
 
-	  _field ...		database field of current card, field is number or name
-	  _field [n] ...		database field from any card
-	  		The ... part may be _field if the preceding field is a Reference.
-			In this case, the field number or name comes from the databasae being referred
-			to, and the value is that of the first card matching the reference,
-			or blank otherwise.
-	  _field ... = s	assign string to database field of current card
-	  _field [n] ... = s	assign string to database field from any card
-	  _field ... = n	assign number to database field of current card
-	  _field [n] ... = n	assign number to database field from any card
-	  this		number of current card, 0 is first
-	  _field ... this	number of card referred to by reference field
-	  _field [n] ... this	number of card referred to by reference field
-	  last		number of last card
-	  _field ... last	number of last card in database referred to by reference field
-	  _field [n] ... last	number of last card in database referred to by reference field
-	  avg (_field)		average of field in all cards
-	  qavg (_field)	average of field in current query result
-	  savg (_field)	average of field in all cards of this section
-	  dev (_field)		standard deviation of field in all cards
-	  qdev (_field)	standard deviation of field in current query result
-	  sdev (_field)	standard deviation of field in all cards of this section
-	  min (_field)		minimum value of field in all cards
-	  qmin (_field)	minimum value of field in current query result
-	  smin (_field)	minimum value of field in all cards of this section
-	  max (_field)	maximum value of field in all cards
-	  qmax (_field)	maximum value of field in current query result
-	  smax (_field)	maximum value of field in all cards of this section
-	  sum (_field)	sum of field in all cards
-	  qsum (_field)	sum of field in current query result
-	  ssum (_field)	sum of field in all cards of this section
-	  dbase		name of current database file
-	  form		name of the current file
-	  prevform		name of the previous form file
-	  expand (_field ...)	returns the mnemonic value of choice and flag fields
-	  expand (_field[n] ...)	same for card n
-	  deref (_field ...[, [s1][, s2])
-			expand reference field to visible value
-	  		visible values are separated by s1 (" " if unspecified)
-			multi-references are separated by s2 ("\n" if unspecified)
-	  deref (_field[n] ...[, [s1][, s2])
-	  		same for card n
-	  dereff (_field)	expand reference field to visible field reference array
-	  section		the current card's section
+<H2>Database Access</H2>
+
+<P>A column reference (<I>_field</I>) specifies a column in the database.  The
+<I>field</I> part is either the column number or the assigned name for that
+column.</P>
+
+<P>An optional "which card" suffix (<I>[w]</I>) selects either the current
+card (by ommitting the suffix), a specific card number (obtained by this) in
+brackets ([ <I>n</I> ]), or a specific chard whose unique ID (obtained by id)
+is given in double-brackets ([[ <I>s</I> ]]).</P>
+
+<P>A data reference (<I>_f,,,</I>) refers to a specific column in a specific
+card, and is a column reference followed by an optional "which card" suffix.<P>
+
+<P>A foreign field reference (<I>_r,,,</I>) is a data reference of a Reference
+field, followed by _<I>field</I>, where <I>field</I> is interpreted as if it
+were in the referred-to database.  Any number of additional _<I>field</I>
+dereferences may be appended as long as the previous chain of references
+resolves to a Reference field.</P>
+
+<BLOCKQUOTE><TABLE>
+<TR><TD>_r...</TD><TD>value of database field</TD></TR>
+<TR><TD>_r... = s</TD><TD>assign string to database field</TD></TR>
+<TR><TD>_r... = n</TD><TD>assign number to database field</TD></TR>
+<TR><TD>this</TD><TD>number of current card, 0 is first</TD></TR>
+<TR><TD>_r... this</TD><TD>number of card referred to by reference field</TD></TR>
+<TR><TD>this [[ s ]]</TD><TD>number of card with given ID, <0 if not found</TD></TR>
+<TR><TD>last</TD><TD>number of last card</TD></TR>
+<TR><TD>_r... last</TD><TD>number of last card in database referred to by reference field</TD></TR>
+<TR><TD>id</TD><TD>unique card ID (string)</TD></TR>
+<TR><TD>_r... id</TD><TD>unique card ID (string) referred to by reference field</TD></TR>
+<TR><TD>id [ n ]</TD><TD>unique card ID (string) of given card number</TD></TR>
+<TR><TD>mtime [w]</TD><TD>last modified timestamp of card (0/blank if unknown)</TD></TR>
+<TR><TD>_r... mtime</TD><TD>last modified timestamp of referred-to card (0/blank if unknown)</TD></TR>
+<TR><TD>ctime [w]</TD><TD>creation timestamp of card (0/blank if unknown)</TD></TR>
+<TR><TD>_r... ctime</TD><TD>creation timestamp of referred-to card (0/blank if unknown)</TD></TR>
+<TR><TD>avg (_field)</TD><TD>average of field in all cards</TD></TR>
+<TR><TD>qavg (_field)</TD><TD>average of field in current query result</TD></TR>
+<TR><TD>savg (_field)</TD><TD>average of field in all cards of this section</TD></TR>
+<TR><TD>dev (_field)</TD><TD>standard deviation of field in all cards</TD></TR>
+<TR><TD>qdev (_field)</TD><TD>standard deviation of field in current query result</TD></TR>
+<TR><TD>sdev (_field)</TD><TD>standard deviation of field in all cards of this section</TD></TR>
+<TR><TD>min (_field)</TD><TD>minimum value of field in all cards</TD></TR>
+<TR><TD>qmin (_field)</TD><TD>minimum value of field in current query result</TD></TR>
+<TR><TD>smin (_field)</TD><TD>minimum value of field in all cards of this section</TD></TR>
+<TR><TD>max (_field)</TD><TD>maximum value of field in all cards</TD></TR>
+<TR><TD>qmax (_field)</TD><TD>maximum value of field in current query result</TD></TR>
+<TR><TD>smax (_field)</TD><TD>maximum value of field in all cards of this section</TD></TR>
+<TR><TD>sum (_field)</TD><TD>sum of field in all cards</TD></TR>
+<TR><TD>qsum (_field)</TD><TD>sum of field in current query result</TD></TR>
+<TR><TD>ssum (_field)</TD><TD>sum of field in all cards of this section</TD></TR>
+<TR><TD>dbase</TD><TD>name of current database file</TD></TR>
+<TR><TD>form</TD><TD>name of the current file</TD></TR>
+<TR><TD>prevform</TD><TD>name of the previous form file</TD></TR>
+<TR><TD>expand (_r...)</TD><TD>returns the mnemonic value of choice and flag fields</TD></TR>
+<TR><TD>deref (_r...[, [s1][, s2])</TD><TD>expand reference field to visible value<BR>
+	  		visible values are separated by s1 (" " if unspecified)<BR>
+			multi-references are separated by s2 ("\n" if unspecified)</TD></TR>
+<TR><TD>dereff (_r...)</TD><TD>expand reference field to visible field reference array</TD></TR>
+<TR><TD>section [w]</TD><TD>the card's section<BR>
 			this is a section number if in numeric context,
-			and a name in string context
-	  section [n]		the section of card n
+			and a name in string context</TD></TR>
+</TABLE></BLOCKQUOTE>
 
-	  The foreach functions do not return a value, and do not affect
-	  the return value of the expression.  The expression is evaluated
-	  only for side effects.
+<P>The foreach functions do not return a value, and do not affect
+  the return value of the expression.  The expression is evaluated
+  only for side effects.</P>
 
-	  foreach (s)		evaluate s as an expression for all cards
-	  foreach (s1, s2)	evaluate s2 as an expression for all cards where
+<BLOCKQUOTE><TABLE>
+<TR><TD>foreach (s)</TD><TD>evaluate s as an expression for all cards</TD></TR>
+<TR><TD>foreach (s1, s2)</TD><TD>evaluate s2 as an expression for all cards where
 			expression s1 returns true (after stripping spaces, not
-			blank and first character is not 0, f, or F.
+			blank and first character is not 0, f, or F.</TD></TR>
+</TABLE></BLOCKQUOTE>
 
-	  The database prefix returns the value of the string expression
-	  following the colon up to the first unnested semicolon or comma,
-	  parsing that expression as if it appeared in the database named
-	  s1, with the search s2, sorted by the field s3. More than one
-	  search field may be appended, and - inverts the order.  All but @s1
-	  and : are optional.  If s1 is blank, the current database is used.
+<P>The database prefix returns the value of the string expression
+  following the colon up to the first unnested semicolon or comma,
+  parsing that expression as if it appeared in the database named
+  s1, with the search s2, sorted by the field s3. More than one
+  search field may be appended, and - inverts the order.  All but @s1
+  and : are optional.  If s1 is blank, the current database is used.</P>
 
-	  @ s1 / s2 + s3 : ... ;
+<BLOCKQUOTE>@ s1 / s2 + s3 : ... ;</BLOCKQUOTE>
 
-	The switch function only works as an action for buttons:
+<P>The switch function only works as an action for buttons:</P>
 
-	  switch("", "")	do nothing
-	  switch("", "*")	put all cards in summary
-	  switch("", "{expr}")	all cards for which {expr} is not "0" or empty
-	  switch("", "(expr)")	all cards for which (expr) is not 0
-	  switch("", "string")	all cards that contain search string
-	  switch("name", "x")	switch to form "name", then do query "x"
-
-
-	Operating System Access
-
-	  system (s)		execute shell command and return stdout
-	  $envvar		environment variable
-	  host		local host name
-	  user		user's login name
-	  uid		user's numeric user ID
-	  gid		user's numeric group ID
-	  access(s,n)		1 if any/r/w/x permission for file s for n=0/1/2/4
-	  beep		ring terminal bell, return ""
-	  error (args)		like printf but into a window, return ""
+<BLOCKQUOTE><TABLE>
+<TR><TD>switch("", "")</TD><TD>do nothing</TD></TR>
+<TR><TD>switch("", "*")</TD><TD>put all cards in summary</TD></TR>
+<TR><TD>switch("", "{expr}")</TD><TD>all cards for which {expr} is not "0" or empty</TD></TR>
+<TR><TD>switch("", "(expr)")</TD><TD>all cards for which (expr) is not 0</TD></TR>
+<TR><TD>switch("", "string")</TD><TD>all cards that contain search string</TD></TR>
+<TR><TD>switch("name", "x")</TD><TD>switch to form "name", then do query "x"</TD></TR>
+</TABLE></BLOCKQUOTE>
 
 
-	Time Conversion: dates and times are stored as number of seconds since
-	January 1, 1970. Durations are stored as number of seconds. Note that
-	this means that a time is a significantly larger number than a duration,
-	even if both have the same hh:mm string representation.
+<H2>Operating System Access</H2>
 
-	  time		current time as hh:mm or hh:mm[ap]
-	  time (n)		number as hh:mm or hh:mm[ap]
-	  date		today's date as dd.mm.yy or mm/dd/yy (string)
-	  date (n)		number as dd.mm.yy or mm/dd/yy
-	  duration(n)		number of seconds as hh:mm
-	  date		seconds since January 1, 1970 (number)
-	  year (n)		n as four-digit year
-	  month (n)		n as month 1..12
-	  day (n)		n as day 1..31
-	  hour (n)		n as hour 0..23
-	  minute (n)		n as minute 0..59
-	  second (n)		n as second 0..59
-	  julian (n)		n as julian date 0..365
-	  leap (n)		1 if the time n is in a leap year, 0 otherwise
+<BLOCKQUOTE><TABLE>
+<TR><TD>system (s)</TD><TD>execute shell command and return stdout</TD></TR>
+<TR><TD>$envvar</TD><TD>environment variable</TD></TR>
+<TR><TD>host</TD><TD>local host name</TD></TR>
+<TR><TD>user</TD><TD>user's login name</TD></TR>
+<TR><TD>uid</TD><TD>user's numeric user ID</TD></TR>
+<TR><TD>gid</TD><TD>user's numeric group ID</TD></TR>
+<TR><TD>access(s,n)</TD><TD>1 if any/r/w/x permission for file s for n=0/1/2/4</TD></TR>
+<TR><TD>beep</TD><TD>ring terminal bell, return ""</TD></TR>
+<TR><TD>error (args)</TD><TD>like printf but into a window, return ""</TD></TR>
+</TABLE></BLOCKQUOTE>
+
+
+<H2>Time Conversion</H2>
+
+<P>Dates and times are stored as number of seconds since
+January 1, 1970. Durations are stored as number of seconds. Note that
+this means that a time is a significantly larger number than a duration,
+even if both have the same hh:mm string representation.</P>
+
+<BLOCKQUOTE><TABLE>
+<TR><TD>time</TD><TD>current time as hh:mm or hh:mm[ap]</TD></TR>
+<TR><TD>time (n)</TD><TD>number as hh:mm or hh:mm[ap]</TD></TR>
+<TR><TD>date</TD><TD>today's date as dd.mm.yy or mm/dd/yy (string)</TD></TR>
+<TR><TD>date (n)</TD><TD>number as dd.mm.yy or mm/dd/yy</TD></TR>
+<TR><TD>duration(n)</TD><TD>number of seconds as hh:mm</TD></TR>
+<TR><TD>date</TD><TD>seconds since January 1, 1970 (number)</TD></TR>
+<TR><TD>year (n)</TD><TD>n as four-digit year</TD></TR>
+<TR><TD>month (n)</TD><TD>n as month 1..12</TD></TR>
+<TR><TD>day (n)</TD><TD>n as day 1..31</TD></TR>
+<TR><TD>hour (n)</TD><TD>n as hour 0..23</TD></TR>
+<TR><TD>minute (n)</TD><TD>n as minute 0..59</TD></TR>
+<TR><TD>second (n)</TD><TD>n as second 0..59</TD></TR>
+<TR><TD>julian (n)</TD><TD>n as julian date 0..365</TD></TR>
+<TR><TD>leap (n)</TD><TD>1 if the time n is in a leap year, 0 otherwise</TD></TR>
+</TABLE></BLOCKQUOTE>

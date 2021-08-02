@@ -5,8 +5,9 @@
 <H1>Expression Grammar</H1>
 
 <P>Expressions are used for queries, for defaults of card items, and
-for printing expressions into cards. They are set in Database Edit mode;
-a normal user does not deal with expressions directly.
+for printing expressions into cards. They are also used in template
+definitions, and may be specified in complex queries.  A normal user does
+not deal with expressions directly.
 
 <P>Expressions deal with two data types, <I>strings</I> and
 <I>numbers</I>.  Expressions or sub-expressions returning strings are
@@ -160,19 +161,40 @@ variables.
 <A NAME="ge">
 <H2>Database Access</H2>
 
-<P>Database rows (cards) can be accessed by providing an index
-in brackets. Without brackets, the current card (<TT>this</TT>) is
-assumed. Database columns are named. The name must always be prefixed with
-an underscore (_). In place of the name, the field can be selected with a
-column number (which must also be prefixed with an underscore), beginning
-at 0. Only fields that store data in the database can be accessed
-(types <I>Input</I>, <I>Time</I>, <I>Flag</I>, and <I>Choice</I>);
-this excludes fields of type <I>Label</I> and <I>Print</I>. Fields
-can also be assigned to using the ``<TT>=</TT>'' sign; the assignment
-returns the assigned value. Avoid assigning to fields in default and
-Print and other expressions that are evaluated when redrawing the card;
-the card is not re-redrawn if the redrawing itself changed it. It is
-recommended to use field assignments only in button action expressions.
+<P>Database rows (cards) can be accessed by providing a numeric index
+in brackets or a unique card identifier string in double-brackets.
+Without brackets, the current card (<TT>this</TT>) is assumed.  The
+card index may change if cards are deleted.  The unique ID is
+guaranteed unique while the database is loaded into memory.  It is
+also saved in the timestamp file for forms where the
+<I>Timestamps/Synchronizable</I> feature is enabled, making it unique for
+the lifetime of the database.  The ID may be obtained using <TT>id</TT>.
+In the tables below, <I>card</I> is used to indicate the card selection
+suffix (or lack thereof).  Generally, 0 or blank are returned if the
+<I>card</I> selection is not found (e.g. no card with the given unique
+ID, or an out-of-range card index).
+
+<P>Database columns are named. The name must always be prefixed with
+an underscore (_). In place of the name, the field can be selected
+with a column number (which must also be prefixed with an underscore),
+beginning at 0. Only fields that store data in the database can be
+accessed (e.g. types <I>Input</I>, <I>Time</I>, <I>Flag</I>, 
+and <I>Choice</I>); this excludes fields of type <I>Label</I>, <I>Print</I>,
+<I>Button</I>, <I>Chart</I> and <I>Referers</I>.
+
+<P>Fields can also be assigned to using the ``<TT>=</TT>'' sign; the
+assignment returns the assigned value. Avoid assigning to fields in
+default and <I>Print</I> and other expressions that are evaluated when
+redrawing the card; the card is not re-redrawn if the redrawing itself
+changed it. It is recommended to use field assignments only in button
+action expressions. Note that assignements in search expressions apply
+to all cards, so avoid them there as well (especially accidental
+assignments where equality checks were intended; you may need to
+revert the database if this happens). Assignments in templates may be
+a useful way to do mechanical mass updates, but be aware that the
+changes will only be saved from the GUI, not the command-line, and
+that they are executed every time the template is previewed, printed,
+or exported.
 
 <P>The <TT>avg</TT>, <TT>dev</TT>, <TT>min</TT>, <TT>max</TT>, and
 <TT>sum</TT> operators differ from all other operators: they don't
@@ -322,30 +344,53 @@ This sorts biblio by date and then in reverse title order and returns
 the list of dates and titles in <TT>b</TT>.  <TT>t</TT> is not
 affected in any database but biblio.
 
+<P>An even lighter-weight method of accessing another database may be used
+with fields of type <I>Reference</I>.  A field in the database referred to
+by this field may simply be appended (juxtaposed with) the reference field.
+It is evaluated and parsed in the context of the foreign database.  Any
+number of field names may be appended, as long as the previous one is a
+reference.  For example, if the field ``game'' in the current database
+refers to the database ``games'', which has a field named ``purchase'',
+which in turn is a reference to the database ``purchases'', with a field
+named ``price'', you can obtain the value of ``price'' in the card
+referred to by ``purchase'', in the card referred to by ``game'', in the
+last card of the current database, using:
+
+<PRE>
+  _game[last] _purchase _price
+</PRE>
+
+<P>Note that ``purchase'' and ``price'' do not need to even exist in the
+current database:  the names are parsed as if they were in the foreign
+database., although only the first one supports the optional <I>card</I>
+suffix since the card selected for subsequent fields is the card referred
+to by the previous one's current value.
+
+<P>Such a list of fields is a <I>reference chain</I>.  The chain is broken
+if any lookup fails.  This includes the <I>card</I> suffix on the first
+field in the chain, as well as blank or invalid values in any of the
+reference fields.  In other words, if there are no cards in the current
+database (i.e., [last] fails), or no card in ``games'' matches the reference
+in _game[last], or no card in ``purchases'' matches the reference in
+_purchase of the card referred to by _game[last], the chain is broken.
+If the chain is broken, the value of the expression is 0/blank and
+assignments are silently ignored.  In the tables below, an optional list of
+foreign field names is indicated by <I>ffields</I>.
+
 <P><TABLE WIDTH="100%" CELLPADDING=4 BORDER=0 CELLSPACING=4>
 <TR BGCOLOR=#a0a0e0><TH>operator<TH>type<TH>operation
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B>,<B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from the database, current card
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I><TT>[</TT><B>n</B><TT>]</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0> <B>s</B>,<B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from the database, any card
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <TT>=</TT> <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Change a field in the database, current card
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <TT>=</TT> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Change a field in the database, current card
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I><TT>[</TT><B>n</B><TT>] =</TT> <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0> Change a field in the database, any card
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I><TT>[</TT><B>n</B><TT>] =</TT> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0> Change a field in the database, any card
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>expand(</TT><I>_field</I><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from the database, current card, with flag or choice value expanded to mnemonic string
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>expand(</TT><I>_field</I><TT>[</TT><B>n</B><TT>])</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from the database, any card, with flag or choice value expanded to mnemonic string
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <I>card</I> <I>ffields</I><TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B>,<B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from the database card given by <I>card</I> and <I>ffields</I>
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <I>card</I> <I>ffields</I> <TT>=</TT> <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Change a field in the database card given by <I>card</I> and <I>ffields</I>
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <I>card</I> <I>ffields</I> <TT>=</TT> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Change a field in the database card given by <I>card</I> and <I>ffields</I>
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>expand(</TT><I>_field</I> <I>card</I> <I>ffields</I><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from the database card given by <I>card</I> and <I>ffields</I>, with flag or choice value expanded to mnemonic string
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>this</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the current card, 0 is first
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>this</TT> [[<B>s</B>]]<TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the card whose unique ID is <B>s</B>, 0 is first
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <I>card</I> <I>ffields</I> <TT>this</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the card referenced by <I>_field</I>, <I>card</I> and <I>ffields</I>, 0 is first
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>id</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The unique ID of the current card
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>id</TT> [<B>n</B>]<TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The unique ID of card number <B>n</B>, 0 is first
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <I>card</I> <I>ffields</I> <TT>id</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The unique ID of the card referenced by <I>_field</I>, <I>card</I> and <I>ffields</I>
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>last</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the last card, 0 is first
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field1</I> <I>_field2</I> ... <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B>,<B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from a referenced database, referenced from the current card.
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field1</I><TT>[</TT><B>n</B><TT>]</TT> <I>_field2</I> ... <TD VALIGN=TOP BGCOLOR=#e0e0e0> <B>s</B>,<B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from a referenced database, referenced from any card
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <I>_field2</I> ... <TT>=</TT> <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Change a field in a referenced database, referenced from current card
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <I>_field2</I> ... <TT>=</TT> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Change a field in a referenced database, referenced from current card
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I><TT>[</TT><B>n</B><TT>] <I>_field2</I> ... =</TT> <B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0> Change a field in a referenced database, referemced from any card
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I><TT>[</TT><B>n</B><TT>] <I>_field2</I> ... =</TT> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0> Change a field in a referenced database, referenced from any card
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>expand(</TT><I>_field1</I> <I>_field2</I> ...<TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from a referenced database, referenced from current card, with flag or choice value expanded to mnemonic string
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>expand(</TT><I>_field1</I> <I>_field2</I> ...<TT>[</TT><B>n</B><TT>])</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0> <B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A field from a referenced database, referenced from any card, with flag or choice value expanded to mnemonic string
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> ... <TT>this</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the row referenced from current card, 0 is first
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> ... <TT>last</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the last card in database referenced from current card, 0 is first
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I><TT>[</TT><B>n</B><TT>]</TT> ... <TT>this</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the row referenced from any card, 0 is first
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I><TT>[</TT><B>n</B><TT>]</TT> ... <TT>last</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the last card in database referenced from any card, 0 is first
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <I>card</I> <I>ffields</I> <TT>last</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the last card in database referenced by <I>_field</I>, <I>card</I> and <I>ffields</I>, 0 is first
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>disp</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the currently displayed card, or -1 if none
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>avg(</TT><I>_field</I><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Average of a field in all cards
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>qavg(</TT><I>_field</I><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Average the current query result
@@ -364,10 +409,8 @@ affected in any database but biblio.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>ssum(</TT><I>_field</I><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Sum of the current section
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>dbase</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The name of the accessed database file
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>form</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The name of the accessed form file
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>section</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The name of the current section, or the empty string
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>section</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the section the current card is in, or 0
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>section[</TT><B>n</B><TT>]</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The name of section <B>n</B>
-<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>section[</TT><B>n</B><TT>]</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the section card <B>n</B> is in, or 0
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>section</TT> <I>card</I> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The name of the section the card given by <I>card</I> is in, or the empty string
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>section</TT> <I>card</I> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The number of the section the card given by <I>card</I> is in, or 0
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>prevform</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The name of the previous accessed form file
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>switch(</TT><B>s1</B>, <B>s2</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Database switch and/or query; see above
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>foreach(</TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Apply expression to all cards; see above
@@ -375,11 +418,21 @@ affected in any database but biblio.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>@</TT><B>s1</B> <TT>/</TT><B>s2</B> <TT>+</TT><B>s3</B> <TT>:</TT> <B>s4</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Parse, evaluate and return <B>s4</B> as if it appeared in database named by <B>s1</B>, with default query <B>s2</B> and sorted by <B>s3</B>.  See above.
 </TABLE>
 
-In the reference lists above (<I>_field</I> ...), the initial field(s) must
-be reference fields.  The subsequent <I>_field</I> is interpreted as a field
-in the referenced database, from the row referenced by the initial field(s).
-Only the first field in this reference chain may specify a row using square
-brackets..
+<P>Card creation and modification time is only known for cards created or
+modified since the database was loaded, unless the
+<I>Timestamps/Synchronizable</I> feature was enabled for the database.
+
+<P><TABLE WIDTH="100%" CELLPADDING=4 BORDER=0 CELLSPACING=4>
+<TR BGCOLOR=#a0a0e0><TH>operator<TH>type<TH>operation
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>ctime</TT> <I>card</I> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The creation time as date and time string of the database card given by <I>card</I>.  blank if unknown.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>ctime</TT> <I>card</I> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The creation time in seconds since January 1, 1970 of the database card given by <I>card</I>.  0 if unknown.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <I>card</I> <I>ffields</I> <TT>ctime</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The creation time as date and time string of the card referenced by <I>_field</I>, <I>card</I> and <I>ffields</I>.  blank if unknown.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <I>card</I> <I>ffields</I> <TT>ctime</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The creation time in seconds since January 1, 1970 of the card referenced by <I>_field</I>, <I>card</I> and <I>ffields</I>.  0 if unknown.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>mtime</TT> <I>card</I> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The last modification time as date and time string of the database card given by <I>card</I>.  blank if unknown.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>mtime</TT> <I>card</I> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The last modification time in seconds since January 1, 1970 of the database card given by <I>card</I>.  0 if unknown.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <I>card</I> <I>ffields</I> <TT>mtime</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The last modification time as date and time string of the card referenced by <I>_field</I>, <I>card</I> and <I>ffields</I>.  blank if unknown.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <I>card</I> <I>ffields</I> <TT>mtime</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The last modification time in seconds since January 1, 1970 of the card referenced by <I>_field</I>, <I>card</I> and <I>ffields</I>.  0 if unknown.
+</TABLE>
 
 <A NAME="gf">
 <H2>Operating System Access</H2>

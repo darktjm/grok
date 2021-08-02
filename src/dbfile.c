@@ -431,7 +431,6 @@ static bool read_file(
 			dbase_put(dbase, row, col++, val);
 			dbase->row[row]->mtime  = 0;
 			dbase->row[row]->ctime  = 0;
-			dbase->row[row]->ctimex = dbase->ctimex_next++;
 			bindex = 0;
 			if (feof(fp) || c0 == R_SEP) {		/* next row */
 				col = nc = 0;

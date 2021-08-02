@@ -78,7 +78,7 @@ typedef struct row {
 	short	section;	/* section this row belongs to */
 	time_t	mtime;		/* last modification time */
 	time_t	ctime;		/* creation time, identifies card uniquely */
-	int	ctimex;		/* just in case two cards have same ctime */
+	long	ctimex;		/* just in case two cards have same ctime */
 	char	*data[1];	/* <ncolumns> strings, allocated larger */
 } ROW;
 
@@ -105,7 +105,7 @@ struct dbase {
 	SECTION	    *sect;	/* describes all section files 0..nsects-1 */
 	bool	    havesects;	/* db is a directory, >1 sections possible */
 	ROW	    **row;	/* array of <nrows> rows */
-	int	    ctimex_next;/* just in case two cards have same ctime */
+	long	    ctimex_next;/* just in case two cards have same ctime */
 	EVAR	    var[26];	/* dbase-local expression variables */
 };
 

@@ -340,9 +340,9 @@ on a long-winded command being in preferences to save you some typing,
 just convert that into a shorter-named shell script.
 
 Version 2.4 (in progress)
- * Removed a debugging printf that I left in 2.3.
- * Search mode is now in Query menu instead of next to search entry
- * Default search mode is now find+select
+ * Switched from Qt's qmake to the more generic cmake.  This corrects
+   a few problems with the documentation.  Builds now depend on cmake
+   and bison (byacc used to work, but not any more).
  * Added Reference and Referers fields for foreign database access
    * List of key and/or card-displayed fields editable in form editor
    * Reference fields appear as sequence of pulldown menus in card
@@ -357,43 +357,10 @@ Version 2.4 (in progress)
      references in the above format
    * Added _fkey this and _fkey last to get row numbers from
      referenced database.  _fkey can be a chain as above.
- * Canvas cursor changes shape on hover, not just on click
- * Fixed a few memory leaks
- * Fixed some sources of crashing when form errors appear at startup
- * Removed many string length limits
- * Letter buttons now work as I expect them to (i.e., pressing one after
-   another switches to the other letter, rather than adding it to the
-   search constraints).
- * Fixed several resizing-related issues introduced in 2.0 and 2.2.
- * Fixed foreach(a,b) where a is a variable (broken in 2.1)
- * The min and max functions are no longer constrained to a range.
- * Switched from Qt's qmake to the more generic cmake.  This corrects
-   a few problems with the documentation.  Builds now depend on cmake
-   and bison (byacc used to work, but not any more).
- * Fixed some bugs in setting array elements.  See the SVN log for
-   details.  These bugs were all introduced in 2.1.
- * Fixed single-column flag group flag insertion after 2nd element (find_elt)
-   (since 2.2)
- * Fixed multi-column flag list ignoring input (since 2.2)
- * Fixed crashing if summary includes blank single-field flag list/flag group
-   (since 2.2)
- * Accessing negative elements in an array used to always return blank
-   (as documented).  Now it counts from the end of the array.  Note
-   that underlying array traversal is still from the start, so accessing
-   elements from the end is less efficient.
+ * Field names are now printed in database info popup as well (ctrl-D)
+ * Search mode is now in Query menu instead of next to search entry
+ * Default search mode is now find+select
  * Added array access/slice operators: s[..n], s[n..n], s[..], s[n]
- * Added ELSE and ELSEIF to templates
- * Added -X to print raw template
- * Several issues with Flag/Choice Group layout (since 2.2) have been fixed
- * Several date widget issues have been addressed, including the
-   addition of popup-calendar-only widgets
- * Qt flags are now processed only (and fully) if the GUI is brought up.
-   Using Qt flags in non-interactive commands is an error, as is any
-   flag not recognized by grok or Qt.  Previously two-part options such
-   as -style <file> would use <file> as a grok option; no more.
- * foreach() expressions used to support non-expressions, basically
-   requiring () or {}, even though non-expressions make no sense in this
-   context.  Now they are always evaluated as a string expression.
  * Multiple databases can now be in memory at once.  A preference was
    added to control how many.  Switching away from a modified database
    doesn't lose changes and can be saved/reverted on exit.
@@ -402,9 +369,46 @@ Version 2.4 (in progress)
  * FOREACH supports changing the sort order for foreign or same database
  * Generic SQL exporter (create table & views, import data into table).
    Supports sqlite3, postgres (at least 11), firebird 3 (partly).
+ * Added ELSE and ELSEIF to templates
+ * Added -X to print raw template
+ * Added id keyword to retrieve a row's unique ID, and [[<id>]] to access
+   a row by ID.  IDs are only persistent across loads if timestamps are saved.
+ * Added ctime and mtime keywords to retrieve a row's timestamp data
+ * Qt flags are now processed only (and fully) if the GUI is brought up.
+   Using Qt flags in non-interactive commands is an error, as is any
+   flag not recognized by grok or Qt.  Previously two-part options such
+   as -style <file> would use <file> as a grok option; no more.
+ * Several date widget issues have been addressed, including the
+   addition of popup-calendar-only widgets
+ * Canvas cursor changes shape on hover, not just on click
+ * Letter buttons now work as I expect them to (i.e., pressing one after
+   another switches to the other letter, rather than adding it to the
+   search constraints).
+ * The min and max functions are no longer constrained to a range.
+ * foreach() expressions used to support non-expressions, basically
+   requiring () or {}, even though non-expressions make no sense in this
+   context.  Now they are always evaluated as a string expression.
+ * Accessing negative elements in an array used to always return blank
+   (as documented).  Now it counts from the end of the array.  Note
+   that underlying array traversal is still from the start, so accessing
+   elements from the end is less efficient.
+ * Fixed some bugs in setting array elements.  See the SVN log for
+   details.  These bugs were all introduced in 2.1.
+ * Fixed single-column flag group flag insertion after 2nd element (find_elt)
+   (since 2.2)
+ * Fixed multi-column flag list ignoring input (since 2.2)
+ * Fixed crashing if summary includes blank single-field flag list/flag group
+   (since 2.2)
+ * Several issues with Flag/Choice Group layout (since 2.2) have been fixed
  * The automatically generated column field for new items now takes
    multi-column fields into account.
  * fixed loss of digits field on form edit load
+ * Removed a debugging printf that I left in 2.3.
+ * Fixed a few memory leaks
+ * Fixed some sources of crashing when form errors appear at startup
+ * Removed many string length limits
+ * Fixed several resizing-related issues introduced in 2.0 and 2.2.
+ * Fixed foreach(a,b) where a is a variable (broken in 2.1)
 
 Compatibility Issues:
 

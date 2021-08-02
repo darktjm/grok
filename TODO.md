@@ -78,6 +78,9 @@ Features in Progress
 
   - searches don't search visible fields instead of fkey
 
+  - no support for inv_fkey in auto-templates, summary, expressions,
+    search, sort
+
   - changing db of fkey field spews errors on stderr.  Probably won't
     fix before 2.4
 
@@ -139,17 +142,17 @@ Features in Progress
   Also, in the style of emacs, retain search and sort criteria of
   previous view on dbase switch.  Currently, I discard the card, and
   only retain the dbase & form if the dbase is modified or cached.
-
-
-- Due to recent hospitalization, I revisited fkey support, but I still
-  may drop multi-window support for now.
+  
+  Mabye not before 2.4, since popping up a cardwin meets some of the
+  needs.
 
 Bugs
 ----
 
 - Modification by just viewing?
 
-- Click on list with card update changes selection
+- Click on list with card update changes selection.  This is due to
+  re-sort sometimes, but other times who knows?
 
 - Sometimes displayed card and selected summary line mismatch, still
 
@@ -263,9 +266,9 @@ Code Improvements
 Minor UI Improvements
 ---------------------
 
-- Maybe add hotkeys for serch mode so it's easier to do.  Maybe remove
-  the Serch button since pressing return does the same thing.  Plus, I"m
-  not even sure I understand what all of those options do (probably at
+- Maybe add hotkeys for search mode so it's easier to do.  Maybe remove
+  the Search button since pressing return does the same thing.  Plus, I"m
+  not even sure I understand what all of those modes do (probably at
   least because widen was broken, and the entire widget isn't even documented
   outside of grok.hlp and HISTORY).  I only use the first and last.
 
@@ -597,8 +600,8 @@ Infrastructure Improvements
   feature.
 
 - Make Print widget's name refer to the label text, rather than a
-  database column.  Support Print widgets in listing, expressions,
-  and anywhere else a column is usually required.
+  database column.  Support Print widgets in summary, expressions,
+  auto-template full listings, search, sort.
 
 - Support UTF-8.  I don't like the idea of using QChar everywhere, and
   I definitely don't like the idea of converting to/from QByteArrays,
@@ -714,9 +717,7 @@ Infrastructure Improvements
   support.  It also doesn't cover HTML, which needs a different line
   break algorithm.
 
-- Have a way to access timestamp information in expressions and
-  templates, including a 't' flag to add them to the auto-generated
-  templates.
+- Add a 't' flag to add timestamps to the auto-generated templates.
 
 - Make a generic RST exporter, and support that for printing.  Maybe
   also md/discount, but I have come to hate md.  Supporting RST for

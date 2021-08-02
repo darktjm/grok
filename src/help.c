@@ -67,6 +67,7 @@ UNUSED	QWidget			*parent,
 	    !(message = add_card_help(topic, message)))
 		return;
 	if (have_shell) {
+		text_w->setLineWrapMode(Qt::mightBeRichText(message) ? QTextEdit::WidgetWidth : QTextEdit::NoWrap);
 		text_w->setText(message);
 		popup_nonmodal(shell);
 		free(message);
@@ -102,8 +103,9 @@ UNUSED	QWidget			*parent,
 	text_w->setReadOnly(true);
 	// QSS doesn't support :read-only for QTextEdit
 	text_w->setProperty("readOnly", true);
-	text_w->setLineWrapMode(QTextEdit::NoWrap);
-	text_w->setLineWrapMode(QTextEdit::NoWrap);
+	// FixedColumnWidth wrapping wraps on char boundaries?
+//	text_w->setLineWrapColumnOrWidth(90);
+	text_w->setLineWrapMode(Qt::mightBeRichText(message) ? QTextEdit::WidgetWidth : QTextEdit::NoWrap);
 	text_w->setText(message);
 	text_w->setProperty("colSheet", true);
 	text_w->setProperty("colStd", true);

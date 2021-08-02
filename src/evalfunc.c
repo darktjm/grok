@@ -51,7 +51,6 @@ double f_num(
 	return(d);
 }
 
-
 /*
  * All these functions run over the entire database and calculate something
  * from a single column.
@@ -542,6 +541,8 @@ int f_section(
 		   && nrow < g->card->dbase->nrows
 		   && (row = g->card->dbase->row[nrow]))
 		return(row->section);
+	else if (g->card && g->card->dbase && !g->card->dbase->nrows)
+		return(g->card->dbase->currsect);
 	return(0);
 }
 

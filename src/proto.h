@@ -138,6 +138,10 @@ void dbase_sort(
 	int		col,		/* column to sort by */
 	bool		rev,		/* reverse if nonzero */
 	bool		noinit = false);/* multi-field sort */
+int row_with_ctime(
+	const DBASE	*dbase,		/* database to search */
+	time_t		ctime,		/* ctime to find */
+	long		ctimex);	/* ctime uniquifier */
 int fkey_lookup( /* ret -2 for oob, -1 for not found */
 	const DBASE	*dbase,		/* database to search */
 	const FORM	*form,		/* fkey origin */
@@ -539,7 +543,8 @@ DQUERY *add_dquery(
 void destroy_query_window(void);
 void create_query_window(
 	FORM		*newform);	/*form whose queries are chgd*/
-void print_query_info(void);
+QString print_query_info(
+	const FORM *form);		/* form whose info is printed */
 
 /*---------------------------------------- refwin.c ------------*/
 

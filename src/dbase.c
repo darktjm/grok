@@ -142,7 +142,7 @@ bool dbase_addrow(
 	int		 *rowp,		/* ptr to returned row number */
 	DBASE		 *dbase)	/* database to add row to */
 {
-	int		 i, n, r;	/* size of data ptr array in bytes */
+	int		 i, n;		/* size of data ptr array in bytes */
 	ROW		 *row;		/* new database row */
 	SECTION		 *sect;			/* current insert section */
 	int		 newsect = 0;
@@ -164,11 +164,7 @@ bool dbase_addrow(
 	row->ncolumns   = n;
 	row->section    = newsect;
 	row->ctime	= time(0);
-	for (r=0; r < dbase->nrows; r++) {
-		ROW *other = dbase->row[r];
-		if (row->ctime == other->ctime && row->ctimex <= other->ctimex)
-			row->ctimex = other->ctimex + 1;
-	}
+	row->ctimex = dbase->ctimex_next++;
 	sect = &dbase->sect[newsect];
 	dbase->modified = true;
 	sect->modified  = true;
@@ -406,6 +402,20 @@ void dbase_sort(
 					break;
 				}
 	}
+}
+
+int row_with_ctime(
+	const DBASE	*dbase,		/* database to search */
+	time_t		ctime,		/* ctime to find */
+	long		ctimex)		/* ctime uniquifier */
+{
+	if (!dbase)
+		return -1;
+	for (int r = 0; r < dbase->nrows; r++)
+		if (dbase->row[r]->ctime == ctime &&
+		    dbase->row[r]->ctimex == ctimex)
+			return r;
+	return -1;
 }
 
 int keylen_of(const ITEM *item)

@@ -208,6 +208,10 @@ void create_dbase_info_popup(
 				sect->modified ? " (modified)"  : ""));
 		}
 	}
+	if (form) {
+		msg.append("\n\n");
+		msg.append(print_query_info(form));
+	}
 	QMessageBox::information(mainwindow, "Database Info", msg,
 				 QMessageBox::Ok);
 }
