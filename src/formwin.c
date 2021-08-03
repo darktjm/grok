@@ -38,7 +38,7 @@ static QTableWidget	*menu_w;	/* the menu editor widget */
 static QTableWidget	*key_w;		/* the reference field editor widget */
 static GrokCanvas	*canvas;
 
-const char		plan_code[] = "tlwWrecnmsSTA";	/* code 0x260..0x26c */
+const char		plan_code[] = "tlwWrecnmsSTA";	/* code EA_PLDT..EA_PLNAL */
 
 
 #define ALL ~0U
@@ -378,6 +378,35 @@ static void resize_key_table(QTableWidget *tw)
 	tw->updateGeometry();
 }
 
+enum edact {
+	EA_FORMNM = 1, EA_DBNAME, EA_FRO, EA_HASTS, EA_ISPROC, EA_EDPROC,
+	EA_DBDELIM, EA_ARDELIM, EA_ARESC, EA_FCMT,
+	EA_QUERY, EA_REFBY, EA_FHELP, EA_DEBUG, EA_PREVW, EA_HELP, EA_CANCEL,
+	EA_DONE, EA_ADDWID, EA_LAST_FWIDE = EA_ADDWID, EA_DELWID,
+	EA_TYPE, EA_FLSRCH, EA_FLRO, EA_FLNSRT, EA_DEFSRT, EA_FLMUL,
+	EA_FKHDR, EA_FKSRCH, EA_FKMUL,
+	EA_FLDNM, EA_FIRST_MULTI_OVR = EA_FLDNM, EA_COL, EA_SUMCOL, EA_SUMWID,
+	EA_LAST_MULTI_OVR = EA_SUMWID, EA_SUMPR, EA_FLCODE, EA_FLSUM,
+	EA_ISDATE, EA_ISTIME, EA_ISDTTM, EA_ISDUR, EA_DTWID, EA_DTCAL,
+	EA_LABJL, EA_LABJC, EA_LABJR, EA_LABFH, EA_LABFO, EA_LABFN, EA_LABFB,
+	EA_LABFC, EA_LABEL, EA_INJL, EA_INJC, EA_INJR, EA_INFH, EA_INFO,
+	EA_INFN, EA_INFB, EA_INFC, EA_INLEN, EA_INMIN, EA_INMAX, EA_INDIG,
+	EA_INDEF, EA_MENUST, EA_MENUDY, EA_MENUSD, EA_FKDB, EA_PLDT, EA_PLLEN,
+	EA_PLEW, EA_PLLW, EA_PLDAYR, EA_PLEND, EA_PLCOL, EA_PLNOTE, EA_PLMSG,
+	EA_PLSCR, EA_PLSUSP, EA_PLNTM, EA_PLNAL, EA_PLIF, EA_GREYIF, EA_HIDEIF,
+	EA_ROIF, EA_SKIPIF, EA_BUTACT,
+	EA_CHXMIN, EA_CHXMAX, EA_CHXAUT, EA_CHYMIN, EA_CHYMAX, EA_CHYAUT,
+	EA_CHXGRD, EA_CHYGRD, EA_CHXSNP, EA_CHYSNP,
+	EA_CHADD, EA_CHDEL, EA_CHCUR, EA_CHNEXT, EA_CHPREV,
+	EA_CHLINE, EA_FIRST_CHART = EA_CHLINE, EA_CHXFAT, EA_CHYFAT,
+	EA_CHNOTIF, EA_CHCOL, EA_CHLAB,
+	EA_CHXNXT, EA_CHXPREV, EA_CHXEXPM, EA_CHXDRGM,
+	EA_CHYNXT, EA_CHYPREV, EA_CHYEXPM, EA_CHYDRGM,
+	EA_CHXEXPR, EA_CHXDRAG, EA_CHXDMUL, EA_CHXDPL, EA_CHYEXPR, EA_CHYDRAG,
+	EA_CHYDMUL, EA_CHYDPL, EA_CHXSZEX, EA_CHXSZ, EA_CHYSZEX, EA_CHYSZ,
+	EA_LAST_CHART = EA_CHYSZ
+};
+#define EA_NONE ((enum edact)0)
 /*
  * next free: 10a,115 (global), 245 (field), 30b (chart component)
  */
@@ -386,265 +415,265 @@ static struct _template {
 	unsigned
 	int	sensitive;	/* when type is n, make sensitive if & 1<<n */
 	int	type;		/* Text, Label, Rradio, Fflag, -line */
-	int	code;		/* code given to (global) callback routine */
+	enum edact code;	/* code given to (global) callback routine */
 	const char *text;	/* label string */
 	const char *help;	/* label string */
 	QWidget	*widget;	/* allocated widget */
 	int	role;		/* for buttons using standard labels */
 				/* also, offset of text field for combos */
 } tmpl[] = {
-	{ ALL, 'L',	 0,	"Form name:",		"fe_form",	},
-	{ ALL, 'T',	0x101,	" ",			"fe_form",	},
-	{ ALL, 'L',	 0,	"Referenced database:",	"fe_form",	},
-	{ ALL, 't',	0x102,	" ",			"fe_form",	},
-	{ ALL, 'f',	0x104,	"Read only",		"fe_rdonly",	},
-	{ ALL, 'f',	0x114,	"Timestamps/Synchronizable","fe_sync",	},
-	{ ALL, 'f',	0x105,	"Procedural",		"fe_proc",	},
-	{ ALL, 'B',	0x106,	"Edit",			"fe_proc",	},
-	{ ALL, 'L',	 0,	"dbase field delim:",	"fe_delim",	},
-	{ ALL, 't',	0x103,	" ",			"fe_delim",	},
-	{ ALL, 'l',	 0,	"Array elt delimiter:", "fe_adelim",	},
-	{ ALL, 't',     0x108,  " ",			"fe_adelim",	},
-	{ ALL, 'l',	 0,	"Array elt escape:",	"fe_adelim",	},
-	{ ALL, 't',     0x109,  " ",			"fe_adelim",	},
-	{   0, 'F',	 0,	" ",			0,		},
-	{ ALL, 'L',	 0,	"Comment:",		"fe_cmt",	},
-	{ ALL, 'T',	0x107,	" ",			"fe_cmt",	},
+	{ ALL, 'L', EA_NONE,	"Form name:",		"fe_form",	},
+	{ ALL, 'T', EA_FORMNM,	" ",			"fe_form",	},
+	{ ALL, 'L', EA_NONE,	"Referenced database:",	"fe_form",	},
+	{ ALL, 't', EA_DBNAME,	" ",			"fe_form",	},
+	{ ALL, 'f', EA_FRO,	"Read only",		"fe_rdonly",	},
+	{ ALL, 'f', EA_HASTS,	"Timestamps/Synchronizable","fe_sync",	},
+	{ ALL, 'f', EA_ISPROC,	"Procedural",		"fe_proc",	},
+	{ ALL, 'B', EA_EDPROC,	"Edit",			"fe_proc",	},
+	{ ALL, 'L', EA_NONE,	"dbase field delim:",	"fe_delim",	},
+	{ ALL, 't', EA_DBDELIM,	" ",			"fe_delim",	},
+	{ ALL, 'l', EA_NONE,	"Array elt delim:",	"fe_adelim",	},
+	{ ALL, 't', EA_ARDELIM,	" ",			"fe_adelim",	},
+	{ ALL, 'l', EA_NONE,	"Array elt esc:",	"fe_adelim",	},
+	{ ALL, 't', EA_ARESC,	" ",			"fe_adelim",	},
+	{   0, 'F', EA_NONE,	" ",			0,		},
+	{ ALL, 'L', EA_NONE,	"Comment:",		"fe_cmt",	},
+	{ ALL, 'T', EA_FCMT,	" ",			"fe_cmt",	},
 
-	{ ALL, 'L',	 0,	"Form",			0,		},
-	{ ALL, 'B',	0x10c,	"Queries",		"fe_query",	},
-	{ ALL, 'B',	0x10a,	"Referers",		"fe_ref",	},
-	{ ALL, 'B',	0x10b,	"Def Help",		"fe_defhelp",	},
-	{ ALL, 'B',	0x10d,	"Debug",		"fe_debug",	},
-	{ ALL, 'B',	0x10e,	"Preview",		"fe_preview",	},
-	{ ALL, 'B',	0x10f,	NULL,			"edit",		0, dbbb(Help)},
-	{ ALL, 'B',	0x110,	NULL,			"fe_cancel",	0, dbbb(Cancel)},
-	{ ALL, 'B',	0x111,	"Done",			"fe_done",	},
-	{ ALL, '-',	 0,	" ",			0,		},
-	{ ALL, 'L',	 0,	"Field",		"fe_buts",	},
-	{ ALL, 'B',	0x112,	"Add",			"fe_add",	},
-	{ ANY, 'B',	0x113,	"Delete",		"fe_delete",	},
-	{   0, '[',	 0,	"attrs",		0,		},
+	{ ALL, 'L', EA_NONE,	"Form",			0,		},
+	{ ALL, 'B', EA_QUERY,	"Queries",		"fe_query",	},
+	{ ALL, 'B', EA_REFBY,	"Referers",		"fe_ref",	},
+	{ ALL, 'B', EA_FHELP,	"Def Help",		"fe_defhelp",	},
+	{ ALL, 'B', EA_DEBUG,	"Debug",		"fe_debug",	},
+	{ ALL, 'B', EA_PREVW,	"Preview",		"fe_preview",	},
+	{ ALL, 'B', EA_HELP,	NULL,			"edit",		0, dbbb(Help)},
+	{ ALL, 'B', EA_CANCEL,	NULL,			"fe_cancel",	0, dbbb(Cancel)},
+	{ ALL, 'B', EA_DONE,	"Done",			"fe_done",	},
+	{ ALL, '-', EA_NONE,	" ",			0,		},
+	{ ALL, 'L', EA_NONE,	"Field",		"fe_buts",	},
+	{ ALL, 'B', EA_ADDWID,	"Add",			"fe_add",	},
+	{ ANY, 'B', EA_DELWID,	"Delete",		"fe_delete",	},
+	{   0, '[', EA_NONE,	"attrs",		0,		},
 
-	{ ANY, 'L',	 0,	   "Field type:",	"fe_type",	},
-	{ ANY, 'I',  IT_LABEL,	   " ",			"fe_type",	},
-	{ ANY, 'L',	 0,	"Flags:",		"fe_flags",	},
-	{   0, 'F',	 0,	" ",			0,		},
-	{ BAS, 'f',	0x200,	"Searchable",		"fe_flags",	},
-	{ RON, 'f',	0x201,	"Read only",		"fe_flags",	},
-	{ BAS, 'f',	0x202,	"Not sortable",		"fe_flags",	},
-	{ BAS, 'f',	0x203,	"Default sort",		"fe_flags",	},
-	{ MUL, 'f',	0x23e,	"Multi-field",		"fe_menu",	},
-	{   0, 'F',	 0,	" ",			0,		},
-	{ FKY, 'L',	 0,	" ",			0,		},
-	{ AFK, 'f',	0x241,	"Headers",		"fe_ref",	},
-	{ AFK, 'f',	0x242,	"Subsearch",		"fe_ref",	},
-	{ FKY, 'f',	0x243,	"Multi-Ref",		"fe_ref",	},
-	{   0, 'F',	 0,	" ",			0,		},
-	{ ANY, 'L',	 0,	"Internal field name:",	"fe_int",	},
-	{ ANY, 't',	0x204,	" ",			"fe_int",	},
-	{ BAS, 'L',	 0,	"Database column:",	"fe_column",	},
-	{ BAS, 'i',	0x205,	" ",			"fe_column",	0, 999 },
-	{ BAS, 'l',	 0,	"Summary column:",	"fe_sum",	},
-	{ BAS, 'i',	0x206,	" ",			"fe_sum",	0, 999 },
-	{ BAS, 'l',	 0,	"Width in summary:",	"fe_sum",	},
-	{ BAS, 'i',	0x207,	" ",			"fe_sum",	0, 100 },
-	{ BAS, 'L',	 0,	"Show in summary:",	"fe_sump",	},
-	{ BAS, 'T',	0x229,	" ",			"fe_sump",	},
-	{ FLG, 'L',	 0,	"Choice/flag code:",	"fe_flag",	},
-	{ FLG, 't',	0x208,	" ",			"fe_flag",	},
-	{ FLG, 'l',	 0,	"shown in summary as",	"fe_flag",	},
-	{ FLG, 't',	0x236,	" ",			"fe_flag",	},
-	{ TIM, 'L',	 0,	"Time format:",		"fe_time",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ TIM, 'r',	0x209,	"Date",			"fe_time",	},
-	{ TIM, 'r',	0x20a,	"Time",			"fe_time",	},
-	{ TIM, 'r',	0x20b,	"Date+time",		"fe_time",	},
-	{ TIM, 'r',	0x20c,	"Duration",		"fe_time",	},
-	{ TIM, 'f',	0x23f,	"Widget",		"fe_time",	},
-	{ TIM, 'f',	0x240,	"Calendar",		"fe_time",	},
-	{ ANY, '-',	 0,	" ",			0,		},
+	{ ANY, 'L', EA_NONE,	"Field type:",		"fe_type",	},
+	{ ANY, 'I', EA_TYPE,	" ",			"fe_type",	},
+	{ ANY, 'L', EA_NONE,	"Flags:",		"fe_flags",	},
+	{   0, 'F', EA_NONE,	" ",			0,		},
+	{ BAS, 'f', EA_FLSRCH,	"Searchable",		"fe_flags",	},
+	{ RON, 'f', EA_FLRO,	"Read only",		"fe_flags",	},
+	{ BAS, 'f', EA_FLNSRT,	"Not sortable",		"fe_flags",	},
+	{ BAS, 'f', EA_DEFSRT,	"Default sort",		"fe_flags",	},
+	{ MUL, 'f', EA_FLMUL,	"Multi-field",		"fe_menu",	},
+	{   0, 'F', EA_NONE,	" ",			0,		},
+	{ FKY, 'L', EA_NONE,	" ",			0,		},
+	{ AFK, 'f', EA_FKHDR,	"Headers",		"fe_ref",	},
+	{ AFK, 'f', EA_FKSRCH,	"Subsearch",		"fe_ref",	},
+	{ FKY, 'f', EA_FKMUL,	"Multi-Ref",		"fe_ref",	},
+	{   0, 'F', EA_NONE,	" ",			0,		},
+	{ ANY, 'L', EA_NONE,	"Internal field name:",	"fe_int",	},
+	{ ANY, 't', EA_FLDNM,	" ",			"fe_int",	},
+	{ BAS, 'L', EA_NONE,	"Database column:",	"fe_column",	},
+	{ BAS, 'i', EA_COL,	" ",			"fe_column",	0, 999 },
+	{ BAS, 'l', EA_NONE,	"Summary column:",	"fe_sum",	},
+	{ BAS, 'i', EA_SUMCOL,	" ",			"fe_sum",	0, 999 },
+	{ BAS, 'l', EA_NONE,	"Width in summary:",	"fe_sum",	},
+	{ BAS, 'i', EA_SUMWID,	" ",			"fe_sum",	0, 100 },
+	{ BAS, 'L', EA_NONE,	"Show in summary:",	"fe_sump",	},
+	{ BAS, 'T', EA_SUMPR,	" ",			"fe_sump",	},
+	{ FLG, 'L', EA_NONE,	"Choice/flag code:",	"fe_flag",	},
+	{ FLG, 't', EA_FLCODE,	" ",			"fe_flag",	},
+	{ FLG, 'l', EA_NONE,	"shown in summary as",	"fe_flag",	},
+	{ FLG, 't', EA_FLSUM,	" ",			"fe_flag",	},
+	{ TIM, 'L', EA_NONE,	"Time format:",		"fe_time",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ TIM, 'r', EA_ISDATE,	"Date",			"fe_time",	},
+	{ TIM, 'r', EA_ISTIME,	"Time",			"fe_time",	},
+	{ TIM, 'r', EA_ISDTTM,	"Date+time",		"fe_time",	},
+	{ TIM, 'r', EA_ISDUR,	"Duration",		"fe_time",	},
+	{ TIM, 'f', EA_DTWID,	"Widget",		"fe_time",	},
+	{ TIM, 'f', EA_DTCAL,	"Calendar",		"fe_time",	},
+	{ ANY, '-', EA_NONE,	" ",			0,		},
 
-	{ ANY, 'L',	 0,	"Label Justification:",	"fe_ljust",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ ANY, 'r',	0x20d,	"left",			"fe_ljust",	},
-	{ ANY, 'r',	0x20e,	"center",		"fe_ljust",	},
-	{ ANY, 'r',	0x20f,	"right",		"fe_ljust",	},
-	{ ANY, 'L',	 0,	"Label font:",		"fe_ljust",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ ANY, 'r',	0x210,	"Helv",			"fe_lfont",	},
-	{ ANY, 'r',	0x211,	"HelvO",		"fe_lfont",	},
-	{ ANY, 'r',	0x212,	"HelvN",		"fe_lfont",	},
-	{ ANY, 'r',	0x213,	"HelvB",		"fe_lfont",	},
-	{ ANY, 'r',	0x214,	"Courier",		"fe_lfont",	},
-	{ ANY, 'L',	 0,	"Label text",		"fe_ltxt",	},
-	{ ANY, 'T',	0x21a,	" ",			"fe_ltxt",	},
-	{ ANY, '-',	 0,	" ",			0,		},
+	{ ANY, 'L', EA_NONE,	"Label Justification:",	"fe_ljust",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ ANY, 'r', EA_LABJL,	"left",			"fe_ljust",	},
+	{ ANY, 'r', EA_LABJC,	"center",		"fe_ljust",	},
+	{ ANY, 'r', EA_LABJR,	"right",		"fe_ljust",	},
+	{ ANY, 'L', EA_NONE,	"Label font:",		"fe_ljust",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ ANY, 'r', EA_LABFH,	"Helv",			"fe_lfont",	},
+	{ ANY, 'r', EA_LABFO,	"HelvO",		"fe_lfont",	},
+	{ ANY, 'r', EA_LABFN,	"HelvN",		"fe_lfont",	},
+	{ ANY, 'r', EA_LABFB,	"HelvB",		"fe_lfont",	},
+	{ ANY, 'r', EA_LABFC,	"Courier",		"fe_lfont",	},
+	{ ANY, 'L', EA_NONE,	"Label text",		"fe_ltxt",	},
+	{ ANY, 'T', EA_LABEL,	" ",			"fe_ltxt",	},
+	{ ANY, '-', EA_NONE,	" ",			0,		},
 
-	{ TXT, 'L',	 0,	"Input Justification:",	"fe_ijust",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ TXT, 'r',	0x21b,	"left",			"fe_ijust",	},
-	{ TXT, 'r',	0x21c,	"center",		"fe_ijust",	},
-	{ TXT, 'r',	0x21d,	"right",		"fe_ijust",	},
-	{ FT2, 'L',	 0,	"Input font:",		"fe_ijust",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ FT2, 'r',	0x215,	"Helv",			"fe_ifont",	},
-	{ FT2, 'r',	0x216,	"HelvO",		"fe_ifont",	},
-	{ FT2, 'r',	0x217,	"HelvN",		"fe_ifont",	},
-	{ FT2, 'r',	0x218,	"HelvB",		"fe_ifont",	},
-	{ FT2, 'r',	0x219,	"Courier",		"fe_ifont",	},
-	{ ITP, 'L',	 0,	"Max input length:",	"fe_range",	},
-	{ ITP, 'i',	0x21f,	" ",			"fe_range",	0, 999999},
-	{ NUM, 'L',	 0,	"Min Value",		"fe_range",	},
-	{ NUM, 'd',	0x237,	" ",			"fe_range",	},
-	{ NUM, 'l',	 0,	"Max Value",		"fe_range",	},
-	{ NUM, 'd',	0x238,	" ",			"fe_range",	},
-	{ NUM, 'l',	 0,	"Digits",		"fe_range",	},
-	{ NUM, 'i',	0x239,	" ",			"fe_range",	0, 20},
-	{ IDF, 'L',	 0,	"Input default:",	"fe_def",	},
-	{ IDF, 'T',	0x220,	" ",			"fe_def",	},
-	{ MNU, 'L',	 0,	"Menu",			"fe_menu",	},
-	{ MNU, 'M',	 0,	" ",			"fe_menu",	},
-	{   0, 'R',	 0,	" ",			"fe_menu",	},
-	{ INP, 'r',	0x23b,	"Static",		"fe_menu",	},
-	{ INP, 'r',	0x23c,	"Dynamic",		"fe_menu",	},
-	{ INP, 'r',	0x23d,	"All",			"fe_menu",	},
-	{ AFK, 'L',	 0,	"Foreign DB:",		"fe_ref",	},
-	{ AFK, 'D',	0x244,	" ",			"fe_ref",	},
-	{ AFK, 'L',	 0,	"Foreign Fields",	"fe_ref",	},
-	{ AFK, 'K',	 0,	" ",			"fe_ref",	},
-	{ TXT, '-',	 0,	" ",			0,		},
+	{ TXT, 'L', EA_NONE,	"Input Justification:",	"fe_ijust",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ TXT, 'r', EA_INJL,	"left",			"fe_ijust",	},
+	{ TXT, 'r', EA_INJC,	"center",		"fe_ijust",	},
+	{ TXT, 'r', EA_INJR,	"right",		"fe_ijust",	},
+	{ FT2, 'L', EA_NONE,	"Input font:",		"fe_ijust",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ FT2, 'r', EA_INFH,	"Helv",			"fe_ifont",	},
+	{ FT2, 'r', EA_INFO,	"HelvO",		"fe_ifont",	},
+	{ FT2, 'r', EA_INFN,	"HelvN",		"fe_ifont",	},
+	{ FT2, 'r', EA_INFB,	"HelvB",		"fe_ifont",	},
+	{ FT2, 'r', EA_INFC,	"Courier",		"fe_ifont",	},
+	{ ITP, 'L', EA_NONE,	"Max input length:",	"fe_range",	},
+	{ ITP, 'i', EA_INLEN,	" ",			"fe_range",	0, 999999},
+	{ NUM, 'L', EA_NONE,	"Min Value",		"fe_range",	},
+	{ NUM, 'd', EA_INMIN,	" ",			"fe_range",	},
+	{ NUM, 'l', EA_NONE,	"Max Value",		"fe_range",	},
+	{ NUM, 'd', EA_INMAX,	" ",			"fe_range",	},
+	{ NUM, 'l', EA_NONE,	"Digits",		"fe_range",	},
+	{ NUM, 'i', EA_INDIG,	" ",			"fe_range",	0, 20},
+	{ IDF, 'L', EA_NONE,	"Input default:",	"fe_def",	},
+	{ IDF, 'T', EA_INDEF,	" ",			"fe_def",	},
+	{ MNU, 'L', EA_NONE,	"Menu",			"fe_menu",	},
+	{ MNU, 'M', EA_NONE,	" ",			"fe_menu",	},
+	{   0, 'R', EA_NONE,	" ",			"fe_menu",	},
+	{ INP, 'r', EA_MENUST,	"Static",		"fe_menu",	},
+	{ INP, 'r', EA_MENUDY,	"Dynamic",		"fe_menu",	},
+	{ INP, 'r', EA_MENUSD,	"All",			"fe_menu",	},
+	{ AFK, 'L', EA_NONE,	"Foreign DB:",		"fe_ref",	},
+	{ AFK, 'D', EA_FKDB,	" ",			"fe_ref",	},
+	{ AFK, 'L', EA_NONE,	"Foreign Fields",	"fe_ref",	},
+	{ AFK, 'K', EA_NONE,	" ",			"fe_ref",	},
+	{ TXT, '-', EA_NONE,	" ",			0,		},
 
-	{ PLN, 'L',	 0,	"Calendar interface:",	"fe_plan",	},
-	{   0, 'R',	 0,	" ",			0,		},
+	{ PLN, 'L', EA_NONE,	"Calendar interface:",	"fe_plan",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
     /* FIXME:  make this a choice menu (with None/blank as a choice) */
-	{ TIM, 'r',	0x260,  "Date+time",		"fe_plan",	},
-	{ PLN, 'r',	0x261,  "Length",		"fe_plan",	},
-	{ PLN, 'r',	0x262,  "Early warn",		"fe_plan",	},
-	{ PLN, 'r',	0x263,  "Late warn",		"fe_plan",	},
-	{ PLN, 'r',	0x264,  "Day repeat",		"fe_plan",	},
-	{ TIM, 'r',	0x265,  "End date",		"fe_plan",	},
-	{ PLN, 'L',	 0,	"",			"fe_plan",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ PLN, 'r',	0x266,  "Color",		"fe_plan",	},
-	{ PLN, 'r',	0x267,  "Note",			"fe_plan",	},
-	{ PLN, 'r',	0x268,  "Message",		"fe_plan",	},
-	{ PLN, 'r',	0x269,  "Script",		"fe_plan",	},
-	{ PLN, 'r',	0x26a,  "Suspended",		"fe_plan",	},
-	{ PLN, 'r',	0x26b,  "No time",		"fe_plan",	},
-	{ PLN, 'r',	0x26c,  "No alarm",		"fe_plan",	},
+	{ TIM, 'r', EA_PLDT,	"Date+time",		"fe_plan",	},
+	{ PLN, 'r', EA_PLLEN,	"Length",		"fe_plan",	},
+	{ PLN, 'r', EA_PLEW,	"Early warn",		"fe_plan",	},
+	{ PLN, 'r', EA_PLLW,	"Late warn",		"fe_plan",	},
+	{ PLN, 'r', EA_PLDAYR,	"Day repeat",		"fe_plan",	},
+	{ TIM, 'r', EA_PLEND,	"End date",		"fe_plan",	},
+	{ PLN, 'L', EA_NONE,	"",			"fe_plan",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ PLN, 'r', EA_PLCOL,	"Color",		"fe_plan",	},
+	{ PLN, 'r', EA_PLNOTE,	"Note",			"fe_plan",	},
+	{ PLN, 'r', EA_PLMSG,	"Message",		"fe_plan",	},
+	{ PLN, 'r', EA_PLSCR,	"Script",		"fe_plan",	},
+	{ PLN, 'r', EA_PLSUSP,	"Suspended",		"fe_plan",	},
+	{ PLN, 'r', EA_PLNTM,	"No time",		"fe_plan",	},
+	{ PLN, 'r', EA_PLNAL,	"No alarm",		"fe_plan",	},
     /* FIXME:  planquery is form-wide, so it should be in top area */
     /*         I guess it's down here to keep the plan-related stuff together */
-	{ PLN, 'L',	 0,	"Shown in calendar if:","fe_plan",	},
-	{ PLN, 'T',	0x228,	" ",			"fe_plan",	},
-	{ PLN, '-',	 0,	" ",			0,		},
+	{ PLN, 'L', EA_NONE,	"Shown in calendar if:","fe_plan",	},
+	{ PLN, 'T', EA_PLIF,	" ",			"fe_plan",	},
+	{ PLN, '-', EA_NONE,	" ",			0,		},
 
-	{ ANY, 'L',	 0,	"Grayed out if:",	"fe_gray",	},
-	{ ANY, 'C',	0x222,	" ",			"fe_gray",	0, offsetof(ITEM, gray_if) },
-	{ ANY, 'L',	 0,	"Invisible if:",	"fe_inv",	},
-	{ ANY, 'C',	0x223,	" ",			"fe_inv",	0, offsetof(ITEM, invisible_if) },
-	{ ANY, 'L',	 0,	"Read-only if:",	"fe_ro",	},
-	{ ANY, 'C',	0x224,	" ",			"fe_ro",	0, offsetof(ITEM, freeze_if) },
-	{ ANY, 'L',	 0,	"Skip if:",		"fe_skip",	},
-	{ ANY, 'C',	0x225,	" ",			"fe_skip",	0, offsetof(ITEM, skip_if) },
-	{ BUT, '-',	 0,	" ",			0,		},
+	{ ANY, 'L', EA_NONE,	"Grayed out if:",	"fe_gray",	},
+	{ ANY, 'C', EA_GREYIF,	" ",			"fe_gray",	0, offsetof(ITEM, gray_if) },
+	{ ANY, 'L', EA_NONE,	"Invisible if:",	"fe_inv",	},
+	{ ANY, 'C', EA_HIDEIF,	" ",			"fe_inv",	0, offsetof(ITEM, invisible_if) },
+	{ ANY, 'L', EA_NONE,	"Read-only if:",	"fe_ro",	},
+	{ ANY, 'C', EA_ROIF,	" ",			"fe_ro",	0, offsetof(ITEM, freeze_if) },
+	{ ANY, 'L', EA_NONE,	"Skip if:",		"fe_skip",	},
+	{ ANY, 'C', EA_SKIPIF,	" ",			"fe_skip",	0, offsetof(ITEM, skip_if) },
+	{ BUT, '-', EA_NONE,	" ",			0,		},
 
-	{ BUT, 'L',	 0,	"Action when pressed:",	"fe_press",	},
-	{ BUT, 'T',	0x226,	" ",			"fe_press",	},
-	{ CHA, '-',	 0,	" ",			0,		},
+	{ BUT, 'L', EA_NONE,	"Action when pressed:",	"fe_press",	},
+	{ BUT, 'T', EA_BUTACT,	" ",			"fe_press",	},
+	{ CHA, '-', EA_NONE,	" ",			0,		},
 
-	{ CHA, 'L',	 0,	"Chart X range:",	"fe_chart",	},
-	{ CHA, 'd',	0x280,	" ",			"fe_chart",	},
-	{ CHA, 'l',	 0,	"to",			"fe_chart",	},
-	{ CHA, 'd',	0x281,	" ",			"fe_chart",	},
-	{   0, 'F',	 0, 	" ",			0,		},
-	{ CHA, 'f',	0x28c,	"automatic",		"fe_chart",	},
-	{ CHA, 'L',	 0,	"Chart Y range:",	"fe_chart",	},
-	{ CHA, 'd',	0x282,	" ",			"fe_chart",	},
-	{ CHA, 'l',	 0,	"to",			"fe_chart",	},
-	{ CHA, 'd',	0x283,	" ",			"fe_chart",	},
-	{   0, 'F',	 0, 	" ",			0,		},
-	{ CHA, 'f',	0x28d,	"automatic",		"fe_chart",	},
-	{ CHA, 'L',	 0,	"Chart XY grid every:",	"fe_chart",	},
-	{ CHA, 'd',	0x284,	" ",			"fe_chart",	},
-	{ CHA, 'd',	0x285,	" ",			"fe_chart",	},
-	{ CHA, 'L',	 0,	"Chart XY snap every:",	"fe_chart",	},
-	{ CHA, 'd',	0x286,	" ",			"fe_chart",	},
-	{ CHA, 'd',	0x287,	" ",			"fe_chart",	},
-	{ CHA, 'L',	 0,	"Chart component:",	0,		},
-	{ CHA, 'B',	0x290,	"Add",			"fe_chart",	},
-	{ CHA, 'B',	0x291,	"Delete",		"fe_chart",	},
-	{ CHA, 'l',	0x294,	"none",			"fe_chart",	},
-	{ CHA, 'B',	0x293,	"Next",			"fe_chart",	},
-	{ CHA, 'B',	0x292,	"Previous",		"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	"Chart X range:",	"fe_chart",	},
+	{ CHA, 'd', EA_CHXMIN,	" ",			"fe_chart",	},
+	{ CHA, 'l', EA_NONE,	"to",			"fe_chart",	},
+	{ CHA, 'd', EA_CHXMAX,	" ",			"fe_chart",	},
+	{   0, 'F', EA_NONE, 	" ",			0,		},
+	{ CHA, 'f', EA_CHXAUT,	"automatic",		"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	"Chart Y range:",	"fe_chart",	},
+	{ CHA, 'd', EA_CHYMIN,	" ",			"fe_chart",	},
+	{ CHA, 'l', EA_NONE,	"to",			"fe_chart",	},
+	{ CHA, 'd', EA_CHYMAX,	" ",			"fe_chart",	},
+	{   0, 'F', EA_NONE, 	" ",			0,		},
+	{ CHA, 'f', EA_CHYAUT,	"automatic",		"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	"Chart XY grid every:",	"fe_chart",	},
+	{ CHA, 'd', EA_CHXGRD,	" ",			"fe_chart",	},
+	{ CHA, 'd', EA_CHYGRD,	" ",			"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	"Chart XY snap every:",	"fe_chart",	},
+	{ CHA, 'd', EA_CHXSNP,	" ",			"fe_chart",	},
+	{ CHA, 'd', EA_CHYSNP,	" ",			"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	"Chart component:",	0,		},
+	{ CHA, 'B', EA_CHADD,	"Add",			"fe_chart",	},
+	{ CHA, 'B', EA_CHDEL,	"Delete",		"fe_chart",	},
+	{ CHA, 'l', EA_CHCUR,	"none",			"fe_chart",	},
+	{ CHA, 'B', EA_CHNEXT,	"Next",			"fe_chart",	},
+	{ CHA, 'B', EA_CHPREV,	"Previous",		"fe_chart",	},
 
-	{ CHA, '{',	 0,	"comps",		0,		},
-	{ CHA, 'L',	 0, 	"Component flags",	"fe_chart",	},
-	{   0, 'F',	 0, 	" ",			0,		},
-	{ CHA, 'f',	0x301,	"Line",			"fe_chart",	},
-	{ CHA, 'f',	0x302,	"X fat",		"fe_chart",	},
-	{ CHA, 'f',	0x303,	"Y fat",		"fe_chart",	},
-	{ CHA, 'L',	 0,	"Exclude if:",		"fe_chart",	},
-	{ CHA, 'T',	0x304,	" ",			"fe_chart",	},
-	{ CHA, 'L',	 0,	"Color 0..7:",		"fe_chart",	},
-	{ CHA, 'T',	0x305,	" ",			"fe_chart",	},
-	{ CHA, 'L',	 0,	"Label:",		"fe_chart",	},
-	{ CHA, 'T',	0x306,	" ",			"fe_chart",	},
+	{ CHA, '{', EA_NONE,	"comps",		0,		},
+	{ CHA, 'L', EA_NONE, 	"Component flags",	"fe_chart",	},
+	{   0, 'F', EA_NONE, 	" ",			0,		},
+	{ CHA, 'f', EA_CHLINE,	"Line",			"fe_chart",	},
+	{ CHA, 'f', EA_CHXFAT,	"X fat",		"fe_chart",	},
+	{ CHA, 'f', EA_CHYFAT,	"Y fat",		"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	"Exclude if:",		"fe_chart",	},
+	{ CHA, 'T', EA_CHNOTIF,	" ",			"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	"Color 0..7:",		"fe_chart",	},
+	{ CHA, 'T', EA_CHCOL,	" ",			"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	"Label:",		"fe_chart",	},
+	{ CHA, 'T', EA_CHLAB,	" ",			"fe_chart",	},
 
-	{ CHA, 'L',	 0,	"X position:",		"fe_chart",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x310,	"next free",		"fe_chart",	},
-	{ CHA, 'L',	 0,	" ",			"fe_chart",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x311,	"same as previous",	"fe_chart",	},
-	{ CHA, 'L',	 0,	" ",			"fe_chart",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x312,	"expression",		"fe_chart",	},
-	{ CHA, 'T',	0x314,	" ",			"fe_chart",	},
-	{ CHA, 'L',	 0,	" ",			"fe_chart",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x313,	"drag field",		"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	"X position:",		"fe_chart",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ CHA, 'r', EA_CHXNXT,	"next free",		"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	" ",			"fe_chart",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ CHA, 'r', EA_CHXPREV,	"same as previous",	"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	" ",			"fe_chart",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ CHA, 'r', EA_CHXEXPM,	"expression",		"fe_chart",	},
+	{ CHA, 'T', EA_CHXEXPR,	" ",			"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	" ",			"fe_chart",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ CHA, 'r', EA_CHXDRGM,	"drag field",		"fe_chart",	},
         // FIXME:  this should probably be a combo box with field names
-	{ CHA, 'i',	0x315,	" ",			"fe_chart",	0, 999},
-	{ CHA, 'l',	 0,	"multiplied by",	"fe_chart",	},
-	{ CHA, 'd',	0x316,	" ",			"fe_chart",	},
-	{ CHA, 'l',	 0,	"plus",			"fe_chart",	},
-	{ CHA, 'd',	0x317,	" ",			"fe_chart",	},
+	{ CHA, 'i', EA_CHXDRAG,	" ",			"fe_chart",	0, 999},
+	{ CHA, 'l', EA_NONE,	"multiplied by",	"fe_chart",	},
+	{ CHA, 'd', EA_CHXDMUL,	" ",			"fe_chart",	},
+	{ CHA, 'l', EA_NONE,	"plus",			"fe_chart",	},
+	{ CHA, 'd', EA_CHXDPL,	" ",			"fe_chart",	},
 
-	{ CHA, 'L',	 0,	"Y position:",		"fe_chart",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x320,	"next free",		"fe_chart",	},
-	{ CHA, 'L',	 0,	" ",			"fe_chart",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x321,	"same as previous",	"fe_chart",	},
-	{ CHA, 'L',	 0,	" ",			"fe_chart",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x322,	"expression",		"fe_chart",	},
-	{ CHA, 'T',	0x324,	" ",			"fe_chart",	},
-	{ CHA, 'L',	 0,	" ",			"fe_chart",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x323,	"drag field",		"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	"Y position:",		"fe_chart",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ CHA, 'r', EA_CHYNXT,	"next free",		"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	" ",			"fe_chart",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ CHA, 'r', EA_CHYPREV,	"same as previous",	"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	" ",			"fe_chart",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ CHA, 'r', EA_CHYEXPM,	"expression",		"fe_chart",	},
+	{ CHA, 'T', EA_CHYEXPR,	" ",			"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	" ",			"fe_chart",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ CHA, 'r', EA_CHYDRGM,	"drag field",		"fe_chart",	},
         // FIXME:  this should probably be a combo box with field names
-	{ CHA, 'i',	0x325,	" ",			"fe_chart",	0, 999},
-	{ CHA, 'l',	 0,	"multiplied by",	"fe_chart",	},
-	{ CHA, 'd',	0x326,	" ",			"fe_chart",	},
-	{ CHA, 'l',	 0,	"plus",			"fe_chart",	},
-	{ CHA, 'd',	0x327,	" ",			"fe_chart",	},
+	{ CHA, 'i', EA_CHYDRAG,	" ",			"fe_chart",	0, 999},
+	{ CHA, 'l', EA_NONE,	"multiplied by",	"fe_chart",	},
+	{ CHA, 'd', EA_CHYDMUL,	" ",			"fe_chart",	},
+	{ CHA, 'l', EA_NONE,	"plus",			"fe_chart",	},
+	{ CHA, 'd', EA_CHYDPL,	" ",			"fe_chart",	},
 
-	{ CHA, 'L',	 0,	"X size:",		"fe_chart",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x332,	"expression",		"fe_chart",	},
-	{ CHA, 'T',	0x334,	" ",			"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	"X size:",		"fe_chart",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ CHA, 'r', EA_CHXSZEX,	"expression",		"fe_chart",	},
+	{ CHA, 'T', EA_CHXSZ,	" ",			"fe_chart",	},
 
-	{ CHA, 'L',	 0,	"Y size:",		"fe_chart",	},
-	{   0, 'R',	 0,	" ",			0,		},
-	{ CHA, 'r',	0x342,	"expression",		"fe_chart",	},
-	{ CHA, 'T',	0x344,	" ",			"fe_chart",	},
+	{ CHA, 'L', EA_NONE,	"Y size:",		"fe_chart",	},
+	{   0, 'R', EA_NONE,	" ",			0,		},
+	{ CHA, 'r', EA_CHYSZEX,	"expression",		"fe_chart",	},
+	{ CHA, 'T', EA_CHYSZ,	" ",			"fe_chart",	},
 
-	{   0, '}',	 0,	" ",			0,		},
+	{   0, '}', EA_NONE,	" ",			0,		},
 
-	{   0, ']',	 0,	" ",			0,		},
-	{   0,  0,	 0,	0,			0		},
+	{   0, ']', EA_NONE,	" ",			0,		},
+	{   0,  0,  EA_NONE,	0,			0		},
 };
 
 /*-------------------------------------------------- create window ----------*/
@@ -1032,8 +1061,8 @@ void sensitize_formedit(void)
 	for (tp=tmpl; tp->type; tp++) {
 		if (tp->sensitive) {
 			tp->widget->setEnabled(
-				tp->code == 0x106 ? form->proc :
-				tp->code == 0x113 ? item != 0 : true);
+				tp->code == EA_EDPROC ? form->proc :
+				tp->code == EA_DELWID ? item != 0 : true);
 			tp->widget->setVisible(tp->sensitive & mask);
 		}
 		if (tp->type == 'M' && (tp->sensitive & mask))
@@ -1049,7 +1078,7 @@ void sensitize_formedit(void)
 		if (tp->type == 'K')
 			key_w->updateGeometry();
 		if ((mask & (MUL)) &&
-		    ((tp->code >= 0x204 && tp->code <= 0x207) || tp->code == 0x236)) {
+		    (tp->code >= EA_FIRST_MULTI_OVR && tp->code <= EA_LAST_MULTI_OVR)) {
 			tp->widget->setEnabled(!IFL(item->,MULTICOL));
 			tp[-1].widget->setEnabled(!IFL(item->,MULTICOL));
 		}
@@ -1110,8 +1139,8 @@ void fillout_formedit(void)
 }
 
 
-void fillout_formedit_widget_by_code(
-	int			code)
+static void fillout_formedit_widget_by_code(
+	enum edact		code)
 {
 	struct _template	*tp;
 
@@ -1120,6 +1149,11 @@ void fillout_formedit_widget_by_code(
 			fillout_formedit_widget(tp);
 			break;
 		}
+}
+
+void fillout_formedit_widget_proc()
+{
+	fillout_formedit_widget_by_code(EA_ISPROC);
 }
 
 #define set_sb_value(w, v) reinterpret_cast<QSpinBox *>(w)->setValue(v)
@@ -1134,7 +1168,7 @@ static void set_digits(int dig)
 	struct _template	*tp;
 
 	for (tp=tmpl; tp->type; tp++)
-		if (tp->code == 0x237 || tp->code == 0x238)
+		if (tp->code == EA_INMIN || tp->code == EA_INMAX)
 			reinterpret_cast<QDoubleSpinBox *>(tp->widget)->setDecimals(dig);
 }
 
@@ -1146,7 +1180,7 @@ static void fillout_formedit_widget(
 	CHART			nullchart;
 	QWidget			*w = tp->widget;
 
-	if (tp->code < 0x100 || tp->code > 0x107) {
+	if (!tp->code || tp->code > EA_LAST_FWIDE) {
 		if (!form->items || canvas->curr_item >= form->nitems ||
 		    !(tp->sensitive & (1 << form->items[canvas->curr_item]->type))) {
 			if (tp->type == 'T' || tp->type == 't' ||
@@ -1162,19 +1196,19 @@ static void fillout_formedit_widget(
 	}
 	filling_item = item;
 	switch(tp->code) {
-	  case 0x101: print_text_button_s(w, form->name);		break;
-	  case 0x102: print_text_button_s(w, form->dbase);		break;
-	  case 0x107: print_text_button_s(w, form->comment);		break;
-	  case 0x103: print_text_button_s(w, to_octal(form->cdelim));	break;
-	  case 0x104: set_toggle(w, form->rdonly);			break;
-	  case 0x114: set_toggle(w, form->syncable);			break;
-	  case 0x105: set_toggle(w, form->proc);
-		      fillout_formedit_widget_by_code(0x106);		break;
-	  case 0x106: w->setEnabled(form->proc);			break;
-	  case 0x108: print_text_button_s(w, to_octal(form->asep ? form->asep : '|'));	break;
-	  case 0x109: print_text_button_s(w, to_octal(form->aesc ? form->aesc : '\\'));	break;
+	  case EA_FORMNM: print_text_button_s(w, form->name);		break;
+	  case EA_DBNAME: print_text_button_s(w, form->dbase);		break;
+	  case EA_FCMT: print_text_button_s(w, form->comment);		break;
+	  case EA_DBDELIM: print_text_button_s(w, to_octal(form->cdelim));	break;
+	  case EA_FRO: set_toggle(w, form->rdonly);			break;
+	  case EA_HASTS: set_toggle(w, form->syncable);			break;
+	  case EA_ISPROC: set_toggle(w, form->proc);
+		      fillout_formedit_widget_by_code(EA_EDPROC);	break;
+	  case EA_EDPROC: w->setEnabled(form->proc);			break;
+	  case EA_ARDELIM: print_text_button_s(w, to_octal(form->asep ? form->asep : '|'));	break;
+	  case EA_ARESC: print_text_button_s(w, to_octal(form->aesc ? form->aesc : '\\'));	break;
 
-	  case IT_LABEL:
+	  case EA_TYPE:
 		  for(int n = 0; n < ALEN(item_types); n++)
 			  if(item_types[n].type == item->type) {
 				  reinterpret_cast<QComboBox *>(w)->setCurrentIndex(n);
@@ -1182,60 +1216,60 @@ static void fillout_formedit_widget(
 			  }
 		  break;
 
-	  case 0x210:
-	  case 0x211:
-	  case 0x212:
-	  case 0x213:
-	  case 0x214: set_toggle(w, item->labelfont == tp->code-0x210);	break;
+	  case EA_LABFH:
+	  case EA_LABFO:
+	  case EA_LABFN:
+	  case EA_LABFB:
+	  case EA_LABFC: set_toggle(w, item->labelfont == tp->code-EA_LABFH);	break;
 
-	  case 0x215:
-	  case 0x216:
-	  case 0x217:
-	  case 0x218:
-	  case 0x219: set_toggle(w, item->inputfont == tp->code-0x215);	break;
+	  case EA_INFH:
+	  case EA_INFO:
+	  case EA_INFN:
+	  case EA_INFB:
+	  case EA_INFC: set_toggle(w, item->inputfont == tp->code-EA_INFH);	break;
 
-	  case 0x20d: set_toggle(w, item->labeljust == J_LEFT);		break;
-	  case 0x20e: set_toggle(w, item->labeljust == J_CENTER);	break;
-	  case 0x20f: set_toggle(w, item->labeljust == J_RIGHT);	break;
+	  case EA_LABJL: set_toggle(w, item->labeljust == J_LEFT);	break;
+	  case EA_LABJC: set_toggle(w, item->labeljust == J_CENTER);	break;
+	  case EA_LABJR: set_toggle(w, item->labeljust == J_RIGHT);	break;
 
-	  case 0x21b: set_toggle(w, item->inputjust == J_LEFT);		break;
-	  case 0x21c: set_toggle(w, item->inputjust == J_CENTER);	break;
-	  case 0x21d: set_toggle(w, item->inputjust == J_RIGHT);	break;
+	  case EA_INJL: set_toggle(w, item->inputjust == J_LEFT);	break;
+	  case EA_INJC: set_toggle(w, item->inputjust == J_CENTER);	break;
+	  case EA_INJR: set_toggle(w, item->inputjust == J_RIGHT);	break;
 
-	  case 0x200: set_toggle(w, IFL(item->,SEARCH));		break;
-	  case 0x201: set_toggle(w, IFL(item->,RDONLY));		break;
-	  case 0x202: set_toggle(w, IFL(item->,NOSORT));		break;
-	  case 0x203: set_toggle(w, IFL(item->,DEFSORT));		break;
-	  case 0x209: set_toggle(w, item->timefmt == T_DATE);		break;
-	  case 0x20a: set_toggle(w, item->timefmt == T_TIME);		break;
-	  case 0x20b: set_toggle(w, item->timefmt == T_DATETIME);	break;
-	  case 0x20c: set_toggle(w, item->timefmt == T_DURATION);	break;
-	  case 0x23f: set_toggle(w, item->timewidget & 1);		break;
-	  case 0x240: set_toggle(w, item->timewidget & 2);			break;
+	  case EA_FLSRCH: set_toggle(w, IFL(item->,SEARCH));		break;
+	  case EA_FLRO: set_toggle(w, IFL(item->,RDONLY));		break;
+	  case EA_FLNSRT: set_toggle(w, IFL(item->,NOSORT));		break;
+	  case EA_DEFSRT: set_toggle(w, IFL(item->,DEFSORT));		break;
+	  case EA_ISDATE: set_toggle(w, item->timefmt == T_DATE);		break;
+	  case EA_ISTIME: set_toggle(w, item->timefmt == T_TIME);		break;
+	  case EA_ISDTTM: set_toggle(w, item->timefmt == T_DATETIME);	break;
+	  case EA_ISDUR: set_toggle(w, item->timefmt == T_DURATION);	break;
+	  case EA_DTWID: set_toggle(w, item->timewidget & 1);		break;
+	  case EA_DTCAL: set_toggle(w, item->timewidget & 2);			break;
 
-	  case 0x260:
-	  case 0x261:
-	  case 0x262:
-	  case 0x263:
-	  case 0x264:
-	  case 0x265:
-	  case 0x266:
-	  case 0x267:
-	  case 0x268:
-	  case 0x269:
-	  case 0x26a:
-	  case 0x26b:
-	  case 0x26c: set_toggle(w, item->plan_if == plan_code[tp->code & 31]);
+	  case EA_PLDT:
+	  case EA_PLLEN:
+	  case EA_PLEW:
+	  case EA_PLLW:
+	  case EA_PLDAYR:
+	  case EA_PLEND:
+	  case EA_PLCOL:
+	  case EA_PLNOTE:
+	  case EA_PLMSG:
+	  case EA_PLSCR:
+	  case EA_PLSUSP:
+	  case EA_PLNTM:
+	  case EA_PLNAL: set_toggle(w, item->plan_if == plan_code[tp->code - EA_PLDT]);
 		      sensitize_formedit();
 		      break;
 
-	  case 0x237: set_dsb_value(w, item->min);			break;
-	  case 0x238: set_dsb_value(w, item->max);			break;
-	  case 0x239: set_sb_value(w, item->digits); set_digits(item->digits);			break;
-	  case 0x23b:
-	  case 0x23c:
-	  case 0x23d: set_toggle(w, item->dcombo == tp->code - 0x23b);	break;
-	  case 0x244:
+	  case EA_INMIN: set_dsb_value(w, item->min);			break;
+	  case EA_INMAX: set_dsb_value(w, item->max);			break;
+	  case EA_INDIG: set_sb_value(w, item->digits); set_digits(item->digits);			break;
+	  case EA_MENUST:
+	  case EA_MENUDY:
+	  case EA_MENUSD: set_toggle(w, item->dcombo == tp->code - EA_MENUST);	break;
+	  case EA_FKDB:
 		  if (BLANK(item->fkey_form_name))
 			  print_text_button_s(w, "");
 		  else {
@@ -1253,72 +1287,88 @@ static void fillout_formedit_widget(
 		  }
 		  fill_key_table(key_w);
 		  break;
-	  case 0x23e: set_toggle(w, IFL(item->,MULTICOL));		break;
-	  case 0x241: set_toggle(w, IFL(item->,FKEY_HEADER));		break;
-	  case 0x242: set_toggle(w, IFL(item->,FKEY_SEARCH));		break;
-	  case 0x243: set_toggle(w, IFL(item->,FKEY_MULTI));		break;
-	  case 0x21f: set_sb_value(w, item->maxlen);			break;
-	  case 0x206: set_sb_value(w, item->sumcol);			break;
-	  case 0x207: set_sb_value(w, item->sumwidth);			break;
-	  case 0x205: set_sb_value(w, item->column);			break;
-	  case 0x204: print_text_button_s(w, item->name);		break;
-	  case 0x208: print_text_button_s(w, item->flagcode);		break;
-	  case 0x236: print_text_button_s(w, item->flagtext);		break;
-	  case 0x21a: print_text_button_s(w, item->label);		break;
-	  case 0x220: print_text_button_s(w, item->idefault);		break;
+	  case EA_FLMUL: set_toggle(w, IFL(item->,MULTICOL));		break;
+	  case EA_FKHDR: set_toggle(w, IFL(item->,FKEY_HEADER));		break;
+	  case EA_FKSRCH: set_toggle(w, IFL(item->,FKEY_SEARCH));		break;
+	  case EA_FKMUL: set_toggle(w, IFL(item->,FKEY_MULTI));		break;
+	  case EA_INLEN: set_sb_value(w, item->maxlen);			break;
+	  case EA_SUMCOL: set_sb_value(w, item->sumcol);			break;
+	  case EA_SUMWID: set_sb_value(w, item->sumwidth);			break;
+	  case EA_COL: set_sb_value(w, item->column);			break;
+	  case EA_FLDNM: print_text_button_s(w, item->name);		break;
+	  case EA_FLCODE: print_text_button_s(w, item->flagcode);		break;
+	  case EA_FLSUM: print_text_button_s(w, item->flagtext);		break;
+	  case EA_LABEL: print_text_button_s(w, item->label);		break;
+	  case EA_INDEF: print_text_button_s(w, item->idefault);		break;
 
-	  case 0x222: print_text_button_s(w, item->gray_if);		break;
-	  case 0x223: print_text_button_s(w, item->invisible_if);	break;
-	  case 0x224: print_text_button_s(w, item->freeze_if);		break;
-	  case 0x225: print_text_button_s(w, item->skip_if);		break;
+	  case EA_GREYIF: print_text_button_s(w, item->gray_if);		break;
+	  case EA_HIDEIF: print_text_button_s(w, item->invisible_if);	break;
+	  case EA_ROIF: print_text_button_s(w, item->freeze_if);		break;
+	  case EA_SKIPIF: print_text_button_s(w, item->skip_if);		break;
 
-	  case 0x226: print_text_button_s(w, item->pressed);		break;
-	  case 0x228: print_text_button_s(w, form->planquery);		break;
-	  case 0x229: print_text_button_s(w, item->sumprint);		break;
+	  case EA_BUTACT: print_text_button_s(w, item->pressed);		break;
+	  case EA_PLIF: print_text_button_s(w, form->planquery);		break;
+	  case EA_SUMPR: print_text_button_s(w, item->sumprint);		break;
 
-	  case 0x280: set_dsb_value(w, item->ch_xmin);			break;
-	  case 0x281: set_dsb_value(w, item->ch_xmax);			break;
-	  case 0x282: set_dsb_value(w, item->ch_ymin);			break;
-	  case 0x283: set_dsb_value(w, item->ch_ymax);			break;
-	  case 0x284: set_dsb_value(w, item->ch_xgrid);			break;
-	  case 0x285: set_dsb_value(w, item->ch_ygrid);			break;
-	  case 0x286: set_dsb_value(w, item->ch_xsnap);			break;
-	  case 0x287: set_dsb_value(w, item->ch_ysnap);			break;
-	  case 0x28c: set_toggle(w, IFL(item->,CH_XAUTO));		break;
-	  case 0x28d: set_toggle(w, IFL(item->,CH_YAUTO));		break;
-	  case 0x294: print_button(w, item->ch_ncomp ? "%d of %d" : "none",
+	  case EA_CHXMIN: set_dsb_value(w, item->ch_xmin);			break;
+	  case EA_CHXMAX: set_dsb_value(w, item->ch_xmax);			break;
+	  case EA_CHYMIN: set_dsb_value(w, item->ch_ymin);			break;
+	  case EA_CHYMAX: set_dsb_value(w, item->ch_ymax);			break;
+	  case EA_CHXGRD: set_dsb_value(w, item->ch_xgrid);			break;
+	  case EA_CHYGRD: set_dsb_value(w, item->ch_ygrid);			break;
+	  case EA_CHXSNP: set_dsb_value(w, item->ch_xsnap);			break;
+	  case EA_CHYSNP: set_dsb_value(w, item->ch_ysnap);			break;
+	  case EA_CHXAUT: set_toggle(w, IFL(item->,CH_XAUTO));		break;
+	  case EA_CHYAUT: set_toggle(w, IFL(item->,CH_YAUTO));		break;
+	  case EA_CHCUR: print_button(w, item->ch_ncomp ? "%d of %d" : "none",
 				    item->ch_curr+1, item->ch_ncomp);	break;
 
-	  case 0x301: set_toggle(w, chart->line);			break;
-	  case 0x302: set_toggle(w, chart->xfat);			break;
-	  case 0x303: set_toggle(w, chart->yfat);			break;
-	  case 0x304: print_text_button_s(w, chart->excl_if);		break;
-	  case 0x305: print_text_button_s(w, chart->color);		break;
-	  case 0x306: print_text_button_s(w, chart->label);		break;
+	  case EA_CHLINE: set_toggle(w, chart->line);			break;
+	  case EA_CHXFAT: set_toggle(w, chart->xfat);			break;
+	  case EA_CHYFAT: set_toggle(w, chart->yfat);			break;
+	  case EA_CHNOTIF: print_text_button_s(w, chart->excl_if);		break;
+	  case EA_CHCOL: print_text_button_s(w, chart->color);		break;
+	  case EA_CHLAB: print_text_button_s(w, chart->label);		break;
 
-	  case 0x310: set_toggle(w, chart->value[0].mode == CC_NEXT);	break;
-	  case 0x311: set_toggle(w, chart->value[0].mode == CC_SAME);	break;
-	  case 0x312: set_toggle(w, chart->value[0].mode == CC_EXPR);	break;
-	  case 0x313: set_toggle(w, chart->value[0].mode == CC_DRAG);	break;
-	  case 0x314: print_text_button_s(w, chart->value[0].expr);	break;
-	  case 0x315: set_sb_value(w, chart->value[0].field);		break;
-	  case 0x316: set_dsb_value(w, chart->value[0].mul);		break;
-	  case 0x317: set_dsb_value(w, chart->value[0].add);		break;
+	  case EA_CHXNXT: set_toggle(w, chart->value[0].mode == CC_NEXT);	break;
+	  case EA_CHXPREV: set_toggle(w, chart->value[0].mode == CC_SAME);	break;
+	  case EA_CHXEXPM: set_toggle(w, chart->value[0].mode == CC_EXPR);	break;
+	  case EA_CHXDRGM: set_toggle(w, chart->value[0].mode == CC_DRAG);	break;
+	  case EA_CHXEXPR: print_text_button_s(w, chart->value[0].expr);	break;
+	  case EA_CHXDRAG: set_sb_value(w, chart->value[0].field);		break;
+	  case EA_CHXDMUL: set_dsb_value(w, chart->value[0].mul);		break;
+	  case EA_CHXDPL: set_dsb_value(w, chart->value[0].add);		break;
 
-	  case 0x320: set_toggle(w, chart->value[1].mode == CC_NEXT);	break;
-	  case 0x321: set_toggle(w, chart->value[1].mode == CC_SAME);	break;
-	  case 0x322: set_toggle(w, chart->value[1].mode == CC_EXPR);	break;
-	  case 0x323: set_toggle(w, chart->value[1].mode == CC_DRAG);	break;
-	  case 0x324: print_text_button_s(w, chart->value[1].expr);	break;
-	  case 0x325: set_sb_value(w, chart->value[1].field);		break;
-	  case 0x326: set_dsb_value(w, chart->value[1].mul);		break;
-	  case 0x327: set_dsb_value(w, chart->value[1].add);		break;
+	  case EA_CHYNXT: set_toggle(w, chart->value[1].mode == CC_NEXT);	break;
+	  case EA_CHYPREV: set_toggle(w, chart->value[1].mode == CC_SAME);	break;
+	  case EA_CHYEXPM: set_toggle(w, chart->value[1].mode == CC_EXPR);	break;
+	  case EA_CHYDRGM: set_toggle(w, chart->value[1].mode == CC_DRAG);	break;
+	  case EA_CHYEXPR: print_text_button_s(w, chart->value[1].expr);	break;
+	  case EA_CHYDRAG: set_sb_value(w, chart->value[1].field);		break;
+	  case EA_CHYDMUL: set_dsb_value(w, chart->value[1].mul);		break;
+	  case EA_CHYDPL: set_dsb_value(w, chart->value[1].add);		break;
 
-	  case 0x332: set_toggle(w, chart->value[2].mode == CC_EXPR);	break;
-	  case 0x334: print_text_button_s(w, chart->value[2].expr);	break;
+	  case EA_CHXSZEX: set_toggle(w, chart->value[2].mode == CC_EXPR);	break;
+	  case EA_CHXSZ: print_text_button_s(w, chart->value[2].expr);	break;
 
-	  case 0x342: set_toggle(w, chart->value[3].mode == CC_EXPR);	break;
-	  case 0x344: print_text_button_s(w, chart->value[3].expr);	break;
+	  case EA_CHYSZEX: set_toggle(w, chart->value[3].mode == CC_EXPR);	break;
+	  case EA_CHYSZ: print_text_button_s(w, chart->value[3].expr);	break;
+
+	  case EA_QUERY:
+	  case EA_REFBY:
+	  case EA_FHELP:
+	  case EA_DEBUG:
+	  case EA_PREVW:
+	  case EA_HELP:
+	  case EA_CANCEL:
+	  case EA_DONE:
+	  case EA_ADDWID:
+	  case EA_DELWID:
+	  case EA_CHADD:
+	  case EA_CHDEL:
+	  case EA_CHNEXT:
+	  case EA_CHPREV:
+		break;
 	}
 	filling_item = NULL;
 }
@@ -1582,32 +1632,32 @@ static int readback_item(
 		item  = form->items[canvas->curr_item];
 		chart = &item->ch_comp[item->ch_curr];
 	}
-	if ((tp->code < 0x100 || tp->code > 0x112) && !item)
+	if (tp->code > EA_LAST_FWIDE && !item)
 		return(0);
-	if (!chart && (tp->code & 0x300) == 0x300)
+	if (!chart && tp->code >= EA_FIRST_CHART && tp->code <= EA_LAST_CHART)
 		return(0);
 	if (item && item == filling_item)
 		return(0);
 
 	switch(tp->code) {
-	  case 0x101: (void)read_text_button_noblanks(w, &form->name);
+	  case EA_FORMNM: (void)read_text_button_noblanks(w, &form->name);
 		      if (form->name && !form->dbase) {
 				form->dbase = mystrdup(form->name);
-				fillout_formedit_widget_by_code(0x102);
+				fillout_formedit_widget_by_code(EA_DBNAME);
 		      }
 		      break;
 
-	  case 0x102: (void)read_text_button_noblanks(w, &form->dbase);	break;
-	  case 0x107: (void)read_text_button(w, &form->comment);	break;
-	  case 0x103: form->cdelim=to_ascii(read_text_button(w,0),':');	break;
-	  case 0x104: form->rdonly     ^= true;				break;
-	  case 0x114: form->syncable   ^= true;				break;
-	  case 0x105: form->proc       ^= true; sensitize_formedit();	break;
-	  case 0x106: form_edit_script(form, w, form->dbase);		break;
+	  case EA_DBNAME: (void)read_text_button_noblanks(w, &form->dbase);	break;
+	  case EA_FCMT: (void)read_text_button(w, &form->comment);	break;
+	  case EA_DBDELIM: form->cdelim=to_ascii(read_text_button(w,0),':');	break;
+	  case EA_FRO: form->rdonly     ^= true;				break;
+	  case EA_HASTS: form->syncable   ^= true;				break;
+	  case EA_ISPROC: form->proc       ^= true; sensitize_formedit();	break;
+	  case EA_EDPROC: form_edit_script(form, w, form->dbase);		break;
 
-	  case 0x108: form->asep=to_ascii(read_text_button(w,0),'|');	break;
-	  case 0x109: form->aesc=to_ascii(read_text_button(w,0),'\\');	break;
-	  case 0x112: readback_formedit();
+	  case EA_ARDELIM: form->asep=to_ascii(read_text_button(w,0),'|');	break;
+	  case EA_ARESC: form->aesc=to_ascii(read_text_button(w,0),'\\');	break;
+	  case EA_ADDWID: readback_formedit();
 		      item_deselect(form);
 		      (void)item_create(form, canvas->curr_item);
 		      IFS(form->items[canvas->curr_item]->,SELECTED);
@@ -1615,7 +1665,7 @@ static int readback_item(
 		      all = true;
 		      break;
 
-	  case 0x113: item_deselect(form);
+	  case EA_DELWID: item_deselect(form);
 		      item_delete(form, canvas->curr_item);
 		      if (canvas->curr_item >= form->nitems) {
 				if (canvas->curr_item)
@@ -1627,17 +1677,17 @@ static int readback_item(
 	 	      all = true;
 		      break;
 
-	  case 0x10b: create_edit_popup("Card Help Editor",
+	  case EA_FHELP: create_edit_popup("Card Help Editor",
 					 &form->help, false, "fe_help");
 		      break;
 
-	  case 0x10c: create_query_window(form);
+	  case EA_QUERY: create_query_window(form);
 		      break;
 
-	  case 0x10a: create_refby_window(form);
+	  case EA_REFBY: create_refby_window(form);
 		      break;
 
-	  case 0x10d: if (!verify_form(form, &i, shell) && i < form->nitems) {
+	  case EA_DEBUG: if (!verify_form(form, &i, shell) && i < form->nitems) {
 				item_deselect(form);
 				canvas->curr_item = i;
 				IFS(form->items[i]->,SELECTED);
@@ -1650,13 +1700,13 @@ static int readback_item(
 		      }
 		      break;
 
-	  case 0x10e: create_card_menu(form, 0, 0, false);
+	  case EA_PREVW: create_card_menu(form, 0, 0, false);
 		      break;
 
-	  case 0x10f: help_callback(shell, "edit");
+	  case EA_HELP: help_callback(shell, "edit");
 	 	      return(0);
 
-	  case 0x111: readback_formedit();
+	  case EA_DONE: readback_formedit();
 		      if (!verify_form(form, &i, shell)) {
 				if (i < form->nitems) {
 					item_deselect(form);
@@ -1719,7 +1769,7 @@ static int readback_item(
 		      form = 0;
 	 	      return(0);
 
-	  case 0x110: if(create_query_popup(shell,
+	  case EA_CANCEL: if(create_query_popup(shell,
 				"form_cancel", "Ok to discard changes?")) {
 			destroy_formedit_window();
 			destroy_canvas_window();
@@ -1729,12 +1779,12 @@ static int readback_item(
 		      }
 	 	      return(0);
 
-	  case IT_LABEL:
+	  case EA_TYPE:
 	 	      item->type = (ITYPE)item_types[reinterpret_cast<QComboBox *>(tp->widget)->currentIndex()].type;
 		      all = true;
 		      break;
 
-	  case 0x202: IFS(item->,NOSORT);
+	  case EA_FLNSRT: IFS(item->,NOSORT);
 		      if (item->name)
 				for (i=0; i < form->nitems; i++) {
 					ip = form->items[i];
@@ -1744,7 +1794,7 @@ static int readback_item(
 				}
 		      break;
 
-	  case 0x203: IFT(item->,DEFSORT);
+	  case EA_DEFSRT: IFT(item->,DEFSORT);
 		      if (item->name)
 				for (i=0; i < form->nitems; i++)
 				    if (i != canvas->curr_item) {
@@ -1756,16 +1806,16 @@ static int readback_item(
 				}
 		      break;
 
-	  case 0x237: item->min = get_dsb_value(w);			break;
-	  case 0x238: item->max = get_dsb_value(w);			break;
-	  case 0x239: item->digits = get_sb_value(w); set_digits(item->digits);	break;
-	  case 0x23b:
-	  case 0x23c:
-	  case 0x23d:  item->dcombo = (DCOMBO)(tp->code - 0x23b);
-		      for (code=0x23b; code <= 0x23d; code++)
-				fillout_formedit_widget_by_code(code);
+	  case EA_INMIN: item->min = get_dsb_value(w);			break;
+	  case EA_INMAX: item->max = get_dsb_value(w);			break;
+	  case EA_INDIG: item->digits = get_sb_value(w); set_digits(item->digits);	break;
+	  case EA_MENUST:
+	  case EA_MENUDY:
+	  case EA_MENUSD:  item->dcombo = (DCOMBO)(tp->code - EA_MENUST);
+		      for (code=EA_MENUST; code <= EA_MENUSD; code++)
+				fillout_formedit_widget_by_code((enum edact)code);
 		       break;
-	  case 0x244: {
+	  case EA_FKDB: {
 		  const char *s = read_text_button(w, 0);
 	  	  zfree(item->fkey_form_name);
 		  item->fkey_form_name = zstrdup(s);
@@ -1773,7 +1823,7 @@ static int readback_item(
 		  fill_key_table(key_w);
 		  break;
 	  }
-	  case 0x23e:  IFT(item->,MULTICOL);
+	  case EA_FLMUL:  IFT(item->,MULTICOL);
 		       if (IFL(item->,MULTICOL) && item->nmenu) {
 			       int had_0 = avail_column(form, item);
 			       for (i=0; i < item->nmenu; i++)
@@ -1787,159 +1837,155 @@ static int readback_item(
 		       sensitize_formedit(); fill_menu_table(menu_w);
 	               break;
 
-	  case 0x241: IFT(item->,FKEY_HEADER);		break;
-	  case 0x242: IFT(item->,FKEY_SEARCH);		break;
-	  case 0x243: IFT(item->,FKEY_MULTI);		break;
+	  case EA_FKHDR: IFT(item->,FKEY_HEADER);		break;
+	  case EA_FKSRCH: IFT(item->,FKEY_SEARCH);		break;
+	  case EA_FKMUL: IFT(item->,FKEY_MULTI);		break;
 
-	  case 0x210:
-	  case 0x211:
-	  case 0x212:
-	  case 0x213:
-	  case 0x214: item->labelfont = tp->code - 0x210;
-		      for (code=0x210; code <= 0x214; code++)
-				fillout_formedit_widget_by_code(code);
+	  case EA_LABFH:
+	  case EA_LABFO:
+	  case EA_LABFN:
+	  case EA_LABFB:
+	  case EA_LABFC: item->labelfont = tp->code - EA_LABFH;
+		      for (code=EA_LABFH; code <= EA_LABFC; code++)
+				fillout_formedit_widget_by_code((enum edact)code);
 		      all = true;
 		      break;
 
-	  case 0x215:
-	  case 0x216:
-	  case 0x217:
-	  case 0x218:
-	  case 0x219: item->inputfont = tp->code - 0x215;
-		      for (code=0x215; code <= 0x219; code++)
-				fillout_formedit_widget_by_code(code);
+	  case EA_INFH:
+	  case EA_INFO:
+	  case EA_INFN:
+	  case EA_INFB:
+	  case EA_INFC: item->inputfont = tp->code - EA_INFH;
+		      for (code=EA_INFH; code <= EA_INFC; code++)
+				fillout_formedit_widget_by_code((enum edact)code);
 		      all = true;
 		      break;
 
-	  case 0x260:
-	  case 0x261:
-	  case 0x262:
-	  case 0x263:
-	  case 0x264:
-	  case 0x265:
-	  case 0x266:
-	  case 0x267:
-	  case 0x268:
-	  case 0x269:
-	  case 0x26a:
-	  case 0x26b:
-	  case 0x26c: item->plan_if = plan_code[tp->code & 31];
-		      for (code=0x260; code <= 0x26c; code++)
-				fillout_formedit_widget_by_code(code);
+	  case EA_PLDT:
+	  case EA_PLLEN:
+	  case EA_PLEW:
+	  case EA_PLLW:
+	  case EA_PLDAYR:
+	  case EA_PLEND:
+	  case EA_PLCOL:
+	  case EA_PLNOTE:
+	  case EA_PLMSG:
+	  case EA_PLSCR:
+	  case EA_PLSUSP:
+	  case EA_PLNTM:
+	  case EA_PLNAL: item->plan_if = plan_code[tp->code - EA_PLDT];
+		      for (code=EA_PLDT; code <= EA_PLNAL; code++)
+				fillout_formedit_widget_by_code((enum edact)code);
 		      break;
 
-	  case 0x20d: item->labeljust = J_LEFT;
-		      fillout_formedit_widget_by_code(0x20e);
-		      fillout_formedit_widget_by_code(0x20f);		break;
-	  case 0x20e: item->labeljust = J_CENTER;
-		      fillout_formedit_widget_by_code(0x20d);
-		      fillout_formedit_widget_by_code(0x20f);		break;
-	  case 0x20f: item->labeljust = J_RIGHT;
-		      fillout_formedit_widget_by_code(0x20d);
-		      fillout_formedit_widget_by_code(0x20e);		break;
+	  case EA_LABJL: item->labeljust = J_LEFT;
+		      fillout_formedit_widget_by_code(EA_LABJC);
+		      fillout_formedit_widget_by_code(EA_LABJR);	break;
+	  case EA_LABJC: item->labeljust = J_CENTER;
+		      fillout_formedit_widget_by_code(EA_LABJL);
+		      fillout_formedit_widget_by_code(EA_LABJR);	break;
+	  case EA_LABJR: item->labeljust = J_RIGHT;
+		      fillout_formedit_widget_by_code(EA_LABJL);
+		      fillout_formedit_widget_by_code(EA_LABJC);	break;
 
-	  case 0x21b: item->inputjust = J_LEFT;
-		      fillout_formedit_widget_by_code(0x21c);
-		      fillout_formedit_widget_by_code(0x21d);		break;
-	  case 0x21c: item->inputjust = J_CENTER;
-		      fillout_formedit_widget_by_code(0x21b);
-		      fillout_formedit_widget_by_code(0x21d);		break;
-	  case 0x21d: item->inputjust = J_RIGHT;
-		      fillout_formedit_widget_by_code(0x21b);
-		      fillout_formedit_widget_by_code(0x21c);		break;
+	  case EA_INJL: item->inputjust = J_LEFT;
+		      fillout_formedit_widget_by_code(EA_INJC);
+		      fillout_formedit_widget_by_code(EA_INJR);		break;
+	  case EA_INJC: item->inputjust = J_CENTER;
+		      fillout_formedit_widget_by_code(EA_INJL);
+		      fillout_formedit_widget_by_code(EA_INJR);		break;
+	  case EA_INJR: item->inputjust = J_RIGHT;
+		      fillout_formedit_widget_by_code(EA_INJL);
+		      fillout_formedit_widget_by_code(EA_INJC);		break;
 
-	  case 0x200: IFT(item->,SEARCH);				break;
-	  case 0x201: IFT(item->,RDONLY);				break;
-	  case 0x209: item->timefmt = T_DATE;		all = true;	break;
-	  case 0x20a: item->timefmt = T_TIME;		all = true;	break;
-	  case 0x20b: item->timefmt = T_DATETIME;	all = true;	break;
-	  case 0x20c: item->timefmt = T_DURATION;	all = true;	break;
-	  case 0x23f: item->timewidget ^= 1;				break;
-	  case 0x240: item->timewidget ^= 2;				break;
+	  case EA_FLSRCH: IFT(item->,SEARCH);				break;
+	  case EA_FLRO: IFT(item->,RDONLY);				break;
+	  case EA_ISDATE: item->timefmt = T_DATE;		all = true;	break;
+	  case EA_ISTIME: item->timefmt = T_TIME;		all = true;	break;
+	  case EA_ISDTTM: item->timefmt = T_DATETIME;	all = true;	break;
+	  case EA_ISDUR: item->timefmt = T_DURATION;	all = true;	break;
+	  case EA_DTWID: item->timewidget ^= 1;				break;
+	  case EA_DTCAL: item->timewidget ^= 2;				break;
 
-	  case 0x21f: item->maxlen   = get_sb_value(w);			break;
-	  case 0x206: item->sumcol   = get_sb_value(w);			break;
-	  case 0x207: item->sumwidth = get_sb_value(w);			break;
-	  case 0x205: item->column   = get_sb_value(w);			break;
-	  case 0x204: (void)read_text_button(w, &item->name);		break;
-	  case 0x208: (void)read_text_button(w, &item->flagcode);	break;
-	  case 0x236: (void)read_text_button(w, &item->flagtext);	break;
-	  case 0x21a: (void)read_text_button(w, &item->label);		break;
-	  case 0x220: (void)read_text_button(w, &item->idefault);	break;
+	  case EA_INLEN: item->maxlen   = get_sb_value(w);			break;
+	  case EA_SUMCOL: item->sumcol   = get_sb_value(w);			break;
+	  case EA_SUMWID: item->sumwidth = get_sb_value(w);			break;
+	  case EA_COL: item->column   = get_sb_value(w);			break;
+	  case EA_FLDNM: (void)read_text_button(w, &item->name);		break;
+	  case EA_FLCODE: (void)read_text_button(w, &item->flagcode);	break;
+	  case EA_FLSUM: (void)read_text_button(w, &item->flagtext);	break;
+	  case EA_LABEL: (void)read_text_button(w, &item->label);		break;
+	  case EA_INDEF: (void)read_text_button(w, &item->idefault);	break;
 
-	  case 0x222: (void)read_text_button(w, &item->gray_if);	break;
-	  case 0x223: (void)read_text_button(w, &item->invisible_if);	break;
-	  case 0x224: (void)read_text_button(w, &item->freeze_if);	break;
-	  case 0x225: (void)read_text_button(w, &item->skip_if);	break;
+	  case EA_GREYIF: (void)read_text_button(w, &item->gray_if);	break;
+	  case EA_HIDEIF: (void)read_text_button(w, &item->invisible_if);	break;
+	  case EA_ROIF: (void)read_text_button(w, &item->freeze_if);	break;
+	  case EA_SKIPIF: (void)read_text_button(w, &item->skip_if);	break;
 
-	  case 0x226: (void)read_text_button(w, &item->pressed);	break;
-	  case 0x228: (void)read_text_button(w, &form->planquery);	break;
-	  case 0x229: (void)read_text_button(w, &item->sumprint);	break;
+	  case EA_BUTACT: (void)read_text_button(w, &item->pressed);	break;
+	  case EA_PLIF: (void)read_text_button(w, &form->planquery);	break;
+	  case EA_SUMPR: (void)read_text_button(w, &item->sumprint);	break;
 
-	  case 0x280: item->ch_xmin   = get_dsb_value(w);			break;
-	  case 0x281: item->ch_xmax   = get_dsb_value(w);			break;
-	  case 0x282: item->ch_ymin   = get_dsb_value(w);			break;
-	  case 0x283: item->ch_ymax   = get_dsb_value(w);			break;
-	  case 0x284: item->ch_xgrid  = get_dsb_value(w);			break;
-	  case 0x285: item->ch_ygrid  = get_dsb_value(w);			break;
-	  case 0x286: item->ch_xsnap  = get_dsb_value(w);			break;
-	  case 0x287: item->ch_ysnap  = get_dsb_value(w);			break;
-	  case 0x28c: IFT(item->,CH_XAUTO);				break;
-	  case 0x28d: IFT(item->,CH_YAUTO);				break;
+	  case EA_CHXMIN: item->ch_xmin   = get_dsb_value(w);			break;
+	  case EA_CHXMAX: item->ch_xmax   = get_dsb_value(w);			break;
+	  case EA_CHYMIN: item->ch_ymin   = get_dsb_value(w);			break;
+	  case EA_CHYMAX: item->ch_ymax   = get_dsb_value(w);			break;
+	  case EA_CHXGRD: item->ch_xgrid  = get_dsb_value(w);			break;
+	  case EA_CHYGRD: item->ch_ygrid  = get_dsb_value(w);			break;
+	  case EA_CHXSNP: item->ch_xsnap  = get_dsb_value(w);			break;
+	  case EA_CHYSNP: item->ch_ysnap  = get_dsb_value(w);			break;
+	  case EA_CHXAUT: IFT(item->,CH_XAUTO);				break;
+	  case EA_CHYAUT: IFT(item->,CH_YAUTO);				break;
 
-	  case 0x290: add_chart_component(item); all = true;		break;
-	  case 0x291: del_chart_component(item); all = true;		break;
-	  case 0x292: if (item->ch_curr) item->ch_curr--; all = true;	break;
-	  case 0x293: if (item->ch_curr < item->ch_ncomp-1) item->ch_curr++;
+	  case EA_CHADD: add_chart_component(item); all = true;		break;
+	  case EA_CHDEL: del_chart_component(item); all = true;		break;
+	  case EA_CHPREV: if (item->ch_curr) item->ch_curr--; all = true;	break;
+	  case EA_CHNEXT: if (item->ch_curr < item->ch_ncomp-1) item->ch_curr++;
 		      all = true;					break;
 
-	  case 0x301: chart->line ^= true;				break;
-	  case 0x302: chart->xfat ^= true;				break;
-	  case 0x303: chart->yfat ^= true;				break;
-	  case 0x304: (void)read_text_button(w, &chart->excl_if);	break;
-	  case 0x305: (void)read_text_button(w, &chart->color);		break;
-	  case 0x306: (void)read_text_button(w, &chart->label);		break;
+	  case EA_CHLINE: chart->line ^= true;				break;
+	  case EA_CHXFAT: chart->xfat ^= true;				break;
+	  case EA_CHYFAT: chart->yfat ^= true;				break;
+	  case EA_CHNOTIF: (void)read_text_button(w, &chart->excl_if);	break;
+	  case EA_CHCOL: (void)read_text_button(w, &chart->color);		break;
+	  case EA_CHLAB: (void)read_text_button(w, &chart->label);		break;
 
-	  case 0x310: chart->value[0].mode = CC_NEXT;			break;
-	  case 0x311: chart->value[0].mode = CC_SAME;			break;
-	  case 0x312: chart->value[0].mode = CC_EXPR;			break;
-	  case 0x313: chart->value[0].mode = CC_DRAG;			break;
-	  case 0x314: (void)read_text_button(w, &chart->value[0].expr);	break;
-	  case 0x315: chart->value[0].field=get_sb_value(w);		break;
-	  case 0x316: chart->value[0].mul= get_dsb_value(w);		break;
-	  case 0x317: chart->value[0].add= get_dsb_value(w);		break;
+	  case EA_CHXNXT: chart->value[0].mode = CC_NEXT;			break;
+	  case EA_CHXPREV: chart->value[0].mode = CC_SAME;			break;
+	  case EA_CHXEXPM: chart->value[0].mode = CC_EXPR;			break;
+	  case EA_CHXDRGM: chart->value[0].mode = CC_DRAG;			break;
+	  case EA_CHXEXPR: (void)read_text_button(w, &chart->value[0].expr);	break;
+	  case EA_CHXDRAG: chart->value[0].field=get_sb_value(w);		break;
+	  case EA_CHXDMUL: chart->value[0].mul= get_dsb_value(w);		break;
+	  case EA_CHXDPL: chart->value[0].add= get_dsb_value(w);		break;
 
-	  case 0x320: chart->value[1].mode = CC_NEXT;			break;
-	  case 0x321: chart->value[1].mode = CC_SAME;			break;
-	  case 0x322: chart->value[1].mode = CC_EXPR;			break;
-	  case 0x323: chart->value[1].mode = CC_DRAG;			break;
-	  case 0x324: (void)read_text_button(w, &chart->value[1].expr);	break;
-	  case 0x325: chart->value[1].field=get_sb_value(w);		break;
-	  case 0x326: chart->value[1].mul= get_dsb_value(w);		break;
-	  case 0x327: chart->value[1].add= get_dsb_value(w);		break;
+	  case EA_CHYNXT: chart->value[1].mode = CC_NEXT;			break;
+	  case EA_CHYPREV: chart->value[1].mode = CC_SAME;			break;
+	  case EA_CHYEXPM: chart->value[1].mode = CC_EXPR;			break;
+	  case EA_CHYDRGM: chart->value[1].mode = CC_DRAG;			break;
+	  case EA_CHYEXPR: (void)read_text_button(w, &chart->value[1].expr);	break;
+	  case EA_CHYDRAG: chart->value[1].field=get_sb_value(w);		break;
+	  case EA_CHYDMUL: chart->value[1].mul= get_dsb_value(w);		break;
+	  case EA_CHYDPL: chart->value[1].add= get_dsb_value(w);		break;
 
-	  case 0x332: chart->value[2].mode = CC_EXPR;			break;
-	  case 0x334: (void)read_text_button(w, &chart->value[2].expr);	break;
+	  case EA_CHXSZEX: chart->value[2].mode = CC_EXPR;			break;
+	  case EA_CHXSZ: (void)read_text_button(w, &chart->value[2].expr);	break;
 
-	  case 0x342: chart->value[3].mode = CC_EXPR;			break;
-	  case 0x343: chart->value[3].mode = CC_DRAG;			break;
-	  case 0x344: (void)read_text_button(w, &chart->value[3].expr);	break;
-	  case 0x345: chart->value[3].field=get_sb_value(w);		break;
-	  case 0x346: chart->value[3].mul= get_dsb_value(w);		break;
-	  case 0x347: chart->value[3].add= get_dsb_value(w);		break;
+	  case EA_CHYSZEX: chart->value[3].mode = CC_EXPR;			break;
+	  case EA_CHYSZ: (void)read_text_button(w, &chart->value[3].expr);	break;
+	  case EA_CHCUR: break;
 	}
 
 	/*
 	 * the chart choice buttons are widely separated and must be handled
 	 * by hand here, to make sure only one of each group is enabled.
 	 */
-	i = tp->code & 0x00f;
-	if (tp->code >= 0x310 && tp->code <= 0x3ff && i < 4) {
-		i = tp->code & 0x3f0;
-		fillout_formedit_widget_by_code(i + 0);
-		fillout_formedit_widget_by_code(i + 1);
-		fillout_formedit_widget_by_code(i + 2);
-		fillout_formedit_widget_by_code(i + 3);
+	if (tp->code >= EA_CHXNXT && tp->code <= EA_CHYDRGM) {
+		i = ((tp->code - EA_CHXNXT) & ~3U) + EA_CHXNXT;
+		fillout_formedit_widget_by_code((enum edact)(i + 0));
+		fillout_formedit_widget_by_code((enum edact)(i + 1));
+		fillout_formedit_widget_by_code((enum edact)(i + 2));
+		fillout_formedit_widget_by_code((enum edact)(i + 3));
 	}
 
 	/*

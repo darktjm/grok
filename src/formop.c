@@ -784,7 +784,7 @@ void form_edit_script(
 		return;
 	}
 	form->proc = true;
-	fillout_formedit_widget_by_code(0x105);
+	fillout_formedit_widget_proc();
 
 	for (q=path; *q && *q != ' ' && *q != '\t'; q++);
 	*q = 0;

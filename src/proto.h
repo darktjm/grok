@@ -379,8 +379,7 @@ void create_formedit_window(
 	bool		copy);		/* use a copy of <def> */
 void sensitize_formedit(void);
 void fillout_formedit(void);
-void fillout_formedit_widget_by_code(
-	int		code);
+void fillout_formedit_widget_proc(void);
 void readback_formedit(void);
 
 extern const char	plan_code[];	/* code 0x260..0x26c */

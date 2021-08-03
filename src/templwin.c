@@ -61,40 +61,52 @@ static void destroy_templ_popup(void)
  * one-of-many choices.
  */
 
+enum tmwid {
+	TW_NONE,
+	TW_CURCARD, TW_CURSEARCH, TW_ALLSEC, TW_ALL,
+	TW_SCROLL,
+	TA_CREATE, TA_DUP, TA_EDIT, TA_DELETE,
+	TW_FLAGS, TFL_SUM, TFL_FIRST = TFL_SUM, TFL_NOTES, TFL_CARDS,
+	TFL_LAST = TFL_CARDS,
+	TW_FILE, TA_BROWSE,
+	TA_EXPORT, TA_PREVIEW, TA_CANCEL, TA_HELP,
+	PA_PRINT, PA_PREVIEW, PA_HELP
+};
+
 static struct menu {
 	char	type;		/* Label, Scroll, b/q/Button, Text, -line */
-	long	code;		/* unique identifier, 0=none */
+	enum tmwid code;	/* unique identifier, 0=none */
 	int 	role;
 	const char *text;
 	QWidget	*widget;
 } menu[] = {
-	{ 'M',	0x50,	0,		"menu"			},
-	{ 'L',	0,	0,		"Using Template:"	},
-	{ 'S',	0x10,	0,		"scroll"		},
-	{ 'B',	0x20,	dbbr(Action),	"Create"		},
-	{ 'b',	0x21,	dbbr(Action),	"Dup"			},
-	{ 'b',	0x22,	dbbr(Action),	"Edit"			},
-	{ 'q',	0x23,	dbbr(Action),	"Delete"		},
-	{ '-',	0,	0,		"div"			},
-	{ 'L',	0,	0,		"WIth Flags:"		},
-	{ 'T',	0x11,	0,		"text"			},
-	{ 'F',	0x12,	-'d',		"Summary"		},
-	{ 'F',	0x13,	'n',		"Notes"			},
-	{ 'f',	0x14,	-'s',		"Cards"			},
-	{ 'L',	0,	1,		"To File:"		},
-	{ 'T',	0x30,	0,		"text"			},
-	{ 'q',	0x40,	dbbr(Action),	"..."			},
-	{ 'B',	0x41,	dbbr(Accept),	"Export"		},
-	{ 'b',	0x44,	dbbr(Accept),	"Preview"		},
-	{ 'b',	0x42,	dbbb(Cancel),	0			},
-	{ 'q',	0x43,	dbbb(Help),	0			}
+	{ 'M',	TW_CURCARD,	0,		"menu"			},
+	{ 'L',	TW_NONE,	0,		"Using Template:"	},
+	{ 'S',	TW_SCROLL,	0,		"scroll"		},
+	{ 'B',	TA_CREATE,	dbbr(Action),	"Create"		},
+	{ 'b',	TA_DUP,		dbbr(Action),	"Dup"			},
+	{ 'b',	TA_EDIT,	dbbr(Action),	"Edit"			},
+	{ 'q',	TA_DELETE,	dbbr(Action),	"Delete"		},
+	{ '-',	TW_NONE,	0,		"div"			},
+	{ 'L',	TW_NONE,	0,		"With Flags:"		},
+	{ 'T',	TW_FLAGS,	0,		"text"			},
+	{ 'F',	TFL_SUM,	-'d',		"Summary"		},
+	{ 'F',	TFL_NOTES,	'n',		"Notes"			},
+	{ 'f',	TFL_CARDS,	-'s',		"Cards"			},
+	{ 'L',	TW_NONE,	1,		"To File:"		},
+	{ 'T',	TW_FILE,	0,		"text"			},
+	{ 'q',	TA_BROWSE,	dbbr(Action),	"..."			},
+	{ 'B',	TA_EXPORT,	dbbr(Accept),	"Export"		},
+	{ 'b',	TA_PREVIEW,	dbbr(Accept),	"Preview"		},
+	{ 'b',	TA_CANCEL,	dbbb(Cancel),	0			},
+	{ 'q',	TA_HELP,	dbbb(Help),	0			}
 };
 
 static struct menu print_buttons[] = {
-	{ 'b',	0x46,	dbbr(Accept),	"Print"			},
-	{ 'b',	0x47,	dbbr(Accept),	"Preview"		},
-	{ 'b',	0x42,	dbbb(Cancel),	0			},
-	{ 'q',	0x45,	dbbb(Help),	0			}
+	{ 'b',	PA_PRINT,	dbbr(Accept),	"Print"			},
+	{ 'b',	PA_PREVIEW,	dbbr(Accept),	"Preview"		},
+	{ 'b',	TA_CANCEL,	dbbb(Cancel),	0			},
+	{ 'q',	PA_HELP,	dbbb(Help),	0			}
 };
 
 static const QStringList what_rows = {
@@ -144,7 +156,7 @@ static void create_templ_print_popup(CARD *card, bool print)
 	      case 'q':
 		  if(!print) {
 		      w = mk_button(hb, mp->text, mp->role);
-		      if(mp->code == 0x41)
+		      if(mp->code == TA_EXPORT)
 			      reinterpret_cast<QPushButton *>(w)->setDefault(true);
 		  }
 		break;
@@ -158,7 +170,7 @@ static void create_templ_print_popup(CARD *card, bool print)
 		  w = cb;
 		  break;
 	      }
-	      case 'T': if(!print || mp->code == 0x11) { w = new QLineEdit; w->setObjectName(mp->text); } break;
+	      case 'T': if(!print || mp->code == TW_FLAGS) { w = new QLineEdit; w->setObjectName(mp->text); } break;
 	      case '-': if(!print) w = mk_separator();		break;
 	      case 'L':	if(!print || !mp->role) w = new QLabel(mp->text);  break;
 	      case 'S': {
@@ -187,15 +199,15 @@ static void create_templ_print_popup(CARD *card, bool print)
 		hb = 0;
 		hbox = 0;
 	    }
-	    if (mp->code == 0x30 && pref.xfile)
+	    if (mp->code == TW_FILE && pref.xfile)
 		print_text_button(w, pref.xfile);
-	    if (mp->code >= 0x12 && mp->code < 0x20) {
+	    if (mp->code >= TFL_FIRST && mp->code <= TFL_LAST) {
 		bool notf = mp->role < 0;
 		int flag = notf ? -mp->role : mp->role;
 		flag = 1 << (flag - 'a');
 		set_toggle(w, !(pref.xflags & flag) == notf);
 	    }
-	    if (mp->code == 0x11 && pref.xflags) {
+	    if (mp->code == TW_FLAGS && pref.xflags) {
 		char buf[26 * 2 + 1];
 		int i, m;
 		char *p;
@@ -214,7 +226,7 @@ static void create_templ_print_popup(CARD *card, bool print)
 		set_button_cb(w, button_callback(card, mp->code, set), bool set);
 	    else if (mp->type == 'M')
 		set_popup_cb(w, button_callback(card, mp->code + i), int, i);
-	    else if (mp->code == 0x30)
+	    else if (mp->code == TW_FILE)
 		set_textr_cb(w, button_callback(card, mp->code));
 	    else if(mp->type == 'T')
 		set_text_cb(w, button_callback(card, mp->code));
@@ -225,14 +237,14 @@ static void create_templ_print_popup(CARD *card, bool print)
 		form->addWidget(hb);
 		for (mp=print_buttons; APTR_OK(mp, print_buttons); mp++) {
 			w = mk_button(hb, mp->text, mp->role);
-			if(mp->code == 0x46)
+			if(mp->code == PA_PRINT)
 				reinterpret_cast<QPushButton *>(w)->setDefault(true);
 			set_button_cb(w, button_callback(card, mp->code));
 			mp->widget = w;
 		}
 	}
 	// close does a reject by default, so no extra callback needed
-	set_dialog_cancel_cb(shell, button_callback(card, 0x42));
+	set_dialog_cancel_cb(shell, button_callback(card, TA_CANCEL));
 
 	popup_nonmodal(shell);
 }
@@ -344,7 +356,7 @@ static bool do_export(CARD *card)
 	struct menu	*mp;		/* for finding text widget */
 	const char	*err;
 
-	for (mp=menu; mp->code != 0x30; mp++);
+	for (mp=menu; mp->code != TW_FILE; mp++);
 	read_text_button_noblanks(mp->widget, &pref.xfile);
 	
 	if (!pref.xfile) {
@@ -452,15 +464,15 @@ static void button_callback(
 	bool				set)
 {
 	switch(code) {
-	  case 0x20:						/* Create */
+	  case TA_CREATE:					/* Create */
 		askname(card, false);
 		break;
-	  case 0x21:						/* Dup */
+	  case TA_DUP:						/* Dup */
 		if (!get_list_seq())
 			return;
 		askname(card, true);
 		break;
-	  case 0x22:						/* Edit */
+	  case TA_EDIT:						/* Edit */
 		if (!get_list_seq())
 			break;
 		if (pref.xlistpos >= get_template_nbuiltins()) {
@@ -472,13 +484,13 @@ static void button_callback(
 			create_error_popup(shell, 0,
 				"Cannot edit a builtin template, use Dup");
 		break;
-	  case 0x23:						/* Delete */
+	  case TA_DELETE:					/* Delete */
 		if (!get_list_seq())
 			return;
 		(void)delete_template(shell, pref.xlistpos, card);
 		mklist(card);
 		break;
-	  case 0x40:						/* Browse */
+	  case TA_BROWSE:					/* Browse */
 	{
 		QFileDialog *d = new QFileDialog(shell, "Select Export Output File");
 		if(pref.xfile && pref.xfile[0] != '|')
@@ -490,20 +502,20 @@ static void button_callback(
 		delete d;
 		break;
 	}
-	  case 0x11: {						/* flags */
+	  case TW_FLAGS: {					/* flags */
 		  char *p, *f;
 		  struct menu *mp;
 		  bool rewrite = false;
 		  pref.xflags = 0;
 		  for (mp=menu; APTR_OK(mp, menu); mp++)
-			  if(mp->code >= 0x12 && mp->code < 0x20) {
+			  if(mp->code >= TFL_FIRST && mp->code <= TFL_LAST) {
 				  QCheckBox *b = dynamic_cast<QCheckBox *>(mp->widget);
 				  bool notf = mp->role < 0;
 				  int flag = notf ? -mp->role : mp->role;
 				  if(b->isChecked() == !notf)
 					  pref.xflags |= 1<<(flag - 'a');
 			  }
-		  for (mp=menu; mp->code != 0x11; mp++);
+		  for (mp=menu; mp->code != TW_FLAGS; mp++);
 		  f = read_text_button_noblanks(mp->widget, NULL);
 		  for(p = f; *p; p++) {
 			  if(*p == '-')
@@ -527,7 +539,7 @@ static void button_callback(
 				  p--;
 				  rewrite = true;
 				  for(struct menu *mp=menu; APTR_OK(mp, menu); mp++) {
-					  if(mp->code >= 0x12 && mp->code < 0x20 &&
+					  if(mp->code >= TFL_FIRST && mp->code <= TFL_LAST &&
 					     (mp->role == fl || mp->role == -fl)) {
 						  set_toggle(mp->widget, mp->role > 0);
 						  break;
@@ -541,9 +553,9 @@ static void button_callback(
 		  }
 		  break;
 	  }
-	  case 0x12:
-	  case 0x13:
-	  case 0x14: {
+	  case TFL_SUM:
+	  case TFL_NOTES:
+	  case TFL_CARDS: {
 		struct menu *mp;
 		for(mp = menu; mp->code != code; mp++);
 		bool notf = mp->role < 0;
@@ -555,19 +567,19 @@ static void button_callback(
 			pref.xflags &= ~flag;
 		break;
 	  }
-	  case 0x30:						/* text */
-	  case 0x41:						/* Export */
+	  case TW_FILE:						/* text */
+	  case TA_EXPORT:					/* Export */
 		if (do_export(card))
-	  case 0x42:						/* Cancel */
+	  case TA_CANCEL:					/* Cancel */
 		destroy_templ_popup();
 		break;
-	  case 0x43:						/* Help */
+	  case TA_HELP:						/* Help */
 		help_callback(shell, "export");
 		break;
-	  case 0x45:						/* Help */
+	  case PA_HELP:						/* Help */
 		help_callback(shell, "print");
 		break;
-	  case 0x44: {						/* Preview */
+	  case TA_PREVIEW: {					/* Preview */
 		QTextDocument *d =  new QTextDocument;
 		if(!export_to_doc(card, *d)) {
 			delete d;
@@ -577,14 +589,14 @@ static void button_callback(
 		create_edit_popup("Export Preview", NULL, true, "editprint", d);
 		break;
 	  }
-	  case 0x46:
-	  case 0x47: {	 					/* Print */
+	  case PA_PRINT:
+	  case PA_PREVIEW: { 					/* Print */
 		QTextDocument d;
 		pref.modified = true;
 		if(!export_to_doc(card, d))
 			break;
 		destroy_templ_popup();
-		if(code == 0x46) {
+		if(code == PA_PRINT) {
 			QPrintDialog pd(pref.printer, mainwindow);
 			/* not sure if this is needed or does anything */
 			pd.setOption(QAbstractPrintDialog::PrintToFile);
@@ -600,11 +612,11 @@ static void button_callback(
 		write_preferences();
 		break;
 	  }
-	  case 0x50:
-	  case 0x51:
-	  case 0x52:
-	  case 0x53: {	 					/* Cards */
-		pref.pselect = select_codes[code - 0x50];
+	  case TW_CURCARD:
+	  case TW_CURSEARCH:
+	  case TW_ALLSEC:
+	  case TW_ALL: {	 					/* Cards */
+		pref.pselect = select_codes[code - TW_CURCARD];
 		pref.modified = true;
 	  }
 	}
@@ -621,7 +633,7 @@ static void file_export_callback(
 	if (filename.size()) {
 		zfree(pref.xfile);
 		pref.xfile = qstrdup(filename);
-		for (mp=menu; mp->code != 0x30; mp++);
+		for (mp=menu; mp->code != TW_FILE; mp++);
 		print_text_button(mp->widget, pref.xfile);
 	}
 }

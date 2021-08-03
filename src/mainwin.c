@@ -1091,7 +1091,7 @@ static void formed_pulldown(
 	CARD				*card = mainwindow->card;
 	card_readback_texts(card, -1);
 	switch (item) {
-	  case 0:						/* current */
+	  case NFM_CURRENT:					/* current */
 		if (card && card->form)
 			create_formedit_window(card->form, false);
 		else
@@ -1099,12 +1099,12 @@ static void formed_pulldown(
 		     "Please choose database to edit\nfrom Database pulldown");
 		break;
 
-	  case 1:						/* new */
+	  case NFM_NEW:						/* new */
 		switch_form(mainwindow->card, 0);
 		create_formedit_window(0, false);
 		break;
 
-	  case 2:						/* clone */
+	  case NFM_DUP:						/* clone */
 		if (card && card->form)
 			create_formedit_window(card->form, true);
 		else
