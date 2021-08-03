@@ -380,7 +380,7 @@ static void resize_key_table(QTableWidget *tw)
 
 enum edact {
 	EA_FORMNM = 1, EA_DBNAME, EA_FRO, EA_HASTS, EA_ISPROC, EA_EDPROC,
-	EA_DBDELIM, EA_ARDELIM, EA_ARESC, EA_FCMT,
+	EA_DBDELIM, EA_ARDELIM, EA_ARESC, EA_SUMHT, EA_FCMT,
 	EA_QUERY, EA_REFBY, EA_FHELP, EA_DEBUG, EA_PREVW, EA_HELP, EA_CANCEL,
 	EA_DONE, EA_ADDWID, EA_LAST_FWIDE = EA_ADDWID, EA_DELWID,
 	EA_TYPE, EA_FLSRCH, EA_FLRO, EA_FLNSRT, EA_DEFSRT, EA_FLMUL,
@@ -436,6 +436,8 @@ static struct _template {
 	{ ALL, 't', EA_ARDELIM,	" ",			"fe_adelim",	},
 	{ ALL, 'l', EA_NONE,	"Array elt esc:",	"fe_adelim",	},
 	{ ALL, 't', EA_ARESC,	" ",			"fe_adelim",	},
+	{ ALL, 'l', EA_NONE,	"Max Sum row ht:",	"fe_form",	},
+	{ ALL, 'd', EA_SUMHT,	" ",			"fe_form",	},
 	{   0, 'F', EA_NONE,	" ",			0,		},
 	{ ALL, 'L', EA_NONE,	"Comment:",		"fe_cmt",	},
 	{ ALL, 'T', EA_FCMT,	" ",			"fe_cmt",	},
@@ -1207,6 +1209,7 @@ static void fillout_formedit_widget(
 	  case EA_EDPROC: w->setEnabled(form->proc);			break;
 	  case EA_ARDELIM: print_text_button_s(w, to_octal(form->asep ? form->asep : '|'));	break;
 	  case EA_ARESC: print_text_button_s(w, to_octal(form->aesc ? form->aesc : '\\'));	break;
+	  case EA_SUMHT: set_dsb_value(w, form->sumheight + 1);	break;
 
 	  case EA_TYPE:
 		  for(int n = 0; n < ALEN(item_types); n++)
@@ -1657,6 +1660,7 @@ static int readback_item(
 
 	  case EA_ARDELIM: form->asep=to_ascii(read_text_button(w,0),'|');	break;
 	  case EA_ARESC: form->aesc=to_ascii(read_text_button(w,0),'\\');	break;
+	  case EA_SUMHT: form->sumheight = get_dsb_value(w) - 1;	break;
 	  case EA_ADDWID: readback_formedit();
 		      item_deselect(form);
 		      (void)item_create(form, canvas->curr_item);

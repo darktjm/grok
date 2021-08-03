@@ -654,11 +654,14 @@ static const char *eval_command(
 					forlevel--;
 				} else {
 					int var = (sp->nquery < 0 ? -sp->nquery : sp->nquery) - 1;
-					char c = sp->array[after];
-					*unescape(sp->array + begin, sp->array + begin, after - begin, esc) = 0;
-					set_var(card, var, zstrdup(sp->array + begin));
-					// no need to re-escape and re-store value
-					sp->array[after] = c;
+					if (sp->array) {
+						char c = sp->array[after];
+						*unescape(sp->array + begin, sp->array + begin, after - begin, esc) = 0;
+						set_var(card, var, zstrdup(sp->array + begin));
+						// no need to re-escape and re-store value
+						sp->array[after] = c;
+					} else
+						set_var(card, var, 0);
 				}
 				sp->num = after;
 			}

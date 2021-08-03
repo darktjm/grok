@@ -51,6 +51,9 @@ Features in Progress
   - no auto-delete/auto-clear of referers if referred-to row removed
     (cascade delete)
 
+  - no auto-delete of refered-to row if reference changed or removed
+    (cascade delete)
+
   - no auto-adjust/clear/delete of key values in other databases if
     key changes (cascade key field modification)
 
@@ -258,9 +261,7 @@ Code Improvements
 
 - Use static array sizes rather than 0-termination in general.
 
-- Use symbolic names (either enums or strings) instead of cryptic hex
-  (or, in the case of mainwin.c, decimal) action codes.  In some cases,
-  maybe split callbacks into multiple functions, since they don't really
+- Maybe split some callbacks into multiple functions, since they don't really
   share code.
 
 Minor UI Improvements

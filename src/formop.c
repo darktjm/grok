@@ -292,6 +292,10 @@ bool verify_form(
 		msg += "Illegal field delimiter, using TAB\n";
 		form->cdelim = '\t';
 	}
+	if (form->sumheight < 0) {
+		msg += "Summary height must be at least 1; using 1\n";
+		form->sumheight = 0;
+	}
 	if ((form->asep == form->aesc && form->asep) ||
 	    (!form->asep && form->aesc == '|') ||
 	    (!form->aesc && form->asep == '\\')) {

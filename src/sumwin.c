@@ -309,6 +309,7 @@ char *summary_display(const char *&data, CARD *card, int row, const ITEM *item,
 		card->row = row;
 		data = evaluate(card, item->sumprint);
 		card->row = saved_row;
+		return 0;
 	}
 	if (!data)
 		return 0;
@@ -372,13 +373,12 @@ void make_summary_line(
 	const ITEM	*item;		/* contains info about formatting */
 	const MENU	*menu;
 	int		x = 0;		/* index to next free char in buf */
-	int		i;		/* item counter */
-	int		j;		/* char copy counter */
+	int		i, j, l;
 	QTreeWidgetItem *twi = 0;	
 	int		lcol = 0;
 	int		ncol;
 	char		*allocdata = NULL;
-	int		sumwidth;
+	int		sumwidth, sumheight = 0;
 
 	if(!*buf)
 		*buf = alloc(0, "summary line", char, (*buf_len = 80));
@@ -442,19 +442,37 @@ void make_summary_line(
 		if (sumwidth > 80)
 			sumwidth = 80;
 #endif
-		if(data_len > sumwidth)
-			data_len = sumwidth;
-		grow(0, "summary line", char, *buf, x + sumwidth + 3, buf_len);
-		tmemcpy(char, *buf+x, data, data_len);
-		(*buf)[x + data_len] = 0;
-		if (allocdata) {
-			free(allocdata);
-			allocdata = NULL;
+		/* pass 1:  count # of lines (up to form->sumheight + 1) */
+		/* trim whitespace off end of data first */
+		while(data_len > 0 && isspace(data[data_len - 1]))
+			data_len--;
+		for (j = 0, l = card->form->sumheight; j < data_len; j++)
+			if (data[j] == '\n' && !l--) {
+				l++;
+				data_len = j;
+				break;
+			}
+		l = card->form->sumheight - l + 1;
+		if (l < sumheight)
+			l = sumheight;
+
+		grow(0, "summary line", char, *buf, (x + sumwidth + 3) * l, buf_len);
+
+		/* pass 1: shorten lines of data and set widget text */
+		const char *nl = data, *lp = data;
+		char *dp = *buf + x;
+		while (1) {
+			while(nl < data + data_len && *nl != '\n') {
+				if(nl < lp + sumwidth)
+					*dp++ = *nl;
+				nl++;
+			}
+			if(nl == data + data_len)
+				break;
+			*dp++ = *nl++;
+			lp = nl;
 		}
-		(*buf)[x + sumwidth] = 0;
-		for (j=x; (*buf)[j]; j++)
-			if ((*buf)[j] == '\n')
-				(*buf)[j--] = 0;
+		*dp = 0;
 		if(w) {
 			if(!twi) {
 				if(row >= 0 && lrow >= 0) {
@@ -467,12 +485,65 @@ void make_summary_line(
 			}
 			twi->setText(lcol++, *buf + x);
 		}
-		x += j = strlen(*buf+x);
-		for (; j < sumwidth; j++)
-			(*buf)[x++] = ' ';
-		(*buf)[x++] = ' ';
-		(*buf)[x++] = ' ';
-		(*buf)[x]   = 0;
+		/* pass 2: insert each line into multi-line result */
+		if (l == 1) {
+			memset(dp, ' ', sumwidth - (dp - (*buf + x)) + 2);
+			x += sumwidth + 2;
+			(*buf)[x] = 0;
+			continue;
+		}
+		int rl = l;
+		char *ip = *buf + x;
+		while(sumheight-- > 1) {
+			dp = ip;
+			memmove(ip + sumwidth + 2, ip, x * sumheight);
+			int p;
+			for(p = 0; p < data_len && p < sumwidth &&
+				       data[p] != '\n'; p++)
+				*dp++ = data[p];
+			data += p;
+			data_len -= p;
+			memset(dp, ' ', (p < sumwidth ? sumwidth - p : 0) + 2);
+			while(data_len && data[p] != '\n') {
+				data_len--;
+				data++;
+				p++;
+			}
+			if(data_len) {
+				data_len--;
+				data++;
+			}
+			ip += x + sumwidth + 3;
+			rl--;
+		}
+		while(data_len) {
+			int p;
+			for (p = 0; data_len && p < sumwidth; p++, data_len--) {
+				if(*data == '\n')
+					break;
+				*ip++ = *data++;
+			}
+			memset(ip, ' ', sumwidth - p + 2);
+			ip += sumwidth - p + 2;
+			while(data_len && *data != '\n') {
+				data_len--;
+				data++;
+			}
+			if(data_len) {
+				data_len--;
+				data++;
+				*ip++ = '\n';
+				memset(ip, ' ', x);
+				ip += x;
+			} else
+				*ip = 0;
+		}
+		sumheight = l;
+		if (allocdata) {
+			free(allocdata);
+			allocdata = NULL;
+		}
+		x += sumwidth + 2;
 	}
 	if (x == 0 && row >= 0)
 		sprintf(*buf, "card %d", row);

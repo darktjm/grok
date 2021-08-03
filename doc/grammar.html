@@ -81,6 +81,7 @@ precedences. Bit-wise operations operate on 32 bits only.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>atan2(</TT><B>n</B>, <B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Quadrant-aligned arc tangent
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>len(</TT><B>s</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Length of a string
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>#</TT><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Length of a string
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>count(</TT><B>s1</B>, <B>s2</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>the number of occurrences of <B>s2</B> in <B>s1</B>
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>bound(</TT><B>n</B>, <B>n</B>, <B>n</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n1</B> bounded by a minimum (second number) and a maximum (third number)
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>random</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>A random number in the range of [0.0, 1.0]
 </TABLE>
@@ -122,6 +123,7 @@ be identical to those described <A HREF="http://pcre.org/pcre.txt">here</A>.
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>esc(</TT><B>s1</B><TT>, </TT><B>s2</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Returns <B>s1</B>, with any characters in <B>s2</B> prefixed by the first character in <B>s2</B>
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>detab(</TT><B>s</B><TT>, </TT><B>n1</B><TT>, </TT><B>n2</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Expands tabs to spaces in <B>s</B>.  The second and third arguments are optional.  <B>n1</B> is the starting offset from the beginninf of the line of the first character (0 if unspecified).  <B>n2</B> is the tab stop (8 if unspecified).
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>align(</TT><B>s1</B><TT>, </TT><B>n1</B><TT>, </TT><B>s2</B><TT>, </TT><B>n2</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Align <B>s1</B> in a field of width <B>n1</B>.  The third and fourth arguments are optional.  The first character of <B>s2</B> is used to fill in when widening (space if <B>s2</B> is blank or missing).  <B>n2</B> controls the location of the string within the field:  less than zero (default) for left-aligned, greater than zero for right-aligned, and zero for centered.  Note that cursor movement controls (e.g. backspace) count towards the width like any other character.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>trunc2d(</TT><B>s1</B><TT>, </TT><B>n1</B><TT>, </TT><B>n2</B><TT>, </TT><B>s2</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Truncate <B>s1</B> so that it fits in a box of width <B>n1</B> and height <B>n2</B>.  Lines are separated by <B>s2</B>.  <B>s2</B> is optional; it's a single linefeed character if missing or blank.
 </TABLE>
 
 

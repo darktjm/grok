@@ -212,11 +212,19 @@ const char *mktemplate_html(
 		fprintf(fp, "<TD VALIGN=TOP>");
 		if (item == primary_i)
 			fprintf(fp, "\\{IF +s}\n<A HREF=#\\{(this)}>\\{ENDIF}\n");
-		fputs("\\{IF -n}\n<B>\\{ENDIF}\n", fp);
-		fputs("\\{substr(", fp);
+		fputs("\\{IF -n}\n<B>\\{ENDIF}\n\\{", fp);
+		if (card->form->sumheight > 0)
+			fputs("trunc2d(", fp);
+		else
+			fputs("substr(gsub(", fp);
 		print_data_expr(fp, item, menu);
-		fprintf(fp, ",0,%d)}", menu ? menu->sumwidth : item->sumwidth);
-		fputs("\\{IF -n}\n</B>\\{ENDIF}\n", fp);
+		if (card->form->sumheight > 0)
+			fprintf(fp, ",%d,%d",
+				menu ? menu->sumwidth : item->sumwidth,
+				card->form->sumheight + 1);
+		else
+			fprintf(fp, ",\"\n.*\",\"\"),0,%d", menu ? menu->sumwidth : item->sumwidth);
+		fputs(")}\\{IF -n}\n</B>\\{ENDIF}\n", fp);
 		if (item == primary_i) fprintf(fp, "\\{IF +s}\n</A>\\{ENDIF}\n");
 		fprintf(fp, "&nbsp;");
 	}
@@ -243,7 +251,7 @@ const char *mktemplate_html(
 		"\\{FOREACH}\n");
 	for (i=0,m=-1; i < card->form->nitems; i++) {
 		item = card->form->items[i];
-		if (!IN_DBASE(item->type)) // FIXME: allow Print
+		if (!IN_DBASE(item->type) && item->type != IT_PRINT)
 			continue;
 		name = item->name;
 		if (item->type == IT_CHOICE) {
@@ -274,7 +282,7 @@ const char *mktemplate_html(
 		      "<TR><TD ALIGN=RIGHT VALIGN=TOP><B>", fp);
 		if(item==primary_i)
 			fputs("<A NAME=\\{(this)}>", fp);
-		pr_escaped(fp, name, -1, ESC_HTML | 0);
+		pr_escaped(fp, label_of(item, menu), -1, ESC_HTML | 0);
 		putc(':', fp);
 		if(item==primary_i)
 			fputs("</A>", fp);
@@ -378,6 +386,28 @@ static const char *mktemplate_text(
 	itemorder = alloc(0, "summary", struct sum_item, nalloc);
 	nitems = get_summary_cols(&itemorder, &nalloc, const_cast<CARD *>(card));
 	fputs("\n\\{FOREACH}\n", fp);
+	if (card->form->sumheight > 0) {
+		char asep, aesc;
+		get_form_arraysep(card->form, &asep, &aesc);
+		fputs("\\{(x=0);t=\"\";\n  foreach(v,\"", fp);
+		for (i=0; i < nitems; i++) {
+			item = itemorder[i].item;
+			menu = itemorder[i].menu;
+			if (item->type == IT_CHOICE && i &&
+			    itemorder[i-1].item->type == IT_CHOICE &&
+			    itemorder[i-1].item->column == item->column)
+				continue;
+			if(i)
+				putc(asep, fp);
+			fputs(menu ? menu->name : item->name, fp);
+		}
+		fprintf(fp,
+			"\",\n\t\"foreach(w,'',"
+			"bsub('(y=count(_'.v.',\\\"\\n\\\"))'));\n\t\t"
+			"(x=(y>x?y>%d?%d:y:x))\")\n}"
+			"\\{FOREACH [v {align(\"\",x,\"%c\")}}\n",
+			card->form->sumheight, card->form->sumheight, asep);
+	}
 	for (i=0; i < nitems; i++) {
 		item = itemorder[i].item;
 		menu = itemorder[i].menu;
@@ -409,11 +439,17 @@ static const char *mktemplate_text(
 			if(o)
 				fputs("gsub(", fp);
 			/* substr() only chops; align also fills */
-			if(sumwidth + len > pref.linelen)
+			if(sumwidth + len > pref.linelen || i == nitems - 1)
 				fputs("substr(", fp);
-			else if(i < nitems - 1)
+			else
 				fputs("align(", fp);
+			fputs("gsub(", fp);
+			if(card->form->sumheight > 0)
+				fputs("sub(", fp);
 			print_data_expr(fp, item, menu);
+			if(card->form->sumheight > 0)
+				fputs(",t,\"\")", fp);
+			fputs(",\"\n.*\",\"\")", fp);
 			if(sumwidth + len > pref.linelen) {
 				fprintf(fp, ",0,%d)", pref.linelen - len);
 #if !CLIP_SUMMARY
@@ -437,6 +473,8 @@ static const char *mktemplate_text(
 #endif
 			} else if(i < nitems - 1)
 				fprintf(fp, ",%d)", sumwidth);
+			else
+				fprintf(fp, ",0,%d)", sumwidth);
 			if(o)
 				fputs(",\"[^ \n]\",\"\\0\b\\0\")", fp);
 			fputs("\n}", fp);
@@ -446,8 +484,12 @@ static const char *mktemplate_text(
 		}
 	}
 	free_summary_cols(itemorder, nitems);
-	fputs("\n\\{IF -n}\n", fp);
-	for (i=0; i < card->nitems; i++) {
+	putc('\n', fp);
+	if (card->form->sumheight > 0)
+		fputs("\\{t=bsub(\"[^\\n]*($|\\n\").t.\")\";\"\"}"
+		         "\\{END}\n", fp);
+	fputs("\\{IF -n}\n", fp);
+	for (i=0; i < card->form->nitems; i++) {
 		item = card->form->items[i];
 		if (item->type != IT_NOTE)
 			continue;
@@ -463,11 +505,11 @@ static const char *mktemplate_text(
 			putc(' ', fp);
 		fputs("\"))}\n\\{ENDIF}\n\n", fp);
 	}
-	fputs("\\{ENDIF}\n",fp);
-	fprintf(fp, "\\{END}\n");
+	fputs("\\{ENDIF}\n"
+	      "\\{END}\n", fp);
 	fputs("\\{ENDIF}\n\\{IF +s}\n", fp);
 	fputs("\\{FOREACH}\n", fp);
-	for (i=0; i < card->nitems; i++) {
+	for (i=0; i < card->form->nitems; i++) {
 		item = card->form->items[i];
 		if(item->type == IT_MULTI || item->type == IT_FLAGS) {
 			for(m = 0; m < item->nmenu; m++) {

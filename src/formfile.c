@@ -79,6 +79,7 @@ bool write_form(
 	    fprintf(fp, "adelim     %s ", to_octal(form->asep ? form->asep : '|'));
 	    fprintf(fp, "%s\n", to_octal(form->aesc ? form->aesc : '\\'));
 	}
+	write_int("sumheight  ", form->sumheight);
 	write_int("rdonly     ", form->rdonly);
 	write_int("proc       ", form->proc);
 	write_int("syncable   ", form->syncable, != true);
@@ -449,7 +450,9 @@ FORM *read_form(
 					while(*p && !isspace(*p))
 						p++;
 					form->aesc = to_ascii(p, '\\');
-			} else if (!strcmp(key, "grid"))
+			} else if (!strcmp(key, "sumheight"))
+					form->sumheight = atoi(p);
+			else if (!strcmp(key, "grid"))
 					sscanf(p, "%d %d",&form->xg,&form->yg);
 			else if (!strcmp(key, "size"))
 					sscanf(p, "%d %d",&form->xs,&form->ys);

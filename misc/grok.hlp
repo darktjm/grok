@@ -1760,6 +1760,7 @@ or "1" for true. Note that short-circuiting with ?: && || does not work.</P>
 <TR><TD>atan2(n1,n2)</TD><TD>quadrant-aligned arc tangent</TD></TR>
 <TR><TD>len (s)</TD><TD>string length</TD></TR>
 <TR><TD># s</TD><TD>string length</TD></TR>
+<TR><TD>count(s1, s2)</TD><TD>count occurrences of s2 in s1</TD>
 <TR><TD>bound(n1,n2,n3)</TD><TD>n1 bounded by n2 and n3</TD></TR>
 <TR><TD>random</TD><TD>a random number in the range [0.0, 1.0]</TD></TR>
 </TABLE></BLOCKQUOTE>
@@ -1806,6 +1807,8 @@ parenthesized also.</P>
 				      according to n1.  s2 is optional, space if missing or blank.
 				      n2 is optional, negative if missing.  Alignment location is left if
 				      n2&lt;0, right if n2&gt;0, centered if n2=0</TD></TR>
+<TR><TD>trunc2d(s1, n1, n2[, s2])</TD><TD>s1 is a sequence of rows separated by s2 (\n by default).
+				      Remove rows at end above n2.  Truncate each row to n1 characters.</TD>
 <TR><TD>detab(s, n1, n2)</TD><TD>Expand tabs in s to spaces.  n1 is initial offset from
 				 left, n2 is tabstop.  n1 and n2 are optional, 0 and 8 by default.</TD></TR>
 </TABLE></BLOCKQUOTE>

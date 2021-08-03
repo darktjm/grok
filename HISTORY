@@ -343,6 +343,13 @@ Version 2.4 (in progress)
  * Switched from Qt's qmake to the more generic cmake.  This corrects
    a few problems with the documentation.  Builds now depend on cmake
    and bison (byacc used to work, but not any more).
+ * Multiple databases can now be in memory at once.  A preference was
+   added to control how many.  Switching away from a modified database
+   doesn't lose changes and can be saved/reverted on exit.
+   * Multi-database Save dialog on exit, and "Save All" menu item
+   * Multi-database Revert (re-load from disk or ignore on exit)
+   * @"dbase"/"search"+"field"-"field": prefixes expr to work on other db
+   * @dbase on FOREACH switches to alternate database
  * Added Reference and Referers fields for foreign database access
    * List of key and/or card-displayed fields editable in form editor
    * Reference fields appear as sequence of pulldown menus in card
@@ -357,15 +364,15 @@ Version 2.4 (in progress)
      references in the above format
    * Added _fkey this and _fkey last to get row numbers from
      referenced database.  _fkey can be a chain as above.
+   * Added "Check References" menu item to validate/fix fkey data
+ * Multi-line data may be displayed in the summary window and built-in
+   template summaries.  Currently this means just Note fields.
+   * A form-wide value sets a maximum (1 by default).
+   * Added trunc2d() and count() to support printing them in templates.
  * Field names are now printed in database info popup as well (ctrl-D)
  * Search mode is now in Query menu instead of next to search entry
  * Default search mode is now find+select
  * Added array access/slice operators: s[..n], s[n..n], s[..], s[n]
- * Multiple databases can now be in memory at once.  A preference was
-   added to control how many.  Switching away from a modified database
-   doesn't lose changes and can be saved/reverted on exit.
-   * @"dbase"/"search"+"field"-"field": prefixes expr to work on other db
-   * @dbase on FOREACH switches to alternate database
  * FOREACH supports changing the sort order for foreign or same database
  * Generic SQL exporter (create table & views, import data into table).
    Supports sqlite3, postgres (at least 11), firebird 3 (partly).

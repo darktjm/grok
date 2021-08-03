@@ -742,6 +742,39 @@ char *f_substr(
 
 
 /*
+ * s is a set of lines separated by lsep (just \n if NULL)
+ * strip away characters beyond w in each line
+ * strip away lines > h
+ */
+char *f_trunc2d(char *s, int w, int h, char *lsep)
+{
+	char *ret = s;
+	if(h <= 0 || w <= 0 || BLANK(s)) {
+		zfree(s);
+		zfree(lsep);
+		return 0;
+	}
+	const char *sep = lsep ? lsep : "\n";
+	while(1) {
+		char *nl = strstr(s, sep);
+		if (!nl)
+			nl = s + strlen(s);
+		if (!--h)
+			*nl = 0;
+		if(nl - s > w) {
+			memmove(s + w, nl, strlen(nl) + 1);
+			nl = s + w;
+		}
+		if(!*nl) {
+			zfree(lsep);
+			return ret;
+		}
+		s = nl + strlen(sep);
+	}
+}
+
+
+/*
  * return true if <match> is contained in <string>
  */
 

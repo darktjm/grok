@@ -246,6 +246,11 @@ char *f_substr(
 	char		*string,
 	int		pos,
 	int		num);
+char *f_trunc2d(
+	char *s,
+	int w,
+	int h,
+	char *lsep);
 bool f_instr(
 	char		*match,
 	char		*string);
@@ -400,6 +405,7 @@ char *f_dereff(
 %token		SECTION_ DBASE_ FORM_ PREVFORM SWITCH THIS LAST DISP FOREACH
 %token		HOST USER UID GID SYSTEM ACCESS BEEP ERROR PRINTF MATCH SUB
 %token		GSUB BSUB ESC TOSET DETAB ALIGN DEREF DEREFF ID MTIME CTIME
+%token		TRUNC2D COUNT
 
 %left 's' /* Force a shift; i.e., prefer longer versions */
 %left ',' ';'
@@ -487,6 +493,10 @@ string	: STRING			{ $$ = $1; }
 	| TR '(' string ',' string ')'	{ $$ = f_tr(g, $3, $5); check_error; }
 	| SUBSTR '(' string ',' numarg ',' number ')'
 					{ $$ = f_substr($3, (int)$5, (int)$7);} /* can't fail */
+	| TRUNC2D '(' string ',' numarg ',' numarg ')'
+					{ $$ = f_trunc2d($3, (int)$5, (int)$7, NULL); }
+	| TRUNC2D '(' string ',' numarg ',' numarg ',' string ')'
+					{ $$ = f_trunc2d($3, (int)$5, (int)$7, $9); }
 	| HOST				{ char *s; size_t len = 20; int e;
 					  s = (char *)malloc(len);
 					  while(s && !(e = gethostname(s, len)) &&
@@ -736,6 +746,8 @@ numarg	: NUMBER			{ $$ = $1; }
 	| LEN   '(' string ')'		{ char *a=$3; $$ = a ? f_len(a) : 0;
 								zfree(a); }
 	| '#' string			{ $$ = $2 ? f_len($2) : 0; zfree($2); }
+	| COUNT '(' string ',' string ')' { $$ = countchars($3, STR($5));
+					    zfree($3); zfree($5); }
 	| ALEN_ string			{ $$ = f_alen(g, $2); }
 	| MATCH '(' string ',' string ')' { $$ = f_re_match(g, $3, $5); check_error; }
 	| SQRT  '(' number ')'		{ $$ = sqrt(abs($3));  } /* cheater */

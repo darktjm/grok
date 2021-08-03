@@ -382,6 +382,7 @@ struct form {
 	char	*help;		/* help text */
 	unsigned char cdelim;	/* column delimiter in database file */
 	unsigned char asep, aesc;  /* string array delimiter and how to escape it */
+	int	sumheight;	/* max height of summary line - 1 */
 	bool	rdonly;		/* don't allow writing to database */
 	bool	proc;		/* procedural */
 	bool	syncable;	/* keep timestamp files */
