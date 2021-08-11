@@ -1910,6 +1910,16 @@ static void check_references(void)
 				}
 				break;
 			    }
+			    case BR_BADKEYS:
+				card.form = const_cast<FORM *>(badrefs[i].form);
+				card.dbase = const_cast<DBASE *>(badrefs[i].dbase);
+				make_summary_line(&sbuf, &sbuf_len, &card, badrefs[i].row);
+				form->addWidget(new QLabel(
+					qsprintf("Form '%s', row %d (%s), field '%s' has a badly formatted multi-key value.  This has been corrected; save the database to apply.",
+						 badrefs[i].form->name, badrefs[i].row, sbuf,
+						 badrefs[i].form->items[badrefs[i].item]->name)),
+						r++, 0, 1, 3);
+				break;
 			    case BR_NO_INVREF:
 				form->addWidget(new QLabel(
 					qsprintf("Form '%s' does not list '%s' as a referer",
@@ -1928,11 +1938,33 @@ static void check_references(void)
 				form->addWidget((cb = new QCheckBox), r, 0);
 				cb->setChecked(true);
 				form->addWidget(new QLabel("Change to:"), r, 1);
+				/* FIXME:  provide full fkey ed from formwin */
+				/* because new form may also mean new fields */
 				QComboBox *db = new QComboBox;
 				QStringList sl;
 				add_dbase_list(sl);
 				db->addItems(sl);
 				form->addWidget(db, r++, 2);
+				break;
+			    }
+			    case BR_NO_REFITEM: {
+				form->addWidget(new QLabel(
+					qsprintf("Can't resolve foreign field '%s' of form '%s'",
+						 badrefs[i].form->items[badrefs[i].item]->fkey[badrefs[i].keyno].name,
+						 badrefs[i].fform->name)),
+					       r++, 0, 1, 3);
+				form->addWidget((cb = new QCheckBox), r, 0);
+				cb->setChecked(true);
+				form->addWidget(new QLabel("Change to:"), r, 1);
+				/* FIXME:  provide full fkey ed from formwin */
+				/* to allow removing/adding visible fields */
+				QComboBox *fn = make_fkey_field_select(badrefs[i].fform);
+				/* disallow blank if key */
+				ITEM *item = badrefs[i].form->items[badrefs[i].item];
+				FKEY *fkey = &item->fkey[badrefs[i].keyno];
+				if(fkey->key)
+					    fn->removeItem(0);
+				form->addWidget(fn, r++, 2);
 				break;
 			    }
 			    case BR_NO_CFORM: {
@@ -2063,6 +2095,9 @@ static void check_references(void)
 			    case BR_DUP:
 				/* nothing to do; change is in popup */
 				break;
+			    case BR_BADKEYS:
+				/* nothing to do; fix was alredy applied */
+				break;
 			    case BR_NO_INVREF:
 				getcb(cb);
 				if(cb->isChecked()) {
@@ -2092,6 +2127,33 @@ static void check_references(void)
 						break;
 					zfree(item->fkey_form_name);
 					item->fkey_form_name = zstrdup(dbn);
+					forms_to_save.insert(badrefs[i].form);
+				}
+				break;
+			    case BR_NO_REFITEM:
+				getcb(cb);
+				if(cb->isChecked()) {
+					QComboBox *fn = 0;
+					getw(fn, QComboBox);
+					ITEM *item = badrefs[i].form->items[badrefs[i].item];
+					FKEY *fkey = &item->fkey[badrefs[i].keyno];
+					int idx = fn->currentIndex();
+					if(!fkey->key)
+						idx--;
+					resolve_fkey_fieldsel(badrefs[i].form,
+							      idx,
+							      *fkey);
+					if(!fkey->name) {
+						item->nfkey--;
+						memmove(fkey, fkey + 1,
+							(item->nfkey - badrefs[i].keyno) * sizeof(*fkey));
+						for(int j = i + 1; j < nbadref; j++)
+							if(badrefs[j].form == badrefs[i].form &&
+							   badrefs[j].item == badrefs[i].item &&
+							   badrefs[j].reason == BR_NO_REFITEM &&
+							   badrefs[j].keyno > badrefs[i].keyno)
+								badrefs[j].keyno--;
+					}
 					forms_to_save.insert(badrefs[i].form);
 				}
 				break;

@@ -229,7 +229,24 @@ typedef struct {
 	bool	display;	/* if key, display value? */
 } FKEY;
 
-enum {
+enum badref_reason {
+    BR_NO_FORM,		/* fatal: can't resolve form name in fkey def */
+    BR_NO_REFITEM,	/* fatal: can't resolve item name in fkey def */
+    BR_NO_INVREF,	/* warn: no inverse reference in foreign form */
+    BR_MISSING,		/* err: key does not exist in foreign db */
+    BR_DUP,		/* err: key exists more than once in foreign db */
+    BR_BADKEYS,		/* err: multi-key key value is not a set */
+    BR_NO_CFORM,	/* warn: explicit referrer form doesn't resolve */
+    BR_NO_FREF		/* warn: explicit referrer doesn't actually refer */
+};
+struct badref {
+    FORM *form, *fform;  /* writable for fixes */
+    DBASE *dbase, *fdbase;
+    int item, row, keyno;
+    enum badref_reason reason;
+};
+
+enum item_flag {
 	/* General */
 	IF_SEARCH,		/* queries search this item */
 	IF_RDONLY,		/* user cannot change this field */
@@ -274,7 +291,7 @@ struct item {
 	int	sumwidth;	/* width in summary listing if IN_DBASE */
 	int	sumcol;		/* column # in summary listing if IN_DBASE */
 	char	*sumprint;	/* if nz, show this in summary if IN_DBASE */
-	long	column;		/* database column #, 0 is first */
+	int	column;		/* database column #, 0 is first */
 	int	flags;		/* misc flags; see IF_* above */
 	char	plan_if;	/* plan interface field type (t=time, ...) */
 				/*----- common */

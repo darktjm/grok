@@ -402,7 +402,7 @@ bool verify_form(
 			for (int n = 0; n < item->nfkey; n++) {
 				int itid = item->fkey[n].index;
 				ITEM *fitem = item->fkey[n].item;
-				if (item->fkey[n].key) {
+				if (fitem && item->fkey[n].key) {
 					nkey++;
 					resolve_fkey_fields(fitem);
 					if (item->type == IT_INV_FKEY && fitem &&
@@ -934,7 +934,7 @@ bool item_create(
 				item->menu[i].column = avail_column(form, i ? NULL : item);
 		}
 		zfree(item->name);
-		sprintf(buf, "item%ld", item->column);
+		sprintf(buf, "item%d", item->column);
 		item->name = mystrdup(buf);
 	}
 	return(true);

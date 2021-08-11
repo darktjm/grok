@@ -1,9 +1,9 @@
 /*
  * create a default template file
  *
- *	mktemplate_html()	mode 0=both, 1=summary, 2=data
+ *	mktemplate_html()
  *	mktemplate_tex()
- *	mktemplate_ps()
+ *	mktemplate_sql()
  */
 
 #include "config.h"
@@ -866,7 +866,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 				}
 			}
 			if(is_agg)
-				fputs("\\{IF -p}string_agg\\{ELSE}group_concat\\{END}(coalesce(", fp);
+				fputs("\\{IF -p}string_agg\\{ELSEIF -f}list\\{ELSE}group_concat\\{END}(coalesce(", fp);
 			else
 				fputs("max(", fp);
 		}
@@ -1439,8 +1439,7 @@ static void pr_sql_type(FILE *fp, const FORM *form, int i, bool null)
 	    case IT_NUMBER:
 		if(item->digits)
 			fprintf(fp, "DECIMAL(15,%d)", item->digits);
-			/* fputs("REAL", fp); */
-			/* fputs("FLOAT(15)", fp); */
+			/* fputs("DOUBLE PRECISION", fp); */
 		else
 			fputs("BIGINT", fp);
 		if(!null)

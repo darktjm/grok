@@ -205,7 +205,7 @@ static void resize_menu_table(QTableWidget *tw)
 	tw->updateGeometry();
 }
 
-static void fkey_at(const FORM *f, int idx, FKEY &fk)
+void resolve_fkey_fieldsel(const FORM *f, int idx, FKEY &fk)
 {
 	int item = -1, menu;
 	fk.item = 0;
@@ -269,14 +269,10 @@ static QStringList key_col_labels = {
 enum {
 	KEY_FIELD_KEY, KEY_FIELD_DISPLAY, KEY_FIELD_FIELD };
 
-static void fill_key_row(QTableWidget *tw, ITEM *item, int row)
+QComboBox *make_fkey_field_select(const FORM *fform)
 {
-	bool blank = row >= item->nfkey;
-	FKEY *fk = &item->fkey[row];
 	QComboBox *cb = new QComboBox;
 	cb->addItem("");
-	resolve_fkey_fields(item);
-	const FORM *fform = item->fkey_form;
 	if (fform) {
 		for (int i=0; i < fform->nitems; i++) {
 			const ITEM *it = fform->items[i];
@@ -290,6 +286,16 @@ static void fill_key_row(QTableWidget *tw, ITEM *item, int row)
 				cb->addItem(fkey_name(fform, i, 0));
 		}
 	}
+	return cb;
+}
+
+static void fill_key_row(QTableWidget *tw, ITEM *item, int row)
+{
+	bool blank = row >= item->nfkey;
+	FKEY *fk = &item->fkey[row];
+	resolve_fkey_fields(item);
+	const FORM *fform = item->fkey_form;
+	QComboBox *cb = make_fkey_field_select(fform);
 	if (blank)
 		cb->setCurrentIndex(0);
 	else if (!fk->item) {
@@ -1533,7 +1539,7 @@ static void key_callback(int x, int y, int c)
 		if(row < item->nfkey) {
 			switch (x) {
 			    case KEY_FIELD_FIELD:
-				fkey_at(item->fkey_form, c - 1, item->fkey[y]);
+				resolve_fkey_fieldsel(item->fkey_form, c - 1, item->fkey[y]);
 				break;
 			    case KEY_FIELD_KEY:
 				item->fkey[y].key = c;

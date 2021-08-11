@@ -25,7 +25,7 @@ static void usage(void), make_grokdir(void);
 static void init_pixmaps(void);
 
 QApplication		*app;		/* application handle */
-char			*progname;	/* argv[0] */
+const char		*progname;	/* argv[0] */
 QIcon			pixmap[NPICS];	/* common symbols */
 bool			restricted;	/* restricted mode, no form editor */
 

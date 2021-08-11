@@ -41,9 +41,7 @@ Features in Progress
 --------------------
 
 - fkey issues:
-  - no data validity check:  fkey_multi value is a set
-
-  - most data validity checks' suggested fixes untested
+  - some data validity checks' suggested fixes untested
 
   - no auto-adjust of key field names if changed in foreign db (cascade
     key field definition)
@@ -119,19 +117,19 @@ Features in Progress
  db menu fixes:
 
   - All loaded databases should be in the menu regardless of
-    whether or not they normally would be.
+    whether or not they normally would be.  Probably won't fix before 2.4.
 
   - The star in the title bar should also reflect all databases,
-    not just the currently displayed one.
+    not just the currently displayed one.  Probaably won't fix before 2.4.
 
   - Modified flag in db menu needs updating as soon as db is modifed
-    (print_info_line() material, at least)
+    (print_info_line() material, at least)  Probably won't fix before 2.4.
 
   - As soon as a db/form is unloaded, it should be unbolded/removed from
-    menu.
+    menu.  Probably won't fix before 2.4.
 
   - As soon as a db/form is loaded via non-interactive means, it should
-    be bolded/added to menu
+    be bolded/added to menu  Probably won't fix before 2.4.
 
 - Support multiple views; i.e. multiple main windows.  So far, it's
   possible to have multiple card structures, each of which supports its

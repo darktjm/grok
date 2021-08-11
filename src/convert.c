@@ -89,6 +89,33 @@ const char *mkdatetimestring(time_t time)
 }
 
 /*
+ * return the text representation of the data string of an IT_TIME database
+ * item. This is used by fillout_item and make_summary_line.
+ */
+
+const char *format_time_data(
+	time_t		time,
+	TIMEFMT		timefmt)	/* new format, one of T_* */
+{
+	const char *data = NULL;
+
+	switch(timefmt) {
+	  case T_DATE:
+		data = mkdatestring(time);
+		break;
+	  case T_TIME:
+		data = mktimestring(time, false);
+		break;
+	  case T_DURATION:
+		data = mktimestring(time, true);
+		break;
+	  case T_DATETIME:
+		data = mkdatetimestring(time);
+	}
+	return(data);
+}
+
+/*
  * parse the date string, and return the number of seconds. The default
  * time argument is for the +x notation, it's typically the trigger date
  * of the appointment. Use 0 if it's not available; today is default.
@@ -288,4 +315,21 @@ time_t parse_datetimestring(
 	tm1.tm_min  = tm2.tm_min;
 	tm1.tm_sec  = tm2.tm_sec;
 	return(mktime(&tm1));
+}
+
+time_t parse_time_data(
+	const char	*data,
+	TIMEFMT		timefmt)	/* new format, one of T_* */
+{
+	switch(timefmt) {
+	    case T_DATE:
+		return parse_datestring(data);
+	    case T_TIME:
+		return parse_timestring(data, false);
+	    case T_DATETIME:
+		return parse_datetimestring(data);
+	    case T_DURATION:
+		return parse_timestring(data, true);
+	}
+	return 0;
 }

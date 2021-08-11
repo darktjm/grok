@@ -484,7 +484,7 @@ void GrokCanvas:: redraw_canvas_item(
 	else
 		*sumcol = 0;
 	if (item->type == IT_CHOICE || item->type == IT_FLAG)
-		buf = qsprintf("[%ld=%s%s] ", item->column,
+		buf = qsprintf("[%d=%s%s] ", item->column,
 			       item->flagcode ? item->flagcode : "?", sumcol);
 	buf += item->label ? item->label : "label";
 	nfont = item->labelfont;
@@ -496,7 +496,7 @@ void GrokCanvas:: redraw_canvas_item(
 
 	buf.clear();
 	if (IN_DBASE(item->type))
-		buf = qsprintf("[%ld%s] ", item->column, sumcol);
+		buf = qsprintf("[%d%s] ", item->column, sumcol);
 	buf += datatext[item->type];
 	if (xm > 0 && xm < item->xs) {
 		nfont = item->inputfont;

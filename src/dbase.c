@@ -418,6 +418,353 @@ int row_with_ctime(
 	return -1;
 }
 
+void elt_at(const char *array, unsigned int n, int *begin, int *after, char sep, char esc)
+{
+    *after = -1;
+    do {
+	next_aelt(array, begin, after, sep, esc);
+	if(!n--)
+	    return;
+    } while(*after >= 0);
+}
+
+char *unescape(char *d, const char *s, int len, char esc)
+{
+    if(len < 0)
+	len = strlen(s);
+    while(len--) {
+	if(*s == esc && len) {
+	    s++;
+	    len--;
+	}
+	*d++ = *s++;
+    }
+    return d;
+}
+
+char *unesc_elt_at(const FORM *form, const char *array, int n)
+{
+    char sep, esc;
+    int b, a;
+    get_form_arraysep(form, &sep, &esc);
+    elt_at(array, n, &b, &a, sep, esc);
+    if (b == a)
+	return 0;
+    char *ret = alloc(0, "aelt", char, a - b + 1);
+    *unescape(ret, array + b, a - b, esc) = 0;
+    return ret;
+}
+
+char **split_array(const FORM *form, const char *array, int *len)
+{
+    *len = 0;
+    if(!array || !*array)
+	return 0;
+    char sep, esc;
+    get_form_arraysep(form, &sep, &esc);
+    int begin, after = -1;
+    size_t rsz;
+    char **ret = alloc(0, "split array", char *, rsz = 10);
+    while(1) {
+	next_aelt(array, &begin, &after, sep, esc);
+	if(after < 0)
+	    break;
+	zgrow(0, "split array", char *, ret, *len, *len + 1, &rsz);
+	if(after == begin)
+	    ret[(*len)++] = 0;
+	else {
+	    ret[*len] = alloc(0, "split array", char, after - begin + 1);
+	    *unescape(ret[(*len)++], array + begin, after - begin, esc) = 0;
+	}
+    }
+    return ret;
+}
+
+void get_form_arraysep(const FORM *form, char *sep, char *esc)
+{
+    *sep = '|';
+    *esc = '\\';
+    if(!form)
+	return;
+    if(form->asep)
+	*sep = form->asep;
+    if(form->aesc)
+	*esc = form->aesc;
+}
+
+/* Starts search at after + 1;  Returns -1 for begin & after @ end */
+void next_aelt(const char *array, int *begin, int *after, char sep, char esc)
+{
+    if(!array || !*array) {
+	if(*after == -1)
+	    *begin = *after = 0;
+	else
+	    *begin = *after = -1;
+	return;
+    }
+    if(*after >= 0 && !array[*after]) {
+	*begin = *after = -1;
+	return;
+    }
+    *begin = ++*after;
+    while(array[*after] && array[*after] != sep) {
+	if(array[*after] == esc && array[*after + 1])
+	    ++*after;
+	++*after;
+    }
+}
+
+int stralen(const char *array, char sep, char esc)
+{
+    int ret = 0, b, a = -1;
+    do {
+	next_aelt(array, &b, &a, sep, esc);
+	++ret;
+    } while(a >= 0);
+    return ret - 1;
+}
+
+int countchars(const char *s, const char *c)
+{
+    int len = 0;
+    if(!s)
+	return 0;
+    while(*s)
+	if(strchr(c, *s++))
+	    len++;
+    return len;
+}
+
+char *escape(char *d, const char *s, int len, char esc, const char *toesc)
+{
+    if(len < 0)
+	len = strlen(s);
+    while(len--) {
+	if(*s == esc || strchr(toesc, *s))
+	    *d++ = esc;
+	*d++ = *s++;
+    }
+    return d;
+}
+
+// modifies array in-place; assumes array has been malloc'd
+bool set_elt(char **array, int n, const char *val, const FORM *form)
+{
+    int b, a, vlen = val ? strlen(val) : 0, alen = *array ? strlen(*array) : 0;
+    char toesc[3];
+    char &sep = toesc[1], &esc = toesc[0];
+    int vesc;
+    get_form_arraysep(form, &sep, &esc);
+    toesc[2] = 0;
+    if(n < 0)
+	n = stralen(*array, sep, esc);
+    vesc = countchars(val, toesc);
+    elt_at(*array, n, &b, &a, sep, esc);
+    if(a >= 0) { // replace
+	if(vlen + vesc == a - b) // exact fit
+	    escape(*array + b, val, vlen, esc, toesc + 1);
+	else if(vlen + vesc < a - b) { // smaller
+	    memmove(*array + b + vlen + vesc, *array + a, alen - a + 1);
+	    escape(*array + b, val, vlen, esc, toesc + 1);
+	} else if(!alen && !vesc) { // bigger, but completely replace array
+	    zfree(*array);
+	    *array = zstrdup(val);
+	    return true;
+	} else { // bigger
+	    char *oarray = *array;
+	    int nlen = alen + vlen + vesc - (a - b) + 1;
+	    /* C supports NULL realloc, but some memory debuggers don't */
+	    if(*array)
+		*array = (char *)realloc(*array, nlen);
+	    else
+		*array = (char *)malloc(nlen);
+	    if(!*array) {
+		zfree(oarray);
+		return false;
+	    }
+	    memmove(*array + b + vlen + vesc, *array + a, alen - a);
+	    (*array)[nlen - 1] = 0;
+	    escape(*array + b, val, vlen, esc, toesc + 1);
+	}
+	alen += vlen + vesc - (a - b);
+    } else { // append
+	int l = stralen(*array, sep, esc);
+	char *oarray = *array;
+	int nlen = alen + (n - l + 1) + vlen + vesc + 1;
+	/* C supports NULL realloc, but some memory debuggers don't */
+	if(*array)
+	    *array = (char *)realloc(*array, nlen);
+	else
+	    *array = (char *)malloc(nlen);
+	if(!*array) {
+	    zfree(oarray);
+	    return false;
+	}
+	memset(*array + alen, sep, n - l + 1);
+	escape(*array + alen + n - l + 1, val, vlen, esc, toesc + 1);
+	(*array)[nlen - 1] = 0;
+    }
+    return array;
+}
+
+/* array should be a global, but C's qsort doesn't support globals */
+/* I'm tring to eliminate statics, so I won't pass it that way */
+/* another fix would be to use std::sort, but this is OK, too. */
+struct aelt_loc {
+    const char *array;
+    int b, a;
+};
+
+static int cmp_aelt(const void *_a, const void *_b)
+{
+    const struct aelt_loc *a = (struct aelt_loc *)_a;
+    const struct aelt_loc *b = (struct aelt_loc *)_b;
+    int alen = a->a - a->b;
+    int blen = b->a - b->b;
+    int c;
+    if(!alen && !blen)
+	return 0;
+    c = memcmp(a->array + a->b, b->array + b->b, alen > blen ? blen : alen);
+    if(c || alen == blen)
+	return c;
+    if(alen > blen)
+	return 1;
+    else
+	return -1;
+}
+
+/* This scans the string twice, and allocates a sort array every run */
+/* A possibly better way would be to keep a static growable array and
+ * build it during the first scan, avoiding the need for a second scan */
+bool toset(char *a, char sep, char esc)
+{
+    if(!a || !*a)
+	return true;
+    int alen = stralen(a, sep, esc);
+    if(alen == 1)
+	return true;
+    struct aelt_loc *elts = (struct aelt_loc *)malloc(alen * sizeof(*elts)), *e;
+    int begin, after = -1, i;
+    if(!elts)
+	return false;
+    for(e = elts, i = 0; i < alen; e++, i++) {
+	next_aelt(a, &begin, &after, sep, esc);
+	e->array = a;
+	e->b = begin;
+	e->a = after;
+    }
+    qsort(elts, alen, sizeof(*elts), cmp_aelt);
+    // ah, screw it.  Just make it anew, always
+    // doing it in-place would just be too much processing for little benefit
+    char *set = (char *)malloc(strlen(a) + 1), *p = set;
+    if(!set) {
+	free(elts);
+	return false;
+    }
+    for(e = elts, i = 0; i < alen; e++, i++) {
+	// remove blanks
+	if(e->a == e->b)
+	    continue;
+	// remove dups
+	if(i && e->a - e->b == e[-1].a - e[-1].b &&
+	   !memcmp(a + e->b, a + e[-1].b, e->a - e->b))
+	    continue;
+	memcpy(p, a + e->b, e->a - e->b);
+	p += e->a - e->b;
+	*p++ = sep;
+    }
+    if(p == set)
+	*p++ = 0;
+    else
+	p[-1] = 0;
+    memcpy(a, set, p - set);
+    free(elts);
+    free(set);
+    return true;
+}
+
+/* find element containing array[n] */
+/* if n is on a separator, find element before separator */
+static void elt_at_off(const char *array, int o, int *begin, int *after, char sep, char esc)
+{
+    int b = o, a = o;
+    while(1) { // find start
+	// Find prev separator
+	while(b > 0 && array[b - 1] != sep)
+	    --b;
+	// Is it escaped?  If not, we're done
+	if(!b || b == 1 || array[b - 2] != esc)
+	    break;
+	// If so, count escapes
+	o = b - 2;
+	while(o > 0 && array[o - 1] == esc)
+	    --o;
+	// Even #?  then it's not really escaped, so done
+	if((b - o) % 2)
+	    break;
+	// Otherwise, continue search
+	b = o;
+    }
+    // find end
+    for(; array[a] && array[a] != sep; a++)
+	if(array[a] == esc && array[a + 1])
+	    ++a;
+    *begin = b;
+    *after = a;
+}
+
+bool find_unesc_elt(const char *a, const char *s, int *begin, int *after,
+		    char sep, char esc)
+{
+    bool ret;
+    char toesc[3];
+    int len = strlen(s);
+    int nesc;
+    char *tmp = NULL;
+
+    toesc[0] = esc;
+    toesc[1] = sep;
+    toesc[2] = 0;
+    nesc = countchars(s, toesc);
+    if(nesc) {
+	s = tmp = alloc(0, "escaping", char, len + nesc + 1);
+	*escape(tmp, s, len, sep, toesc) = 0;
+	len += nesc;
+    }
+    ret = find_elt(a, s, len, begin, after, sep, esc);
+    zfree(tmp);
+    return ret;
+}
+
+bool find_elt(const char *a, const char *s, int len, int *begin, int *after,
+	      char sep, char esc)
+{
+    int alen = strlen(a);
+    int l = 0, h = alen - 1, m;
+    int mb, ma;
+
+    while(l <= h) {
+	m = (l + h) / 2;
+	elt_at_off(a, m, &mb, &ma, sep, esc);
+	int c = memcmp(s, a + mb, len > ma - mb ? ma - mb : len);
+	if(c > 0)
+	    l = ma + 1;
+	else if(c < 0)
+	    h = mb - 2;
+	else if(len > ma - mb)
+	    l = ma + 1;
+	else if(len < ma - mb)
+	    h = mb - 2;
+	else {
+	    *begin = mb;
+	    *after = ma;
+	    return true;
+	}
+    }
+    *begin = l > alen ? alen : l;
+    return false;
+}
+
 int keylen_of(const ITEM *item)
 {
 	int n, keylen = 0;
@@ -542,6 +889,10 @@ char *fkey_of(
 	return ret;
 }
 
+/* check form/db for invalid foreign key defs or data */
+/* fills in badrefs/nbadref with problem descriptors */
+/* inv/invdb are for recursion, to check that foreign db's refs to this db
+ * are valid as well */
 void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 			 int *nbadref, const FORM *inv, DBASE *invdb)
 {
@@ -549,11 +900,14 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 
 	for(i = 0; i < form->nitems; i++) {
 		ITEM *item = form->items[i];
-		if(item->type == IT_FKEY) {
+		FORM *fform = NULL;
+		if(item->type == IT_FKEY ||
+		   (!inv && item->type == IT_INV_FKEY)) {
 			resolve_fkey_fields(item);
-			FORM *fform = item->fkey_form;
+			fform = item->fkey_form;
 			if(inv && fform != inv)
 				continue;
+			/* by now, form and fields should be resolved */
 			if(!fform) {
 				badref br;
 				br.form = form;
@@ -566,14 +920,37 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 				grow(0, "bad refs", badref,
 				     *badrefs, *nbadref + 1, 0);
 				(*badrefs)[(*nbadref)++] = br;
-				continue;
+				continue; /* fatal error */
 			}
+			for(j = 0; j < item->nfkey; j++)
+				if(!item->fkey[j].item)
+					break;
+			if(j < item->nfkey) {
+				badref br;
+				br.form = form;
+				br.item = i;
+				br.fform = fform;
+				br.dbase = db;
+				br.fdbase = 0;
+				br.row = -1;
+				br.keyno = j;
+				br.reason = BR_NO_REFITEM;
+				grow(0, "bad refs", badref,
+				     *badrefs, *nbadref + 1, 0);
+				(*badrefs)[(*nbadref)++] = br;
+				continue; /* fatal error */
+			}
+		}
+		if(item->type == IT_FKEY) {
 			DBASE *fdb = invdb ? invdb : read_dbase(fform);
 			if(!inv) {
+				/* foreign form should declare this as referrer */
+				/* either directly ... */
 				for(j = 0; j < fform->nchild; j++)
 					if(!strcmp(fform->children[j], form->name))
 						break;
 				if(j == fform->nchild) {
+					/* or by an INV_FKEY */
 					for(j = 0; j < fform->nitems; j++) {
 						ITEM *fitem = fform->items[j];
 						if(fitem->type != IT_INV_FKEY)
@@ -602,11 +979,44 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 				const char *data = dbase_get(db, r, item->column);
 				if(BLANK(data))
 					continue;
+				/* multi-key values must be a set */
+				char sep, esc;
+				get_form_arraysep(form, &sep, &esc);
+				if(IFL(item->,FKEY_MULTI)) {
+					char *sv = strdup(data);
+					if(!sv || !toset(sv, sep, esc)) {
+						perror("fkey check");
+						exit(1);
+					}
+					if(strcmp(sv, data)) {
+						badref br;
+						br.form = form;
+						br.item = i;
+						br.fform = fform;
+						br.dbase = db;
+						br.fdbase = fdb;
+						br.row = r;
+						br.keyno = -1;
+						br.reason = BR_BADKEYS;
+						grow(0, "bad refs", badref,
+						     *badrefs, *nbadref + 1, 0);
+						(*badrefs)[(*nbadref)++] = br;
+						/* fix right now */
+						dbase_put(db, r, item->column, sv);
+						data = dbase_get(db, r, item->column);
+					}
+					free(sv);
+				}
 				for(k = 0; ; k++) {
+					/* all values should be in fdb */
+					/* this implicitly checks array len
+					 * for multi-field keys, so no
+					 * separate error for that */
 					int fr = fkey_lookup(fdb, form, item, data, k);
 					if(fr == -2)
 						break;
 					if(fr == -1 ||
+					   /* and only once */
 					   fkey_lookup(fdb, form, item, data, k, fr + 1) >= 0) {
 						badref br;
 						br.form = form;
@@ -623,32 +1033,16 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 					}
 				}
 			}
-		} else if(!inv && item->type == IT_INV_FKEY) {
-			resolve_fkey_fields(item);
-			FORM *fform = item->fkey_form;
-			if(!fform) {
-				badref br;
-				br.form = form;
-				br.item = i;
-				br.fform = fform;
-				br.dbase = db;
-				br.fdbase = 0;
-				br.row = br.keyno = -1;
-				br.reason = BR_NO_FORM;
-				grow(0, "bad refs", badref,
-				     *badrefs, *nbadref + 1, 0);
-				(*badrefs)[(*nbadref)++] = br;
-				continue;
-			}
+		} else if(!inv && item->type == IT_INV_FKEY)
 			/* verify_form ensures foreign key field is FKEY */
 			/* otherwise, I'd have to check for BR_NO_FREF here */
 			check_db_references(fform, read_dbase(fform), badrefs,
 					    nbadref, form, db);
-		}
 	}
 	if(inv)
 		return;
 	for(i = 0; i < form->nchild; i++) {
+		/* foreign form should resolve by now */
 		FORM *fform = read_form(form->children[i], false, 0);
 		if(!fform) {
 			badref br;
@@ -664,6 +1058,7 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 			(*badrefs)[(*nbadref)++] = br;
 			continue;
 		}
+		/* explicit referrer should actually refer to this */
 		for(j = 0; j < fform->nitems; j++) {
 			ITEM *item = form->items[j];
 			if(item->type == IT_FKEY) {

@@ -45,12 +45,6 @@ class ItemEd : public QDialog {
 void card_readback_texts(
 	CARD		*card,		/* card that is displayed in window */
 	int		which);		/* all -f < 0, one item only if >= 0 */
-const char *format_time_data(
-	time_t		time,
-	TIMEFMT		timefmt);	/* new format, one of T_* */
-time_t parse_time_data(
-	const char	*data,
-	TIMEFMT		timefmt);	/* new format, one of T_* */
 void fillout_card(
 	CARD		*card,		/* card to draw into menu */
 	bool		deps);		/* if true, dependencies only */
@@ -99,6 +93,9 @@ const char *mktimestring(
 	bool		dur);		/* duration, not time-of-day */
 const char *mkdatetimestring(
 	time_t		time);		/* date in seconds */
+const char *format_time_data(
+	time_t		time,
+	TIMEFMT		timefmt);	/* new format, one of T_* */
 time_t parse_datestring(
 	const char	*text);		/* input string */
 time_t parse_timestring(
@@ -106,6 +103,9 @@ time_t parse_timestring(
 	bool		dur);		/* duration, not time-of-day */
 time_t parse_datetimestring(
 	const char	*text);		/* input string */
+time_t parse_time_data(
+	const char	*data,
+	TIMEFMT		timefmt);	/* new format, one of T_* */
 
 /*---------------------------------------- dbase.c ------------*/
 
@@ -160,15 +160,6 @@ int copy_fkey(				/* returns <0 on lookup failure */
 	const ITEM	*item,		/* fkey definition; must be IT_*FKEY */
 	int		*keys);		/* array of length keylen_of; filled in
 					   with item->fkey indices */
-enum badref_reason {
-    BR_MISSING, BR_DUP, BR_NO_INVREF, BR_NO_FORM, BR_NO_CFORM, BR_NO_FREF
-};
-struct badref {
-    FORM *form, *fform;  /* writable for fixes */
-    DBASE *dbase, *fdbase;
-    int item, row, keyno;
-    enum badref_reason reason;
-};
 void check_db_references(
 	FORM		*form, /* not modified here, but stored for modification by fixes */
 	DBASE		*db,
@@ -176,45 +167,6 @@ void check_db_references(
 	int		*nbadref,
 	const FORM	*inv = 0,
 	DBASE		*invdb = 0);
-
-/*---------------------------------------- dbfile.c ------------*/
-
-const char *db_path(
-	const FORM	*form);
-bool write_dbase(
-	DBASE		*dbase,		/* form and items to write */
-	bool		force);		/* write even if not modified*/
-DBASE *read_dbase(
-	const FORM	*form,		/* col delim, proc info, etc. */
-	bool		force = false);	/* revert if already loaded */
-
-/*---------------------------------------- editwin.c ------------*/
-
-void destroy_edit_popup(void);
-void create_edit_popup(
-	const char	*title,		/* menu title string */
-	char		**initial,	/* initial default text */
-	bool		readonly,	/* not modifiable if true */
-	const char	*helptag,	/* help tag */
-	QTextDocument	*initdoc = 0);	/* full initial document */
-void edit_file(
-	const char	*name,		/* file name to read */
-	bool		readonly,	/* not modifiable if true */
-	bool		create,		/* create if nonexistent if true */
-	const char	*title,		/* if nonzero, window title */
-	const char	*helptag);	/* help tag */
-
-/*---------------------------------------- eval.c ------------*/
-
-const char *evaluate(
-	CARD		*card,
-	const char	*exp,
-	CARD		**switch_card = 0);	/* If non-0, allow switch() */
-bool evalbool(
-	CARD		*card,
-	const char	*exp);
-
-/*---------------------------------------- evalfunc.c ------------*/
 
 /* count aoccurrences of c-chars in s */
 int countchars(
@@ -308,6 +260,42 @@ bool find_unesc_elt(
 	char		sep,		/* array/element separator */
 	char		esc);		/* array/element esc char */
 
+/*---------------------------------------- dbfile.c ------------*/
+
+const char *db_path(
+	const FORM	*form);
+bool write_dbase(
+	DBASE		*dbase,		/* form and items to write */
+	bool		force);		/* write even if not modified*/
+DBASE *read_dbase(
+	const FORM	*form,		/* col delim, proc info, etc. */
+	bool		force = false);	/* revert if already loaded */
+
+/*---------------------------------------- editwin.c ------------*/
+
+void destroy_edit_popup(void);
+void create_edit_popup(
+	const char	*title,		/* menu title string */
+	char		**initial,	/* initial default text */
+	bool		readonly,	/* not modifiable if true */
+	const char	*helptag,	/* help tag */
+	QTextDocument	*initdoc = 0);	/* full initial document */
+void edit_file(
+	const char	*name,		/* file name to read */
+	bool		readonly,	/* not modifiable if true */
+	bool		create,		/* create if nonexistent if true */
+	const char	*title,		/* if nonzero, window title */
+	const char	*helptag);	/* help tag */
+
+/*---------------------------------------- eval.c ------------*/
+
+const char *evaluate(
+	CARD		*card,
+	const char	*exp,
+	CARD		**switch_card = 0);	/* If non-0, allow switch() */
+bool evalbool(
+	CARD		*card,
+	const char	*exp);
 
 /*---------------------------------------- parser.y ------------*/
 
@@ -382,7 +370,10 @@ void fillout_formedit(void);
 void fillout_formedit_widget_proc(void);
 void readback_formedit(void);
 
-extern const char	plan_code[];	/* code 0x260..0x26c */
+QComboBox *make_fkey_field_select(const FORM *fform);
+void resolve_fkey_fieldsel(const FORM *f, int idx, FKEY &fk);
+
+extern const char	plan_code[];	/* code EA_PLDT..EA_PLNAL */
 
 /*---------------------------------------- help.c ------------*/
 
@@ -397,7 +388,7 @@ void help_callback(
 /*---------------------------------------- main.c ------------*/
 
 extern QApplication	*app;		/* application handle */
-extern char		*progname;	/* argv[0] */
+extern const char	*progname;	/* argv[0] */
 extern QIcon		pixmap[NPICS];	/* common symbols */
 extern bool		restricted;	/* restricted mode, no form editor */
 
