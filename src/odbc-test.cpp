@@ -56,7 +56,7 @@ int main(int argc, const char **argv)
     if(argc < 1)
 	return 1;
     for(int i = 0; i < argc; i++) {
-	std::cout << "conn: " << argv[i] << '\n';
+	std::cerr << "conn: " << argv[i] << '\n';
 	if(!db_open(argv[i], conn))
 	    exit(1);
 	if(drop_tabs)
@@ -68,7 +68,7 @@ int main(int argc, const char **argv)
 	fl.append(files.entryInfoList());
 	for(auto j = fl.begin(); j != fl.end(); j++) {
 	    char *path = qstrdup(j->absoluteFilePath());
-	    std::cout << "form: " << path << '\n';
+	    std::cerr << "form: " << path << '\n';
 	    FORM *f = read_form(path);
 	    if(!f)
 		continue;
@@ -84,7 +84,7 @@ int main(int argc, const char **argv)
 
 	    f = sql_read_form(conn, path);
 	    if(f)
-		std::cout << "saved and loaded\n";
+		std::cerr << "saved and loaded\n";
 	    else
 		exit(1);
 	    free(path);

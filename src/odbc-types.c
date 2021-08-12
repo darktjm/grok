@@ -231,6 +231,7 @@ int main(int argc, char **argv)
 	db_conn.num_subst_ovr = mem_conn.num_subst_ovr;
 	if(!db_open(argv[i], &db_conn))
 	    exit(1);
+#if 0
 	char *s = strchr(argv[i], '=');
 	if(s)
 	    ++s;
@@ -240,6 +241,9 @@ int main(int argc, char **argv)
 	if(e)
 	    *e = 0;
 	ret = db_binds(1, s);
+#else
+	ret = db_binds(1, db_conn.dbms_name);
+#endif
 	abort_err();
 	conn = &db_conn;
 	ret = SQLGetTypeInfo(conn->stmt, SQL_ALL_TYPES);
