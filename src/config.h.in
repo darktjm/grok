@@ -49,3 +49,5 @@
 
 #cmakedefine01 Iconv_FOUND
 #cmakedefine01 LANGINFO_WORKS
+#cmakedefine01 HAS_ASPRINTF
+#cmakedefine01 ODBC_FOUND

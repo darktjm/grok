@@ -320,6 +320,20 @@ FORM *read_form(
 	bool		force = false,	/* overrwrite loaded forms */
 	QWidget		*parent = mainwindow);	/* error popup parent */
 
+/*---------------------------------------- formodbc.c ------------*/
+
+#if ODBC_FOUND
+struct db_conn;
+/* drop all grok form definition tables and their data */
+void drop_grok_tabs(db_conn *conn);
+/* create all grok form definition tables or add/remove columns if needed */
+void create_grok_tabs(db_conn *conn);
+/* save form into grok form definition tables */
+bool sql_write_form(db_conn *conn, const FORM *f);
+/* load form from grok form definition tables */
+FORM *sql_read_form(db_conn *conn, const char *name);
+#endif
+
 /*---------------------------------------- formop.c ------------*/
 
 FORM *form_create(void);
@@ -784,6 +798,12 @@ char *qstrdup(
 	const QString	&str);
 /* too much typing */
 #define qsprintf QString::asprintf
+
+/* If asprintf is not available in libc: */
+#if !HAS_ASPRINTF
+int vasprintf(char **strp, const char *fmt, va_list ap);
+int asprintf(char **strp, const char *fmt, ...);
+#endif
 
 #define ALEN(a) (int)(sizeof(a)/sizeof((a)[0]))
 #define APTR_OK(p, a) ((p)-(a) < ALEN(a))

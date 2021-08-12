@@ -47,15 +47,46 @@ BISON_TARGET(parser parser.y
 # This suppresses a cmake warning
 set_property(SOURCE ${BISON_parser_OUTPUTS} PROPERTY SKIP_AUTOMOC ON)
 
-set(grok_SRCS
-	canvdraw.c cardwin.c chart.c chartdrw.c convert.c dbase.c dbfile.c
-        editwin.c eval.c evalfunc.c formfile.c formop.c formwin.c help.c
-	main.c mainwin.c popup.c prefwin.c query.c querywin.c refwin.c
-	sectwin.c sumwin.c template.c templmk.c templwin.c
-	util.c HtmlCssUtils.cpp saveprint.c ${BISON_parser_OUTPUT_SOURCE}
-	canv-widget.h chart-widget.h layout-qss.h
+include(FindPkgConfig)
+pkg_search_module(ODBC odbc libiodbc)
+if(ODBC_FOUND)
+  set(odbc_SRCS formodbc.c odbc-supt.c)
+  include_directories($(ODBC_INCLUDE_DIRS))
+  include(FindBoost)
+  # can't give "COMPONENTS preprocessor", so just assume it's there
+  find_package(Boost REQUIRED)
+  include_directories(${Boost_INCLUDE_DIRS})
+  # I use asprintf in odbc-supt.c; use GNU version if available
+  include(CheckCXXSourceCompiles)
+  check_cxx_source_compiles([[
+	#define _GNU_SOURCE
+	#include <stdio.h>
+	
+	int main(void)
+	{
+		char *s;
+		asprintf(&s, "hello, world!");
+		return 0;
+	}
+	]] HAS_ASPRINTF)
+endif()
+
+# Prevent cmake from recompiling the same code for every executable
+set(grok_common_SRCS
+	chart.c convert.c dbase.c dbfile.c formfile.c formop.c
+	util.c layout-qss.h ${odbc_SRCS}
+)
+
+set(grok_private_SRCS
+	canvdraw.c cardwin.c chartdrw.c editwin.c eval.c evalfunc.c
+	formwin.c help.c main.c mainwin.c popup.c prefwin.c query.c
+	querywin.c refwin.c sectwin.c sumwin.c template.c templmk.c
+	templwin.c HtmlCssUtils.cpp saveprint.c ${BISON_parser_OUTPUT_SOURCE}
+	canv-widget.h chart-widget.h
 #	grok-res.qrc
 )
+
+set(grok_SRCS ${grok_common_SRCS} ${grok_private_SRCS})
 # I don't want to rename the original C sources
 # I still can't do this by simply changing extensions-related vars, but
 # at least I don't have to copy compiler info like in qmake.
@@ -70,8 +101,23 @@ set_source_files_properties(${grok_C} PROPERTIES LANGUAGE CXX)
 # On the other hand, just suppressing the warning with -Wno-deprecated
 # is easier and also works, at least until they decide to remove that "feature".
 
-add_executable(grok ${grok_SRCS})
-target_link_libraries(grok Qt5::Widgets Qt5::PrintSupport)
+set(grok_lib_SRCS ${grok_common_SRCS})
+add_library(groklib STATIC ${grok_lib_SRCS})
+target_link_libraries(groklib Qt5::Widgets Qt5::PrintSupport ${ODBC_LIBRARIES})
+
+add_executable(grok ${grok_private_SRCS})
+target_link_libraries(grok Qt5::Widgets Qt5::PrintSupport ${ODBC_LIBRARIES} groklib)
+
+if(ODBC_FOUND)
+  # here is a demo/test program, not installed
+  set_source_files_properties(odbc-types.c PROPERTIES LANGUAGE CXX)
+  add_executable(odbc-types odbc-types.c odbc-supt.c)
+  target_link_libraries(odbc-types ${ODBC_LIBRARIES})
+
+  # grok isn't ready yet, so here's another test/demo program
+  add_executable(odbc-test odbc-test.cpp)
+  target_link_libraries(odbc-test Qt5::Widgets ${ODBC_LIBRARIES} groklib)
+endif()
 
 install(TARGETS grok DESTINATION ${GROK_BIN})
 
@@ -111,4 +157,5 @@ if(Iconv_FOUND)
 #	check_cxx_source_runs("${langinfo_src}" LANGINFO_WORKS)
 	check_cxx_source_compiles("${langinfo_src}" LANGINFO_WORKS)
 endif()
+
 configure_file(config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)

@@ -34,7 +34,7 @@
 static const char about_message[] =
 	"<div style=\"white-space: pre;\">\n"
 	"Graphical Resource Organizer Kit\n"
-	"Version " VERSION "\n"
+	"Version " GROK_VERSION "\n"
 	"Compiled " __DATE__ "\n\n"
 	"Author: Thomas Driemeyer &lt;thomas@bitrot.de&gt;\n"
 /*	"Homepage: <a href=\"http://www.bitrot.de/grok.html\">http://www.bitrot.de/grok.html</a>\n" */

@@ -79,7 +79,7 @@ int main(
 				fputs(default_qss, stdout);
 				return(0);
 			  case 'v':
-				fprintf(stderr, "%s: %s\n", progname, VERSION);
+				fprintf(stderr, "%s: " GROK_VERSION "\n", progname);
 				return(0);
 			  case 'f':
 				nofork   = true;

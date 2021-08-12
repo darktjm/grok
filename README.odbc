@@ -1,0 +1,270 @@
+Note that SQL support is not yet integrated into grok.  This is an
+experimental note for when the feature becomes available.  Currently,
+the only thing that works is saving and loading form definitions.
+While the sql template works for importing data, I have not yet made a
+dbfile equivalent.  Instead of integrating formodbc.c into grok
+itself, I made a simple test program, odbc-test(.cpp), which loads all
+form definitions it finds, writes them to the database, and reads them
+back again (but doesn't verify they're still the same, or even run
+verify_form() on them).  Its usage is similar to the odbc-types
+program documented below, except that -d no longer specifies a
+connection string, but instead is now a flag to say whether or not the
+grok tables should be dropped at the start.
+
+This uses ODBC to connect to any database, although whether or not it
+works is a different story.  It has been tested with SQLite3 (3.35.5 /
+ODBC 0.9998), PostgreSQL (13.3 / ODBC 13.00.0000) and Firebird (3.0.4
+/ ODBC 2.0.5).  For the driver manager, I have tested unixODBC (2.3.5)
+and iODBC (3.52.15).  Every database works a little differently.  ODBC
+has a "standard SQL" that all drivers are supposed to support, but not
+all of them do, and their "standard SQL" doesn't cover everything.  For
+example, even my demo program uses a non-standardized aggregate
+function that exists in all three databases slightly differently.  You
+have to use SQLGetInfo() to check for most "standard" features of SQL
+as well, rather than assuming it works.  However, I just assume it
+works for now.  If it doesn't, feel free to tell me how/why.
+
+Some things are non-portable even with the few databases I tested, so
+I have made some accomodations.  One is internal only:  it uses
+SQLGetTypeInfo() to determine what types to use when creating tables.
+The odbc-types program, built but not installed, was my first attempt
+at getting ODBC to work outside of my old projects/build systems.  It
+is sort of a demo, but it also prints some useful information:  the
+native type information associated with each ODBC type.  It combines
+the output from multiple connection strings so you can compare each
+database easily.  For example, SQL_VARCHAR maps to VARCHAR(length) on
+all three databases, with a max. length of 255 on SQLite and
+PostgreSQL, and 32767 on Firebird.  The program takes connection
+strings as its main arguments, optionally preceeded by flags.  The
+results will be collected into a database table, "types", in the
+temporary table database, an SQLite memory instance that works on my
+machine (I named the driver SQLite; if you named it SQLite3, it won't
+work) by default.  You can use -d <conn str> instead to select a
+different target; this is useful for example if you are using a
+different SQLite driver name, or if you want to keep the results for
+your own queries in a more permanent place, or if you want to test
+that table creation and the concat_aggr substitution (see below)
+works.  Substitutions can be provided via -s <file>; see below for the
+syntax and function of this file.  Specifying more than one such file
+is like concatenating them first, in the order given (except that each
+entry must start and end in the same file).
+
+The other is to use selected functionality via substitution text.  It
+has built-in substitution text that works on the three above-mentioned
+databases.  It can also be overridden/supplemented by a file
+containing substitutions (~/.grok/odbc-subst.conf).  This file
+contains substitutions in the order to apply, intermixed with blank
+and comment (#) lines.  Each substitution is the substitution name,
+followed by an optional regular expression, followed by the
+substitution text, separated by whitespace.  Whitespace and other
+characters can be quoted in the latter two in one of two different
+ways: backslash quoting or using quotation marks.  Backslashes escape
+the next character, except at the end of the line (or at the last
+non-whitespace position of the line), where they not only quote the
+newline, but also skip whitespace at the beginning of the next line
+(use a backslash-space to avoid this).  Quotation mark quoting uses
+single or double quotes (' or "), and effectively quotes everything,
+including backslashes and newlines, between the quotes.  To include
+the quote character within the text, double it.
+
+The substitutions' regular expression, if supplied and non-blank,
+matches against the database name (returned by SQLGetInfo(SQL_DBMS_NAME).
+If missing or blank, it specifies a default.  Defaults are applied
+after specific substitutions, including the built-in ones.  The
+substitution itself is a printf format string, preferably using %<n>$s
+to access the parameters.  For portability, since "IF NOT EXISTS"
+and the like are non-standard, substitutions which are SQL statements
+print all errors to standard error, but otherwise ignore them (and
+don't even abort multi-statement SQL).  Substitutions which are SQL
+statements also support multiple statements, separated by blank
+(possibly whitespace) lines.  Since Firbird, and possibly others,
+require a commit before metadata updates become available, even within
+the same transaction, a commit is performed after every such statement
+by default.  Here are the current substitutions and their current
+built-in values:
+
+INIT - SQL statement(s) executed at the start of every connection.
+Built-in:
+   sqlite "PRAGMA foreign_keys = true"
+   # I depend on cascade deletes working, and don't want to rely on the user
+   # specifying FKSupport=true in the connection string/DSN spec
+
+CONCAT_AGGR - Aggregate function to concatenate non-NULL values of %1$s,
+              separated by a comma.  Must support distinct.
+Built-in:
+    postgres "string_agg(%1$s,',')"
+    firebird "list(%1$s)"
+    [default] "group_concat(%1$s)" # sqlite; may work on mysql, too
+
+CONCAT_AGGR2 - Same as above, but %2$s is the delimiter.  Since this is
+               not expected to use data for the second parameter, it
+	       probably needs to be quoted, and single quotes within
+	       the value will be doubled as required by SQL strings.
+	       The reason for two separate substitutions is that
+	       SQLite3 can't support "distinct" with the 2-parameter
+	       form.
+Built-in:
+    postgres "string_agg(%1$s,'%2$s')"
+    firebird "list(%1$s,'%2$s')"
+    [default] "group_concat(%1$s,'%2$s')" # sqlite; maybe also mysql
+
+ID_TYPE - The native data type for primary key ID fields.  This type
+          is obviously also used for foreign keys pointing to the table.
+	  For SQLite, if the "INSERT .. RETURNS" statement is supported in
+	  both SQLite and the ODBC driver, and you use the AUTOINCREMENT
+	  feature, it must be INTEGER.  Otherwise, INTEGER is a decent
+	  enough choice for a small database.
+Built-in:
+    [default] "INTEGER"
+
+ID_CONSTR - The PRIMARY KEY constraint for ID fields.  This may also include
+            the necessary text to enable auto-incrementing fields.  If
+	    necessary, the table name is %1$s.  At the time of this writing,
+	    both SQLite and Firebird support auto-incrementing fields, but
+	    their respective ODBC drivers do not.  For SQLite, this is due
+	    to lack of support for INSERT .. RETURNS result fetching, and
+	    for Firebird, this is because all inserts after the first give:
+	      ODBC[0/07002]: [ODBC Firebird Driver]COUNT field incorrect
+	    I have not tried to investigate or fix the latter issue, and
+	    my hack fix for the former issue should not be used by anyone.
+Built-in:
+    #sqlite "PRIMARY KEY AUTOINCREMENT"
+    # this would be nice, but sqliteodbc doesn't support INSERT..RETURNING yet
+    postgres "GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY"
+    # note: firebird requires this order, but postgres doesn't
+    # note 2: firebird's ODBC driver doesn't support this, anyway
+    [default] "PRIMARY KEY"
+    # untested/unnecessary sample use of sequences:
+    #postgres "PRIMARY KEY DEFAULT nextval('%1$s_seq')"
+    #firebird "PRIMARY KEY DEFAULT NEXT VALUE OF %1$s_seq"
+    # Use of a sequence for firebird is probably broken in ODBC as well
+
+ID_CREATE - If necessary, SQL to execute before creating/modifying a
+            table to create a sequence or something like that.  It takes
+	    the table name in %1$s.  The default uses a single side table
+	    simulating sequences.  This allows multi-access on databases
+	    which support transactions and lock on row updates:  the
+	    sequence is updated and then retrieved in the same transaction,
+	    so it is guaranteed to be unique.  On databases which do not
+	    support either of these, it still works as well as any other
+	    method:  it is impossible to avoid race conditions unless
+	    the database also supports native atomic sequences.  The
+	    "CREATE TABLE" will always generate an error after the first
+	    time, but there's no easy, portable way to suppress this.
+	    Assuming a non-broken database, the "INSERT INTO" will also
+	    fail after the first time for each table, due to the uniqueness
+	    constraint.  Don't use such databases.
+Built-in:
+    postgres ""
+    # sqliteodbc doesn't support INSERT..RETURNING... yet, so it uses default
+    # firebird doesn't support the default value (yet?), so it uses default
+    [default] "CREATE TABLE pkey_sequence (
+		   id INTEGER NOT NULL,
+		   name VARCHAR(128) UNIQUE NOT NULL)
+
+               INSERT INTO pkey_sequence (id, name) values (0, '%1$s')"
+    # See NEXT_ID for reason why this is used, rather than ""
+    # again:  untested/unnecessaary sample use of sequences:
+    #firebird|postgres "CREATE SEQUENCE %1$s_seq"
+    # IF NOT EXISTS is supported by postgres, but not firebird
+
+ID_DROP - After dropping a table, execute this SQL to drop its ID generator.
+          The table name is %1$s.  Note that the default SQL will always
+	  fail if the table doesn't already have a sequence entry, or the
+	  ID_CREATE SQL has not yet been executed.  Also, since it uses
+	  a single table, it never drops the table.  If this is a concern,
+	  change the defaults to use a per-table sequence table with
+	  just one row, named after the table, similar to the sequence
+	  examples.
+    postgres ""
+    # sqliteodbc doesn't support INSERT..RETURNING... yet, so it uses default
+    # firebird doesn't support the default value (yet?), so it uses default
+    [default] "DELETE FROM pkey_sequence where name = '%1$s'"
+    # See NEXT_ID for reason why this is used, rather than ""
+    # again:  untested/unnecessaary sample use of sequences:
+    #firebird|postgres "DROP SEQUENCE %1$s_seq"
+    # IF EXISTS is supported by postgres, but not firebird
+
+NEXT_ID - SQL to execute to retrieve the next ID value for a table in
+	  column 1.  This is assigned to the next row's ID in the
+	  same transaction to prevent duplicate values.  If this is
+	  blank, it is assumed to be auto-incrementing, and uses (and
+	  requires support for) INSERT ... RETURNING id to retreive the
+	  value that was used.  It is probably possible to make every
+	  field auto-incrementing by setting an appropriate default
+	  value, such as the value here in parentheses, as long as the
+	  database (and ODBC driver) support INSERT ... RETURNING.
+	  Note that multi-statement SQL is supported, but with
+	  non-default behavior.  Errors from any statement abort the
+	  list and return an error.  All but the last statement's
+	  successful results are discarded.  Also, the entire statement
+	  list is executed in a single transaction (i.e., no commits),
+	  along with the insertion statement itself, and the entire
+	  transaction is rolled back on any errors.
+
+	  The default requires the ID_CREATE/ID_DROP defaults above,
+	  and probably the ID_CONSTR one as well.  Other assumptions are
+	  given in the ID_CREATE description.  In particular, this requires
+	  transaction and automatic row locking support in the underlying
+	  database to be effective.  A simpler way would be to use
+	  "SELECT COALESCE(MAX(id+1),1) FROM %1$s":  no special ID_CREATE
+	  or ID_DROP would be needed.  However, this imposes a race
+	  condition:  it is possible for two rows to get the same ID with
+	  multiple simultaneous uses.  For a personal app like grok,
+	  that is very unlikely, but the I prefer the defaults to be safe.
+	  It would be possible to fix the race if unique constraints
+	  are enforced, by retrying the insert on constraint check failures,
+	  but grok does not do that right now.  It is also possible to
+	  make it safe by doing a full table lock before it, if supported.
+	  Better yet, just use the more complex (but still relatively
+	  simple) default.
+
+	  Use of per-table sequence helpers uses pretty much the same SQL,
+	  but using the table name rather than a WHERE clause to select the
+	  row.  A way to avoid support tables at all would be to use a
+	  dummy record in the table itself to store the current ID
+	  (again, assuming row update locking), but there is no
+	  support for that in grok at this time.
+Built-in:
+    postgres|firebird ""
+    # sqliteodbc doesn't support INSERT..RETURNING... yet, so it uses default
+    # firebird doesn't support the default value (yet?), so it uses default
+    [default] "UPDATE pkey_sequence SET id = id + 1 WHERE name = '%1$s'
+
+	       SELECT id FROM pkey_sequence WHERE name = '%1$s'"
+    # again:  untested/unnecessaary sample use of sequences:
+    #postgres "SELECT nextval('%1$s_seq')"
+    #firebird "SELECT NEXT VALUE FOR %1$s_seq FROM RDB$DATABASE"
+
+--------------------------------
+
+I chose ODBC for several reasons.  First, it has widespread support
+among databases.  PostgreSQL and Firebird maintain their own ODBC
+drivers.  The SQLite ODBC driver at http://www.ch-werner.de/sqliteodbc
+may as well be the official project ODBC driver as well.  Second,
+unlike some other libraries (e.g. libdbd), it supports binding.  One
+of the lessons I learned back when I did commercial SQL programming is
+that some query optimizers cache based on the query text, so having
+the same query text every time (like with binding) can help.  It also
+basically eliminates the need to quote or encode special characters as
+non-portable conversion functions.  Third, it does at least make some
+effort to make access portable, as described above.  Fourth, and
+actually most importantly, it works with the three databases I tested
+on (albeit not as well as I'd like).  QtDatabase has "native" drivers
+for all three, plus an ODBC module of its own, and yet I had a lot of
+trouble getting it to work, especially with Firebird.
+
+In fact, I had trouble getting some things to work with the Firebird
+ODBC driver and iODBC, so I recommend unixODBC instead.  The SQLite
+ODBC driver had some issues with unixODBC, but I think they are
+adequately resolved.  It's hard to say if I just have a broken build,
+or there are upstream bugs involved, but I don't have the rsources to
+maintain my own copies for everyone else.
+
+In any case, the only databases I support are the ones on my system. 
+I will accept information and/or patches regarding support for other
+databases, but I don't like writing completely untested software and
+may not support it for long.  One notable missing database is MySQL,
+because I hate MySQL.  Any database which values speed over
+reliability needs to be rejected, hard.  Admittedly, they've improved
+a bit since then, but I can't get that bad taste out of my mouth.

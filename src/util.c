@@ -23,6 +23,9 @@
  */
 
 #include "config.h"
+#if HAS_ASPRINTF && !defined(_GNU_SOURCE)
+#define _GNU_SOURCE // asprintf
+#endif
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -763,3 +766,27 @@ const char *canonicalize(const char *path, bool dir_only)
 	canon_out[canon_len] = 0;
 	return canon_out;
 }
+
+// If asprintf is not available in libc:
+#if !HAS_ASPRINTF
+/* slow, simplistic asprintf replacement */
+int vasprintf(char **strp, const char *fmt, va_list ap)
+{
+    int len = vsnprintf(NULL, 0, fmt, ap);
+    *strp = malloc(len + 1);
+    if(!*strp)
+	return -1;
+    vsnprintf(*strp, len + 1, fmt, ap);
+    return len;
+}
+
+int asprintf(char **strp, const char *fmt, ...)
+{
+    va_list al;
+    va_start(al, fmt);
+    int ret = vasprintf(strp, fmt, al);
+    va_end(al);
+    return ret;
+}
+#endif
+ 
