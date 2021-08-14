@@ -6,9 +6,14 @@
  * I don't include anything grok-related */
 /* I also try to make things as generic as possible.  The only grok-ism
  * I am aware of is the list of supported column types (db_coltype) */
+
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <pthread.h>
 #include <regex.h>
 #include "odbc-supt.h"
@@ -100,6 +105,10 @@ int db_open(const char *dbconnect, db_conn *conn)
 {
     SQLRETURN ret;
     /* new connection: create dbc & stmt handles */
+    if(!(conn->conn_str = strdup(dbconnect))) {
+	perror("db ident");
+	exit(1);
+    }
     ret = SQLAllocHandle(SQL_HANDLE_DBC, henv, &conn->dbc);
     if(SQL_SUCCEEDED(ret))
 	ret = SQLDriverConnect(conn->dbc, 0, (SQLCHAR *)dbconnect, SQL_NTS, NULL,
@@ -113,27 +122,55 @@ int db_open(const char *dbconnect, db_conn *conn)
 	ret = SQLAllocHandle(SQL_HANDLE_STMT, conn->dbc, &conn->stmt);
     if(!SQL_SUCCEEDED(ret)) {
 	db_err();
+	free(conn->conn_str);
+	conn->conn_str = NULL;
 	return 0;
     }
-    SQLSMALLINT len;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+    struct { SQLSMALLINT type, olen; } nameinfo[] = {
+	{ SQL_DBMS_NAME }, { SQL_DBMS_VER }, { SQL_DM_VER },
+	{ SQL_DRIVER_NAME }, { SQL_DRIVER_ODBC_VER }, { SQL_DRIVER_VER }
+    };
+#pragma GCC diagnostic pop
+#define NUM_NAMEINFO (sizeof(nameinfo)/sizeof(nameinfo[0]))
     /* Note:  this code doesn't work on my system w/ iODBC-3.52.15 and
      *        firebird's ODBC driver 2.0.5.156.  First, it crashes w/
      *        NULL/0 as the output buffer, and if that's fixed, it chops
      *        the output len in half (and iODBC then truncates to the
      *        lower len).  In short, don't use this combination, since
      *        I'm not going to work around that mess any more.  */
-    ret = SQLGetInfo(conn->dbc, SQL_DBMS_NAME, NULL, 0, &len);
-    if(SQL_SUCCEEDED(ret)) {
-	    if((conn->dbms_name = (char *)malloc(len + 1))) {
-		SQLGetInfo(conn->dbc, SQL_DBMS_NAME, conn->dbms_name, len + 1,
-			   &len);
-		/* valgrind gives a hit on dmbs_name, so manually terminate */
-		conn->dbms_name[len] = 0;
+    int len = 0;
+    for(size_t i = 0; i < NUM_NAMEINFO; i++) {
+	ret = SQLGetInfo(conn->dbc, nameinfo[i].type, NULL, 0, &nameinfo[i].olen);
+	if(!SQL_SUCCEEDED(ret))
+	    break;
+	len += nameinfo[i].olen;
+	if(i)
+	    ++len;
+    }
+    if(len) {
+	SQLSMALLINT olen, off = 0;
+	if((conn->ident = (char *)malloc(len + 1))) {
+	    for(size_t i = 0; i < NUM_NAMEINFO; i++) {
+		if(i)
+		    conn->ident[off++] = ' ';
+		ret = SQLGetInfo(conn->dbc, nameinfo[i].type,
+				 conn->ident + off, len + 1 - off, &olen);
+		/* if(olen != nameinfo[i].olen) fatal error; */
+		if(!SQL_SUCCEEDED(ret))
+		    break;
+		off += olen;
 	    }
+	    /* valgrind gives a hit on dmbs_name, so manually terminate */
+	    /* The ref man says return is 0-terminated, so this is a bug */
+	    /* in unixODBC or one of the ODBC drivers, most likely */
+	    conn->ident[off] = 0;
+	}
     } else
-	conn->dbms_name = strdup("Unknown");
-    if(!conn->dbms_name) {
-	perror("dbms_name");
+	conn->ident = strdup("Unknown");
+    if(!conn->ident) {
+	perror("db ident");
 	exit(1);
     }
     /* ignore errors for now, but print them to stderr */
@@ -148,6 +185,10 @@ int db_open(const char *dbconnect, db_conn *conn)
 void db_close(db_conn *conn)
 {
     /* close db: free dbc & stmt handles (keep env) */
+    if(conn->ident)
+	free(conn->ident);
+    if(conn->conn_str)
+	free(conn->conn_str);
     if(conn->stmt) {
 	SQLCancel(conn->stmt);
 	db_next();
@@ -314,7 +355,7 @@ static const db_subst *const default_subst[NUM_DBS] = {
     }
 };
 
-static bool set_subst(db_conn *conn, enum db_subst_code which,
+static int set_subst(db_conn *conn, enum db_subst_code which,
 		      const char *pat, const char *val)
 {
     regex_t re;
@@ -323,22 +364,23 @@ static bool set_subst(db_conn *conn, enum db_subst_code which,
 	val = "";
     if(!pat) {
 	conn->subst[which] = val;
-	return true;
+	return 1;
     }
     if((cret = regcomp(&re, pat, REG_EXTENDED | REG_ICASE | REG_NOSUB))) {
 	char buf[100];
 	regerror(cret, &re, buf, sizeof(buf));
 	fputs(buf, stderr);
 	regfree(&re);
-	return false;
+	return 0;
     }
-    if(!regexec(&re, conn->dbms_name, 0, NULL, 0)) {
+    if(!regexec(&re, conn->ident, 0, NULL, 0) ||
+       !regexec(&re, conn->conn_str, 0, NULL, 0)) {
 	regfree(&re);
 	conn->subst[which] = val;
-	return true;
+	return 1;
     }
     regfree(&re);
-    return false;
+    return 0;
 }
 
 static void set_db_subst(db_conn *conn, enum db_subst_code which)

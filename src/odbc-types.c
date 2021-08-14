@@ -242,7 +242,7 @@ int main(int argc, char **argv)
 	    *e = 0;
 	ret = db_binds(1, s);
 #else
-	ret = db_binds(1, db_conn.dbms_name);
+	ret = db_binds(1, db_conn.ident);
 #endif
 	abort_err();
 	conn = &db_conn;

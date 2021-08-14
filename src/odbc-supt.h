@@ -52,7 +52,12 @@ typedef struct otype_desc {
 
 /* a database connection */
 typedef struct db_conn {
-    char *dbms_name;		/* SQLGetInfo(SQL_DBMS_NAME) set by db_open */
+    char *ident;		/* info gotten by SQLGetInfio(), set by db_open:
+				 * SQL_DBMS_NAME[ SQL_DBMS_VER[ SQL_DM_VER
+				 * [ SQL_DRIVER_NAME[ SQL_DRIVER_ODBC_VER
+				 * [:SQL_DRIVER_VER]]]]]
+				 */
+    char *conn_str;		/* The connection string */
     SQLHDBC dbc;		/* DBC handle set by db_open */
     SQLHSTMT stmt;		/* STMT handle set by db_open */
     const char *subst[NUM_DBS];	/* selected substitution for this database */
@@ -84,12 +89,12 @@ char *vdo_db_subst( enum db_subst_code which, db_conn *conn, va_list al);
 /* perform SQL given by substitution which.  blank does nothing.
  * multiple statements are separated by a blank line */
 /* if commit is true, commit after each successful statement */
-enum db_exec_subst_ret {
+typedef enum db_exec_subst_ret {
     EXS_RET_IGNORE_RES, /* neither print nor abort on errors */
     EXS_RET_PRINT_RES, /* print but don't abort on errors */
     EXS_RET_ABORT_ERR, /* print and abort on errors */
     EXS_RET_SELECT /* abort on errors; don't free last stmt if success */
-};
+} db_exec_subst_ret;
 SQLRETURN db_exec_subst(db_subst_code which, db_conn *conn,
 			db_exec_subst_ret rt, int commit, ...);
 SQLRETURN vdb_exec_subst(db_subst_code which, db_conn *conn,

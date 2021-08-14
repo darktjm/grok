@@ -68,20 +68,23 @@ including backslashes and newlines, between the quotes.  To include
 the quote character within the text, double it.
 
 The substitutions' regular expression, if supplied and non-blank,
-matches against the database name (returned by SQLGetInfo(SQL_DBMS_NAME).
-If missing or blank, it specifies a default.  Defaults are applied
-after specific substitutions, including the built-in ones.  The
-substitution itself is a printf format string, preferably using %<n>$s
-to access the parameters.  For portability, since "IF NOT EXISTS"
-and the like are non-standard, substitutions which are SQL statements
-print all errors to standard error, but otherwise ignore them (and
-don't even abort multi-statement SQL).  Substitutions which are SQL
-statements also support multiple statements, separated by blank
-(possibly whitespace) lines.  Since Firbird, and possibly others,
-require a commit before metadata updates become available, even within
-the same transaction, a commit is performed after every such statement
-by default.  Here are the current substitutions and their current
-built-in values:
+matches against the connection string or the database information
+returned by SQLGetInfo in the following format: SQL_DBMS_NAME
+SQL_DBMS_VER SQL_DM_VER SQL_DRIVER_NAME SQL_DRIVER_ODBC_VER
+SQL_DRIVER_VER.  If any of these lookups fail, the string terminates
+at the previous character. If the regular expression is missing or
+blank, it specifies a default. Defaults are applied after specific
+substitutions, including the built-in ones.  The substitution itself
+is a printf format string, preferably using %<n>$s to access the
+parameters.  For portability, since "IF NOT EXISTS" and the like are
+non-standard, substitutions which are SQL statements print all errors
+to standard error, but otherwise ignore them (and don't even abort
+multi-statement SQL).  Substitutions which are SQL statements also
+support multiple statements, separated by blank (possibly whitespace)
+lines.  Since Firbird, and possibly others, require a commit before
+metadata updates become available, even within the same transaction, a
+commit is performed after every such statement by default.  Here are
+the current substitutions and their current built-in values:
 
 INIT - SQL statement(s) executed at the start of every connection.
 Built-in:
