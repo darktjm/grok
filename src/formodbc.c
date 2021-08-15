@@ -589,7 +589,7 @@ bool sql_write_form(db_conn *conn, const FORM *f)
     return true;
 rollback:
     db_err();
-    db_trans(SQL_ROLLBACK);
+    db_rollback();
     return false;
 }
 
@@ -786,7 +786,7 @@ rollback:
 	conn->stmt = istmt;
     }
     db_next();
-    db_trans(SQL_ROLLBACK);
+    db_rollback();
     form_delete(f);
     return NULL;
 }

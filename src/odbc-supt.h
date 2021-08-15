@@ -130,7 +130,13 @@ strlist db_cols(db_conn *conn, const char *table);
   else \
     db_commit(); \
 } while(0)
-#define db_next() SQLFreeStmt(conn->stmt, SQL_CLOSE);
+#define db_rollback() db_trans(SQL_ROLLBACK)
+#define db_next() do { \
+    /* Firebird reqruires RESET_PARAMS or it gets screwy */ \
+    /*   giving 07002 errors and such */ \
+    SQLFreeStmt(conn->stmt, SQL_RESET_PARAMS); \
+    SQLFreeStmt(conn->stmt, SQL_CLOSE); \
+} while(0)
 #define db_keepnext() SQLFreeStmt(conn->stmt, SQL_UNBIND);
 /* I don't do output binding, so don't bother requiring related parms */
 /* most drivers ignore sz/dig, but some may truncate input to sz/dig */
