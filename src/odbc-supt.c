@@ -115,9 +115,15 @@ int db_open(const char *dbconnect, db_conn *conn)
 			       0, NULL, SQL_DRIVER_NOPROMPT);
     if(SQL_SUCCEEDED(ret))
 	/* use explicit commit */
-	ret = SQLSetConnectAttr(conn->dbc, SQL_AUTOCOMMIT,
+	ret = SQLSetConnectAttr(conn->dbc, SQL_ATTR_AUTOCOMMIT,
 				(SQLPOINTER)SQL_AUTOCOMMIT_OFF,
 				SQL_IS_INTEGER);
+#if 0
+    if(SQL_SUCCEEDED(ret))
+	ret = SQLSetConnectAttr(conn->dbc, SQL_ATTR_TRACE,
+				(SQLPOINTER)SQL_OPT_TRACE_ON,
+				SQL_IS_INTEGER);
+#endif
     if(SQL_SUCCEEDED(ret))
 	ret = SQLAllocHandle(SQL_HANDLE_STMT, conn->dbc, &conn->stmt);
     if(!SQL_SUCCEEDED(ret)) {

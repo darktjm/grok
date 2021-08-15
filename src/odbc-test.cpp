@@ -83,9 +83,10 @@ int main(int argc, const char **argv)
 	    form_delete(f);
 
 	    f = sql_read_form(conn, path);
-	    if(f)
+	    if(f) {
+		form_delete(f);
 		std::cerr << "saved and loaded\n";
-	    else
+	    } else
 		exit(1);
 	    free(path);
 	}

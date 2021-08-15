@@ -16,23 +16,7 @@
 #include "form.h"
 #include "proto.h"
 #include "odbc-supt.h"
-#include <boost/preprocessor.hpp>
-
-// BOOST_PP has LIST_FOR_EACH and SEQ_FOR_EACH, but not TUPLE_FOR_EACH
-// This version takes user data as extra parms and passes them down
-// Not sure it this will work for everyone...  I just stabbed in the dark.
-#define _TUPLE_FOR1_EXEC(f, z, n, v, a) f(z, n, v)
-#define _TUPLE_FOR1_EXECM(f, z, n, v, a) f(z, n, v, a)
-#define _TUPLE_REST(t, ...) (__VA_ARGS__)
-#define _TUPLE_FOR1(z, n, opt) \
-    BOOST_PP_IIF(BOOST_PP_GREATER(BOOST_PP_TUPLE_SIZE(BOOST_PP_SEQ_ELEM(1, opt)), 1), \
-	_TUPLE_FOR1_EXECM, _TUPLE_FOR1_EXEC) \
-		(BOOST_PP_TUPLE_ELEM(0, BOOST_PP_SEQ_ELEM(1, opt)), z, n, \
-		 BOOST_PP_TUPLE_ELEM(n, BOOST_PP_SEQ_ELEM(0, opt)), \
-		 BOOST_PP_REMOVE_PARENS(_TUPLE_REST BOOST_PP_SEQ_ELEM(1, opt)))
-#define BOOST_PP_TUPLE_FOR_EACH(t, /* macro, */ ...) \
-    BOOST_PP_REPEAT(BOOST_PP_TUPLE_SIZE(t), _TUPLE_FOR1, (t)((__VA_ARGS__)))
-////////////////////////////////////////////////////////////////
+#include "formodbc-preproc.h"
 
 
 /* each table is a macro w/ name of table defining a tuple of column defs */
@@ -107,16 +91,11 @@
     ( query,		(VARCHAR, 1024), s) \
 )
 
-#define concat_dbstr(z, n, v) \
-    BOOST_PP_STRINGIZE(BOOST_PP_COMMA_IF(n)) \
-    "'" BOOST_PP_STRINGIZE(v) "'"
 #define check_constr(c, vals) "NOT NULL CHECK (\"" #c "\" IN (" \
-				BOOST_PP_TUPLE_FOR_EACH(vals, concat_dbstr) "))"
-#define string_list(z, n, v) \
-    BOOST_PP_COMMA_IF(n) BOOST_PP_STRINGIZE(v)
+				TUPLE_FOR_EACH(vals, COMMA_DBSTR) "))"
 #define check_xlate_tab(chk) \
     static const char * const xlate_##chk[] = { \
-	BOOST_PP_TUPLE_FOR_EACH(check_##chk, string_list) \
+	TUPLE_FOR_EACH(check_##chk, STRING_LIST) \
     }; \
  \
     static int chk##_to_code(const char *v) \
@@ -311,7 +290,7 @@ struct coldef {
 
 #define TAB_DEF(t) \
     { #t, (const coldef[]) { \
-	BOOST_PP_TUPLE_FOR_EACH(t, TAB_COL_DEF) \
+	TUPLE_FOR_EACH(t, TAB_COL_DEF) \
 	{} \
     }}
 
@@ -434,6 +413,7 @@ static bool cicompare(const std::string a, const std::string b)
 void create_grok_tabs(db_conn *conn)
 {
     strlist tabs = db_tables(conn);
+    std::sort(tabs.begin(), tabs.end(), cicompare);
     for(size_t i = 0; i < N_GROK_TABS; i++) {
 	if(!binary_search(tabs.begin(), tabs.end(), grok_db_def[i].name,
 			  cicompare)) {
@@ -462,7 +442,8 @@ void create_grok_tabs(db_conn *conn)
 	    // So, all I can do for now is drop excess columns and create
 	    // missing ones.
 	    strlist cols = db_cols(conn, grok_db_def[i].name);
-	    for(const coldef *cd = grok_db_def[i].cols; cd->name; cd++) {
+	    std::sort(cols.begin(), cols.end(), cicompare);
+	    for(const coldef *cd = grok_db_def[i].cols; cd->ct; cd++) {
 		if(!binary_search(cols.begin(), cols.end(), cd->name,
 				  cicompare)) {
 		    std::string st("ALTER TABLE ");
@@ -477,11 +458,11 @@ void create_grok_tabs(db_conn *conn)
 	    }
 #if 1 // dropping excess columns is not really necessary
 	    for(auto j = cols.begin(); j != cols.end(); j++) {
-		int k;
-		for(k = 0; grok_db_def[i].cols[k].ct; k++)
-		    if(!strcasecmp(j->c_str(), grok_db_def[i].cols[k].name))
+		const coldef *cd;
+		for(cd = grok_db_def[i].cols; cd->ct; cd++)
+		    if(!strcasecmp(j->c_str(), cd->name))
 			break;
-		if(!grok_db_def[i].cols[k].ct)
+		if(cd->ct)
 		    continue;
 		std::string st = "ALTER TABLE ";
 		st += grok_db_def[i].name;
@@ -541,38 +522,6 @@ bool sql_write_form(db_conn *conn, const FORM *f)
     do_prep("DELETE FROM grok_form_def WHERE \"name\" = ?");
     do_bindsn(f->name);
     do_execn();
-
-#define concat_namec(z, n, v) \
-    BOOST_PP_EXPR_IIF(BOOST_PP_GREATER(BOOST_PP_TUPLE_SIZE(v), 1), \
-	BOOST_PP_STRINGIZE(BOOST_PP_COMMA_IF(n)) \
-	"\"" BOOST_PP_STRINGIZE(BOOST_PP_TUPLE_ELEM(0, v)) "\"")
-#define SQL_COLS(t) BOOST_PP_TUPLE_FOR_EACH(t, concat_namec)
-#define concat_q(z, n, v) \
-    BOOST_PP_EXPR_IIF(BOOST_PP_GREATER(BOOST_PP_TUPLE_SIZE(v), 1), \
-	BOOST_PP_STRINGIZE(BOOST_PP_COMMA_IF(n)) "?")
-#define INS_QS(t) BOOST_PP_TUPLE_FOR_EACH(t, concat_q)
-#define NID(t) BOOST_PP_TUPLE_REMOVE(t, 0)
-#define BIND_ALL(pref, t) BOOST_PP_TUPLE_FOR_EACH(t, bind_one, pref)
-#define bind_one(z, n, cd, pref) \
-    BOOST_PP_IIF(BOOST_PP_GREATER(BOOST_PP_TUPLE_SIZE(cd),1), \
-	_bind_one,BOOST_PP_TUPLE_EAT(2))(cd, pref)
-#define _bind_one(cd, pref) \
-    BOOST_PP_CAT(do_bind, BOOST_PP_TUPLE_ELEM(2, cd))(ipref(cd, pref) ifield(cd), icond(cd));
-#define ifield(cd) \
-    BOOST_PP_TUPLE_ELEM(0, (BOOST_PP_REMOVE_PARENS( \
-	BOOST_PP_IIF(BOOST_PP_LESS(BOOST_PP_TUPLE_SIZE(cd), 4), \
-	    cd BOOST_PP_TUPLE_EAT(2), BOOST_PP_TUPLE_ELEM)(3, cd))))
-#define icond(cd) \
-    BOOST_PP_TUPLE_ELEM(1, (BOOST_PP_REMOVE_PARENS( \
-	BOOST_PP_IIF(BOOST_PP_LESS(BOOST_PP_TUPLE_SIZE(cd), 4), \
-	    (,) BOOST_PP_TUPLE_EAT(2), BOOST_PP_TUPLE_ELEM)(3, cd)),))
-#define ipref(cd, pref) \
-    _ipref(pref, (BOOST_PP_REMOVE_PARENS( \
-	BOOST_PP_IIF(BOOST_PP_LESS(BOOST_PP_TUPLE_SIZE(cd), 4), \
-	    BOOST_PP_TUPLE_EAT(2), BOOST_PP_TUPLE_ELEM)(3, cd))))
-#define _ipref(pref, idef) \
-    BOOST_PP_TUPLE_ELEM(BOOST_PP_IIF(BOOST_PP_LESS(BOOST_PP_TUPLE_SIZE(idef),3),0,3), ( \
-         pref, BOOST_PP_REMOVE_PARENS(idef)))
 
 #define insert_form_tab_row(t, pref) do { \
     do_prep("INSERT INTO " #t " (" SQL_COLS(t) ") VALUES (" INS_QS(t) ")"); \
@@ -643,28 +592,6 @@ rollback:
     db_trans(SQL_ROLLBACK);
     return false;
 }
-
-#define FETCH_ALL(t, pref) BOOST_PP_TUPLE_FOR_EACH(t, fetch_one, pref)
-#define fetch_one(z, n, cd, pref) \
-    BOOST_PP_IIF(BOOST_PP_GREATER(BOOST_PP_TUPLE_SIZE(cd),1), \
-	_fetch_one,BOOST_PP_TUPLE_EAT(2))(cd, pref)
-#define _fetch_one(cd, pref) \
-    BOOST_PP_CAT(do_col, BOOST_PP_TUPLE_ELEM(2, cd)) \
-	(opref(cd, pref) ofield(cd), oval(cd));
-#define ofield(cd) \
-    BOOST_PP_IIF(BOOST_PP_LESS(BOOST_PP_TUPLE_SIZE(cd), 5), ifield, _ofield)(cd)
-#define _ofield(cd) \
-    BOOST_PP_TUPLE_ELEM(0, (BOOST_PP_REMOVE_PARENS(BOOST_PP_TUPLE_ELEM(4, cd))))
-#define oval(cd) \
-    BOOST_PP_TUPLE_ELEM(1, (BOOST_PP_REMOVE_PARENS( \
-	BOOST_PP_IIF(BOOST_PP_LESS(BOOST_PP_TUPLE_SIZE(cd), 5), \
-	    (,v) BOOST_PP_TUPLE_EAT(2), BOOST_PP_TUPLE_ELEM)(4, cd))))
-#define opref(cd, pref) \
-    BOOST_PP_IIF(BOOST_PP_LESS(BOOST_PP_TUPLE_SIZE(cd), 5), ipref, _opref)(cd, pref)
-#define _opref(cd, pref) \
-    _ipref(pref, (BOOST_PP_REMOVE_PARENS( \
-	BOOST_PP_IIF(BOOST_PP_LESS(BOOST_PP_TUPLE_SIZE(cd), 5), \
-	    BOOST_PP_TUPLE_EAT(2), BOOST_PP_TUPLE_ELEM)(4, cd))))
 
 FORM *sql_read_form(db_conn *conn, const char *name)
 {
@@ -841,6 +768,7 @@ FORM *sql_read_form(db_conn *conn, const char *name)
     SQLFreeHandle(SQL_HANDLE_STMT, istmt);
     istmt = conn->stmt;
 
+    db_commit();
     return f;
 rollback:
     if(SQL_FAILED(ret))
@@ -858,6 +786,7 @@ rollback:
 	conn->stmt = istmt;
     }
     db_next();
+    db_trans(SQL_ROLLBACK);
     form_delete(f);
     return NULL;
 }

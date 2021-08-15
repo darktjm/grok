@@ -11,6 +11,24 @@ program documented below, except that -d no longer specifies a
 connection string, but instead is now a flag to say whether or not the
 grok tables should be dropped at the start.
 
+Why does autoincrement not work right in SQLite3 and Firebird?  I am
+about to just drop support for Firebird altogether.  The 64-bit long
+int patch helped (and is absolutely necessaary for anything at all to
+work, so I wish they'd do an official release with that patch
+applied), but I'm still having problems.  That 07002 error I remarked
+on below is only present in my complex, hard-to-report code; if I
+write a simple test program, it works fine.  As to SQLite3, even
+though I patched the ODBC driver to support insert..returning, it
+still behaves oddly in some situations (e.g. getting a constraint
+violation on the second insert of a form that was deleted, then
+inserted, then deleted, then inserted again; if the first delete did
+nothing due to no form existing yet, it works fine, so I thought all
+was well).  I guess I could just ignore the errors and use my crappy
+workaround for non-existent autoincrement support, but it really
+bothers me that it doesn't work.  These issues do not occur with
+PostgreSQL or MariaDB. I'm wasting way too much time on stuff I
+shouldn't even care about.
+
 This uses ODBC to connect to any database, although whether or not it
 works is a different story.  It has been tested with SQLite3 (3.35.5 /
 ODBC 0.9998), PostgreSQL (13.3 / ODBC 13.00.0000) and Firebird (3.0.4
