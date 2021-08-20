@@ -816,13 +816,17 @@ int fkey_lookup( /* ret -2 for oob, -1 for not found */
 	QString keyf;
 	/* each key may be an array */
 	int keylen = keylen_of(item);
-	/* ??? invalid form */
 	if (!keylen) {
+		/* ??? invalid form */
 		zfree(vbuf);
 		return -1;
 	}
 	int keys[keylen];
-	copy_fkey(item, keys);
+	if(copy_fkey(item, keys) < 0) {
+		/* item lookup failure */
+		zfree(vbuf);
+		return -1;
+	}
 	char **vals;
 	if(keylen == 1)
 		vals = (char **)&val;
@@ -889,6 +893,40 @@ char *fkey_of(
 	return ret;
 }
 
+/* find rows in form/base/column that refer to key */
+int find_referrer(
+	const FORM	*form,		/* fkey origin */
+	const DBASE	*dbase,		/* database to search */
+	const ITEM	*item,		/* column to serch */
+	const char	*key,		/* key to find */
+	int		start)		/* row to start looking */
+{
+	if(!key || !*key || item->type != IT_FKEY)
+		return -1;
+	for(int i = start; i < dbase->nrows; i++) {
+		const char *data = dbase_get(dbase, i, item->column);
+		if(BLANK(data))
+			continue;
+		if(!IFL(item->,FKEY_MULTI)) {
+			if(!strcmp(data, key))
+				return i;
+		} else {
+			int spllen;
+			bool ret;
+			char **spl = split_array(form, data, &spllen);
+			for(int n = 0; n < spllen; n++)
+				if((ret = !strcmp(STR(spl[n]), key)))
+					break;
+			for(int n = 0; n < spllen; n++)
+				zfree(spl[n]);
+			zfree(spl);
+			if(ret)
+				return i;
+		}
+	}
+	return -1;
+}
+
 /* check form/db for invalid foreign key defs or data */
 /* fills in badrefs/nbadref with problem descriptors */
 /* inv/invdb are for recursion, to check that foreign db's refs to this db
@@ -945,34 +983,21 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 			DBASE *fdb = invdb ? invdb : read_dbase(fform);
 			if(!inv) {
 				/* foreign form should declare this as referrer */
-				/* either directly ... */
 				for(j = 0; j < fform->nchild; j++)
-					if(!strcmp(fform->children[j], form->name))
+					if(fform->childform[j] != form)
 						break;
 				if(j == fform->nchild) {
-					/* or by an INV_FKEY */
-					for(j = 0; j < fform->nitems; j++) {
-						ITEM *fitem = fform->items[j];
-						if(fitem->type != IT_INV_FKEY)
-							continue;
-						resolve_fkey_fields(fitem);
-						if(fitem->fkey_form &&
-						   !strcmp(fitem->fkey_form->name, form->name))
-							break;
-					}
-					if(j == fform->nitems) {
-						badref br;
-						br.form = form;
-						br.item = i;
-						br.fform = fform;
-						br.dbase = db;
-						br.fdbase = fdb;
-						br.row = br.keyno = -1;
-						br.reason = BR_NO_INVREF;
-						grow(0, "bad refs", badref,
-						     *badrefs, *nbadref + 1, 0);
-						(*badrefs)[(*nbadref)++] = br;
-					}
+					badref br;
+					br.form = form;
+					br.item = i;
+					br.fform = fform;
+					br.dbase = db;
+					br.fdbase = fdb;
+					br.row = br.keyno = -1;
+					br.reason = BR_NO_INVREF;
+					grow(0, "bad refs", badref,
+					     *badrefs, *nbadref + 1, 0);
+					(*badrefs)[(*nbadref)++] = br;
 				}
 			}
 			for(r = 0; r < db->nrows; r++) {
@@ -1041,9 +1066,9 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 	}
 	if(inv)
 		return;
-	for(i = 0; i < form->nchild; i++) {
+	for(i = 0; i < form->nreferer; i++) {
 		/* foreign form should resolve by now */
-		FORM *fform = read_form(form->children[i], false, 0);
+		FORM *fform = read_form(form->referer[i], false, 0);
 		if(!fform) {
 			badref br;
 			br.form = form;
@@ -1060,7 +1085,7 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 		}
 		/* explicit referrer should actually refer to this */
 		for(j = 0; j < fform->nitems; j++) {
-			ITEM *item = form->items[j];
+			ITEM *item = fform->items[j];
 			if(item->type == IT_FKEY) {
 				resolve_fkey_fields(item);
 				if(item->fkey_form == form)

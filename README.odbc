@@ -26,6 +26,25 @@ slightly differently.  You have to use SQLGetInfo() to check for most
 However, I just assume it works for now.  If it doesn't, feel free to
 tell me how/why.
 
+I have also tested it with SQLCipher 4.0.1 with the sqliteodbc driver.
+That's not as easy to use s the others, though.  To make sqliteodbc
+use SQLCipher instead of SQLite3, either link it to SQLCiper in the
+first place, or ensure dynamic linking and replace the SQLite3
+libraries with SQLCipher libraries (either via setting dynamic load
+paths, such as LD_LIBRARY_PATH on Linux, or by direct replacement),
+or, if your system supports forced library injections like Linux's
+LD_PRELOAD, inject the SQLCipher library (again, assuming dynamic
+linking).  I use the latter method for testing.  In addition, you will
+need to keep the passprhase in the substitution override file, by
+setting the "init" substitution for sqlite to "pragma key='key'".  If
+you do so, don't forget to either set FKSupport=true in the
+connection string, or add "pragma foreign_keys=true" back to the init
+substitution as well.  Since this means you keep your password in
+plain text, you should at least remove group/world read permission
+from the substitution file.  In the future, I may provide a way to
+prompt for a passphrase, instead.  Also, keep in mind that grok was
+not designed for encryption, so sensitive data will become exposed.
+
 Some things are non-portable even with the few databases I tested, so
 I have made some accomodations.  One is internal only:  it uses
 SQLGetTypeInfo() to determine what types to use when creating tables.
@@ -91,6 +110,7 @@ the current substitutions and their current built-in values:
 INIT - SQL statement(s) executed at the start of every connection.
 Built-in:
    sqlite "PRAGMA foreign_keys = true"
+   mariadb|mysql "SET sql_mode='ansi,no_backslash_escapes'"
    # I depend on cascade deletes working, and don't want to rely on the user
    # specifying FKSupport=true in the connection string/DSN spec
 
@@ -210,7 +230,7 @@ NEXT_ID - SQL to execute to retrieve the next ID value for a table in
 	  or ID_DROP would be needed.  However, this imposes a race
 	  condition:  it is possible for two rows to get the same ID with
 	  multiple simultaneous uses.  For a personal app like grok,
-	  that is very unlikely, but the I prefer the defaults to be safe.
+	  that is very unlikely, but I prefer the defaults to be safe.
 	  It would be possible to fix the race if unique constraints
 	  are enforced, by retrying the insert on constraint check failures,
 	  but grok does not do that right now.  It is also possible to

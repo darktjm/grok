@@ -154,6 +154,12 @@ char *fkey_of(
 	int		row,		/* row */
 	const FORM	*form,		/* fkey origin */
 	const ITEM	*item);		/* fkey definition */
+int find_referrer(
+	const FORM	*form,		/* fkey origin */
+	const DBASE	*dbase,		/* database to search */
+	const ITEM	*item,		/* column to serch */
+	const char	*key,		/* key to find */
+	int		start = 0);	/* row to start looking */
 int keylen_of(
 	const ITEM	*item);		/* fkey definition; must be IT_*FKEY */
 int copy_fkey(				/* returns <0 on lookup failure */
@@ -319,6 +325,9 @@ FORM *read_form(
 	const char	*path,		/* file to read list from */
 	bool		force = false,	/* overrwrite loaded forms */
 	QWidget		*parent = mainwindow);	/* error popup parent */
+FORM *read_child_form(
+	const FORM	*form,		/* parent form */
+	const char	*path);		/* child form name */
 
 /*---------------------------------------- formodbc.c ------------*/
 

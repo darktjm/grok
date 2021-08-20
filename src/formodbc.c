@@ -78,7 +78,7 @@
     ( help,		LONGVARCHAR, s ) \
 )
 
-#define grok_form_def_child ( \
+#define grok_form_def_referer ( \
     ( form_id,		(INTEGER, 0, FKEY_FORM_REF), 64, (fid,,) ), \
     ( name,		(VARCHAR, 128), sn, /* [prefix] */ ) \
 )
@@ -300,7 +300,7 @@ struct tabdef {
     const coldef *cols;
 } grok_db_def[] = {
     TAB_DEF(grok_form_def),
-    TAB_DEF(grok_form_def_child),
+    TAB_DEF(grok_form_def_referer),
     TAB_DEF(grok_form_def_query),
     TAB_DEF(grok_form_item),
     TAB_DEF(grok_form_item_menu),
@@ -551,8 +551,8 @@ bool sql_write_form(db_conn *conn, const FORM *f)
 
     insert_form_ptab_row(grok_form_def, fid, f->);
 
-    for(int j = 0; j < f->nchild; j++)
-	insert_form_tab_row(grok_form_def_child, f->children[j]);
+    for(int j = 0; j < f->nreferer; j++)
+	insert_form_tab_row(grok_form_def_referer, f->referer[j]);
 
     for(int j = 0; j < f->nqueries; j++) {
 	DQUERY *dq = &f->query[j];
@@ -717,7 +717,7 @@ FORM *sql_read_form(db_conn *conn, const char *name)
     db_next(); \
 } while(0)
 
-    read_form_tab(grok_form_def_child, 1, f->children, , f->nchild, form, fid, );
+    read_form_tab(grok_form_def_referer, 1, f->referer, , f->nreferer, form, fid, );
 
     read_form_tab(grok_form_def_query, 2, f->query, ., f->nqueries, form, fid, ORDER BY "seq");
 

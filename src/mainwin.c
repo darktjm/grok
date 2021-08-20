@@ -58,6 +58,7 @@ static void pos_callback	(int);
 static void new_callback	(void);
 static void dup_callback	(void);
 static void del_callback	(void);
+static bool del_confirm		(QWidget *parent, const CARD *card);
 static bool multi_save_revert	(bool);
 static void check_references	(void);
 
@@ -1497,6 +1498,10 @@ static void del_callback(void)
 				card->dbase->sect[s].path);
 		return;
 	}
+
+	if (!del_confirm(mainwindow, mainwindow->card))
+		return;
+
 	dbase_delrow(card->row, card->dbase);
 	if (card->row >= card->dbase->nrows)
 		card->row = card->dbase->nrows - 1;
@@ -1516,6 +1521,244 @@ static void del_callback(void)
 	create_summary_menu(card);
 }
 
+typedef struct refcount {
+	CARD *card;
+	char *form;
+	char *label;
+	int *row;
+	size_t rowsz;
+	int nrow;
+	int from; /* -1 == root */
+} refcount;
+
+static bool add_ref(const char *form, int row, refcount &ref, refcount *refs, int nref)
+{
+	for(int i = 0; i < nref; i++) {
+		if(strcmp(refs[i].form, form))
+			continue;
+		for(int j = 0; j < refs[i].nrow; j++) {
+			if(row < refs[i].row[j])
+				break;
+			if(row == refs[i].row[j])
+				return false;
+		}
+	}
+	if(!ref.rowsz)
+		ref.row = alloc(0, "cascade delete", int, ref.rowsz = 16);
+	else
+		grow(0, "cascade delete", int, ref.row, ref.nrow + 1, &ref.rowsz);
+	ref.row[ref.nrow++] = row;
+	return true;
+}
+
+/* delete or count references.  how: -1 = count, 0 = clear, 1 = delete */
+static void del_references(int how, FORM *fform, FORM *form, DBASE *dbase,
+			   int row, refcount **refs, int *nref, int from = -1)
+{
+	DBASE *fdbase = read_dbase(fform);
+	if(!fdbase)
+		return;
+
+	/* create a card to lock the form & dbase into memory for now */
+	CARD *card = create_card_menu(fform, fdbase);
+	/* pass 1:  direct references */
+	int onref = *nref;
+	for(int i = 0; i < fform->nitems; i++) {
+		if(fform->items[i]->type != IT_FKEY)
+			continue;
+		resolve_fkey_fields(fform->items[i]);
+		if(fform->items[i]->fkey_form != form)
+			continue;
+		char *key = fkey_of(dbase, row, fform, fform->items[i]);
+		if(!key)
+			continue;
+		/* if there's another record w/ same key, let it take over */
+		int start = -1;
+		do {
+			start = fkey_lookup(dbase, fform, fform->items[i],
+					    key, -1, start + 1);
+		} while(start == row);
+		/* FIXME: don't just skip; ask/tell user first */
+		if(start >= 0) {
+			free(key);
+			continue;
+		}
+		start = -1;
+		refcount ref = {};
+		while((start = find_referrer(fform, fdbase, fform->items[i],
+					     key, start + 1)) >= 0) {
+			if(!how)
+				dbase_put(fdbase, start,
+					  fform->items[i]->column, 0);
+			add_ref(fform->name, start, ref, *refs, *nref);
+		}
+		free(key);
+		if(!ref.nrow)
+			continue;
+		if(how == 1)
+			ref.card = card;
+		ref.form = mystrdup(fform->name);
+		ref.label = mystrdup(fform->items[i]->label ?
+					fform->items[i]->label :
+					fform->items[i]->name);
+		ref.from = from;
+		grow(0, "cascade delete", refcount, *refs, *nref+1, 0);
+		(*refs)[(*nref)++] = ref;
+	}
+	/* since only direct references are zeroed out, no need for more */
+	/* if nothing found, no need for more */
+	if(!how || onref == *nref) {
+		free_card(card);
+		return;
+	}
+	/* pass 2:  references to rows that referenced this */
+	/* I could do this in a loop w/o recursion, but I'll go ahead and recurse */
+	for(int nnref = *nref; onref < nnref; onref++) {
+		refcount &ref = (*refs)[onref];
+		int *row = ref.row;
+		for(int i = 0; i < fform->nchild; i++) {
+			FORM *ffform = read_child_form(fform, fform->childname[i]);
+			if(!ffform)
+				continue;
+			for(int j = 0; j < ref.nrow; j++)
+				del_references(how, ffform, fform, fdbase,
+					       row[j], refs, nref, onref);
+		}
+	}
+	/* now that everything's collected, no need for more if not deleting */
+	if(how == -1) {
+		free_card(card);
+		return;
+	}
+	/* pass 3:  perform actual deletions, last to first */
+	/*  once *everything* has been collected */
+	/*  so it can't really be done here. */
+	return;
+}
+
+
+/* builds message from ref[n] and all its children and then frees their components */
+static QString refs_msg(refcount *ref, int nref, int n, int level = 0)
+{
+	QString ret;
+	free(ref[n].row);
+	for(int i = 0; i < level; i++)
+		ret += "  ";
+	if(level)
+		ret += '(';
+	ret += qsprintf("%d card%s of %s via %s", ref[n].nrow, ref[n].nrow > 1 ? "s" : "",
+			ref[n].form, ref[n].label);
+	if(level)
+		ret += ')';
+	ret += '\n';
+	free(ref[n].form);
+	zfree(ref[n].label);
+	for(int i = n + 1; i < nref; i++)
+		if(ref[i].from == n)
+			ret += refs_msg(ref, nref, i, level + 1);
+	return ret;
+}
+
+
+/*
+ * If there are referrers to this row, pop up dialog requesting action:
+ *   - cancel delete
+ *   - delete, but clear out referrers (default)
+ *   - delete, and also delete referrers
+ * Naturally, this requires full list of referrer forms (referer + INV_FKEY)
+ */
+static bool del_confirm(QWidget *parent, const CARD *card)
+{
+	FORM *form = card->form;
+	DBASE *dbase = card->dbase;
+	int i;
+
+	if(!form->nchild)
+		return true;
+
+	/* find number of references */
+	/* actual references are not kept, because poping up and waiting */
+	/* for dialog might allow other tasks to change the references */
+	refcount *refs = 0;
+	int nref = 0;
+	for(i = 0; i < form->nchild; i++) {
+		FORM *fform = read_child_form(form, form->childname[i]);
+		if(!fform)
+			continue;
+		del_references(-1, fform, form, dbase, card->row, &refs, &nref);
+	}
+	if(!nref)
+		return true;
+
+	QString msg = "There are other cards referring to this card:\n\n";
+	
+	for(int i = 0; i < nref && refs[i].from == -1; i++)
+		msg += refs_msg(refs, nref, i);
+	free(refs);
+	nref = 0;
+	msg += "\nEither clear these references, or delete the referring card.";
+
+	QMessageBox dlg(QMessageBox::Warning, "Cascade Delete", msg,
+			QMessageBox::Cancel | QMessageBox::Help);
+	dlg.setObjectName("cascadedel");
+	set_icon(&dlg, 1);
+	bind_help(&dlg, "cascadedel");
+	QPushButton *clear = dlg.addButton("Clear Refs", QMessageBox::AcceptRole);
+	QPushButton *delall = dlg.addButton("Delete All", QMessageBox::DestructiveRole);
+	dlg.setDefaultButton(clear);
+	while(1) {
+		int b = dlg.exec();
+		if(b == QMessageBox::Cancel)
+			return false;
+		if(b == QMessageBox::Help) {
+			help_callback(parent, "cascadedel");
+			continue;
+		}
+		break;
+	}
+	int mode = dlg.clickedButton() == delall ? 1 : 0;
+	for(i = 0; i < form->nchild; i++) {
+		FORM *fform = read_child_form(form, form->childname[i]);
+		if(!fform)
+			continue;
+		del_references(mode, fform, form, dbase, card->row,
+			       &refs, &nref);
+	}
+	if(mode) {
+		/* pass 3:  perform actual deletions, last to first */
+		/*  once *everything* has been collected */
+		/*  FIXME: move above loop into del_references so it can be done there */
+		for(int i = nref - 1; i >= 0; i--) {
+			refcount &ref = refs[i];
+			for(int j = ref.nrow - 1; j >= 0; j--) {
+				int row = ref.row[j];
+				dbase_delrow(row, ref.card->dbase);
+				for(int k = 0; k < i; k++) {
+					refcount &oref = refs[k];
+					if(!strcmp(ref.form, oref.form))
+						for(int l = oref.nrow - 1;
+						    l >= 0 && oref.row[l] > row;
+						    l--)
+							oref.row[l]--;
+				}
+				/* FIXME: find cards using dbase and:
+				 *   - adjust row
+				 *   - delete from query lists
+				 *   - adjust query lists
+				 *  [fkey reporses nquery]
+				 */
+			}
+			free_card(ref.card);
+		}
+	}
+	msg = mode ? "Removed additional cards:\n\n" : "Cleared out references:\n\n";
+	for(int i = 0; i < nref && refs[i].from == -1; i++)
+		msg += refs_msg(refs, nref, i);
+	free(refs);
+	QMessageBox conf(QMessageBox::Information, "Cascade Delete", msg);
+	conf.exec();
+	return true;
+}
 
 /*
  * assign new section to the current card (called from the option popup)
@@ -1642,13 +1885,13 @@ static bool multi_save_revert(
 	QDialogButtonBox *bb = new QDialogButtonBox;
 	QAbstractButton *b;
 	b = mk_button(bb, 0, dbbb(Help));
-	set_button_cb(b, help_callback(dlg, is_quit ? "quit" : "revert"));
+	set_button_cb(b, help_callback(mainwindow, is_quit ? "quit" : "revert"));
 	b = mk_button(bb, 0, dbbb(Cancel));
 	set_button_cb(b, dlg->reject());
 	b = mk_button(bb, 0, dbbb(Ok));
 	set_button_cb(b, dlg->accept());
 	form->addWidget(bb, 5 + nrows, 0, 1, 4);
-	bool ret;
+	int ret;
 	while(1) {
 		size_t i;
 		ret = dlg->exec();
@@ -1970,7 +2213,7 @@ static void check_references(void)
 			    case BR_NO_CFORM: {
 				form->addWidget(new QLabel(
 					qsprintf("Can't load foreign db '%s'",
-						 badrefs[i].form->children[badrefs[i].item])),
+						 badrefs[i].form->referer[badrefs[i].item])),
 						r++, 0, 1, 3);
 				form->addWidget((cb = new QCheckBox), r, 0);
 				cb->setChecked(true);
@@ -1987,7 +2230,7 @@ static void check_references(void)
 			    case BR_NO_FREF:
 				form->addWidget(new QLabel(
 					qsprintf("Database '%s' listed as referer, but does not reference '%s'",
-						 badrefs[i].form->children[badrefs[i].item], badrefs[i].form->name)),
+						 badrefs[i].form->referer[badrefs[i].item], badrefs[i].form->name)),
 						r++, 0, 1, 3);
 				form->addWidget((cb = new QCheckBox), r, 0);
 				cb->setChecked(true);
@@ -2103,16 +2346,16 @@ static void check_references(void)
 				if(cb->isChecked()) {
 					FORM *fform = badrefs[i].fform;
 					int j;
-					for(j = 0; j < fform->nchild; j++) {
-						const FORM *cform = read_form(fform->children[i], false, 0);
+					for(j = 0; j < fform->nreferer; j++) {
+						const FORM *cform = read_form(fform->referer[i], false, 0);
 						if(cform && cform == badrefs[i].form)
 							break;
 					}
-					if(j < fform->nchild)
+					if(j < fform->nreferer)
 						break; /* already in via some other means */
-					grow(0, "form referers", char *, fform->children, fform->nchild + 1, 0);
-					fform->children[fform->nchild] = mystrdup(badrefs[i].form->name);
-					fform->nchild++;
+					grow(0, "form referers", char *, fform->referer, fform->nreferer + 1, 0);
+					fform->referer[fform->nreferer] = mystrdup(badrefs[i].form->name);
+					fform->nreferer++;
 					forms_to_save.insert(fform);
 				}
 				break;
@@ -2163,15 +2406,15 @@ static void check_references(void)
 					QComboBox *db = 0;
 					getw(db, QComboBox);
 					const char *dbn = read_text_button(db, 0);
-					char **ch = badrefs[i].form->children;
+					char **ch = badrefs[i].form->referer;
 					int chno = badrefs[i].item;
 					if(!strcmp(STR(dbn), STR(ch[chno])))
 						break;
 					free(ch[chno]);
 					if(BLANK(dbn)) {
 						memmove(ch + chno, ch + chno + 1,
-							badrefs[i].form->nchild - chno - 1);
-						badrefs[i].form->nchild--;
+							badrefs[i].form->nreferer - chno - 1);
+						badrefs[i].form->nreferer--;
 						for(int j = i + 1; j < nbadref; j++)
 							if(badrefs[j].form == badrefs[i].form &&
 							   (badrefs[j].reason == BR_NO_CFORM ||
@@ -2186,12 +2429,12 @@ static void check_references(void)
 			    case BR_NO_FREF:
 				getcb(cb);
 				if(cb->isChecked()) {
-					char **ch = badrefs[i].form->children;
+					char **ch = badrefs[i].form->referer;
 					int chno = badrefs[i].item;
 					free(ch[chno]);
 					memmove(ch + chno, ch + chno + 1,
-						badrefs[i].form->nchild - chno - 1);
-					badrefs[i].form->nchild--;
+						badrefs[i].form->nreferer - chno - 1);
+					badrefs[i].form->nreferer--;
 					for(int j = i + 1; j < nbadref; j++)
 						if(badrefs[j].form == badrefs[i].form &&
 						   (badrefs[j].reason == BR_NO_CFORM ||

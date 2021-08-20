@@ -1758,3 +1758,49 @@ char *f_dereff(
 	/* should never get here */
 	return 0;
 }
+
+/* true if a known referrer refers to this row */
+static bool check_referenced(const FORM *fform, const FORM *form, const DBASE *dbase, int row)
+{
+	DBASE *fdbase = read_dbase(fform);
+	if(!fdbase)
+		return false;
+	bool ret = false;
+	for(int i = 0; i < fform->nitems; i++) {
+		if(fform->items[i]->type != IT_FKEY)
+			continue;
+		resolve_fkey_fields(fform->items[i]);
+		if(fform->items[i]->fkey_form != form)
+			continue;
+		char *key = fkey_of(dbase, row, fform, fform->items[i]);
+		if(!key)
+			continue;
+		ret = find_referrer(fform, fdbase, fform->items[i], key) >= 0;
+		free(key);
+		if(ret)
+			break;
+	}
+	dbase_delete(fdbase);
+	return ret;
+}
+
+bool f_referenced(
+	PG,
+	int row)
+{
+	if (!g->card || !g->card->form || !g->card->dbase || row < 0 ||
+	    row >= g->card->dbase->nrows)
+		return false;
+	const FORM *form = g->card->form;
+	for(int i = 0; i < form->nchild; i++) {
+		FORM *fform = form->childform[i];
+		if(!fform)
+			fform = form->childform[i] = read_form(form->childname[i]);
+		if(!fform)
+			continue;
+		bool ret = check_referenced(fform, form, g->card->dbase, row);
+		if(ret)
+			return true;
+	}
+	return false;
+}

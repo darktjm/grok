@@ -222,7 +222,7 @@ typedef struct {
 typedef struct item ITEM;
 typedef struct {
 	char	*name;		/* foreign variable name */
-	ITEM	*item;	/* resolved field pointer */
+	ITEM	*item;		/* resolved field pointer */
 	const MENU *menu;	/* resolved field pointer */
 	int	index;		/* resolved field pointer */
 	bool	key;		/* part of key, or just display? */
@@ -283,6 +283,7 @@ enum item_flag {
 #define IFX(i,j,x) i flags = ((i flags) & ~(1U<<IF_##x)) | (j flags & (1U<<IF_##x))
 
 struct item {
+	FORM	*form;		/* convenience back pointer to form */
 	ITYPE	type;		/* one of IT_* */
 	char	*name;		/* field name, used in expressions */
 	int	x, y;		/* position in form */
@@ -406,16 +407,19 @@ struct form {
 	int	xg, yg;		/* grid size in pixels */
 	int	xs, ys;		/* total size of form in pixels */
 	int	ydiv;		/* Y of divider between static part and card */
+	ITEM	**items;	/* array of item definitions */
 	size_t	size;		/* # of items the item array has space for*/
 	int	nitems;		/* # of items in this form */
-	ITEM	**items;	/* array of item definitions */
+	DQUERY	*query;		/* default queries for query pulldown */
 	int	nqueries;	/* # of queries in query array */
 	int	autoquery;	/* query to do when loading, -1=none */
-	DQUERY	*query;		/* default queries for query pulldown */
 	char	*planquery;	/* default query for -p option */
 	FIELDS	*fields;	/* map fields to item#/menu# */
+	char	**referer;	/* databases user says refer to this */
+	int	nreferer;	/* number of databases user says refer to this */
+	const char **childname;	/* databases probably referencing this */
+	FORM	**childform;	/* resolved childname[] */
 	int	nchild;		/* number of databases referencing this */
-	char	**children;	/* databases probably referencing this */
 };
 
 extern FORM *form_list;

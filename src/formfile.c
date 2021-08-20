@@ -88,8 +88,8 @@ bool write_form(
 	write_int("divider    ", form->ydiv);
 	write_int("autoq      ", form->autoquery, != -1);
 	write_str("planquery  ", form->planquery);
-	for (i=0; i < form->nchild; i++)
-		write_str("child      ", form->children[i]);
+	for (i=0; i < form->nreferer; i++)
+		write_str("child      ", form->referer[i]);
 
 	for (p=form->help; p && *p; ) {
 		fputs("help\t'", fp);
@@ -463,10 +463,10 @@ FORM *read_form(
 			else if (!strcmp(key, "planquery"))
 					STORE(form->planquery, p);
 			else if (!strcmp(key, "child")) {
-					zgrow(0, "form file", char *, form->children,
-					      form->nchild, form->nchild + 1, 0);
-					STORE(form->children[form->nchild], p);
-					++form->nchild;
+					zgrow(0, "form file", char *, form->referer,
+					      form->nreferer, form->nreferer + 1, 0);
+					STORE(form->referer[form->nreferer], p);
+					++form->nreferer;
 			} else if (!strcmp(key, "query_s")) {
 				if ((dq = add_dquery(form)))
 					dq->suspended = *p != '0';
@@ -767,4 +767,26 @@ FORM *read_form(
 			fillout_card(card, false);
 		}
 	return form;
+}
+
+static int bcomp_name(
+	const void	*u,
+	const void	*v)
+{
+	return(strcmp((char *)u, *(char **)v));
+}
+
+FORM *read_child_form(
+	const FORM		*form,
+	const char		*child)
+{
+	const char **cname =
+		(const char **)bsearch(child, form->childname, form->nchild,
+				       sizeof(*form->childname), bcomp_name);
+	if(!cname)
+		return read_form(child, false, NULL);
+	int cno = cname - form->childname;
+	if(!form->childform[cno])
+		form->childform[cno] = read_form(child, false, NULL);
+	return form->childform[cno];
 }

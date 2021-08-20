@@ -35,7 +35,7 @@ static bool alloc_query(CARD *, char **, bool);
 static bool search_matches_card(CARD *, const char *);
 static int expr_matches_card(CARD *, const char *);
 
-
+/* FIXME:  this only works for US ASCII.  No Latin-1, no UTF-8, etc.  */
 static const char *strlower(const char *string)
 {
 	static char	*search = 0;	/* lower-case search string */
@@ -47,6 +47,28 @@ static const char *strlower(const char *string)
 		*q++ = *p | 0x20;
 	*q = 0;
 	return search;
+}
+
+
+/* true if q in s, a la strcasestr */
+/* unlike strcasestr, this requires q to be "lower-case" as per strlower above */
+/* and compares s as if it were converted as per strlower above */
+static bool lc_in(const char *s, const char *q)
+{
+	if(!s || !*s || !q || !*q)
+		return(false);
+	while(1) {
+		const char *c, *p;
+		for (p = s, c = q; *c && *p; c++, p++)
+			/* FIXME:  this only works for US ASCII.  No Latin-1, no UTF-8, etc.  */
+			if ((*p | 0x20) != *c)
+				break;
+		if (!*c)
+			return(true);
+		if (!*p)
+			return(false);
+		s++;
+	}
 }
 
 
@@ -353,6 +375,54 @@ static bool alloc_query(
 
 
 /*
+ * return true if the given item contains the given search string.  This is
+ * called recursively for foreign key items.
+ */
+static bool search_matches_item(
+	const FORM	*form,		/* form item is from */
+	const DBASE	*dbase,		/* database item is from */
+	int		row,		/* row of database */
+	ITEM		*item,		/* item to search; writable for fkey */
+	const char	*search)	/* lowercased string to search for */
+{
+	char		*data;		/* database string to test */
+
+	/* FIXME: support PRINT, INV_FKEY */
+	if (!IN_DBASE(item->type) || !IFL(item->,SEARCH))
+		return(false);
+	if (!(data = dbase_get(dbase, row, item->column)))
+		return(false);
+	if (item->type != IT_FKEY)
+		return lc_in(data, search);
+	resolve_fkey_fields(item);
+	const FORM *fform = item->fkey_form;
+	if(!fform)
+		return lc_in(data, search);
+	int nvis = 0;
+	for (int i = 0; i < item->nfkey; i++) {
+		if(item->fkey[i].key && !item->fkey[i].item)
+			return  lc_in(data, search);
+		nvis += item->fkey[i].item && item->fkey[i].display;
+	}
+	if(!nvis)
+		return(false);
+	DBASE *fdb = read_dbase(fform);
+	for (int k = 0; ; k++) {
+		row = fkey_lookup(fdb, form, item, data, k);
+		if(row == -2)
+			return(false);
+		if(row < 0)
+			continue;
+		for (int i = 0; i < item->nfkey; i++)
+			if(item->fkey[i].display &&
+			   search_matches_item(fform, fdb, row,
+					       item->fkey[i].item,
+					       search))
+				return(true);
+	}
+}
+
+/*
  * return true if the given card contains the given search string. This is
  * used by eval_search above, and by the find-and-select function in the File
  * pulldown (also Ctrl-F and a search mode).
@@ -363,28 +433,11 @@ static bool search_matches_card(
 	const char	*search)	/* lowercased string to search for */
 {
 	int		i;		/* item counter */
-	ITEM		*item;		/* item to check */
-	char		*data;		/* database string to test */
-	const char	*p, *q;		/* copy and comparison pointers */
 
-	for (i=0; i < card->form->nitems; i++) {
-		item = card->form->items[i];
-		if (!IN_DBASE(item->type) || !IFL(item->,SEARCH))
-			continue;
-		if (!(data = dbase_get(card->dbase, card->row, item->column)))
-			continue;
-		/* FIXME:  if item is fkey, search visible/searchble foreign vals instead */
-		for (p=data; *p; p++) {
-			if ((*p | 0x20) != *search)
-				continue;
-			for (q=search; *q; q++, p++)
-				if ((*p | 0x20) != *q)
-					break;
-			if (!*q)
-				return(true);
-			p -= q - search;
-		}
-	}
+	for (i=0; i < card->form->nitems; i++)
+		if(search_matches_item(card->form, card->dbase, card->row,
+				       card->form->items[i], search))
+			return(true);
 	return(false);
 }
 

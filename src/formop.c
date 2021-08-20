@@ -92,8 +92,10 @@ FORM *form_clone(
 	    !(form->items = alloc(mainwindow, "clone form fields", ITEM *, form->size)))
 		form->nitems = 0;
 	/* But of course this will fail fatally */
-	for (i=0; i < form->nitems; i++)
+	for (i=0; i < form->nitems; i++) {
 		form->items[i] = item_clone(parent->items[i]);
+		form->items[i]->form = form;
+	}
 
 	if (form->nqueries) {
 		/* Again, probably OK if it fails */
@@ -106,9 +108,13 @@ FORM *form_clone(
 			form->query[i].query= mystrdup(parent->query[i].query);
 		}
 	}
-	form->children = alloc(mainwindow, "clone form fields", char *, form->nchild);
-	for (i = 0; i < form->nchild; i++)
-		form->children[i] = mystrdup(parent->children[i]);
+	form->referer = alloc(mainwindow, "clone form fields", char *, form->nreferer);
+	for (i = 0; i < form->nreferer; i++)
+		form->referer[i] = mystrdup(parent->referer[i]);
+	form->childname = alloc(mainwindow, "clone form fields", const char *, form->nchild);
+	tmemcpy(const char *, form->childname, parent->childname, form->nchild);
+	form->childform = alloc(mainwindow, "clone form fields", FORM *, form->nchild);
+	tmemcpy(FORM *, form->childform, parent->childform, form->nchild);
 	form->fields = NULL;
 	return(form);
 }
@@ -137,6 +143,9 @@ void form_delete(
 	for (FORM *f = form_list; f; f = f->next) {
 		if (f == form)
 			continue;
+		for (i = 0; i < f->nchild; i++)
+			if (f->childform[i] == form)
+				f->childform[i] = 0;
 		for (i = 0; i < f->nitems; i++)
 			if (f->items[i]->fkey_form == form)
 				f->items[i]->fkey_form = 0;
@@ -153,7 +162,6 @@ void form_delete(
 	zfree(form->comment);
 	zfree(form->help);
 	zfree(form->planquery);
-	zfree(form->children);
 	if (form->query) {
 		for (i=0; i < form->nqueries; i++) {
 			dq = &form->query[i];
@@ -162,6 +170,11 @@ void form_delete(
 		}
 		free(form->query);
 	}
+	for (i=0; i < form->nreferer; i++)
+		zfree(form->referer[i]);
+	zfree(form->referer);
+	zfree(form->childname);
+	zfree(form->childform);
 	for (FORM **prev = &form_list; *prev; prev = &(*prev)->next)
 		if(*prev == form) {
 			*prev = form->next;
@@ -262,6 +275,28 @@ static bool fkey_loop(const FORM *form, ITEM *item,
 	return false;
 }
 
+static void add_child(FORM *form, const char *name)
+{
+	int l = 0, h = form->nchild - 1, m;
+	while(l <= h) {
+		m = (l + h) / 2;
+		int c = strcmp(name, form->childname[m]);
+		if(!c)
+			return;
+		if(c < 0)
+			h = m - 1;
+		else
+			l = m + 1;
+	}
+	grow(0, "form child", const char *, form->childname, form->nchild + 1, 0);
+	tmemmove(const char *, form->childname + l + 1, form->childname + l, form->nchild - l);
+	form->childname[l] = name;
+	grow(0, "form child", FORM *, form->childform, form->nchild + 1, 0);
+	tmemmove(FORM *, form->childform + l + 1, form->childform + l, form->nchild - l);
+	form->childform[l] = 0;
+	form->nchild++;
+}
+
 bool verify_form(
 	FORM		*form,		/* form to verify */
 	int		*bug,		/* returned buggy item # */
@@ -318,6 +353,15 @@ bool verify_form(
 			msg += qsprintf("Query %d has no query\n", nq+1);
 	    }
 	}
+	/* safest to just rebuild child list from scratch */
+	if(form->nchild) {
+		zfree(form->childname);
+		zfree(form->childform);
+		form->childname = 0;
+		form->childform = 0;
+	}
+	for(int i = 0; i < form->nreferer; i++)
+		add_child(form, form->referer[i]);
 	if(form->fields)
 		delete form->fields;
 	/* Rather than looping through items to find dups */
@@ -392,6 +436,8 @@ bool verify_form(
 			add_field_name(msg, form, nitem);
 			msg += " has no button action\n";
 		}
+		if (item->type == IT_INV_FKEY)
+			add_child(form, item->fkey_form_name);
 		if (item->type == IT_FKEY || item->type == IT_INV_FKEY)
 			resolve_fkey_fields(item);
 		else
@@ -883,6 +929,7 @@ bool item_create(
 		/* again, recovery is pointless */
 		item = zalloc(0, "form field", ITEM, 1);
 		form->items[nitem] = item;
+		item->form	   = form;
 		item->type	   = IT_INPUT;
 		IFS(item->,SELECTED);
 		item->labeljust	   = J_LEFT;
@@ -1104,7 +1151,7 @@ void resolve_fkey_fields(ITEM *item)
 			return;
 	}
 	if(!item->fkey_form &&
-	   !(item->fkey_form = read_form(item->fkey_form_name, false, 0)))
+	   !(item->fkey_form = read_child_form(item->form, item->fkey_form_name)))
 			return;
 	const FORM *fform = item->fkey_form;
 	const FIELDS *s = fform->fields;

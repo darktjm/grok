@@ -340,10 +340,23 @@
 %% quit
 	QUIT
 
-	You have made changes to the current database that have not been
-	saved to disk.  If you want to discard these changes, press OK. If
-	you want to save the changes and quit, press Save.  If you don't
-	want to quit after all, press Cancel.
+	You have made changes to one or more databases that have not been
+	saved to disk.  Each modified database is listed, and you can select
+	Save or Revert.  Reverting will discard all changes.  Press OK to
+	save/revert all changed databases and quit.  Press Cancel to do
+	nothing, leaving changed databases as is.
+%% revert
+	REVERT/SAVE/PURGE ALL
+
+	All databases currently loaded into memory are displayed.  Unchanged
+	databases not currently being displayed may be purged from memory,
+	forcing a reload at next access.  Changed databases may be saved,
+	reverted, or left as is.  If saved or reverted, they can additionally
+	be purged from memory afterwards, if not being displayed.  Press OK
+	to perform the actions selected by the checkboxes, or press Cancel
+	to leave things as they are.  The default action is revert the currently
+	displayed database if changed, save all other changed databases, and
+	to not purge any databases until the configured load limit is reached,
 %% switchsave
 	DATABASE SWITCH
 
@@ -548,6 +561,17 @@
 	DELETE
 
 	Delete the current card.
+%% cascadedel
+	DELETE WITH REFERENCES
+
+	One or more other cards refer to this card.  The number of such
+	references is displayed.  All references can be automatically changed
+	to blank (Clear Refs), or all referring cards (as well as cards that
+	refer to the ones that may be deleted, shown in parentheses) can be
+	automatically deleted (Delete All).  One of these must be performed
+	before this card can be deleted.  If neither of these is what you
+	want, press Cancel and change the references manually before
+	re-attempting the delete.
 %% dup
 	DUP
 
@@ -1939,6 +1963,8 @@ resolves to a Reference field.</P>
 	  		visible values are separated by s1 (" " if unspecified)<BR>
 			multi-references are separated by s2 ("\n" if unspecified)</TD></TR>
 <TR><TD>dereff (_r...)</TD><TD>expand reference field to visible field reference array</TD></TR>
+<TR><TD>referenced (n)</TD><TD>true iff row n is referenced by a known referrer table</TD></TR>
+<TR><TD>referenced</TD><TD>equivalent to referenced(this)</TD>
 <TR><TD>section [w]</TD><TD>the card's section<BR>
 			this is a section number if in numeric context,
 			and a name in string context</TD></TR>

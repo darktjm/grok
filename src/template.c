@@ -561,6 +561,9 @@ static const char *eval_command(
 			} else
 				return "ELSEIF without IF";
 		}
+		/* FIXME:  support multiple flags & logical operators */
+		/*   e.g. [-a|-b]|-c&-d  (& > | for op. prec) */
+		/* have to use [] insted of () because () used by evalbool */
 		if ((*word == '-' || *word == '+') && word[1] >= 'a' && word[1] <= 'z' && !word[2]) {
 			if(!!(flags & (1<<(word[1] - 'a'))) == (*word == '-'))
 				n_true_if++;

@@ -291,6 +291,7 @@ static const struct symtab { const char *name; int token; } symtab[] = {
 			{ "align",	ALIGN	},
 			{ "deref",	DEREF	},
 			{ "dereff",	DEREFF	},
+			{ "referenced",	REFERENCED },
 			{ 0,		0	}
 };
 

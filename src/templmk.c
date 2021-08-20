@@ -714,7 +714,8 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		return("no database");
 	form = card->form;
 	fprintf(fp, "-- grok form/database %s exported \\{date}\n", form->name);
-	fputs("-- note that some databases may need additional editing\n", fp);
+	fputs("-- note that some databases may need additional editing\n"
+	      "\\{IF -m}SET sql_mode='ansi,no_backslash_escapes';\n\\{ENDIF}\n", fp);
 	fprintf(fp,
 		"\\{IF +s}\n"
 		"DROP VIEW\\{IF +f} IF EXISTS\\{ENDIF} %s_view;\n"
@@ -727,7 +728,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		"CREATE TABLE %s (\n", form->name, form->name, form->name, form->name);
 	if(form->help) {
 		/* should be COMMENT ('....') but sqlite3 doesn't support it */
-		/* maybe I should toggle support with -c */
+		/* too bad I don't support multiple flag tests at once */
 		char *h = form->help;
 		while(1) {
 			s = strchr(h, '\n');
@@ -800,13 +801,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 	/* make referred-to fields UNIQUE */
 	QStringList sl;
 	for(i = 0; i < card->form->nchild; i++)
-		add_ref_keys(sl, card->form->children[i], card->form);
-	for(i = 0; i < card->form->nitems; i++)
-		if(card->form->items[i]->type == IT_INV_FKEY) {
-			resolve_fkey_fields(card->form->items[i]);
-			add_ref_keys(sl, card->form->items[i]->fkey_form->name,
-				     card->form);
-		}
+		add_ref_keys(sl, card->form->childname[i], card->form);
 	sl.removeDuplicates();
 	for(i = 0; i < sl.length(); i++) {
 		char *s = qstrdup(sl[i]);
@@ -818,9 +813,9 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 	/*       so does sqlite3, sort of, but not permanently */
 	for(i = 0; i < sl.length(); i++) {
 		char *s = qstrdup(sl[i]);
-		fprintf(fp, "DROP INDEX\\{IF +f} IF EXISTS\\{ENDIF} %s_%d;\n"
+		fprintf(fp, "DROP INDEX\\{IF +f} IF EXISTS\\{ENDIF} %s_%d\\{IF -m} ON %s\\{ENDIF};\n"
 			"CREATE INDEX %s_%d ON %s (%s);\n", card->form->name, i,
-			card->form->name, i, card->form->name, s);
+			card->form->name, card->form->name, i, card->form->name, s);
 		free(s);
 	}
 	fprintf(fp,
@@ -866,7 +861,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 				}
 			}
 			if(is_agg)
-				fputs("\\{IF -p}string_agg\\{ELSEIF -f}list\\{ELSE}group_concat\\{END}(coalesce(", fp);
+				fputs("\\{IF -p}string_agg\\{ELSEIF -f}list\\{ELSE}group_concat\\{ENDIF}(coalesce(", fp);
 			else
 				fputs("max(", fp);
 		}
@@ -1163,6 +1158,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 				fprintf(fp, "   \\{_%s?\"TRUE\":\"FALSE\"}", item->name);
 			else if(item->type == IT_TIME)
 				fprintf(fp, "   \\{IF -f}DATEADD\\{ENDIF}"
+						"\\{IF -m}FROM_UNIXTIME\\{ENDIF}"
 					        "\\{IF -p}to_timestamp\\{ENDIF}"
 					"(\\{_%s?_%s:\"0\"}"
 					"\\{IF -f} SECOND TO DATE '1/1/1970'\\{ENDIF}"
@@ -1176,7 +1172,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		}
 	}
 	if(has_groupby)
-		fputs(",\n  \\{this}", fp);
+		fputs(",\n  \\{(this)}", fp);
 	fputs("\n  );\n\\{END}\nCOMMIT;\n", fp);
 	fflush(fp);
 	return(0);
@@ -1240,6 +1236,24 @@ static const char *postgres_date_fmt(const ITEM *item)
 	}
 }
 
+/* after I just said I don't care about mysql... */
+static const char *mysql_date_fmt(const ITEM *item)
+{
+	switch(item->timefmt) {
+	    case T_DATE:
+		return pref.mmddyy ? "%m/%d/%y" : "%d.%m.%y";
+	    case T_TIME:
+		return pref.ampm ? "%I:%M%p" : "%H:%M"; /* %p is > 1 char */
+	    case T_DURATION:
+		return "%H:%M"; /* %H is limited to 24 hrs */
+	    case T_DATETIME:
+	    default:
+		return pref.mmddyy ?
+			(pref.ampm ? "%m/%d/%Y %I:%M%p" : "%m/%d/%Y %H:%M") :
+			(pref.ampm ? "%d.%m.%Y %I:%M%p" : "%d.%m.%Y %H:%M");
+	}
+}
+
 static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
 			const MENU *menu, const char *&label,
 			const int *seq, int nseq, bool has_groupby)
@@ -1259,12 +1273,16 @@ static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
 		    /* there is no standard way of doing this */
 		    /* sqlite3 by default; postgres with -p, firebird -f */
 		    /* note that firebird has no control of output format */
-		    fprintf(fp, "\\{IF -p}to_char(\\{ELSEIF -f}CAST(\\{ELSE}"
+		    fprintf(fp, "\\{IF -p}to_char(\\{ELSEIF -f}CAST("
+				"\\{ELSEIF -m}DATE_FORMAT(\\{ELSE}"
 			        "strftime('%s',\\{ENDIF}", sqlite_date_fmt(item));
 		    pr_sql_tq(fp, db, seq, nseq);
-		    fprintf(fp, "%s\\{IF +f},\\{ENDIF}\\{IF -p}'%s'\\{ELSEIF -f} AS VARCHAR(20)\\{ELSE}"
+		    fprintf(fp, "%s\\{IF +f},\\{ENDIF}\\{IF -p}'%s'"
+				"\\{ELSEIF -f} AS VARCHAR(20)"
+				"\\{ELSEIF -m}'%s'\\{ELSE}"
 			        "'unixepoch'\\{ENDIF})",
-			    item->name, postgres_date_fmt(item));
+			    item->name, postgres_date_fmt(item),
+			    mysql_date_fmt(item));
 		    break;
 	    }
 	    case IT_CHOICE:
@@ -1594,7 +1612,7 @@ static void pr_sql_fkey_fields(FILE *fp, const char *db, ITEM *item,
 			int fseq[nseq + 1];
 			memcpy(fseq, seq, nseq * sizeof(int));
 			fseq[nseq] = n;
-			pr_sql_fkey_fields(fp, db, item, fseq, nseq + 1, has_groupby, is_agg);
+			pr_sql_fkey_fields(fp, db, fitem, fseq, nseq + 1, has_groupby, is_agg);
 			continue;
 		}
 		const char *label = IFL(fitem->,MULTICOL) ?
@@ -1602,7 +1620,7 @@ static void pr_sql_fkey_fields(FILE *fp, const char *db, ITEM *item,
 		bool is_agg = false;
 		if(has_groupby) {
 			if(is_agg)
-				fputs("\\{IF -p}string_agg\\{ELSE}group_concat\\{END}(coalesce(", fp);
+				fputs("\\{IF -p}string_agg\\{ELSEIF -f}list\\{ELSE}group_concat\\{ENDIF}(coalesce(", fp);
 			else
 				fputs("max(", fp);
 		}
@@ -1691,9 +1709,9 @@ static void add_ref_keys(QStringList &sl, const char *cform, const FORM *form)
 	for(int i = 0; i < fform->nitems; i++) {
 		ITEM *fitem = fform->items[i];
 		resolve_fkey_fields(fitem);
-		/* FIXME:  verify this works; may need strcmp(name) */
 		if(fitem->type == IT_FKEY && fitem->fkey_form == form) {
 			QString ks, ds;
+			// FIXME:  order by item(# or name) rather than fkeyno
 			for(int j = 0; j < fitem->nfkey; j++) {
 				const ITEM *kitem = fitem->fkey[j].item;
 				const char *name;

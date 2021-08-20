@@ -364,6 +364,7 @@ Version 2.4 (in progress)
      references in the above format
    * Added _fkey this and _fkey last to get row numbers from
      referenced database.  _fkey can be a chain as above.
+   * Added referenced predicate to language to check if this row is used
    * Added "Check References" menu item to validate/fix fkey data
  * Multi-line data may be displayed in the summary window and built-in
    template summaries.  Currently this means just Note fields.

@@ -354,6 +354,9 @@ char *f_deref(
 char *f_dereff(
 	PG,
 	fkey_field field);
+bool f_referenced(
+	PG,
+	int row);
 }
 
 /*
@@ -405,7 +408,7 @@ char *f_dereff(
 %token		SECTION_ DBASE_ FORM_ PREVFORM SWITCH THIS LAST DISP FOREACH
 %token		HOST USER UID GID SYSTEM ACCESS BEEP ERROR PRINTF MATCH SUB
 %token		GSUB BSUB ESC TOSET DETAB ALIGN DEREF DEREFF ID MTIME CTIME
-%token		TRUNC2D COUNT
+%token		TRUNC2D COUNT REFERENCED
 
 %left 's' /* Force a shift; i.e., prefer longer versions */
 %left ',' ';'
@@ -723,6 +726,9 @@ numarg	: NUMBER			{ $$ = $1; }
 						      && g->card->disprow <
 							 g->card->dbase->nrows ?
 					       g->card->disprow : -1; }
+	| REFERENCED			{ $$ = f_referenced(g, g->card ?
+							    g->card->row : 0); }
+	| REFERENCED '(' number ')'	{ $$ = f_referenced(g, $3); }
 	| AVG   '(' FIELD ')'		{ $$ = f_avg(g, $3.column); }
 	| DEV   '(' FIELD ')'		{ $$ = f_dev(g, $3.column); }
 	| AMIN  '(' FIELD ')'		{ $$ = f_min(g, $3.column); }

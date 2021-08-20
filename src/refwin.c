@@ -113,22 +113,22 @@ static void set_row_widgets(int y)
 	add_dbase_list(sl);
 	cb->addItem("");
 	cb->addItems(sl);
-	cb->setCurrentText(y >= form->nchild ? "" : form->children[y]);
+	cb->setCurrentText(y >= form->nreferer ? "" : form->referer[y]);
 	set_combo_cb(cb, list_callback(sel), const QString &sel);
 	rlist->setItemWidget(rlist->item(y + ninv), cb);
 }
 
 static void del_refby(int y)
 {
-	form->nchild--;
-	zfree(form->children[y]);
-	tmemmove(char *, form->children + y, form->children + y + 1,
-		 form->nchild - y);
+	form->nreferer--;
+	zfree(form->referer[y]);
+	tmemmove(char *, form->referer + y, form->referer + y + 1,
+		 form->nreferer - y);
 }
 
 static bool remove_if_blank(int y)
 {
-	if(form->children[y] && *form->children[y])
+	if(form->referer[y] && *form->referer[y])
 		return false;
 	del_refby(y);
 	return true;
@@ -155,7 +155,7 @@ static void create_refby_rows(void)
 			ninv++;
 		}
 	}
-	for (y=0; y < form->nchild; y++) {
+	for (y=0; y < form->nreferer; y++) {
 		if(remove_if_blank(y)) {
 			y--;
 			continue;
@@ -164,7 +164,7 @@ static void create_refby_rows(void)
 		set_row_widgets(y);
 	}
 	rlist->addItem("");
-	set_row_widgets(form->nchild);
+	set_row_widgets(form->nreferer);
 
 	rlist->update();
 }
@@ -178,12 +178,12 @@ static void delete_callback(void)
 {
 	int				ycurr = rlist->currentRow() - ninv;
 
-	if (ycurr >= 0 && ycurr < form->nchild) {
+	if (ycurr >= 0 && ycurr < form->nreferer) {
 		del_refby(ycurr);
 		QSignalBlocker sb(rlist);
 		delete rlist->item(ycurr + ninv);
 	}
-	if (!form->nchild)
+	if (!form->nreferer)
 		del->setEnabled(false);
 }
 
@@ -202,14 +202,14 @@ static void list_callback(
 	const QString			&sel)
 {
 	int y = rlist->currentRow() - ninv;
-	char **ch = &form->children[y];
-	bool onblank = y >= form->nchild, wasblank = onblank;
+	char **ch = &form->referer[y];
+	bool onblank = y >= form->nreferer, wasblank = onblank;
 	bool isblank = sel.isEmpty();
 
 	/* silently ignore attempts at adding duplicates */
 	if (!isblank)
-		for (int i = 0; i < form->nchild; i++)
-			if (sel == form->children[i]) {
+		for (int i = 0; i < form->nreferer; i++)
+			if (sel == form->referer[i]) {
 				isblank = true;
 				return;
 		}
@@ -228,10 +228,10 @@ static void list_callback(
 		return;
 	}
 	if (onblank && !isblank) {
-		zgrow(0, "children", char *, form->children, form->nchild,
-		      form->nchild + 1, 0);
-		form->nchild++;
-		ch = &form->children[y];
+		zgrow(0, "referer", char *, form->referer, form->nreferer,
+		      form->nreferer + 1, 0);
+		form->nreferer++;
+		ch = &form->referer[y];
 		onblank = false;
 	}
 	if (!onblank) {
@@ -241,7 +241,7 @@ static void list_callback(
 	if (!onblank && !(onblank = remove_if_blank(y)) && wasblank) {
 		QSignalBlocker sb(rlist);
 		rlist->addItem("");
-		set_row_widgets(form->nchild);
+		set_row_widgets(form->nreferer);
 	}
 	if (!wasblank && onblank) {
 		QSignalBlocker sb(rlist);

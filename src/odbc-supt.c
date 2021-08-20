@@ -111,6 +111,12 @@ int db_open(const char *dbconnect, db_conn *conn)
     }
     ret = SQLAllocHandle(SQL_HANDLE_DBC, henv, &conn->dbc);
     if(SQL_SUCCEEDED(ret))
+	/* FIXME:  Prompt for missing info */
+	/* Could prompt for user name/password on errors:
+	 * 28000 - invalid user name or password
+	 * 08004 - rejected connection (assuming auth failure)
+	 *         this is also returned for e.g. missing/invalid Database=
+	 */
 	ret = SQLDriverConnect(conn->dbc, 0, (SQLCHAR *)dbconnect, SQL_NTS, NULL,
 			       0, NULL, SQL_DRIVER_NOPROMPT);
     if(SQL_SUCCEEDED(ret))
@@ -311,7 +317,7 @@ static const db_subst *const default_subst[NUM_DBS] = {
     /* DBS_INIT */
     (const db_subst[]) {
 	{ "sqlite", "PRAGMA foreign_keys = true" },
-	{ "mariadb|mysql", "SET sql_mode='ansi'" },
+	{ "mariadb|mysql", "SET sql_mode='ansi,no_backslash_escapes'" },
 	{ NULL, "" }
     },
     /* DBS_CONCAT_AGGR */

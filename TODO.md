@@ -46,12 +46,6 @@ Features in Progress
   - no auto-adjust of key field names if changed in foreign db (cascade
     key field definition)
 
-  - no auto-delete/auto-clear of referers if referred-to row removed
-    (cascade delete)
-
-  - no auto-delete of refered-to row if reference changed or removed
-    (cascade delete)
-
   - no auto-adjust/clear/delete of key values in other databases if
     key changes (cascade key field modification)
 
@@ -77,10 +71,13 @@ Features in Progress
     just doing a deref() is insufficent: summary should use juxt. fields to
     display just one value, for example
 
-  - searches don't search visible fields instead of fkey
+  - no auto-delete of refered-to row if reference changed or removed
+    (cascade delete).  May never implement this, as it might become
+    annoying to ask user every time.  For now, (!referenced) will return
+    true if a row is an "orphan" in need of deletion.
 
   - no support for inv_fkey in auto-templates, summary, expressions,
-    search, sort
+    search, sort.  Probably won't fix before 2.4.
 
   - changing db of fkey field spews errors on stderr.  Probably won't
     fix before 2.4
@@ -206,6 +203,11 @@ Bugs
 
 Code Improvements
 -----------------
+
+- remove dbase->form and implement form->dbase instead (renaming current
+  form->dbase to form->dbname).  Stop passing/storing dbase when form
+  passed/stored as well.  Stop passing/storing form when item passed/stored
+  as well.
 
 - constify *everything*
 
@@ -937,6 +939,25 @@ Major Card Features
   words, while visiting children, the parent form's fields are
   read-only.
 
+- Add a password widget, possibly just as a flag for Input widgets.
+  It's only really useful if the underlying storage encrypts, so
+  maybe also support a per-form encryption method, using openssl
+  (EVP) or the like.  Not sure how to get the passphrase, though.
+  Prompting every time might be annoying, and there is some sort of
+  "standard" session keyring that the web browsers use.  Maybe
+  qtkeyring, since I'm using qt anyway?  Password fields should
+  never be stored unencrypted in memory, and be obscured (both value
+  and length) in the GUI. Perhaps have a "show" checkbox to show the
+  value (or use a label link like I did for fkey fields), after
+  giving the encryption password again and also hiding it again
+  after a configurable timeout.  The encrypted value would be stored
+  as base64-encoded string to avoid grok's inability to deal with 0s.
+  
+  Note that if I'm going to add per-field encyrption anyway, I might
+  also consider full-file encyrption (or per-row encryption, to allow
+  seeking in the file).  The app isn't really designed securely enough
+  for that, though.
+
 - Add a media inset widget of some kind.  If we were on X, we could
   just make it a captured application.  I'll look into what Qt has
   to offer in that respect.  At the very least I would like a generic
@@ -1000,6 +1021,35 @@ Major Feature:  SQL Support
   - Support many-to-many references via a helper table.  All
     reference fields become virtual parent-style fields, with
     double-indirection to get to the displayed fields.
+
+- Support connection strings with missing values, such as passwords.
+  These are prompted for at startup for at least as many connection
+  strings as necessary to load the first database.  Canceling the dialog
+  skips to the next db.  A menu item allows reconnecting/reprompting.
+
+  - For ODBC, use a ? prefix to indicate some of the parameters can be
+    changed.  For those, use a syntax similar to SQLBrowseConnect, but
+    with support for password indicators:
+      conn str = ?parm[;parm...]
+      parm = [*]var[:prompt]=vals
+      vals = [*]? | val[:prompt][,val[:prompt]...]
+    * in front of parm means optional; * in front of ? means password.
+    If a keyring is available, use the same var name to look up key.
+    The substituted connection string is only used for connection and
+    maybe substitution into db init SQL, and then wiped and freed (or
+    maybe just altered so that passwords are converted back to *?).
+    Not sure how ODBC connection strings are meant to be quoted
+    - note that SQLBrowseConnect() and SQLDriverConnect() with prompting
+      are both unusable.  The latter isn't implemented for non-Windows
+      for any of the drivers I've tried, and the former is only on
+      Firbird.  Even then, the former doesn't distinguish password-like
+      fields from others, so you have to guess that PWD/Password is the
+      only one.
+  - for SQL init string, use %-enclosed names for parameter subst (%% = %).
+    Since conn. parms needn't be valid, extra info can be substituted.
+    For example:  init sqlite "pragma key='%EncKey%'".  Maybe have a
+    :-separated specifier instead; 1st elt is format (e.g. '-escaped
+    for EncKey above).
 
 Stuff that will probably never fly
 ----------------------------------
