@@ -673,8 +673,8 @@ FORM *read_form(
 	fclose(fp);
 	/* verify_form() will also create the symtab */
 	if(!verify_form(form, NULL, parent)) {
-		form_delete(form);
 		loading_forms.erase(tl);
+		form_delete(form);
 		return NULL;
 	}
 	loading_forms.erase(tl);

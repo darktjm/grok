@@ -98,11 +98,14 @@
 	TUPLE_FOR_EACH(check_##chk, STRING_LIST) \
     }; \
  \
-    static int chk##_to_code(const char *v) \
+    static int chk##_to_code(char *v) \
     { \
 	for(size_t i = 0; i < sizeof(xlate_##chk)/sizeof(xlate_##chk[0]); i++) \
-	    if(!strcmp(v, xlate_##chk[i])) \
+	    if(!strcmp(v, xlate_##chk[i])) { \
+		free(v); \
 		return i; \
+	    } \
+	free(v); \
 	return -1; \
     }
 
@@ -126,22 +129,22 @@ check_xlate_tab(dcombo);
     ( id,	INTEGER, 64, (iid,,) ), \
     ( seq,	INTEGER, in, (j,,) ), \
     ( form_id,	(INTEGER, 0, FKEY_FORM_REF), 64, (fid,,) ), \
-    ( type,	(VARCHAR, 10, check_constr(type, check_item_type)), sn, \
+    ( type,	(VARCHAR, 10, check_constr(type, check_item_type)), snf, \
 				(xlate_item_type[item.type],,), \
 				(type, (ITYPE)item_type_to_code(v)) ), \
     ( name,	(VARCHAR, 128), s ), \
     ( column,	INTEGER, in ), \
     ( label,	(VARCHAR, 128), s ), \
-    ( ljust,	(VARCHAR, 10, check_constr(ljust, check_just)), sn, \
+    ( ljust,	(VARCHAR, 10, check_constr(ljust, check_just)), snf, \
 				(xlate_just[item.labeljust],,), \
 				(labeljust, (JUST)just_to_code(v)) ), \
-    ( lfont,	(VARCHAR, 10, check_constr(lfont, check_font)), sn, \
+    ( lfont,	(VARCHAR, 10, check_constr(lfont, check_font)), snf, \
 				(xlate_font[item.labelfont],,), \
 				(labelfont, font_to_code(v)) ), \
-    ( ijust,	(VARCHAR, 10, check_constr(ljust, check_just)), sn, \
+    ( ijust,	(VARCHAR, 10, check_constr(ljust, check_just)), snf, \
 				(xlate_just[item.inputjust],,), \
 				(inputjust, (JUST)just_to_code(v)) ), \
-    ( ifont,	(VARCHAR, 10, check_constr(lfont, check_font)), sn, \
+    ( ifont,	(VARCHAR, 10, check_constr(lfont, check_font)), snf, \
 				(xlate_font[item.inputfont],,), \
 				(inputfont, font_to_code(v)) ), \
     ( posx,	INTEGER, in, x ), \
@@ -164,7 +167,7 @@ check_xlate_tab(dcombo);
     ( range_max,	DOUBLE, f, (max, && item.type == IT_NUMBER) ), \
     ( digits,		INTEGER, i,  (digits, && item.type == IT_NUMBER) ), \
     /* date only */ \
-    ( timefmt,		(VARCHAR, 10, check_constr(timefmt, check_timefmt)), sn, \
+    ( timefmt,		(VARCHAR, 10, check_constr(timefmt, check_timefmt)), snf, \
 				(xlate_timefmt[item.timefmt],,), \
 				(timefmt, (TIMEFMT)timefmt_to_code(v)) ), \
     ( datewidget,	BIT, b, (item.timewidget & 1,,), \
@@ -183,7 +186,7 @@ check_xlate_tab(dcombo);
     ( skip,	(VARCHAR, 255), s, skip_if ), \
     /* menu */ \
     ( mcol,	BIT, ib, (MULTICOL,,) ), \
-    ( dcombo,	(VARCHAR, 5, check_constr(dcombo, check_dcombo)), sn, \
+    ( dcombo,	(VARCHAR, 5, check_constr(dcombo, check_dcombo)), snf, \
 				(xlate_dcombo[item.dcombo],,), \
 				(dcombo, (DCOMBO)dcombo_to_code(v)) ), \
     /* plan */ \
@@ -252,14 +255,14 @@ check_xlate_tab(chart_comp_mode);
     ( excl,	(VARCHAR, 255), s, excl_if ), \
     ( color,	(VARCHAR, 128), s ), \
     ( label,	(VARCHAR, 128), s ), \
-    ( modex,	(VARCHAR, 10, check_constr(modex, check_chart_comp_mode)), sn, \
+    ( modex,	(VARCHAR, 10, check_constr(modex, check_chart_comp_mode)), snf, \
 				(xlate_chart_comp_mode[c.value[0].mode],,), \
 				(value[0].mode, chart_comp_mode_to_code(v)) ), \
     ( exprx,	(VARCHAR, 255), s, value[0].expr ), \
     ( fieldx,	INTEGER, i, value[0].field ), \
     ( mulx,	DOUBLE, f, value[0].mul ), \
     ( addx,	DOUBLE, f, value[0].add ), \
-    ( modey,	(VARCHAR, 10, check_constr(modey, check_chart_comp_mode)), sn, \
+    ( modey,	(VARCHAR, 10, check_constr(modey, check_chart_comp_mode)), snf, \
 				(xlate_chart_comp_mode[c.value[1].mode],,), \
 				(value[1].mode, chart_comp_mode_to_code(v)) ), \
     ( expry,	(VARCHAR, 255), s, value[1].expr ), \
@@ -501,6 +504,7 @@ bool sql_write_form(db_conn *conn, const FORM *f)
     bind = nint = 0; \
 } while(0)
 #define do_bindsn(s, ...) do_db(db_binds(++bind, s))
+#define do_bindsnf do_bindsn
 #define do_binds(s, ...) do_db(((s) __VA_ARGS__) ? db_binds(++bind, s) : db_bindnull(++bind, SQL_VARCHAR))
 #define do_bindf(f, ...) do_db(((f) __VA_ARGS__) ? db_bindf(++bind, f) : db_bindnull(++bind, SQL_DOUBLE))
 #define do_bindi(i, ...) do { \
@@ -646,7 +650,7 @@ FORM *sql_read_form(db_conn *conn, const char *name)
     static size_t sbuf_len = 0;
     fgrow(0, "sql string rsult", char, sbuf, (passlen = 128), &sbuf_len);
 #endif
-#define do_cols(var, val) do { \
+#define do_colsnf(var, val) do { \
     SQLLEN rlen; \
     char *v, c; \
     ret = db_col(++bind, SQL_C_CHAR, &c, 1, &rlen); \
@@ -667,6 +671,11 @@ FORM *sql_read_form(db_conn *conn, const char *name)
 	    goto rollback; \
     } \
     var = val; \
+} while(0)
+#define do_cols(var, val) do { \
+    zfree(var); \
+    var = 0; \
+    do_colsnf(var, val); \
 } while(0)
 #define do_colsn do_cols
 #define do_colf(var, val) do { \

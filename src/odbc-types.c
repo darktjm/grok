@@ -109,7 +109,7 @@ static void srch(char *buf)
 int main(int argc, char **argv)
 {
     const char *aux_db = AUX_DB_CONN;
-    db_conn mem_conn = {}, *conn = &mem_conn, db_conn = {};
+    db_conn aux_conn = {}, *conn = &aux_conn, db_conn = {};
     while(--argc && **++argv == '-') {
 	switch((*argv)[1]) {
 	  default:
@@ -210,6 +210,7 @@ int main(int argc, char **argv)
     free(sltype);
 //    fprintf(stderr, "mktab: %s\n", dq);
     ret = db_stmt(dq);
+    free(dq);
     abort_err();
     db_next();
     db_commit();
@@ -227,8 +228,8 @@ int main(int argc, char **argv)
     for(int i = 0; i < argc; i++) {
 	/* not really safe to copy these, as they are freed by db_close() */
 	/* so remember to zero out before db_close(). */
-	db_conn.subst_ovr = mem_conn.subst_ovr;
-	db_conn.num_subst_ovr = mem_conn.num_subst_ovr;
+	db_conn.subst_ovr = aux_conn.subst_ovr;
+	db_conn.num_subst_ovr = aux_conn.num_subst_ovr;
 	if(!db_open(argv[i], &db_conn))
 	    exit(1);
 #if 0
@@ -270,7 +271,7 @@ int main(int argc, char **argv)
 		    else if(i == 9 /* SEARCHABLE */ )
 			srch(dst);
 		    slen += strlen(dst + slen);
-		    conn = &mem_conn;
+		    conn = &aux_conn;
 		    /* Postgres can't convert empty strings to int, so using
 		     * db_binds for all columns doesn't work */
 #if 0
@@ -304,7 +305,7 @@ int main(int argc, char **argv)
 		    abort_err();
 		    conn = &db_conn;
 		}
-		conn = &mem_conn;
+		conn = &aux_conn;
 		ret = db_exec();
 		abort_err();
 		db_commit();
@@ -317,7 +318,7 @@ int main(int argc, char **argv)
 	db_conn.subst_ovr = NULL;
 	db_conn.num_subst_ovr = 0;
 	db_close(&db_conn);
-	conn = &mem_conn;
+	conn = &aux_conn;
 	abort_err();
     }
     db_next();

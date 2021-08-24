@@ -161,3 +161,11 @@ I got sick a few weeks ago and abandoned all activity for a while.
 Now I can't motivate myself to work on this project at all any more.
 If you care, fork this and make it your own.  If not, well, I don't
 care, either.
+
+Addendum 2:
+----------
+
+While I still lack enthusiasm, I guess getting even sicker a short
+while ago (including heart stoppage and amputation) has prompted me to
+resume work on grok, so I can get something out the door before I die.
+Being even sicker does mean slower work, though.

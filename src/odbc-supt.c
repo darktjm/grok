@@ -317,7 +317,7 @@ static const db_subst *const default_subst[NUM_DBS] = {
     /* DBS_INIT */
     (const db_subst[]) {
 	{ "sqlite", "PRAGMA foreign_keys = true" },
-	{ "mariadb|mysql", "SET sql_mode='ansi,no_backslash_escapes'" },
+	{ "mariadb|mysql", "SET sql_mode='ansi'" },
 	{ NULL, "" }
     },
     /* DBS_CONCAT_AGGR */
@@ -453,8 +453,7 @@ SQLRETURN vdb_exec_subst(db_subst_code which, db_conn *conn,
 	while(1) {
 	    ee = s;
 	    while((ee = e = strchr(ee, '\n'))) {
-		ee = e;
-		while(isspace(ee[1]) && *++ee != '\n');
+		while(*++ee != '\n' && isspace(*ee));
 		if(*ee++ == '\n')
 		    break;
 	    }

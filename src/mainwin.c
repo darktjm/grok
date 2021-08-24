@@ -1614,13 +1614,12 @@ static void del_references(int how, FORM *fform, FORM *form, DBASE *dbase,
 	/* pass 2:  references to rows that referenced this */
 	/* I could do this in a loop w/o recursion, but I'll go ahead and recurse */
 	for(int nnref = *nref; onref < nnref; onref++) {
-		refcount &ref = (*refs)[onref];
-		int *row = ref.row;
+		int *row = (*refs)[onref].row;
 		for(int i = 0; i < fform->nchild; i++) {
 			FORM *ffform = read_child_form(fform, fform->childname[i]);
 			if(!ffform)
 				continue;
-			for(int j = 0; j < ref.nrow; j++)
+			for(int j = 0; j < (*refs)[onref].nrow; j++)
 				del_references(how, ffform, fform, fdbase,
 					       row[j], refs, nref, onref);
 		}
@@ -1695,6 +1694,7 @@ static bool del_confirm(QWidget *parent, const CARD *card)
 	for(int i = 0; i < nref && refs[i].from == -1; i++)
 		msg += refs_msg(refs, nref, i);
 	free(refs);
+	refs = 0;
 	nref = 0;
 	msg += "\nEither clear these references, or delete the referring card.";
 

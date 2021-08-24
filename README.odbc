@@ -110,9 +110,11 @@ the current substitutions and their current built-in values:
 INIT - SQL statement(s) executed at the start of every connection.
 Built-in:
    sqlite "PRAGMA foreign_keys = true"
-   mariadb|mysql "SET sql_mode='ansi,no_backslash_escapes'"
    # I depend on cascade deletes working, and don't want to rely on the user
    # specifying FKSupport=true in the connection string/DSN spec
+   mariadb|mysql "SET sql_mode='ansi'"
+   # should also give no_backslash_escapes, but the ODBC driver itself
+   # requires the baackslash escape misfeature.
 
 CONCAT_AGGR - Aggregate function to concatenate non-NULL values of %1$s,
               separated by a comma.  Must support distinct.

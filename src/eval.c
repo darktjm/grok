@@ -389,7 +389,7 @@ int Xparserlex(YYSTYPE *lvalp, PG)
 				row = g->card->row;
 			if (fit.card) {
 				resolve_fkey_fields(fit.item);
-				c = create_card_menu(fit.item->fkey_form,
+				c = create_card_menu((form = fit.item->fkey_form),
 						     read_dbase(fit.item->fkey_form));
 				c->fkey_next = fit.card;
 				row = fit.card->row;
@@ -402,7 +402,6 @@ int Xparserlex(YYSTYPE *lvalp, PG)
 					lvalp->fval.row = fit.card->qcurr = fit.card->row = -1;
 				else {
 					DBASE *fdb = c->dbase;
-					resolve_fkey_fields(fit.item);
 					g->card->qcurr = lvalp->fval.row =
 						fkey_lookup(fdb, db->form, fit.item,
 							    dbase_get(db, row,
@@ -422,7 +421,7 @@ int Xparserlex(YYSTYPE *lvalp, PG)
 						break;
 					}
 				return(FIELD);
-			} else if(g->card->form->fields) {	/* ...name */
+			} else if(form->fields) {	/* ...name */
 				FIELDS *s = form->fields;
 				int n = form->nitems;
 				auto it = s->find(token);

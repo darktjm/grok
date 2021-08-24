@@ -218,7 +218,7 @@ void resolve_fkey_fieldsel(const FORM *f, int idx, FKEY &fk)
 	}
 	for (int i=0; i < f->nitems; i++) {
 		ITEM *it = f->items[i];
-		if (!IN_DBASE(it->type))
+		if (!IN_DBASE(it->type) || IFL(it->,FKEY_MULTI) || it->type == IT_NOTE)
 			continue;
 		if (IFL(it->,MULTICOL)) {
 			if (it->nmenu)
@@ -276,7 +276,7 @@ QComboBox *make_fkey_field_select(const FORM *fform)
 	if (fform) {
 		for (int i=0; i < fform->nitems; i++) {
 			const ITEM *it = fform->items[i];
-			if (!IN_DBASE(it->type))
+			if (!IN_DBASE(it->type) || IFL(it->,FKEY_MULTI) || it->type == IT_NOTE)
 				continue;
 			if (IFL(it->,MULTICOL)) {
 				for (int m=0; m < it->nmenu; m++)

@@ -436,6 +436,37 @@ modified since the database was loaded, unless the
 <TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><I>_field</I> <I>card</I> <I>ffields</I> <TT>mtime</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>The last modification time in seconds since January 1, 1970 of the card referenced by <I>_field</I>, <I>card</I> and <I>ffields</I>.  0 if unknown.
 </TABLE>
 
+<P>There are a few more support functions for reference fields, in addition
+to the facilities described above.  In particular, <TT>referened</TT> allows
+you to replace slow, awkward queries like this (actually just one line;
+remove the comments, trailing spaces, and newlines):
+
+<BLOCKQUOTE>
+<PRE>
+{Z="t";      # true; global, so it can be passed/set in other databases
+ K=_key;     # global, so it can be passed to other databases
+ @"child1":foreach("{_ref==K}","Z=''"); # Z=false if child1.ref == key
+ # ... one for each child
+ @"childn":foreach("{_ref==K}","Z=''"); # Z=false if childn.ref == key
+ Z} # value of expr: true if there is no referrer
+</PRE>
+</BLOCKQUOTE>
+
+with this:
+
+<BLOCKQUOTE>
+<PRE>(!referenced)</PRE>
+</BLOCKQUOTE>
+
+<P><TABLE WIDTH="100%" CELLPADDING=4 BORDER=0 CELLSPACING=4>
+<TR BGCOLOR=#a0a0e0><TH>operator<TH>type<TH>operation
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>deref(</TT><I>_field</I> <I>card</I> <I>ffields</I><TT>,</TT> <B>s1</B><TT>,</TT> <B>s2</B><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Expand Reference field to its displayed values.  <B>s1</B> is optional; it specifies how multiple values are seprated (space by default).  <B>s2</B> is optional, and specifies how multiple references are separated (newline by default).  To specify <B>s2</B> without <B>s1</B>, just use two commas.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>dereff(</TT><I>_field</I> <I>card</I> <I>ffields</I><TT><TT>)</TT> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>s</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>Expand Reference field to an array of reference chains for its displayed values.
+<TR> <TD VALIGN=TOP BGCOLOR=#e0e0e0><TT>referenced</TT> <I>card</I> <TD VALIGN=TOP BGCOLOR=#e0e0e0><B>n</B> <TD VALIGN=TOP BGCOLOR=#e0e0e0>True iff <I>card</I> is referenced by a known referrer.
+</TABLE>
+
+
+
 <A NAME="gf">
 <H2>Operating System Access</H2>
 

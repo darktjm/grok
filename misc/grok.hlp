@@ -1963,8 +1963,7 @@ resolves to a Reference field.</P>
 	  		visible values are separated by s1 (" " if unspecified)<BR>
 			multi-references are separated by s2 ("\n" if unspecified)</TD></TR>
 <TR><TD>dereff (_r...)</TD><TD>expand reference field to visible field reference array</TD></TR>
-<TR><TD>referenced (n)</TD><TD>true iff row n is referenced by a known referrer table</TD></TR>
-<TR><TD>referenced</TD><TD>equivalent to referenced(this)</TD>
+<TR><TD>referenced [w]</TD><TD>true iff card w is referenced by a known referrer table</TD></TR>
 <TR><TD>section [w]</TD><TD>the card's section<BR>
 			this is a section number if in numeric context,
 			and a name in string context</TD></TR>

@@ -490,6 +490,8 @@ void make_summary_line(
 			memset(dp, ' ', sumwidth - (dp - (*buf + x)) + 2);
 			x += sumwidth + 2;
 			(*buf)[x] = 0;
+			zfree(allocdata);
+			allocdata = NULL;
 			continue;
 		}
 		int rl = l;
@@ -539,10 +541,8 @@ void make_summary_line(
 				*ip = 0;
 		}
 		sumheight = l;
-		if (allocdata) {
-			free(allocdata);
-			allocdata = NULL;
-		}
+		zfree(allocdata);
+		allocdata = NULL;
 		x += sumwidth + 2;
 	}
 	if (x == 0 && row >= 0)

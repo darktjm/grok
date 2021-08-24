@@ -30,7 +30,7 @@ int main(int argc, const char **argv)
     else
 	progname = argv[0];
     db_init();
-    db_conn *conn = (db_conn *)calloc(sizeof(*conn), 1);
+    db_conn conn = {};
     bool drop_tabs = false;
     while(--argc && **++argv == '-') {
 	switch((*argv)[1]) {
@@ -45,7 +45,7 @@ int main(int argc, const char **argv)
 	  case 's':
 	    if(argc < 2)
 		goto usage;
-	    db_parse_subst_ovr(*++argv, conn);
+	    db_parse_subst_ovr(*++argv, &conn);
 	    argc--;
 	    break;
 	  case 'd':
@@ -57,11 +57,11 @@ int main(int argc, const char **argv)
 	return 1;
     for(int i = 0; i < argc; i++) {
 	std::cerr << "conn: " << argv[i] << '\n';
-	if(!db_open(argv[i], conn))
+	if(!db_open(argv[i], &conn))
 	    exit(1);
 	if(drop_tabs)
-	    drop_grok_tabs(conn);
-	create_grok_tabs(conn);
+	    drop_grok_tabs(&conn);
+	create_grok_tabs(&conn);
 	QDir files("/usr/local/share/grok/grokdir", "*.gf");
 	QFileInfoList fl = files.entryInfoList();
 	files.setPath(QDir::homePath() + "/.grok");
@@ -70,11 +70,11 @@ int main(int argc, const char **argv)
 	    char *path = qstrdup(j->absoluteFilePath());
 	    std::cerr << "form: " << path << '\n';
 	    FORM *f = read_form(path);
+	    free(path);
 	    if(!f)
 		continue;
-	    free(path);
 	    path = strdup(f->name);
-	    if(!sql_write_form(conn, f)) {
+	    if(!sql_write_form(&conn, f)) {
 		form_delete(f);
 		free(path);
 		continue;
@@ -82,7 +82,7 @@ int main(int argc, const char **argv)
 	    }
 	    form_delete(f);
 
-	    f = sql_read_form(conn, path);
+	    f = sql_read_form(&conn, path);
 	    if(f) {
 		form_delete(f);
 		std::cerr << "saved and loaded\n";
@@ -90,7 +90,7 @@ int main(int argc, const char **argv)
 		exit(1);
 	    free(path);
 	}
-	db_close(conn);
+	db_close(&conn);
     }
 }
 

@@ -473,7 +473,7 @@ string	: STRING			{ $$ = $1; }
 	| string '[' number DOTDOT number ']'	{ $$ = f_slice(g, $1, $3, $5); }
 	| string '[' number DOTDOT ']'	{ $$ = f_slice(g, $1, $3, -1); }
 	| string '[' DOTDOT ']'		{ $$ = f_astrip(g, $1); }
-	| string '[' number ']' 		{ $$ = f_elt(g, $1, $3); } /* can't fail */
+	| string '[' number ']' 	{ $$ = f_elt(g, $1, $3); } /* can't fail */
 	| string '[' number ']' AAS string  { $$ = f_setelt(g, $1, $3, $6); check_error; }
 	| string UNION  string		{ $$ = f_union(g, $1, $3); check_error; }
 	| string INTERSECT  string	{ $$ = f_intersect(g, $1, $3);} /* can't fail */
@@ -726,9 +726,7 @@ numarg	: NUMBER			{ $$ = $1; }
 						      && g->card->disprow <
 							 g->card->dbase->nrows ?
 					       g->card->disprow : -1; }
-	| REFERENCED			{ $$ = f_referenced(g, g->card ?
-							    g->card->row : 0); }
-	| REFERENCED '(' number ')'	{ $$ = f_referenced(g, $3); }
+	| REFERENCED card		{ $$ = f_referenced(g, $2); }
 	| AVG   '(' FIELD ')'		{ $$ = f_avg(g, $3.column); }
 	| DEV   '(' FIELD ')'		{ $$ = f_dev(g, $3.column); }
 	| AMIN  '(' FIELD ')'		{ $$ = f_min(g, $3.column); }

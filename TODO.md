@@ -41,20 +41,10 @@ Features in Progress
 --------------------
 
 - fkey issues:
-  - some data validity checks' suggested fixes untested
-
-  - no auto-adjust of key field names if changed in foreign db (cascade
-    key field definition)
-
-  - no auto-adjust/clear/delete of key values in other databases if
-    key changes (cascade key field modification)
-
   - no parent-restricted mode.    This restricts all searches to
     include the parent, and makes the parent field read-only for
     editing and adding (where it is obviously initialized to the
     parent field value).
-
-  - little testing of fkey_multi or multi-field keys
 
   - search restriction text field does nothing.  should be a search
     expression applied to the parent database to restrict
@@ -63,18 +53,30 @@ Features in Progress
     search expression to the other table by default as well.  For multi
     and inv tables, this also filters what's displayed.
 
+  - FKEY_MULTI should be forbidden as a key field.  In fact, so should
+    IT_NOTE.
+
   - only summary testing is of single-level single-field fkey
 
-  - make_summary_line() leaks CARDs
+  - some data validity checks' suggested fixes untested
 
-  - no testing (or coding, really) of template output (partial sql support)
-    just doing a deref() is insufficent: summary should use juxt. fields to
-    display just one value, for example
+  - little testing of fkey_multi or multi-field keys
+
+  - make_summary_line() leaks CARDs
 
   - no auto-delete of refered-to row if reference changed or removed
     (cascade delete).  May never implement this, as it might become
     annoying to ask user every time.  For now, (!referenced) will return
     true if a row is an "orphan" in need of deletion.
+
+  - no auto-adjust of key field names if changed in foreign db (cascade
+    key field definition).  Since I don't generally do that sort of
+    thing on form updates yet anyway, I'll defer this.
+
+  - no auto-adjust/clear/delete of key values in other databases if
+    key changes (cascade key field modification)  Since I don't
+    generally do that sort of thing on form updates yet anyway, I'll
+    defer this. 
 
   - no support for inv_fkey in auto-templates, summary, expressions,
     search, sort.  Probably won't fix before 2.4.
@@ -524,6 +526,10 @@ Important UI improvements
 Infrastructure Improvements
 ---------------------------
 
+- Add support for multiple flags in a single condition.  For example,
+  using operators |& and parentheses [] (() and {} are already used for
+  full expressions).
+
 - Change disk storage of dates to number of seconds since epoch.  Main
   issues I can see are that external tools may depend on the format
   and that I don't want to have to deal with time zones.  While the
@@ -694,7 +700,11 @@ Infrastructure Improvements
 - Support at least some level of undo.  Right now, the best you can do
   is abandon all changes and reload.  Periodic autosave could be
   useful as well, similar to editors' recovery files.  Formatting
-  the recovery file as an undo log would be ideal.
+  the recovery file as an undo log would be ideal.  For an interesting
+  take on using the underlying database for this once everything is
+  stored there, see <sqlite3 doc>/html/undoredo.html.  In fact,
+  something like the CSV module for SQLite3 could probably be used to
+  make the old files "work" with it.
 
 - Support some way of diffing databases.  I'm not sure how best to
   deal with the fact that there's no key, and sort order is pretty
