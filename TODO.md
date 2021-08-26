@@ -53,9 +53,6 @@ Features in Progress
     search expression to the other table by default as well.  For multi
     and inv tables, this also filters what's displayed.
 
-  - FKEY_MULTI should be forbidden as a key field.  In fact, so should
-    IT_NOTE.
-
   - only summary testing is of single-level single-field fkey
 
   - some data validity checks' suggested fixes untested

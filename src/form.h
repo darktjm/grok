@@ -224,7 +224,7 @@ typedef struct {
 	char	*name;		/* foreign variable name */
 	ITEM	*item;		/* resolved field pointer */
 	const MENU *menu;	/* resolved field pointer */
-	int	index;		/* resolved field pointer */
+	int	index;		/* resolved field pointer item+menu*nitems */
 	bool	key;		/* part of key, or just display? */
 	bool	display;	/* if key, display value? */
 } FKEY;

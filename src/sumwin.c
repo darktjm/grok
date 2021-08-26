@@ -192,8 +192,6 @@ static void add_fkey_summary(struct sum_item **res, size_t *nres,
 	CARD *card = create_card_menu(fform, read_dbase(fform));
 	card->fkey_next = rcard;
 	card->qcurr = itemno;
-	if (fkno >= 0)
-		card->row = fkno;
 	for (int i = 0; i < item->nfkey; i++) {
 		if (!item->fkey[i].display)
 			continue;

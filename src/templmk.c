@@ -703,25 +703,30 @@ const char *mktemplate_fancy(const CARD *card, FILE *fp)
  * Form name and field names are assumed to be valid SQL
  */
 
+#define SCHAR(x) "\\{IF -f}ASCII_\\{ENDIF}CH\\{IF +p}A\\{ENDIF}R(" #x ")"
 static void pr_schar(FILE *fp, char c, char doub = '\'');
 static void pr_dq(FILE *fp, const char *s, char q);
 static void pr_sql_restr(FILE *fp, const char *s);
-static void pr_sql_type(FILE *fp, const FORM *form, int i, bool null = false);
-static void pr_sql_fkey_fields(FILE *fp, const char *db, ITEM *item,
-			       const int *seq, int nseq, bool has_groupby,
-			       bool is_agg = false);
+static void pr_sql_type(FILE *fp, const FORM *form, int i, bool null = false,
+			bool mayref = true);
+static void pr_sql_fkey_fields(FILE *fp, const char *db, const ITEM *base,
+			       ITEM *item, int nseq, const int *seq,
+			       bool has_groupby = false, bool is_agg = false);
 static void pr_sql_fkey_tables(FILE *fp, const char *db, ITEM *item,
 			       const int *seq, int nseq);
 static void pr_sql_fkey_group_by(FILE *fp, ITEM *item, const char **pref,
-				 const int *seq, int nseq);
+				 const int *seq, int nseq, const ITEM *base = 0);
 static void pr_fkey_compound_ref(FILE *fp, const FORM *form, const ITEM *item);
 static void pr_sql_tq(FILE *fp, const char *db, const int *seq, int nseq);
 static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
-			const MENU *menu, const char *&label,
-			const int *seq, int nseq, bool has_groupby);
+			const MENU *menu, const int *seq, int nseq,
+			bool has_groupby);
+static void pr_sql_label(FILE *fp, const ITEM *item, const MENU *menu = 0,
+			 int nseq = 0, const int *seq = 0);
 static void add_ref_keys(QStringList &sl, const char *cform, const FORM *form);
 static bool any_fkey_multi(const FORM *form, const struct sum_item *itemorder = 0,
 			   int nitems = 0, const ITEM *item = 0);
+static void xform_sql_flagtext(FILE *fp, const ITEM *item, char sep, char esc);
 static void pr_sql_simple_insval(FILE *fp, const ITEM *item, int fkno = 0,
 				 bool isk = false, bool nofkey = false,
 				 const char *name = 0);
@@ -742,8 +747,42 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		return("no database");
 	form = card->form;
 	fprintf(fp, "-- grok form/database %s exported \\{date}\n", form->name);
-	fputs("-- note that some databases may need additional editing\n"
-	      "\\{IF -m}SET sql_mode='ansi,no_backslash_escapes';\n\\{ENDIF}\n", fp);
+	fputs("-- note that some databases may need additional editing\n", fp);
+	fputs("\\{IF -m}SET sql_mode='ansi,no_backslash_escapes';\n"
+	      /* this will fail on default mysql install */
+	      /* you need to either be superuser or, as superuser:
+	       * set set global log_bin_trust_function_creators = 1;
+	       */
+	      "DELIMITER //\n"
+	      "CREATE OR REPLACE AGGREGATE FUNCTION group_concat2 (x TEXT, d TEXT)\n"
+	      "  RETURNS TEXT\n"
+	      "  DETERMINISTIC\n"
+	      "BEGIN\n"
+	      "  DECLARE res TEXT DEFAULT NULL;\n"
+	      "  DECLARE CONTINUE HANDLER FOR NOT FOUND RETURN res;\n"
+	      "  LOOP\n"
+	      "    FETCH GROUP NEXT ROW;\n"
+	      "    IF x IS NOT NULL THEN\n"
+	      "      IF res IS NULL THEN\n"
+	      "        SET res = x;\n"
+	      "      ELSEIF d IS NULL THEN\n"
+	      "        SET res = res || ', ' || x;\n"
+	      "      ELSE\n"
+	      "        SET res = res || d || x;\n"
+	      "      END IF;\n"
+	      "    END IF;\n"
+	      "  END LOOP;\n"
+	      "END//\n"
+	      "DELIMITER ;\n"
+	      "\\{ENDIF}\n", fp);
+	fputs("\\{IF -f}SET TERM $$ ;\n"
+	      /* 1000 is a reasonable limit, I guess */
+	      "CREATE OR ALTER FUNCTION trim2 (x VARCHAR(1000), d VARCHAR(1000))\n"
+	      "  RETURNS VARCHAR(1000)\n"
+	      "  DETERMINISTIC\n"
+	      "AS BEGIN RETURN TRIM(d FROM x); END;$$\n"
+	      "SET TERM ; $$\n"
+	      "\\{ENDIF}\n", fp);
 	fprintf(fp,
 		"\\{IF +s}\n"
 		"DROP VIEW\\{IF +f} IF EXISTS\\{ENDIF} %s_view;\n"
@@ -882,18 +921,28 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			continue;
 		if(i)
 			fputs(",\n", fp);
-		int nseq = 0;
+		int nseq = 1;
 		const CARD *c;
 		for(c = itemorder[i].fcard; c->fkey_next; c = c->fkey_next)
 			nseq++;
 		int seq[nseq];
+		const ITEM *base = item, *fitem = item;
 		for(c = itemorder[i].fcard, j = nseq - 1; c->fkey_next; c = c->fkey_next, j--) {
-			if(!j)
-				seq[j] = c->qcurr;
-			else
-				seq[j] = c->row;
+			base = c->fkey_next->form->items[c->qcurr];
+			for(int k = 0; k < base->nfkey; k++)
+				if(base->fkey[k].item == fitem) {
+					fitem = base;
+					seq[j] = k;
+					break;
+				}
 		}
-		const char *label = label_of(item, menu);
+		for(int k = 0; k < base->form->nitems; k++)
+			if(base->form->items[k] == base) {
+				seq[0] = k;
+				break;
+			}
+		if(base->type != IT_FKEY && base->type != IT_INV_FKEY)
+			nseq = 0;
 		/* LEFT(x,y) -> SUBSTR(x,1,y) (sqlite3 doesn't support LEFT) */
 		/* and firebird doesn't support SUBSTR, so use LEFT there */
 		fputs("  \\{IF -f}LEFT\\{ELSE}SUBSTR\\{ENDIF}(", fp);
@@ -908,9 +957,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 					is_agg = true;
 			}
 			if(is_agg)
-				fputs("\\{IF -p}string_agg\\{ELSEIF -f}list\\{ELSE}group_concat\\{ENDIF}(coalesce(", fp);
-			else
-				fputs("max(", fp);
+				fputs("\\{IF -p}string_agg\\{ELSEIF -f}list\\{ELSE}group_concat\\{IF -m}2\\{ENDIF}\\{ENDIF}(coalesce(''||", fp);
 		}
 		if(item->type == IT_NUMBER)
 			/* postgres requires explicit num->str conversion */
@@ -920,23 +967,16 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		for(itno = 0; itno < fform->nitems; itno++)
 			if(fform->items[itno] == item)
 				break;
-		pr_sql_item(fp, form->name, fform, itno, menu, label, seq, nseq, has_groupby);
-		if(has_groupby) {
+		pr_sql_item(fp, form->name, fform, itno, menu, seq, nseq - 1, has_groupby);
+		if(has_groupby)
 			if(is_agg)
 				/* FIXME:  should this be arraysep? */
 				/*         if so, array-esc items? */
-				fputs(",''), CH\\{IF +p}A\\{ENDIF}R(10))", fp);
-			else
-				putc(')', fp);
-		}
+				fputs(",''), " SCHAR(10) ")", fp);
 		fprintf(fp, "\\{IF +f},1\\{ENDIF},%d)", menu ? menu->sumwidth : item->sumwidth);
-		fputs(" \"", fp);
-		pr_dq(fp, label, '"');
-		/* alias to avoid name conflicts w/ other tables */
-		/* FIXME: use field labels as prefix instead of this suffix */
-		for(j=0; j < nseq; j++)
-			fprintf(fp, "_%d", seq[j]);
-		putc('"', fp);
+		for(const CARD *c = itemorder[i].fcard; c->fkey_next; c = c->fkey_next)
+			base = c->fkey_next->form->items[c->qcurr];
+		pr_sql_label(fp, base, base == item ? menu : 0, nseq, seq);
 	}
 	fprintf(fp, "\n  FROM %s", form->name);
 	for(i=0; i < form->nitems; i++) {
@@ -952,6 +992,21 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			if(item->type == IT_FKEY && item->sumwidth)
 				pr_sql_fkey_group_by(fp, item, &pref, &i, 1);
 		}
+		for(i=0; i < form->nitems; i++) {
+			item = form->items[i];
+			if(!IN_DBASE(item->type) || item->type == IT_FKEY ||
+			   (!item->sumwidth && !IFL(item->,MULTICOL)))
+				continue;
+			if(IFL(item->,MULTICOL)) {
+				for(j=0; j < item->nmenu; j++)
+					if(item->menu[j].sumwidth)
+						fprintf(fp, ", %s.%s",
+							form->name,
+							item->menu[j].name);
+
+			} else
+				fprintf(fp, ", %s.%s", form->name, item->name);
+		}
 	}
 	free_summary_cols(itemorder, nitems);
 	/* FIXME:  ORDER BY sort column */
@@ -965,8 +1020,8 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		item = form->items[i];
 		/* labels are pointless, and print is impossible to translate */
 		/* charts are right out */
-		/* inv_fkey requires multiple rows */
-		if(!IN_DBASE(item->type))
+		if(!IN_DBASE(item->type) && (item->type != IT_INV_FKEY ||
+					     item->nfkey == 1))
 			continue;
 		if(item->type == IT_CHOICE) {
 			for(j = 0; j < i; j++)
@@ -982,19 +1037,9 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 					fputs(",\n", fp);
 				didcol = true;
 				fputs("  ", fp);
-				if(has_groupby)
-					fputs("max(", fp);
 				pr_sql_tq(fp, form->name, 0, 0);
 				fputs(item->menu[j].name, fp);
-				if(has_groupby)
-					putc(')', fp);
-				fputs(" \"", fp);
-				if(item->label) {
-					pr_dq(fp, item->label, '"');
-					fputs(": ", fp);
-				}
-				pr_dq(fp, item->menu[j].label, '"');
-				putc('"', fp);
+				pr_sql_label(fp, item, &item->menu[j]);
 			}
 			continue;
 		}
@@ -1002,9 +1047,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			fputs(",\n", fp);
 		didcol = true;
 		fputs("  ", fp);
-		const char *label = item->label;
 		char esc, sep;
-		get_form_arraysep(form, &sep, &esc);
 		switch(item->type) {
 		    case IT_INPUT:
 		    case IT_NOTE:
@@ -1012,14 +1055,8 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		    case IT_TIME:
 		    case IT_FLAG:
 		    case IT_CHOICE:
-			if(has_groupby)
-				fputs("max(", fp);
-			pr_sql_item(fp, form->name, form, i, 0, label, 0, 0, has_groupby);
-			if(has_groupby)
-				putc(')', fp);
-			fputs(" \"", fp);
-			pr_dq(fp, label, '"');
-			putc('"', fp);
+			pr_sql_item(fp, form->name, form, i, 0, 0, 0, has_groupby);
+			pr_sql_label(fp, item);
 			break;
 		    case IT_MENU:
 		    case IT_RADIO:
@@ -1030,15 +1067,9 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 					   strcmp(item->menu[j].flagtext,
 						  item->menu[j].label)))
 					break;
-			if(has_groupby)
-				fputs("max(", fp);
 			if(j == item->nmenu) {
 				fputs(item->name, fp);
-				if(has_groupby)
-					putc(')', fp);
-				fputs(" \"", fp);
-				pr_dq(fp, item->label, '"');
-				putc('"', fp);
+				pr_sql_label(fp, item);
 				break;
 			}
 			fprintf(fp, "CASE %s", item->name);
@@ -1062,80 +1093,17 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 				putc('\'', fp);
 			}
 			fprintf(fp, " ELSE %s END", item->name);
-			if(has_groupby)
-				putc(')', fp);
-			fputs(" \"", fp);
-			pr_dq(fp, label ? label : item->name, '"');
-			putc('"', fp);
+			pr_sql_label(fp, item);
 			break;
 		    case IT_MULTI:
 		    case IT_FLAGS:
-			/* this is bound to fail in some cases */
-			/* that's at least one reason why I suggest
-			 * manual editing in the header comment */
-			if(has_groupby)
-				fputs("max(", fp);
-			fputs("REPLACE(REPLACE(TRIM(", fp);
-			for(j = 0; j < item->nmenu; j++)
-				if(strcmp(item->menu[j].label,
-					  item->menu[j].flagcode) ||
-				   strchr(item->menu[j].flagcode, esc) ||
-				   strchr(item->menu[j].flagcode, sep) ||
-				   (item->menu[j].flagtext &&
-					   strcmp(item->menu[j].flagtext,
-						  item->menu[j].label)))
-					fputs("REPLACE(", fp);
-			putc('\'', fp);
-			pr_schar(fp, sep);
-			fprintf(fp, "'||%s||'", item->name);
-			pr_schar(fp, sep);
-			fputs("',", fp);
-			for(j = 0; j < item->nmenu; j++)
-				if(strcmp(item->menu[j].label,
-					  item->menu[j].flagcode) ||
-				   strchr(item->menu[j].flagcode, esc) ||
-				   strchr(item->menu[j].flagcode, sep) ||
-				   (item->menu[j].flagtext &&
-					   strcmp(item->menu[j].flagtext,
-						  item->menu[j].label))) {
-					putc('\'', fp);
-					pr_schar(fp, sep);
-					for(s = item->menu[j].flagcode; *s; s++) {
-						if(*s == sep || *s == esc)
-							pr_schar(fp, esc);
-						pr_schar(fp, *s);
-					}
-					pr_schar(fp, sep);
-					fputs("','", fp);
-					pr_schar(fp, sep);
-					pr_dq(fp, item->menu[j].label, '\'');
-					if(item->menu[j].flagtext &&
-					   strcmp(item->menu[j].flagtext,
-						  item->menu[j].label)) {
-						fputs(" (", fp);
-						pr_dq(fp, item->menu[j].flagtext, '\'');
-						putc(')', fp);
-					}
-					pr_schar(fp, sep);
-					fputs("'),", fp);
-				}
-			putc('\'', fp);
-			pr_schar(fp, sep);
-			fputs("'),'", fp);
-			pr_schar(fp, sep);
-			fputs("',', '),'", fp);
-			pr_schar(fp, esc);
-			fputs(", ','", fp);
-			pr_schar(fp, sep);
-			fputs("')", fp);
-			if(has_groupby)
-				putc(')', fp);
-			fputs(" \"", fp);
-			pr_dq(fp, label ? label : item->name, '"');
-			putc('"', fp);
+			get_form_arraysep(form, &sep, &esc);
+			xform_sql_flagtext(fp, item, sep, esc);
+			pr_sql_label(fp, item);
 			break;
 		    case IT_FKEY:
-			pr_sql_fkey_fields(fp, form->name, item, &i, 1, has_groupby);
+		    case IT_INV_FKEY:
+			pr_sql_fkey_fields(fp, form->name, item, item, 1, &i, has_groupby);
 			break;
 		    default: ; /* shut gcc up */
 		}
@@ -1143,7 +1111,8 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 	fprintf(fp, "\n  FROM %s", form->name);
 	for(i=0; i < form->nitems; i++) {
 		item = form->items[i];
-		if(item->type == IT_FKEY)
+		if(item->type == IT_FKEY || (item->type == IT_INV_FKEY &&
+					     item->nfkey > 1))
 			pr_sql_fkey_tables(fp, form->name, item, &i, 1);
 	}
 	if(has_groupby) {
@@ -1153,6 +1122,17 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 			item = form->items[i];
 			if(item->type == IT_FKEY)
 				pr_sql_fkey_group_by(fp, item, &pref, &i, 1);
+		}
+		for(i=0; i < form->nitems; i++) {
+			item = form->items[i];
+			if(!IN_DBASE(item->type) || item->type == IT_FKEY)
+				continue;
+			if(IFL(item->,MULTICOL)) {
+				for(j=0; j < item->nmenu; j++)
+					fprintf(fp, ", %s.%s", form->name,
+						item->menu[j].name);
+			} else
+				fprintf(fp, ", %s.%s", form->name, item->name);
 		}
 	}
 	/* FIXME:  ORDER BY sort column */
@@ -1277,23 +1257,171 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 	return(0);
 }
 
+static void pr_sql_label(FILE *fp, const ITEM *item, const MENU *menu,
+			int nseq, const int *seq)
+{
+	const char *label = label_of(item, menu);
+	if(item->type == IT_CHOICE) {
+		const FORM *form = item->form;
+		int i;
+		for(i = 0; i < form->nitems; i++)
+			if(form->items[i] == item)
+				break;
+		if(i > 0 && form->items[i - 1]->type == IT_LABEL)
+			label = form->items[i - 1]->label;
+		else
+			label = item->name;
+	}
+	fputs(" \"", fp);
+	if(menu && item->label) {
+		pr_dq(fp, item->label, '"');
+		fputs(": ", fp);
+	}
+	pr_dq(fp, label, '"');
+	/* alias to avoid name conflicts w/ other tables */
+	/* FIXME: use field labels as prefix instead of this suffix */
+	for(int j=1; j < nseq; j++)
+		fprintf(fp, "_%d", seq[j]);
+	putc('"', fp);
+}
+
+static void xform_sql_flagtext(FILE *fp, const ITEM *item, char sep, char esc)
+{
+	/* this is bound to fail in some cases */
+	/* that's at least one reason why I suggest manual editing
+	 * in the header comment */
+
+	/* only postgres and recent mysql have regexp_replace */
+	fputs("\\{(r=1);''}\\{IF +p}\\{IF +m}\\{(r=0);''}\\{ENDIF}\\{ENDIF}"
+	/* replace(replace(...,<sep>,', '), <esc>||', ', <sep>) */
+	/*   - doesn't properly handle <esc><esc> */
+	/* trim(.. <sep>||...||<sep> ..,<sep>) */
+	/*   - excessively strips trailing <sep> */
+	/* inside: replace(..., <sep><val><sep>, <sep><lab><sep>) */
+	/*   - doesn't handle <lab> that looks like <val> */
+	/*   - doesn't handle sub-parts of <lab> that looks like <val> */
+	      "\\{IF (!r)}REPLACE(REPLACE(TRIM\\{IF -f}2\\{ENDIF}(\\{ENDIF}", fp);
+	/* regex_replace(...,'^((?:[^<esc>]|<esc>.)*<sep>)?<val>(<sep>|$)','\1<lab>\2'') */
+	/*   - doesn't handle <lab> that looks like <val> */
+	/*   - also doesn't use TRIM(x,y), which isn't in mysql */
+	for(int j = 0; j < item->nmenu; j++)
+		if(strcmp(item->menu[j].label,
+			  item->menu[j].flagcode) ||
+		   strchr(item->menu[j].flagcode, esc) ||
+		   strchr(item->menu[j].flagcode, sep) ||
+		   (item->menu[j].flagtext &&
+			   strcmp(item->menu[j].flagtext,
+				  item->menu[j].label)))
+			fputs("\\{IF (r)}REGEXP_\\{ENDIF}REPLACE(", fp);
+	fputs("\\{IF (!r)}'", fp);
+	pr_schar(fp, sep);
+	fprintf(fp, "'||%s||'", item->name);
+	pr_schar(fp, sep);
+	fputs("',", fp);
+	for(int j = 0; j < item->nmenu; j++)
+		if(strcmp(item->menu[j].label,
+			  item->menu[j].flagcode) ||
+		   strchr(item->menu[j].flagcode, esc) ||
+		   strchr(item->menu[j].flagcode, sep) ||
+		   (item->menu[j].flagtext &&
+			   strcmp(item->menu[j].flagtext,
+				  item->menu[j].label))) {
+			putc('\'', fp);
+			pr_schar(fp, sep);
+			for(const char *s = item->menu[j].flagcode; *s; s++) {
+				if(*s == sep || *s == esc)
+					pr_schar(fp, esc);
+				pr_schar(fp, *s);
+			}
+			pr_schar(fp, sep);
+			fputs("','", fp);
+			pr_schar(fp, sep);
+			pr_dq(fp, item->menu[j].label, '\'');
+			if(item->menu[j].flagtext &&
+			   strcmp(item->menu[j].flagtext,
+				  item->menu[j].label)) {
+				fputs(" (", fp);
+				pr_dq(fp, item->menu[j].flagtext, '\'');
+				putc(')', fp);
+			}
+			pr_schar(fp, sep);
+			fputs("'),", fp);
+		}
+	/* TRIM(...,<sep>) */
+	putc('\'', fp);
+	pr_schar(fp, sep);
+	/* REPLACE(...,<sep>,', ') */
+	fputs("'),'", fp);
+	pr_schar(fp, sep);
+	/* REPLACE(..., <esc>||', ', <sep>) */
+	fputs("',', '),'", fp);
+	pr_schar(fp, esc);
+	fputs(", ','", fp);
+	pr_schar(fp, sep);
+	fputs("')", fp);
+	fputs("\\{ELSE}", fp);
+#define re_prch(c, fp) do { \
+	unsigned char _c = c; \
+	if(_c < 128 && !isalnum(_c)) \
+		fputs("\\\\", fp); \
+	pr_schar(fp, _c); \
+} while(0)
+	fputs(item->name, fp);
+	for(int j = 0; j < item->nmenu; j++)
+		if(strcmp(item->menu[j].label,
+			  item->menu[j].flagcode) ||
+		   strchr(item->menu[j].flagcode, esc) ||
+		   strchr(item->menu[j].flagcode, sep) ||
+		   (item->menu[j].flagtext &&
+			   strcmp(item->menu[j].flagtext,
+				  item->menu[j].label))) {
+			fputs(",'^((?:[^", fp);
+			re_prch(esc, fp);
+			fputs("]|", fp);
+			re_prch(esc, fp);
+			fputs(".)*", fp);
+			re_prch(sep, fp);
+			fputs(")?", fp);
+			for(const char *s = item->menu[j].flagcode; *s; s++) {
+				if(*s == sep || *s == esc)
+					re_prch(esc, fp);
+				re_prch(*s, fp);
+			}
+			fputs("($|", fp);
+			re_prch(sep, fp);
+			fputs(")','\\\\1", fp);
+			/* fixme: also escape \ */
+			pr_dq(fp, item->menu[j].label, '\'');
+			if(item->menu[j].flagtext &&
+			   strcmp(item->menu[j].flagtext,
+				  item->menu[j].label)) {
+				fputs(" (", fp);
+				/* fixme: also escape \ */
+				pr_dq(fp, item->menu[j].flagtext, '\'');
+				putc(')', fp);
+			}
+			fputs("\\\\2')", fp);
+		}
+	fputs("\\{ENDIF}", fp);
+}
+
 static void pr_sql_simple_insval(FILE *fp, const ITEM *item, int fkno,
 				 bool isk, bool nofkey, const char *name)
 {
 #define pr_name() do { \
 	if(fkno) \
-		fputc('(', fp); \
+		putc('{', fp); \
 	if(isk) \
-		fputc('k', fp); \
+		putc('k', fp); \
 	else \
 		fprintf(fp, "_%s", name ? name : item->name); \
 	if(fkno) \
-		fprintf(fp, ")[%d]", fkno - 1); \
+		fprintf(fp, "}[%d]", fkno - 1); \
 } while(0)
 	if(item->type == IT_NUMBER) {
 		fputs("   \\{(", fp);
 		pr_name();
-		fputc('?', fp);
+		putc('?', fp);
 		pr_name();
 		fputs(":0)}", fp);
 	} else if(item->type == IT_FLAG) {
@@ -1306,10 +1434,10 @@ static void pr_sql_simple_insval(FILE *fp, const ITEM *item, int fkno,
 		      "\\{IF -p}to_timestamp\\{ENDIF}"
 		      "(\\{", fp);
 		pr_name();
-		fputc('?', fp);
+		putc('?', fp);
 		pr_name();
 		fputs(":\"0\"}"
-		      "\\{IF -f} SECOND TO DATE '1/1/1970'\\{ENDIF}"
+		      "\\{IF -f} SECOND TO TIMESTAMP '1970-01-01 00:00'\\{ENDIF}"
 		      ")", fp);
 	} else if(item->type == IT_FKEY && !nofkey) {
 		int j, kno;
@@ -1342,7 +1470,7 @@ static void pr_schar(FILE *fp, char c, char doub)
 		fputs("\\\\", fp);
 	else if(!isprint(c))
 		/* FIXME: should just forget this so Unicode works right */
-		fprintf(fp, "'||\\{IF -f}ASCII_\\{ENDIF}CH\\{IF +p}A\\{ENDIF}R(%d)||'", (int)(unsigned char)c);
+		fprintf(fp, "'||" SCHAR(%d) "||'", (int)(unsigned char)c);
 	else
 		putc(c, fp);
 	if(c == doub)
@@ -1413,13 +1541,12 @@ static const char *mysql_date_fmt(const ITEM *item)
 }
 
 static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
-			const MENU *menu, const char *&label,
-			const int *seq, int nseq, bool has_groupby)
+			const MENU *menu, const int *seq, int nseq,
+			bool has_groupby)
 {
 	ITEM *item = form->items[itno];
 	int j;
 	char esc, sep;
-	get_form_arraysep(form, &sep, &esc);
 	switch(item->type) {
 	    case IT_INPUT:
 	    case IT_NOTE:
@@ -1444,13 +1571,6 @@ static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
 		    break;
 	    }
 	    case IT_CHOICE:
-		/* FIXME: if label blank, use flagtext */
-		/*        if both non-blank, append flagtext */
-		/*   label (flagtext) */
-		if(itno > 0 && form->items[itno - 1]->type == IT_LABEL)
-			label = form->items[itno - 1]->label;
-		else
-			label = item->name;
 		for(j = itno; j < form->nitems; j++)
 			if(form->items[j]->type == IT_CHOICE &&
 			   form->items[j]->column == item->column &&
@@ -1528,7 +1648,6 @@ static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
 	    case IT_MULTI:
 	    case IT_FLAGS:
 		if(menu) {
-			label = menu->label;
 			if(menu->flagtext) {
 				fputs("CASE WHEN ", fp);
 				pr_sql_tq(fp, db, seq, nseq);
@@ -1549,39 +1668,11 @@ static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
 			fputs(item->name, fp);
 			break;
 		}
-		fputs("TRIM(", fp);
-		for(j = 0; j < item->nmenu; j++)
-			if(item->menu[j].flagtext)
-				fputs("REPLACE(", fp);
-		putc('\'', fp);
-		pr_schar(fp, sep);
-		fputs("'||", fp);
-		pr_sql_tq(fp, db, seq, nseq);
-		fprintf(fp, "%s||'", item->name);
-		pr_schar(fp, sep);
-		putc('\'', fp);
-		for(j = 0; j < item->nmenu; j++)
-			if(item->menu[j].flagtext) {
-				fputs(",'", fp);
-				pr_schar(fp, sep);
-				for(const char *s = item->menu[j].flagcode; *s; s++) {
-					if(*s == sep || *s == esc)
-						pr_schar(fp, esc);
-					pr_schar(fp, *s);
-				}
-				pr_schar(fp, sep);
-				fputs("','", fp);
-				pr_schar(fp, sep);
-				pr_dq(fp, item->menu[j].flagtext, '\'');
-				pr_schar(fp, sep);
-				fputs("')", fp);
-			}
-		fputs(",'", fp);
-		pr_schar(fp, sep);
-		fputs("')", fp);
+		get_form_arraysep(form, &sep, &esc);
+		xform_sql_flagtext(fp, item, sep, esc);
 		break;
 	    case IT_FKEY:
-		pr_sql_fkey_fields(fp, db, item, &itno, 1, has_groupby);
+		pr_sql_fkey_fields(fp, db, item, item, 1, &itno, has_groupby);
 		break;
 	    default: ; /* shut gcc up */
 	}
@@ -1623,7 +1714,7 @@ static void pr_fkey_compound_ref(FILE *fp, const FORM *form, const ITEM *item)
 	}
 }
 
-static void pr_sql_type(FILE *fp, const FORM *form, int i, bool null)
+static void pr_sql_type(FILE *fp, const FORM *form, int i, bool null, bool mayref)
 {
 	int j, m;
 	char es[3], &esc = es[0], &sep = es[1];
@@ -1737,7 +1828,7 @@ static void pr_sql_type(FILE *fp, const FORM *form, int i, bool null)
 			/* It is by default on my system, but may not be on yours */
 			/* Check w/ "select * from pragma_function_list where name = 'regexp';" */
 			/* SQLite has had it available as a loadable module since 3.7.17, I guess */
-			fprintf(fp, "\n    CHECK (%s \\{IF -p}~\\{ELSEIF -f}SIMILAR TO\\{ELSE}REGEXP\\{ENDIF} '^",
+			fprintf(fp, "\n    CHECK (%s \\{IF -p}~\\{ELSEIF -f}SIMILAR TO\\{ELSE}REGEXP\\{ENDIF} '\\{IF +f}^\\{ENDIF}",
 				item->name);
 			{
 				char *x = (char *)malloc(j + item->nmenu), *e;
@@ -1763,19 +1854,19 @@ static void pr_sql_type(FILE *fp, const FORM *form, int i, bool null)
 					putc('(', fp);
 					pr_sql_restr(fp, x + j);
 					if(!*s) {
-						fputs("|)", fp);
+						fputs(")?", fp);
 						break;
 					}
 					fputs("|(", fp);
 					pr_sql_restr(fp, x + j);
 					pr_sql_restr(fp, es + 1);
-					fputs("|)", fp);
+					fputs(")?", fp);
 					j = s - x;
 				}
 				free(x);
 				for(m = 0; m < item->nmenu - 1; m++)
-					fputc(')', fp);
-				fputs("$'\\{IF -f} ESCAPE '\\\\'\\{ENDIF})", fp);
+					putc(')', fp);
+				fputs("\\{IF +f}$\\{ENDIF}'\\{IF -f} ESCAPE '\\\\'\\{ENDIF})", fp);
 			}
 		}
 		break;
@@ -1790,9 +1881,9 @@ static void pr_sql_type(FILE *fp, const FORM *form, int i, bool null)
 					    break;
 				    if(m++)
 					    fprintf(fp, ", %s_k%d ", item->name, m);
-				    pr_sql_type(fp, fform, item->fkey[j].index % fform->nitems, true);
+				    pr_sql_type(fp, fform, item->fkey[j].index % fform->nitems, true, false);
 			    }
-		    if(m == 1) {
+		    if(m == 1 && mayref) {
 			    fputs("\n   ", fp);
 			    pr_sql_fkey_ref(fp, item);
 		    }
@@ -1819,7 +1910,7 @@ static void pr_sql_restr(FILE *fp, const char *s)
 
 static void pr_sql_tq(FILE *fp, const char *db, const int *seq, int nseq)
 {
-	if(!nseq) {
+	if(nseq <= 0) {
 		fprintf(fp, "%s.", db);
 		return;
 	}
@@ -1829,9 +1920,9 @@ static void pr_sql_tq(FILE *fp, const char *db, const int *seq, int nseq)
 	putc('.', fp);
 }
 
-static void pr_sql_fkey_fields(FILE *fp, const char *db, ITEM *item,
-			       const int *seq, int nseq, bool has_groupby,
-			       bool is_agg)
+static void pr_sql_fkey_fields(FILE *fp, const char *db, const ITEM *base,
+			       ITEM *item, int nseq, const int *seq,
+			       bool has_groupby, bool is_agg)
 {
 	int n, m;
 	bool didone = false;
@@ -1846,46 +1937,29 @@ static void pr_sql_fkey_fields(FILE *fp, const char *db, ITEM *item,
 		didone = true;
 		if(!item->fkey[n].item)
 			continue;
+		int fseq[nseq + 1];
+		memcpy(fseq, seq, nseq * sizeof(int));
+		fseq[nseq] = n;
 		ITEM *fitem = item->fkey[n].item;
 		if(fitem->type == IT_FKEY) {
-			int fseq[nseq + 1];
-			memcpy(fseq, seq, nseq * sizeof(int));
-			fseq[nseq] = n;
-			pr_sql_fkey_fields(fp, db, fitem, fseq, nseq + 1, has_groupby, is_agg);
+			pr_sql_fkey_fields(fp, db, base, fitem, nseq + 1, fseq, has_groupby, is_agg);
 			continue;
 		}
-		const char *label = IFL(fitem->,MULTICOL) ?
-				  item->fkey[n].menu->label : fitem->label;
-		bool is_agg = false;
-		if(has_groupby) {
-			if(is_agg)
-				fputs("\\{IF -p}string_agg\\{ELSEIF -f}list\\{ELSE}group_concat\\{ENDIF}(coalesce(", fp);
-			else
-				fputs("max(", fp);
-		}
+		if(is_agg)
+			fputs("\\{IF -p}string_agg\\{ELSEIF -f}list\\{ELSE}group_concat\\{IF -m}2\\{ENDIF}\\{ENDIF}(coalesce(''||", fp);
+		int fitno = item->fkey[n].index % fform->nitems;
 		if(fitem->type == IT_TIME)
-			pr_sql_item(fp, db, fform, item->fkey[n].index % fform->nitems,
-				    0, label, seq, nseq, has_groupby);
+			pr_sql_item(fp, db, fform, fitno, 0, seq, nseq, has_groupby);
 		else {
 			pr_sql_tq(fp, db, seq, nseq);
 			fputs(IFL(fitem->,MULTICOL) ? item->fkey[n].menu->name
 						    : fitem->name, fp);
 		}
-		if(has_groupby) {
-			if(is_agg)
-				/* FIXME:  should this be arraysep? */
-				/*         if so, array-esc items? */
-				fputs(",''), CH\\{IF +p}A\\{ENDIF}R(10))", fp);
-			else
-				putc(')', fp);
-		}
-		fputs(" \"", fp);
-		pr_dq(fp, label, '"');
-		/* alias to avoid name conflicts w/ other tables */
-		/* FIXME: use field labels as prefix instead of this suffix */
-		for(m=0; m < nseq; m++)
-			fprintf(fp, "_%d", seq[m]);
-		putc('"', fp);
+		if(is_agg)
+			/* FIXME:  should this be arraysep? */
+			/*         if so, array-esc items? */
+			fputs(",''), " SCHAR(10) ")", fp);
+		pr_sql_label(fp, base, 0, nseq + 1, fseq);
 	}
 }
 
@@ -1915,12 +1989,19 @@ static void pr_sql_fkey_tables(FILE *fp, const char *db, ITEM *item,
 	for(n = 0; n < nseq; n++)
 		fprintf(fp, "_%d", seq[n]);
 	fputs(" ON ", fp);
-	for(n = m = 0; n < item->nfkey; n++) {
-		if(!item->fkey[n].key)
+	const ITEM *kitem = item;
+	if(item->type == IT_INV_FKEY)
+		for(n = 0; n < item->nfkey; n++)
+			if(item->fkey[n].key) {
+				kitem = item->fkey[n].item;
+				break;
+			}
+	for(n = m = 0; n < kitem->nfkey; n++) {
+		if(!kitem->fkey[n].key)
 			continue;
 		if(m)
 			fputs(" AND ", fp);
-		if(nseq == 1 && !IFL(item->,FKEY_MULTI))
+		if(nseq == 1 && !IFL(item->,FKEY_MULTI) && kitem == item)
 			fputs(db, fp);
 		else {
 			fputs("fk", fp);
@@ -1928,21 +2009,27 @@ static void pr_sql_fkey_tables(FILE *fp, const char *db, ITEM *item,
 				fprintf(fp, "_%d", seq[i]);
 			if(IFL(item->,FKEY_MULTI))
 				fprintf(fp, "_%dr", seq[nseq - 1]);
+			else if(kitem != item)
+				fprintf(fp, "_%d", seq[nseq - 1]);
 		}
-		fprintf(fp, ".%s", item->name);
+		fprintf(fp, ".%s", kitem->name);
 		if(m++)
 			fprintf(fp, "_k%d", m);
-		fputs(" = fk", fp);
-		for(int i=0; i < nseq; i++)
-			fprintf(fp, "_%d", seq[i]);
-		const ITEM *fitem = item->fkey[n].item;
+		fputs(" = ", fp);
+		if(kitem == item) {
+			fputs("fk", fp);
+			for(int i=0; i < nseq; i++)
+				fprintf(fp, "_%d", seq[i]);
+		} else
+			fputs(db, fp);
+		const ITEM *fitem = kitem->fkey[n].item;
 		fprintf(fp, ".%s", IFL(fitem->,MULTICOL) ?
 				item->fkey[n].menu->name :
 				fitem->name);
 	}
 	for(n = 0; n < item->nfkey; n++) {
 		ITEM *fitem = item->fkey[n].item;
-		if(fitem->type == IT_FKEY) {
+		if(fitem->type == IT_FKEY && item->fkey[n].display) {
 			int fseq[nseq + 1];
 			memcpy(fseq, seq, nseq * sizeof(int));
 			fseq[nseq] = n;
@@ -1952,8 +2039,10 @@ static void pr_sql_fkey_tables(FILE *fp, const char *db, ITEM *item,
 }
 
 static void pr_sql_fkey_group_by(FILE *fp, ITEM *item, const char **pref,
-			       const int *seq, int nseq)
+				 const int *seq, int nseq, const ITEM *base)
 {
+	if(!base)
+		base = item;
 	resolve_fkey_fields(item);
 	if(IFL(item->,FKEY_MULTI)) {
 		fprintf(fp, "%sfk", *pref);
@@ -1962,14 +2051,21 @@ static void pr_sql_fkey_group_by(FILE *fp, ITEM *item, const char **pref,
 		fputs("r.\"row id\"", fp);
 		*pref = ", ";
 	}
-	resolve_fkey_fields(item);
-	for(int i = 0; i < item->nfkey; i++)
-		if(item->fkey[i].item && item->fkey[i].item->type == IT_FKEY) {
-			int fseq[nseq + 1];
-			memcpy(fseq, seq, nseq * sizeof(int));
-			fseq[nseq] = i;
-			pr_sql_fkey_group_by(fp, item->fkey[i].item, pref, seq, nseq + 1);
+	int fseq[nseq + 1];
+	memcpy(fseq, seq, nseq * sizeof(int));
+	nseq++;
+	for(int i = 0; i < item->nfkey; i++) {
+		fseq[nseq - 1] = i;
+		if(item->fkey[i].item && item->fkey[i].item->type == IT_FKEY)
+			pr_sql_fkey_group_by(fp, item->fkey[i].item, pref, fseq, nseq, base);
+		else if(item->fkey[i].item && item->fkey[i].display) {
+			fputs(*pref, fp);
+			*pref = ", ";
+			pr_sql_tq(fp, NULL, seq, nseq - 1);
+			fputs(item->fkey[i].menu ?
+			      item->fkey[i].menu->name : item->fkey[i].item->name, fp);
 		}
+	}
 }
 
 static void add_ref_keys(QStringList &sl, const char *cform, const FORM *form)
@@ -1979,30 +2075,48 @@ static void add_ref_keys(QStringList &sl, const char *cform, const FORM *form)
 		return;
 	for(int i = 0; i < fform->nitems; i++) {
 		ITEM *fitem = fform->items[i];
+		if(fitem->type != IT_FKEY)
+			continue;
 		resolve_fkey_fields(fitem);
-		if(fitem->type == IT_FKEY && fitem->fkey_form == form) {
-			QString ks, ds;
-			// FIXME:  order by item(# or name) rather than fkeyno
-			for(int j = 0; j < fitem->nfkey; j++) {
-				const ITEM *kitem = fitem->fkey[j].item;
-				const char *name;
-				if(IFL(kitem->,MULTICOL))
-					name = fitem->fkey[j].menu->name;
-				else
-					name = kitem->name;
-				if(fitem->fkey[j].key) {
-					if(ks.length())
-						ks += ',';
-					ks += name;
-				}
-				if(fitem->fkey[j].display) {
-					if(ds.length())
-						ds += ',';
-					ds += name;
-				}
+		if(fitem->fkey_form != form)
+			continue;
+		QString ks, ds;
+		int j;
+		bool has_multi = false;
+		// FIXME:  order by item(# or name) rather than fkeyno
+		for(j = 0; j < fitem->nfkey; j++) {
+			const ITEM *kitem = fitem->fkey[j].item;
+			const char *name;
+			if(!kitem)
+				break;
+			/* There is no way to enforce uniqueness of FKEY_MULTI */
+			/* in a simple constraint. */
+			/* Even a trigger function would have to be deferred */
+			/* so that both the main value and the helper table are up-to-date */
+			/* I should probably also disable for IT_NOTE */
+			if(IFL(kitem->,FKEY_MULTI)) {
+				has_multi = true;
+				if(fitem->fkey[j].key)
+					break;
 			}
+			if(IFL(kitem->,MULTICOL))
+				name = fitem->fkey[j].menu->name;
+			else
+				name = kitem->name;
+			if(fitem->fkey[j].key) {
+				if(ks.length())
+					ks += ',';
+				ks += name;
+			}
+			if(fitem->fkey[j].display) {
+				if(ds.length())
+					ds += ',';
+				ds += name;
+			}
+		}
+		if(j == fitem->nfkey) {
 			sl.append(ks);
-			if(!IFL(fitem->,RDONLY))
+			if(!has_multi && !IFL(fitem->,RDONLY))
 				sl.append(ds);
 		}
 	}
@@ -2014,10 +2128,8 @@ static bool any_fkey_multi(const FORM *form, const struct sum_item *itemorder,
 {
 	/* per item */
 	if(item) {
-#if 0
-		if(item->type == IT_INV_FKEY)
+		if(item->type == IT_INV_FKEY && item->nfkey > 1)
 			return true;
-#endif
 		if(item->type != IT_FKEY)
 			return false;
 		if(IFL(item->,FKEY_MULTI))
@@ -2035,10 +2147,8 @@ static bool any_fkey_multi(const FORM *form, const struct sum_item *itemorder,
 				const ITEM *fitem = c->fkey_next->form->items[c->qcurr];
 				if((fitem->type == IT_FKEY && IFL(fitem->,FKEY_MULTI)))
 					return true;
-#if 0
-				if(fitem->type == IT_INV_FKEY)
+				if(fitem->type == IT_INV_FKEY && fitem->nfkey > 1)
 					return true;
-#endif
 			}
 		}
 		return false;

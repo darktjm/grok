@@ -451,11 +451,17 @@ bool verify_form(
 				if (fitem && item->fkey[n].key) {
 					nkey++;
 					resolve_fkey_fields(fitem);
-					if (item->type == IT_INV_FKEY && fitem &&
-					    (fitem->type != IT_FKEY ||
-					     (fitem->fkey_form &&
-					      strcmp(fitem->fkey_form->name, form->name)))) {
-						/* FIXME:  enforce in editor */
+					bool badkey;
+					if (item->type == IT_INV_FKEY)
+						badkey = fitem &&
+							(fitem->type != IT_FKEY ||
+							(fitem->fkey_form &&
+							     strcmp(fitem->fkey_form->name, form->name)));
+					else
+						badkey = fitem &&
+							(fitem->type == IT_NOTE ||
+							 IFL(fitem->,FKEY_MULTI));
+					if (badkey) {
 						msg += "Field ";
 						add_field_name(msg, form, nitem);
 						msg += " key ";

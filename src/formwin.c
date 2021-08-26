@@ -218,7 +218,7 @@ void resolve_fkey_fieldsel(const FORM *f, int idx, FKEY &fk)
 	}
 	for (int i=0; i < f->nitems; i++) {
 		ITEM *it = f->items[i];
-		if (!IN_DBASE(it->type) || IFL(it->,FKEY_MULTI) || it->type == IT_NOTE)
+		if (!IN_DBASE(it->type))
 			continue;
 		if (IFL(it->,MULTICOL)) {
 			if (it->nmenu)
@@ -276,7 +276,7 @@ QComboBox *make_fkey_field_select(const FORM *fform)
 	if (fform) {
 		for (int i=0; i < fform->nitems; i++) {
 			const ITEM *it = fform->items[i];
-			if (!IN_DBASE(it->type) || IFL(it->,FKEY_MULTI) || it->type == IT_NOTE)
+			if (!IN_DBASE(it->type))
 				continue;
 			if (IFL(it->,MULTICOL)) {
 				for (int m=0; m < it->nmenu; m++)
@@ -309,7 +309,13 @@ static void fill_key_row(QTableWidget *tw, ITEM *item, int row)
 	set_popup_cb(cb, key_callback(KEY_FIELD_FIELD, row, c), int, c);
 	QCheckBox *chk = new QCheckBox;
 	chk->setCheckState(blank || !fk->key ? Qt::Unchecked : Qt::Checked);
-	chk->setEnabled(!blank);
+	bool ken = !blank;
+	if (ken && item->type == IT_FKEY)
+		ken = !fk->item || (fk->item->type != IT_NOTE &&
+				    !IFL(item->,FKEY_MULTI));
+	else if(ken && item->type == IT_INV_FKEY)
+		ken = !fk->item || fk->item->type == IT_FKEY;
+	chk->setEnabled(ken);
 	tw->setCellWidget(row, KEY_FIELD_KEY, chk);
 	set_button_cb(chk, key_callback(KEY_FIELD_KEY, row, c), bool c);
 	chk = new QCheckBox;
