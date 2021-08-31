@@ -194,7 +194,7 @@ check_xlate_tab(dcombo);
     /* fkey */ \
     ( fk_form,		(VARCHAR, 128), s, fkey_form_name ), \
     ( fk_header,	BIT, ib, (FKEY_HEADER,,) ), \
-    ( fk_search,	BIT, ib, (FKEY_SEARCH,,) ), \
+    /* ( fk_search,	BIT, ib, (FKEY_SEARCH,,) ), */ \
     ( fk_multi,		BIT, ib, (FKEY_MULTI,,) ), \
     /* too much chart crap; moved to own table */ \
     /* constraints */ \

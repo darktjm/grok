@@ -1612,20 +1612,17 @@
 	specific item in the referred-to database.  Selecting an entry in
 	one drop-down filters the values in the other drop-downs to valid
 	values.  If the Headers flag is set, the label for each field is
-	shown above the drop-down.  If Subsearch is enabled, a text field
-	below the drop-downs allows further limiting of drop-down values using
-	the given search string on the foreign db.
+	shown above the drop-down.
 
 	If the Multi-Ref flag is set, then this field can hold multiple keys,
 	and all cards from the referred-to database which match the keys will
 	be displayed in a scrollable table listing.  As with single references,
-	Headers and Subsearch display headers in the table and a subsearch
-	text field below the table, respectively.  New entries are added by
-	selecting menu entries in the bottom row as with single reference fields.
-	Causing a set entry to become unset, by blanking out one or more menus,
-	will delete that entry (and, if set menus remain, they will be set in
-	the bottom row).  Selecting a row before pressing the label will load
-	the selected item after switching to the foreign db.
+	Headers enables the display of headers in the table.  New entries are
+	added by selecting menu entries in the bottom row as with single
+	reference fields.  Causing a set entry to become unset, by blanking
+	out one or more menus, will delete that entry (and, if set menus remain,
+	they will be set in the bottom row).  Selecting a row before pressing the
+	label will load the selected item after switching to the foreign db.
 
 	Deleting a card referred to by this field will cause cascade deletes
 	(i.e., deletes of referers) only if the referred-to database knows that
@@ -1641,16 +1638,15 @@
 	to this database; this is the one and only key field for referers.  When
 	the card is displayed, a table of text values of the foreign db's visible
 	fields is shown,  The key field may not be displayed (it is redundant:
-	the key field refers to the displayed card).  As with Reference fields, 
-	Headers and Subsearch are supported.  In the latter case, this limits
-	which foreign cards are displayed.  Additionally, four buttons appear
-	under the table.  The cycle symbol (Refresh) button updates the table,
-	in case the foreign database changed.  The + (Add) button addds a new
-	card to the foreign db and pops up a card editor window for it.  The
-	- (Delete) button deletes the currently selected row.  The open document
-	symbol (Edit) button pops up a card editor for the currently selected
-	table row.  The label link and popup card forms restrict the key
-	Reference field to point to the card that was being edited.
+	the key field refers to the displayed card).  As with Reference fields,
+	Headers are supported.  Additionally, four buttons appear under the table.
+	The cycle symbol (Refresh) button updates the table, in case the foreign
+	database changed.  The + (Add) button addds a new card to the foreign db
+	and pops up a card editor window for it.  The - (Delete) button deletes the
+	currently selected row.  The open document symbol (Edit) button pops up a
+	card editor for the currently selected table row.  The label link and popup
+	card forms restrict the key Reference field to point to the card that was
+	being edited.
 
 	To only provide a link to a foreign db, make the height of the Referers widget
 	equal to the height of the label.  No visible fields are needed or allowed.

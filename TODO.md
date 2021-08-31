@@ -48,11 +48,15 @@ Features in Progress
     search expression to the other table by default as well.  For multi
     and inv tables, this also filters what's displayed.
 
-  - only summary testing is of single-level single-field fkey
+  - only summary testing is of single-level single-field fkey; I'll
+    fix issues if they are reported (not likely since I'm probably the
+    only user).
 
-  - some data validity checks' suggested fixes untested
+  - some data validity checks' suggested fixes untested; I'll fix issues
+    if they are reported (not likely since I'm probably the only user).
 
-  - little testing of fkey_multi or multi-field keys
+  - little testing of fkey_multi or multi-field keys; I'll fix issues if
+    they are reported (not likely since I'm probably the only user).
 
   - make_summary_line() leaks CARDs
 

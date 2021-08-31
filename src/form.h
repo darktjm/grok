@@ -264,7 +264,9 @@ enum item_flag {
 
 	/* Reference */
 	IF_FKEY_HEADER,		/* display headers? */
+#if 0
 	IF_FKEY_SEARCH,		/* parent restriction search field? */
+#endif
 	IF_FKEY_MULTI,		/* key field is array of parents */
 
 	/* not part of form definition */

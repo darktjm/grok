@@ -1364,6 +1364,7 @@ static void create_item_widgets(
 			b->setMinimumWidth(1);
 			set_button_cb(b, card_callback(nitem, card, false, -5));
 			bb->addWidget(b, 1);
+#if 0
 			if (IFL(item.,FKEY_SEARCH)) {
 				/* FIXME:  le never gets destroyed (shouldn't it die w/ w0?) */
 				CardLineEdit *le = new CardLineEdit(card, nitem, carditem->w0);
@@ -1371,6 +1372,7 @@ static void create_item_widgets(
 				bb->addWidget(le);
 				bb->setStretchFactor(le, 5);
 			}
+#endif
 		}
 		/* add dummies/headers for inv as well */
 		FKeySelector *fks = add_fkey_row(carditem->w0, card, nitem, !editable,
@@ -1380,12 +1382,14 @@ static void create_item_widgets(
 			mw->removeRow(0);
 			break;
 		}
+#if 0
 		if (IFL(item.,FKEY_SEARCH)) {
 			CardLineEdit *le = new CardLineEdit(card, nitem, carditem->w0);
 			set_text_cb(le, card_callback(nitem, card, false, -1));
 			l->addWidget(le, IFL(item.,FKEY_HEADER) ? 2 : 1, 0,
 				     1, l->columnCount());
 		}
+#endif
 		break;
 	  }
 
@@ -1870,9 +1874,11 @@ static void card_callback(
 			}
 		}
 		switch(index) {
+#if 0
 		    case -1: /* search */
 			// FIXME: filter fkey db
 			break;
+#endif
 		    case -2: /* + Add */ {
 			const ITEM *fitem = 0;
 			int fitno = 0;

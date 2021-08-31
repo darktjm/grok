@@ -204,7 +204,9 @@ bool write_form(
 		if (item->type == IT_FKEY || item->type == IT_INV_FKEY) {
 			write_str("fk_db      ", item->fkey_form_name);
 			write_int("fk_header  ", IFL(item->,FKEY_HEADER));
+#if 0
 			write_int("fk_search  ", IFL(item->,FKEY_SEARCH));
+#endif
 			write_int("fk_multi   ", IFL(item->,FKEY_MULTI));
 			write_int("nfkey      ", item->nfkey);
 			for (int n = 0; n < item->nfkey; n++) {
@@ -645,8 +647,10 @@ FORM *read_form(
 					STORE(item->fkey_form_name, p);
 			else if (!strcmp(key, "fk_header"))
 					IFV(item->,FKEY_HEADER, atoi(p));
+#if 0
 			else if (!strcmp(key, "fk_search"))
 					IFV(item->,FKEY_SEARCH, atoi(p));
+#endif
 			else if (!strcmp(key, "fk_multi"))
 					IFV(item->,FKEY_MULTI, atoi(p));
 			else if (!strcmp(key, "nfkey"))

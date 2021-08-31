@@ -396,7 +396,7 @@ enum edact {
 	EA_QUERY, EA_REFBY, EA_FHELP, EA_DEBUG, EA_PREVW, EA_HELP, EA_CANCEL,
 	EA_DONE, EA_ADDWID, EA_LAST_FWIDE = EA_ADDWID, EA_DELWID,
 	EA_TYPE, EA_FLSRCH, EA_FLRO, EA_FLNSRT, EA_DEFSRT, EA_FLMUL,
-	EA_FKHDR, EA_FKSRCH, EA_FKMUL,
+	EA_FKHDR, /* EA_FKSRCH, */ EA_FKMUL,
 	EA_FLDNM, EA_FIRST_MULTI_OVR = EA_FLDNM, EA_COL, EA_SUMCOL, EA_SUMWID,
 	EA_LAST_MULTI_OVR = EA_SUMWID, EA_SUMPR, EA_FLCODE, EA_FLSUM,
 	EA_ISDATE, EA_ISTIME, EA_ISDTTM, EA_ISDUR, EA_DTWID, EA_DTCAL,
@@ -481,7 +481,9 @@ static struct _template {
 	{   0, 'F', EA_NONE,	" ",			0,		},
 	{ FKY, 'L', EA_NONE,	" ",			0,		},
 	{ AFK, 'f', EA_FKHDR,	"Headers",		"fe_ref",	},
+#if 0
 	{ AFK, 'f', EA_FKSRCH,	"Subsearch",		"fe_ref",	},
+#endif
 	{ FKY, 'f', EA_FKMUL,	"Multi-Ref",		"fe_ref",	},
 	{   0, 'F', EA_NONE,	" ",			0,		},
 	{ ANY, 'L', EA_NONE,	"Internal field name:",	"fe_int",	},
@@ -1304,7 +1306,9 @@ static void fillout_formedit_widget(
 		  break;
 	  case EA_FLMUL: set_toggle(w, IFL(item->,MULTICOL));		break;
 	  case EA_FKHDR: set_toggle(w, IFL(item->,FKEY_HEADER));		break;
+#if 0
 	  case EA_FKSRCH: set_toggle(w, IFL(item->,FKEY_SEARCH));		break;
+#endif
 	  case EA_FKMUL: set_toggle(w, IFL(item->,FKEY_MULTI));		break;
 	  case EA_INLEN: set_sb_value(w, item->maxlen);			break;
 	  case EA_SUMCOL: set_sb_value(w, item->sumcol);			break;
@@ -1854,7 +1858,9 @@ static int readback_item(
 	               break;
 
 	  case EA_FKHDR: IFT(item->,FKEY_HEADER);		break;
+#if 0
 	  case EA_FKSRCH: IFT(item->,FKEY_SEARCH);		break;
+#endif
 	  case EA_FKMUL: IFT(item->,FKEY_MULTI);		break;
 
 	  case EA_LABFH:
