@@ -716,7 +716,7 @@ static void pr_sql_fkey_tables(FILE *fp, const char *db, ITEM *item,
 			       const int *seq, int nseq);
 static void pr_sql_fkey_group_by(FILE *fp, ITEM *item, const char **pref,
 				 const int *seq, int nseq, const ITEM *base = 0);
-static void pr_fkey_compound_ref(FILE *fp, const FORM *form, const ITEM *item);
+static void pr_fkey_compound_ref(FILE *fp, const ITEM *item);
 static void pr_sql_tq(FILE *fp, const char *db, const int *seq, int nseq);
 static void pr_sql_item(FILE *fp, const char *db, const FORM *form, int itno,
 			const MENU *menu, const int *seq, int nseq,
@@ -790,7 +790,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		"\\{IF +d}\n"
 		"DROP VIEW\\{IF +f} IF EXISTS\\{ENDIF} %s_sum;\n"
 		"\\{ENDIF}\n",
-		form->name, form->name, form->name);
+		form->name, form->name);
 	for(i = 0; i < form->nitems; i++) {
 		item = form->items[i];
 		if(item->type == IT_FKEY && IFL(item->,FKEY_MULTI))
@@ -861,7 +861,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 		item = form->items[i];
 		if(item->type != IT_FKEY || IFL(item->,FKEY_MULTI))
 			continue;
-		pr_fkey_compound_ref(fp, form, item);
+		pr_fkey_compound_ref(fp, item);
 	}
 	/* make referred-to fields UNIQUE */
 	QStringList sl;
@@ -884,7 +884,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 					"  %s ",
 					form->name, item->name, form->name, item->name);
 				pr_sql_type(fp, form, i);
-				pr_fkey_compound_ref(fp, form, item);
+				pr_fkey_compound_ref(fp, item);
 				fputs(",\n  UNIQUE(\"row id\",", fp);
 				for(int j = 0, kn = 0; j < item->nfkey; j++)
 					if(item->fkey[j].key) {
@@ -1691,7 +1691,7 @@ static void pr_sql_fkey_ref(FILE *fp, const ITEM *item)
 	putc(')', fp);
 }
 
-static void pr_fkey_compound_ref(FILE *fp, const FORM *form, const ITEM *item)
+static void pr_fkey_compound_ref(FILE *fp, const ITEM *item)
 {
 	int j, m;
 	for(j = m = 0; j < item->nfkey; j++) {
@@ -1924,7 +1924,7 @@ static void pr_sql_fkey_fields(FILE *fp, const char *db, const ITEM *base,
 			       ITEM *item, int nseq, const int *seq,
 			       bool has_groupby, bool is_agg)
 {
-	int n, m;
+	int n;
 	bool didone = false;
 	is_agg |= item->type == IT_INV_FKEY || IFL(item->,FKEY_MULTI);
 	resolve_fkey_fields(item);

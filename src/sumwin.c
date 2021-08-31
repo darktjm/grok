@@ -181,7 +181,7 @@ static int compare(
 }
 
 static void add_fkey_summary(struct sum_item **res, size_t *nres,
-			     int itemno, int fkno, int sumcol, int &ncol,
+			     int itemno, int sumcol, int &ncol,
 			     CARD *rcard)
 {
 	ITEM *item = rcard->form->items[itemno];
@@ -201,7 +201,7 @@ static void add_fkey_summary(struct sum_item **res, size_t *nres,
 		int fitno = fk.index % fform->nitems;
 		ITEM *fit = fk.item;
 		if (fit->type == IT_FKEY) {
-			add_fkey_summary(res, nres, fitno, i, sumcol, ncol, card);
+			add_fkey_summary(res, nres, fitno, sumcol, ncol, card);
 			continue;
 		}
 		grow(0, "summary", struct sum_item, *res, ncol + 1, nres);
@@ -241,7 +241,7 @@ int get_summary_cols(struct sum_item **res, size_t *nres, const CARD *card)
 			i--; // keep processing same item
 		}
 		if (item->type == IT_FKEY) {
-			add_fkey_summary(res, nres, i, -1, item->sumcol, ncol,
+			add_fkey_summary(res, nres, i, item->sumcol, ncol,
 					 const_cast<CARD *>(card));
 			continue;
 		}

@@ -794,6 +794,15 @@ Infrastructure Improvements
   indexed by the grouping columns).  This does not mean that I will
   reconsider IUP for the GUI toolkit.  It does, however, mean that I
   will re-evaluate the dbus idea, since lua can just do that for me.
+  
+  - using lua from SQL would be more difficult without native db
+    support.  ODBC separates you from the database too much.
+    
+    - sqlite3: https://github.com/abiliojr/sqlite-lua
+    - postgres: https://github.com/pllua/pllua
+    - mysql, firebird have no such equivalents atm, so have to use UDF/UDR,
+      which is complex and mostly undocumented in both.  No, examples
+      do not serve as documentation.
 
 - Support freedesktop.org standard paths by default, at least as part
   of the search paths.  This may need to come from QStandardPaths or
