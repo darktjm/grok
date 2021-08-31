@@ -352,19 +352,26 @@ Version 2.4 (in progress)
    * @dbase on FOREACH switches to alternate database
  * Added Reference and Referers fields for foreign database access
    * List of key and/or card-displayed fields editable in form editor
-   * Reference fields appear as sequence of pulldown menus in card
+   * Reference fields appear as row of pulldown menus in card
+     * Multi-key reference fields appear as table of such rows
+   * Referer fields appear as table of visible field values
+     * Referers can be added, removed, and edited using buttons below table
    * Reference fields' labels provide convenient table switching
+     * Referrer switch restricts access to referrers of current card
    * List of referred-to databases editable in form editor
-   * Added deref(), which provides the displayed value of a reference.
+     * If a database listed there or via a Referer field refers to a
+       card being deleted, a popup displays all direct and indirect
+       referrers and allows cascade delete or clearing reference fields
    * Added _fkey _x (juxtaposition) to syntax to access field named x in
      database referred to by reference field _fkey.  If _x is also a
      reference, more field names can be juxtaposed to follow a reference
      chain.
+   * Added deref(), which provides the displayed value of a reference.
    * Added dreff(), which provides an array in display order of field
      references in the above format
    * Added _fkey this and _fkey last to get row numbers from
      referenced database.  _fkey can be a chain as above.
-   * Added referenced predicate to language to check if this row is used
+   * Added referenced predicate to language to check if a row is used
    * Added "Check References" menu item to validate/fix fkey data
  * Multi-line data may be displayed in the summary window and built-in
    template summaries.  Currently this means just Note fields.

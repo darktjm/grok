@@ -877,7 +877,9 @@ void remake_sort_pulldown(void)
 
 void switch_form(
 	CARD		*&card,		/* card to switch */
-	char		*formname)	/* new form name */
+	char		*formname,	/* new form name */
+	int		rest_item,	/* parent restrict item, or -1 */
+	char		*rest_val)	/* parent restrict val, or 0 */
 {
 	int		i;
 	char		*prev_form = 0;
@@ -912,7 +914,8 @@ void switch_form(
 			dbase = dbase_create(form);
 		form->dbpath = dbase->path;
 
-		card = create_card_menu(form, dbase, w_card, !mainwindow);
+		card = create_card_menu(form, dbase, w_card, !mainwindow,
+					rest_item, rest_val);
 		if(!card)
 			fatal("No memory for initial form");
 		card->form  = form;
@@ -957,6 +960,7 @@ void switch_form(
 		/* a form is loaded, and when that eventually happens, */
 		/* prev_form will have been NULL< anyway */
 		zfree(prev_form);
+		zfree(rest_val);
 		if (mainwindow) {
 			mainwindow->setWindowIconText("None");
 			mainwindow->setWindowTitle("grok");
@@ -1428,7 +1432,10 @@ static void add_card(
 	else
 		for (i=0; i < card->form->nitems; i++) {
 			item = card->form->items[i];
-			if (IN_DBASE(item->type) && item->idefault)
+			if (i == card->rest_item)
+				dbase_put(dbase, card->row, item->column,
+					  card->rest_val);
+			else if (IN_DBASE(item->type) && item->idefault)
 				dbase_put(dbase, card->row, item->column,
 					  evaluate(card, item->idefault));
 		}
@@ -1569,7 +1576,7 @@ static void del_references(int how, FORM *fform, FORM *form, DBASE *dbase,
 		resolve_fkey_fields(fform->items[i]);
 		if(fform->items[i]->fkey_form != form)
 			continue;
-		char *key = fkey_of(dbase, row, fform, fform->items[i]);
+		char *key = fkey_of(dbase, row, fform->items[i]);
 		if(!key)
 			continue;
 		/* if there's another record w/ same key, let it take over */
@@ -2073,7 +2080,7 @@ static void check_references(void)
 				form->addLayout(l, r, 2);
 				FKeySelector *fks = 0;
 				fks = add_fkey_row(msgw, &card, badrefs[i].item,
-						   l, 0, 0, *item, fcard);
+						   false, l, 0, 0, *item, fcard);
 				int col = l->columnCount();
 				for(int j = 0; j < col; j++) {
 					QWidget *w = l->itemAtPosition(0, j)->widget();
@@ -2263,8 +2270,7 @@ static void check_references(void)
 					const ITEM *item = badrefs[i].form->items[badrefs[i].item];
 					char *val = row < 0 ? 0 :
 						    fkey_of(badrefs[i].fdbase,
-							    row, badrefs[i].fform,
-							    item);
+							    row, item);
 					/* FIXME:  invalidate card somehow */
 					/*         and update mainwin like store() */
 					if(IFL(item->,FKEY_MULTI)) {

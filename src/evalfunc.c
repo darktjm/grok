@@ -1772,7 +1772,7 @@ static bool check_referenced(const FORM *fform, const FORM *form, const DBASE *d
 		resolve_fkey_fields(fform->items[i]);
 		if(fform->items[i]->fkey_form != form)
 			continue;
-		char *key = fkey_of(dbase, row, fform, fform->items[i]);
+		char *key = fkey_of(dbase, row, fform->items[i]);
 		if(!key)
 			continue;
 		ret = find_referrer(fform, fdbase, fform->items[i], key) >= 0;

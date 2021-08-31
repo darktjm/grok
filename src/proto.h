@@ -27,7 +27,9 @@ CARD *create_card_menu(
 	FORM		*form,		/* form that controls layout */
 	DBASE		*dbase,		/* database for callbacks, or 0 */
 	QWidget		*wform = 0,	/* form widget to install into, or 0 */
-	bool		no_gui = true);	/* true to just init card */
+	bool		no_gui = true,	/* true to just init card */
+	int		rest_item = -1,	/* parent restrict GUI item */
+	char		*rest_val = 0);	/* parent restrict GUI val */
 void build_card_menu(
 	CARD		*card,		/* initialized non-GUI card */
 	QWidget		*wform);	/* form widget to install into, or 0 */
@@ -37,7 +39,8 @@ class ItemEd : public QDialog {
 	       const FORM *form,	/* form of card to edit */
 	       const DBASE *dbase,	/* database of card to edit */
 	       int row,			/* row in dbase of card to edit */
-	       bool init = false);	/* true if row needs initialization */
+	       bool init = false,	/* true if row needs initialization */
+	       int rest_item = -1);	/* parent restrict mode; val from db */
 	~ItemEd();
     private:
 	CARD *card;
@@ -61,7 +64,7 @@ void fkey_group_setval(
 	const char *key,		/* full key if row <0; 0/blank ok */
 	int keyno);			/* if >=0, FKEY_MULTI array item */
 FKeySelector *add_fkey_row(
-	QWidget *p, CARD *card, int nitem, /* widget & callback info */
+	QWidget *p, CARD *card, int nitem, bool ro, /* widget & callback info */
 	QGridLayout *l, QTableWidget *mw, int row,  /* where to put it */
 	ITEM &item, CARD *fcard);	/* fkey info */
 
@@ -152,8 +155,8 @@ int fkey_lookup( /* ret -2 for oob, -1 for not found */
 char *fkey_of(
 	const DBASE	*dbase,		/* database to search */
 	int		row,		/* row */
-	const FORM	*form,		/* fkey origin */
-	const ITEM	*item);		/* fkey definition */
+	const ITEM	*item,		/* fkey definition */
+	bool		mesc = false);	/* escape if FKEY_MULTI? */
 int find_referrer(
 	const FORM	*form,		/* fkey origin */
 	const DBASE	*dbase,		/* database to search */
@@ -430,7 +433,9 @@ void remake_query_pulldown(void);
 void remake_sort_pulldown(void);
 void switch_form(
 	CARD		*&card,		/* card to switch */
-	char		*formname);	/* new form name */
+	char		*formname,	/* new form name */
+	int		rest_item = -1,	/* parent restrict item, or -1 */
+	char		*rest_val = 0);	/* parent restrict val, or 0 */
 void search_cards(
 	Searchmode	mode,		/* search, narrow, widen, ... */
 	CARD		*card,

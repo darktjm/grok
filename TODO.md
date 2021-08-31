@@ -41,11 +41,6 @@ Features in Progress
 --------------------
 
 - fkey issues:
-  - no parent-restricted mode.    This restricts all searches to
-    include the parent, and makes the parent field read-only for
-    editing and adding (where it is obviously initialized to the
-    parent field value).
-
   - search restriction text field does nothing.  should be a search
     expression applied to the parent database to restrict
     what parents are selectable (although it never removes the
@@ -332,6 +327,11 @@ Minor UI Improvements
   - Note that -p doesn't support Flag List or Flag Group fields in
     either mode, really, and probably never will since I don't
     want to add more fields to the menu table.
+
+- freeze_if should probably be as dynamic as invisible_if.  Currently,
+  some widgets change to a different form if read-only, so they need to
+  be switched between forms.  In fact, the form it uses is determined at
+  card window creation time, so readonly is very non-dynamic.
 
 Important UI improvements
 -------------------------

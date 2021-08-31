@@ -130,6 +130,28 @@ void query_none(
 
 
 /*
+ * true if card restriction matches
+ */
+
+static bool fkey_restrict(const CARD *card, int row)
+{
+	if(card->rest_item < 0)
+		return true;
+	const ITEM *item = card->form->items[card->rest_item];
+	const char *val = dbase_get(card->dbase, row, item->column);
+	if(BLANK(val))
+		return false;
+	if(!IFL(item->,FKEY_MULTI))
+		return !strcmp(val, card->rest_val);
+	char sep, esc;
+	get_form_arraysep(card->form, &sep, &esc);
+	int b, a;
+	/* rest_val is already escaped */
+	return find_elt(val, card->rest_val, strlen(card->rest_val), &b, &a,
+			sep, esc);
+}
+
+/*
  * put all cards into the summary
  */
 
@@ -142,7 +164,7 @@ void query_all(
 		return;
 	for (r=n=0; r < card->dbase->nrows; r++) {
 		int sr = card->sorted ? card->sorted[r] : r;
-		if (SECT_OK(card->dbase, sr))
+		if (SECT_OK(card->dbase, sr) && fkey_restrict(card, sr))
 			card->query[n++] = sr;
 	}
 	card->nquery = n;
@@ -170,7 +192,8 @@ void query_search(
 		mode = SM_NARROW;
 	for (int row=0; row < card->dbase->nrows; row++) {
 		card->row = card->sorted ? card->sorted[row] : row;
-		if (!SECT_OK(card->dbase, card->row))
+		if (!SECT_OK(card->dbase, card->row) ||
+		    !fkey_restrict(card, card->row))
 			continue;
 		switch(mode) {
 		  case SM_INQUERY:
@@ -231,7 +254,8 @@ void query_letter(
 		card->col_sorted_by = 0;
 	for (r=0; r < card->dbase->nrows; r++) {
 		int sr = card->sorted ? card->sorted[r] : r;
-		if (SECT_OK(card->dbase, sr) && (!mask || mask[sr])) {
+		if (SECT_OK(card->dbase, sr) && fkey_restrict(card, sr) &&
+		    (!mask || mask[sr])) {
 			data = dbase_get(card->dbase, sr, card->col_sorted_by);
 			while (data && SKIP(*data))
 				data++;
@@ -278,7 +302,8 @@ void query_eval(
 		mode = SM_NARROW;
 	for (int row=0; row < card->dbase->nrows; row++) {
 		card->row = card->sorted ? card->sorted[row] : row;
-		if (!SECT_OK(card->dbase, card->row))
+		if (!SECT_OK(card->dbase, card->row) ||
+		    !fkey_restrict(card, card->row))
 			continue;
 		switch(mode) {
 		  case SM_INQUERY:

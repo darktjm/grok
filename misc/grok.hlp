@@ -79,7 +79,7 @@
 	review git pull requests, but I don't actually use git/bitbucket
 	for source code control, and will likely lose some metadata if I
 	merge them.
-	
+
 	You can mail me directly at darktjm@gmail.com as well, but I would
 	prefer you air your grievances in public and track them using the
 	issue tracking facility.
@@ -308,7 +308,7 @@
 	If the database passes the reference check, a popup will appear to
 	report this.  Otherwise, all problems are reported, along with
 	potential fixes.  The following errors are reported:
-	
+
 		No form:  foreign form of Reference or Referers field can't
 		be loaded.  Suggested fix:  try again later or change to a
 		different form.  Note that changing to a different form may
@@ -1651,7 +1651,7 @@
 	symbol (Edit) button pops up a card editor for the currently selected
 	table row.  The label link and popup card forms restrict the key
 	Reference field to point to the card that was being edited.
-	
+
 	To only provide a link to a foreign db, make the height of the Referers widget
 	equal to the height of the label.  No visible fields are needed or allowed.
 %% fe_def

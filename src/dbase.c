@@ -870,8 +870,8 @@ int fkey_lookup( /* ret -2 for oob, -1 for not found */
 char *fkey_of(
 	const DBASE	*dbase,		/* database to search */
 	int		row,		/* row */
-	const FORM	*form,		/* fkey origin */
-	const ITEM	*item)		/* fkey definition */
+	const ITEM	*item,		/* fkey definition */
+	bool		mesc)		/* escape if FKEY_MULTI? */
 {
 	int n, keylen = keylen_of(item);
 	/* ??? invalid form */
@@ -886,9 +886,24 @@ char *fkey_of(
 		const MENU *m = k->menu;
 		int col = m ? m->column : i->column;
 		const char *fval = dbase_get(dbase, row, col);
-		if (keylen == 1)
-			return zstrdup(fval);
-		set_elt(&ret, n, fval, form);
+		if (keylen == 1) {
+			ret = zstrdup(fval);
+			break;
+		}
+		set_elt(&ret, n, fval, item->form);
+	}
+	if(ret && mesc && IFL(item->,FKEY_MULTI)) {
+		char es[3], &esc = es[0], &sep = es[1];
+		get_form_arraysep(item->form, &sep, &esc);
+		es[2] = 0;
+		int ne = countchars(ret, es);
+		if(ne) {
+			int olen = strlen(ret);
+			char *rv = (char *)malloc(olen + ne + 1);
+			*escape(rv, ret, olen, esc, es) = 0;
+			free(ret);
+			return rv;
+		}
 	}
 	return ret;
 }

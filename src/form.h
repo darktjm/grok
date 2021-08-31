@@ -29,10 +29,13 @@ struct carditem {
 };
 typedef struct card CARD;
 struct card {
-	CARD	     *next;	/* link for all reusable cards */
+	CARD	    *next;	/* link for all reusable cards */
+	CARD	    *fkey_next;	/* foreign key related links */
 	FORM	    *form;	/* form struct that controls this card */
 	char	    *prev_form;	/* previous form name */
 	DBASE	    *dbase;	/* database that callbacks use to store data */
+	int	    rest_item;	/* parent restrict mode: item # to restrict */
+	char	    *rest_val;	/* non-0: value to restrict rest_item to */
 				/****** summary window ***********************/
 	int	    nquery;	/* # of valid row indices in query[] */
 	int	    qcurr;	/* index into query[] for displayed card */
@@ -42,7 +45,6 @@ struct card {
 	char	    *letter_mask; /* letters search within last results */
 	int	    lm_size;	/* size of letter_mask */
 	QTreeWidget *wsummary;	/* summary list widget, for destroying */
-	CARD	    *fkey_next;	/* foreign key related links */
 				/****** card window **************************/
 	QDialog	    *shell;	/* if nonzero, card has its own window */
 	QWidget	    *wform;	/* form widget card is drawn into */
@@ -50,8 +52,8 @@ struct card {
 	QWidget	    *wstat;	/* child of wform static part is drawn into */
 	int	    row;	/* database row shown in card, -1=none */
 	int	    disprow;	/* row being displayed in main window */
-	int	    nitems;	/* # of items, also size of following array */
 	int	    last_query;	/* last query pd index, for ReQuery */
+	int	    nitems;	/* # of items, also size of following array */
 	struct carditem items[1];
 };
 

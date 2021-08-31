@@ -37,7 +37,7 @@ public:
 
 /* ItemEd is like CardWindow, but actually edits an item */
 ItemEd::ItemEd(QWidget *parent, const FORM *form, const DBASE *dbase, int row,
-	       bool init) : QDialog(parent ? parent : mainwindow)
+	       bool init, int rest_item) : QDialog(parent ? parent : mainwindow)
 {
 	setAttribute(Qt::WA_DeleteOnClose);
 	QBoxLayout *l = new QBoxLayout(QBoxLayout::TopToBottom, this);
@@ -49,9 +49,13 @@ ItemEd::ItemEd(QWidget *parent, const FORM *form, const DBASE *dbase, int row,
 	QAbstractButton *b = mk_button(bb, "Done", dbbr(Accept));
 	set_button_cb(b, accept()); /* why is this necessary? */
 	l->addWidget(bb);
+	char *rest_val = 0;
+	if(rest_item >= 0)
+		rest_val = zstrdup(dbase_get(dbase, row,
+					     form->items[rest_item]->column));
 	card = create_card_menu(const_cast<FORM *>(form),
 				const_cast<DBASE *>(dbase),
-				w, false);
+				w, false, rest_item, rest_val);
 	card->row = row;
 	card->shell = this;
 	/* following is from mainwin.c: add_card */
@@ -94,6 +98,7 @@ void free_card(
 	zfree(card->sorted);
 	zfree(card->prev_form);
 	zfree(card->letter_mask);
+	zfree(card->rest_val);
 	for(prev = &card_list; *prev; prev = &(*prev)->next)
 		if(*prev == card) {
 			*prev = card->next;
@@ -164,7 +169,9 @@ CARD *create_card_menu(
 	FORM		*form,		/* form that controls layout */
 	DBASE		*dbase,		/* database for callbacks, or 0 */
 	QWidget		*wform,		/* form widget to install into, or 0 */
-	bool		no_gui)		/* true to just init card */
+	bool		no_gui,		/* true to just init card */
+	int		rest_item,	/* parent restrict GUI item */
+	char		*rest_val)	/* parent restrict GUI val */
 {
 	CARD		*card;		/* new card being allocated */
 	int		n;
@@ -180,6 +187,8 @@ CARD *create_card_menu(
 	card->form   = form;
 	card->dbase  = dbase;
 	card->row    = -1;
+	card->rest_item = rest_item;
+	card->rest_val = rest_val;
 	card->nitems = no_gui ? 0 : form->nitems;
 	if (!no_gui)
 		build_card_menu(card, wform);
@@ -568,8 +577,15 @@ struct CardPushButton : public QPushButton {
 };
 
 struct FKeySelector : public CardComboBox {
-	FKeySelector(CARD *c, int i, QWidget *p, CARD *fc, ITEM *fit, int n) :
-		CardComboBox(c, i, p), fcard(fc), next(this), item(fit), fkey(n) {}
+	FKeySelector(CARD *c, int i, QWidget *p, CARD *fc, ITEM *fit, bool ro, int n) :
+		CardComboBox(c, i, p), fcard(fc), next(this), item(fit), fkey(n) {
+		if(ro) {
+			setProperty("readOnly", true);
+			// FIXME:  this should instead transform to read-only
+			// lineedit like the regular input+menu does
+			setEnabled(false);
+		}
+	}
 
 	void AddGroup(FKeySelector *f) {
 		FKeySelector **prev = &f->next;
@@ -675,7 +691,7 @@ struct FKeySelector : public CardComboBox {
 		const CARD *c = fc->fkey_next;
 		for (int r = 0; r < fc->dbase->nrows; r++)
 			if (!frestrict[r]) {
-				char *v = fkey_of(fc->dbase, r, c->form, item);
+				char *v = fkey_of(fc->dbase, r, item);
 				row_restrict(c, item->column, v, restrict);
 				zfree(v);
 			}
@@ -911,6 +927,7 @@ static void create_item_widgets(
 			&& (!card->dbase || !card->dbase->rdonly)
 			&& !card->form->rdonly
 			&& !IFL(item.,RDONLY)
+			&& nitem != card->rest_item
 			&& !evalbool(card, item.freeze_if);
 
 	switch(item.type) {
@@ -1073,7 +1090,13 @@ static void create_item_widgets(
 		  cb->setProperty(font_prop[item.inputfont], true);
 		  for(int i = 0; i < item.nmenu; i++)
 			cb->addItem(item.menu[i].label);
-		  set_popup_cb(cb, card_callback(nitem, card, true, i), int, i);
+		  if (editable)
+			set_popup_cb(cb, card_callback(nitem, card, true, i), int, i);
+		  else {
+			// FIXME: !editable should be more visible
+			cb->setEnabled(false);
+			cb->setProperty("readOnly", true);
+		  }
 		  carditem->w0 = cb;
 		  break;
 		}
@@ -1106,7 +1129,13 @@ static void create_item_widgets(
 					free(val);
 			}
 		  }
-		  set_qt_cb(QListWidget, itemSelectionChanged, list, card_callback(nitem, card));
+		  if (editable)
+		  	set_qt_cb(QListWidget, itemSelectionChanged, list, card_callback(nitem, card));
+		  else {
+			// FIXME: !editable should be more visible
+			list->setEnabled(false);
+			list->setProperty("readOnly", true);
+		  }
 		  carditem->w0 = list;
 		  break;
 		}
@@ -1137,6 +1166,7 @@ static void create_item_widgets(
 			else
 				b = new CardCheckBox(card, nitem, item.menu[n].label, carditem->w0);
 			b->setProperty(font_prop[item.inputfont], true);
+			b->setEnabled(editable);
 			b->ensurePolished();
 			bw = b->sizeHint().width();
 			if(colwidth[col] < bw) {
@@ -1280,6 +1310,10 @@ static void create_item_widgets(
 		carditem->w0->resize(item.xs - (multi ? 0 : item.xm),
 				     item.ys - (multi ? item.ym : 0));
 		carditem->w0->setObjectName("fkeygroup");
+		carditem->w0->setProperty(font_prop[item.inputfont], true);
+		if(!editable)
+			  carditem->w0->setProperty("readOnly", true);
+
 		QGridLayout *l = new QGridLayout(carditem->w0);
 		l->setSpacing(0); // default; qss may override
 		l->setContentsMargins(0, 0, 0, 0);
@@ -1311,21 +1345,21 @@ static void create_item_widgets(
 			// b = new QPushButton("=");
 			b = new QPushButton(QIcon::fromTheme("document-open"), "");
 			b->setMinimumWidth(1);
-			b->setEnabled(!IFL(item.,RDONLY));
+			// b->setEnabled(editable);
 			set_button_cb(b, card_callback(nitem, card, false, -4));
-			bb->addWidget(b, 1);
-			// b = new QPushButton("-");
-			b = new QPushButton(QIcon::fromTheme("list-remove"), "");
-			b->setMinimumWidth(1);
-			set_button_cb(b, card_callback(nitem, card, false, -3));
-			b->setEnabled(!IFL(item.,RDONLY));
-			bb->addWidget(b, 1);
-			// b = new QPushButton("+");
-			b = new QPushButton(QIcon::fromTheme("list-add"), "");
-			b->setMinimumWidth(1);
-			b->setEnabled(!IFL(item.,RDONLY));
-			set_button_cb(b, card_callback(nitem, card, false, -2));
-			bb->addWidget(b, 1);
+			if(editable) {
+				bb->addWidget(b, 1);
+				// b = new QPushButton("-");
+				b = new QPushButton(QIcon::fromTheme("list-remove"), "");
+				b->setMinimumWidth(1);
+				set_button_cb(b, card_callback(nitem, card, false, -3));
+				bb->addWidget(b, 1);
+				// b = new QPushButton("+");
+				b = new QPushButton(QIcon::fromTheme("list-add"), "");
+				b->setMinimumWidth(1);
+				set_button_cb(b, card_callback(nitem, card, false, -2));
+				bb->addWidget(b, 1);
+			}
 			b = new QPushButton(QIcon::fromTheme("view-refresh"), "");
 			b->setMinimumWidth(1);
 			set_button_cb(b, card_callback(nitem, card, false, -5));
@@ -1339,7 +1373,7 @@ static void create_item_widgets(
 			}
 		}
 		/* add dummies/headers for inv as well */
-		FKeySelector *fks = add_fkey_row(carditem->w0, card, nitem,
+		FKeySelector *fks = add_fkey_row(carditem->w0, card, nitem, !editable,
 						 l, mw, 0, item, fcard);
 		if (item.type == IT_INV_FKEY) {
 			fks->free_cards();
@@ -1422,8 +1456,7 @@ void FKeySelector::group_setval(int row, const char *key, int keyno)
 	if(row >= 0) {
 		const CARD *c;
 		for(c = fcard; c->fkey_next->fkey_next; c = c->fkey_next);
-		key = bkey = fkey_of(c->dbase, row, c->fkey_next->form,
-				     item);
+		key = bkey = fkey_of(c->dbase, row, item);
 	}
 	do {
 		resolve_fkey_fields(w->item);
@@ -1451,7 +1484,7 @@ void FKeySelector::group_setval(int row, const char *key, int keyno)
 }
 
 static FKeySelector *add_fkey_field(
-	QWidget *p, CARD *card, int nitem, /* widget & callback info */
+	QWidget *p, CARD *card, int nitem, bool ro, /* widget & callback info */
 	QString toplab, FKeySelector *prev, /* context */
 	QGridLayout *l, QTableWidget *mw, int row, int &col,  /* where to put it */
 	ITEM &item, CARD *fcard, int n,    /* fkey info */
@@ -1461,18 +1494,18 @@ static FKeySelector *add_fkey_field(
 	const FORM *fform = item.fkey_form;
 	if(!fform)
 		return new FKeySelector(card, nitem, mw ? 0 : p, fcard,
-					&item, n);
+					&item, ro, n);
 	ITEM *fit = item.fkey[n].item;
 	if(!fit)
 		return new FKeySelector(card, nitem, mw ? 0 : p, fcard,
-					&item, n);
+					&item, ro, n);
 	const MENU *fm = item.fkey[n].menu;
 	if (fit->type == IT_FKEY) {
 		resolve_fkey_fields(fit);
 		FORM *fitform = fit->fkey_form;
 		if(!fitform)
 			return new FKeySelector(card, nitem, mw ? 0 : p, fcard,
-						fit, n);
+						fit, ro, n);
 		QString lab;
 		CARD *nfcard = 0;
 		if (!row) {
@@ -1490,7 +1523,7 @@ static FKeySelector *add_fkey_field(
 		}
 		for (n = 0; n < fit->nfkey; n++)
 			if (fit->fkey[n].display)
-				prev = add_fkey_field(p, card, nitem,
+				prev = add_fkey_field(p, card, nitem, ro,
 						      lab, prev,
 						      l, mw, row, col,
 						      *fit, nfcard, n,
@@ -1508,7 +1541,7 @@ static FKeySelector *add_fkey_field(
 			l->addWidget(new QLabel(lab), 0, col);
 	}
 	FKeySelector *w = new FKeySelector(card, nitem, mw ? 0 : p, fcard,
-					   &item, n);
+					   &item, ro, n);
 	if (mw) {
 		/* FIXME:  only add row if not read-only */
 		if (row >= mw->rowCount())
@@ -1526,7 +1559,7 @@ static FKeySelector *add_fkey_field(
 }
 
 FKeySelector *add_fkey_row(
-	QWidget *p, CARD *card, int nitem, /* widget & callback info */
+	QWidget *p, CARD *card, int nitem, bool ro, /* widget & callback info */
 	QGridLayout *l, QTableWidget *mw, int row,  /* where to put it */
 	ITEM &item, CARD *fcard)	/* fkey info */
 {
@@ -1534,7 +1567,7 @@ FKeySelector *add_fkey_row(
 	FKeySelector *fks = 0;
 	for (int k = 0; k < item.nfkey; k++)
 		if (item.fkey[k].display)
-			fks = add_fkey_field(p, card, nitem, "", fks,
+			fks = add_fkey_field(p, card, nitem, ro, "", fks,
 					     l, mw, row, col,
 					     item, fcard, k, 0);
 	return fks;
@@ -1735,13 +1768,28 @@ static void card_callback(
 		if (flag) { /* label click */
 			card_readback_texts(card, -1);
 			int sel = card->row;
-			// maybe someday I'll strip leading path if unnecessary
 			QString fpath = card->form->path;
-			bool blank = BLANK(dbase_get(card->dbase, card->row, item->column));
-			/* FIXME: INV_FKEY selects parent-restrict mode */
+			DBASE *dbase = card->dbase;
+			bool blank = item->type == IT_FKEY &&
+				BLANK(dbase_get(dbase, sel, item->column));
+			/* FIXME: ensure that this card/form/dbase stays valid */
 			resolve_fkey_fields(item);
-			if(item->fkey_form)
-				switch_form(mainwindow->card, item->fkey_form->path);
+			if(item->fkey_form) {
+				int fit = -1;
+				char *fk = 0;
+				if(item->type == IT_INV_FKEY)
+					for(int n = 0; n < item->nfkey; n++)
+						if(item->fkey[n].key) {
+							fit = item->fkey[n].index;
+							resolve_fkey_fields(item->fkey[n].item);
+							fk = fkey_of(dbase, sel,
+								     item->fkey[n].item,
+								     true);
+							break;
+						}
+				switch_form(mainwindow->card, item->fkey_form->path,
+					    fit, fk);
+			}
 			if (item->type == IT_INV_FKEY || sel < 0 || blank)
 				return;
 			/*  {r="";foreach(k,+@"origdb":_ref[row],"_key1==k[0]&&..","(r=1)");r} */
@@ -1753,6 +1801,7 @@ static void card_callback(
 			else
 				q = "{k=";
 			q += "@\"";
+			// maybe someday I'll strip leading path if unnecessary
 			q += fpath.replace(QRegularExpression("([\\\\\"])"),
 						"\\\\\\1");
 			// maybe someday I'll replace numeric field with name
@@ -1825,6 +1874,23 @@ static void card_callback(
 			// FIXME: filter fkey db
 			break;
 		    case -2: /* + Add */ {
+			const ITEM *fitem = 0;
+			int fitno = 0;
+			for(int n = 0; n < item->nfkey; n++)
+				    if(item->fkey[n].key) {
+					    fitem = item->fkey[n].item;
+					    fitno = item->fkey[n].index;
+					    break;
+				    }
+			if(!fitem)
+				return;  // I guess I should pop an error up
+			char *key = fkey_of(card->dbase, card->row, fitem, true);
+			if(BLANK(key)) {
+				zfree(key);
+				create_error_popup(mainwindow, errno,
+						   "This card cannot be referenced because it has a blank key.");
+				return;
+			}
 			/* partly copied from mainwin:add_card() */
 			DBASE *dbase = read_dbase(item->fkey_form);
 			/* presumably dbase->currsect is correct */
@@ -1833,21 +1899,13 @@ static void card_callback(
 				 * there's probably also no room for a new popup window */
 				create_error_popup(mainwindow, errno,
 						   "No memory for new database row");
+				free(key);
 				return;
 			}
-			const ITEM *fitem = 0;
-			for(int n = 0; n < item->nfkey; n++)
-				    if(item->fkey[n].key) {
-					    fitem = item->fkey[n].item;
-					    break;
-				    }
-			char *key = fkey_of(card->dbase, card->row,
-					    item->fkey_form, fitem);
 			dbase_put(dbase, elt, fitem->column, key);
 			free(key);
-			/* FIXME:  make key read-only */
 			(new ItemEd(card->shell, item->fkey_form, dbase,
-				    elt, true))->exec();
+				    elt, true, fitno))->exec();
 			fillout_item(card, nitem, false);
 		  	return;
 		    }
@@ -1893,7 +1951,6 @@ static void card_callback(
 					else {
 						char *key = fkey_of(card->dbase,
 								    card->row,
-								    item->fkey_form,
 								    fitem);
 						char *oval = dbase_get(fcard.dbase, elt, fitem->column);
 						int begin, after;
@@ -1924,15 +1981,22 @@ static void card_callback(
 			}
 			return;
 		    }
-		    case -4: /* = Edit */
+		    case -4: { /* = Edit */
 			if(elt < 0)
 				    return;
-			/* FIXME:  make key read-only */
+			int fitno = 0;
+			for(int n = 0; n < item->nfkey; n++)
+				    if(item->fkey[n].key) {
+					    fitno = item->fkey[n].index;
+					    break;
+				    }
 			(new ItemEd(card->shell, item->fkey_form,
 				    read_dbase(item->fkey_form),
-				    tw->item(elt, 0)->data(Qt::UserRole).toInt()))->exec();
+				    tw->item(elt, 0)->data(Qt::UserRole).toInt(),
+				    false, fitno))->exec();
 			fillout_item(card, nitem, false);
 		  	return;
+		    }
 		    case -5: /* refresh */
 			fillout_item(card, nitem, false);
 			return;
@@ -1951,12 +2015,12 @@ static void card_callback(
 		if (!item->fkey_form)
 			break;
 		char *v = dbrow < 0 ? 0 : fkey_of(read_dbase(item->fkey_form),
-						  dbrow, item->fkey_form, item);
+						  dbrow, item);
 		if (multi) {
 			QSignalBlocker sb(tw);
 			char *ov = odbrow < 0 ? 0 :
 				          fkey_of(read_dbase(item->fkey_form),
-						  odbrow, item->fkey_form, item);
+						  odbrow, item);
 			char *a = dbase_get(card->dbase, card->row, item->column);
 			char toesc[3];
 			char &sep = toesc[1], &esc = toesc[0];
@@ -2023,7 +2087,7 @@ static void card_callback(
 					FKeySelector *fks = 0;
 					elt = tw->rowCount();
 					fks = add_fkey_row(card->items[nitem].w0,
-							   card, nitem,
+							   card, nitem, false,
 							   0, tw, elt, *item, 0);
 					fks->refilter();
 				}
@@ -2295,7 +2359,10 @@ void fillout_item(
 	if(!IFL(item->,MULTICOL))
 		data = dbase_get(card->dbase, card->row, item->column);
 
-	if (w0) w0->setEnabled(sens);
+	// FIXME: !editable should be more visible
+	bool roprop = w0 && w0->property("readOnly").toBool();
+
+	if (w0 && !roprop) w0->setEnabled(sens);
 	if (w1) w1->setEnabled(sens);
 
 	switch(item->type) {
@@ -2509,7 +2576,7 @@ void fillout_item(
 				if(r < tw->rowCount())
 					continue;
 				tw->insertRow(n);
-				FKeySelector *fks = add_fkey_row(w0, card, i,
+				FKeySelector *fks = add_fkey_row(w0, card, i, roprop,
 								 0, tw, n,
 								 *item, 0);
 				tw->resizeRowsToContents();
@@ -2517,13 +2584,13 @@ void fillout_item(
 			}
 			while(tw->rowCount() > n + 1)
 				tw->removeRow(n);
-			if(IFL(item->,RDONLY)) {
+			if(roprop) {
 				if(tw->rowCount() == n + 1)
 					/* n should be > 0, so no need to free_cards() */
 					tw->removeRow(n);
 			} else {
 				if(tw->rowCount() == n) {
-					FKeySelector *fks = add_fkey_row(w0, card, i,
+					FKeySelector *fks = add_fkey_row(w0, card, i, false,
 									 0, tw, n,
 									 *item, 0);
 					fks->group_setval(-1, 0, -1);
@@ -2544,8 +2611,6 @@ void fillout_item(
 				break; // invalid form??
 			w->group_setval(-1, data, 0);
 		}
-		/* FIXME: */
-		/* disable all widgets if read-only; remove multi last blank row */
 		break;
 	  }
 
@@ -2592,7 +2657,7 @@ void fillout_item(
 		resolve_fkey_fields(fit);
 		if(!fit->fkey_form)
 			  break;
-		char *key = fkey_of(card->dbase, card->row, item->fkey_form, fit);
+		char *key = fkey_of(card->dbase, card->row, fit);
 		if (!key)
 			  break;
 		char sep, esc;
