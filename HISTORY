@@ -339,7 +339,7 @@ preferences (although the Qt GUI's print settings are).  If you relied
 on a long-winded command being in preferences to save you some typing,
 just convert that into a shorter-named shell script.
 
-Version 2.4 (in progress)
+Version 2.4 (git tag grok-2.4, SVN 598), released 31.08.21
  * Switched from Qt's qmake to the more generic cmake.  This corrects
    a few problems with the documentation.  Builds now depend on cmake
    and bison (byacc used to work, but not any more).
@@ -465,8 +465,8 @@ order or representation of the raw data; instead, use export templates
 to make things look like you want.
 
 Prior to 2.4, any search expressions or templates using the new
-reference chain (field name juxtaposition), deref(), or dereff() will
-generate syntax errors.
+reference chain (field name juxtaposition), deref(), dereff(), or
+referenced will generate syntax errors.
 
 Prior to 2.4, reference and referenced fields will be treated as plain
 inputs, and may be blank or otherwise broken.

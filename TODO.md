@@ -48,6 +48,15 @@ Features in Progress
     search expression to the other table by default as well.  For multi
     and inv tables, this also filters what's displayed.
 
+    But it really isn't necessary for fkey fields, as initial string
+    search is supported by Qt combobox widgets, and you shouldn't have
+    a huge db, anyway.
+    
+    It also really isn't necessary for inv_fkey fields, as parent
+    restricted mode allows you to search among the listing.
+    
+    Thus, I will not implement this for 2.4.
+
   - only summary testing is of single-level single-field fkey; I'll
     fix issues if they are reported (not likely since I'm probably the
     only user).
