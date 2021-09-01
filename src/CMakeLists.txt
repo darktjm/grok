@@ -47,11 +47,14 @@ BISON_TARGET(parser parser.y
 # This suppresses a cmake warning
 set_property(SOURCE ${BISON_parser_OUTPUTS} PROPERTY SKIP_AUTOMOC ON)
 
-include(FindPkgConfig)
-pkg_search_module(ODBC odbc libiodbc)
+set(USE_ODBC FALSE CACHE BOOL "Build ODBC database support")
+if(USE_ODBC)
+  include(FindPkgConfig)
+  pkg_search_module(ODBC odbc libiodbc REQUIRED)
+endif()
 if(ODBC_FOUND)
   set(odbc_SRCS formodbc.c odbc-supt.c)
-  include_directories($(ODBC_INCLUDE_DIRS))
+  include_directories(${ODBC_INCLUDE_DIRS})
   include(FindBoost)
   # can't give "COMPONENTS preprocessor", so just assume it's there
   find_package(Boost REQUIRED)
@@ -69,6 +72,9 @@ if(ODBC_FOUND)
 		return 0;
 	}
 	]] HAS_ASPRINTF)
+else()
+  # don't build it from util.c; not used anywhere
+  set(HAS_ASPRINTF TRUE)
 endif()
 
 # Prevent cmake from recompiling the same code for every executable

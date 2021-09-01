@@ -773,7 +773,7 @@ const char *canonicalize(const char *path, bool dir_only)
 int vasprintf(char **strp, const char *fmt, va_list ap)
 {
     int len = vsnprintf(NULL, 0, fmt, ap);
-    *strp = malloc(len + 1);
+    *strp = (char *)malloc(len + 1);
     if(!*strp)
 	return -1;
     vsnprintf(*strp, len + 1, fmt, ap);
