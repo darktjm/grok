@@ -85,7 +85,6 @@ FORM *form_clone(
 	form->next    = NULL;
 	form->name    = mystrdup(parent->name);
 	form->dbname  = mystrdup(parent->dbname);
-	form->dbpath  = NULL;
 	form->dbase   = NULL;
 	form->comment = mystrdup(parent->comment);
 	form->help    = mystrdup(parent->help);
@@ -134,7 +133,6 @@ void form_delete(
 {
 	DQUERY		*dq;		/* default query entry */
 	int		i;
-	int		n;
 
 	if (!form)
 		return;

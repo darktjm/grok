@@ -673,7 +673,6 @@ static const char *eval_command(
 		CARD *other_db = NULL;
 		if(*word == '@') {
 			FORM *form;
-			DBASE *dbase;
 			const char *db_name, *msg;
 			char c;
 			word++;
@@ -685,7 +684,6 @@ static const char *eval_command(
 				return "Can't find database";
 			if(!read_dbase(form))
 				dbase_create(form);
-			form->dbpath = dbase->path;
 			other_db = create_card_menu(form);
 			other_db->prev_form = zstrdup(card->form->name);
 			other_db->last_query = -1;

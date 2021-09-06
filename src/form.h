@@ -401,7 +401,6 @@ struct form {
 	char	*dir;		/* directory form was in, fully resolved */
 	char	*name;		/* filename of form (usually) */
 	char	*dbname;	/* referenced database filename */
-	const char  *dbpath;	/* database path if known/loaded */
 	DBASE	*dbase;		/* loaded database */
 	char	*comment;	/* user-defined comment */
 	char	*help;		/* help text */

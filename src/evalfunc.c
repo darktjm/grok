@@ -1485,7 +1485,6 @@ CARD *f_db_start(
 	zfree(formname);
 	if(!dbase)
 		dbase = dbase_create(form);
-	form->dbpath = dbase->path;
 	g->card = create_card_menu(form);
 	g->card->prev_form = zstrdup(ocard->form->name);
 	g->card->last_query = -1;
@@ -1552,7 +1551,6 @@ void f_db_end(
 	CARD		*card)
 {
 	FORM *form = g->card->form;
-	DBASE *dbase = g->card->form->dbase;
 
 	free_card(g->card);
 	form_delete(form);

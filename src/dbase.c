@@ -85,7 +85,6 @@ void dbase_clear(
 /* It might even delete more than one, not necessarily passed-in one */
 void dbase_prune()
 {
-	CARD		*card;
 	FORM		*form;
 	DBASE		**prev;
 	int		n;

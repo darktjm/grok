@@ -909,7 +909,6 @@ void switch_form(
 		}
 		if (!dbase)
 			dbase = dbase_create(form);
-		form->dbpath = dbase->path;
 
 		card = create_card_menu(form, w_card, !mainwindow,
 					rest_item, rest_val);

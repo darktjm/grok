@@ -119,10 +119,8 @@ Bugs
 Code Improvements
 -----------------
 
-- remove dbase->form and implement form->dbase instead (renaming current
-  form->dbase to form->dbname).  Stop passing/storing dbase when form
-  passed/stored as well.  Stop passing/storing form when item passed/stored
-  as well.
+- Stop passing/storing dbase when form passed/stored as well.  Stop
+  passing/storing form when item passed/stored as well.
 
 - constify *everything*
 

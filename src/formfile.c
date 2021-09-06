@@ -336,10 +336,8 @@ FORM *read_form(
 
 	/* Use same path as the GUI for relative names */
 	if(!strchr(path, '/')) {
-		char *cwd = NULL;
-		size_t cwdsz;
 		do {
-			const char *env = getenv("GROK_FORM"), *ret;
+			const char *env = getenv("GROK_FORM");
 			if(env && (fp = try_path(env, &path)))
 				break;
 			/* canonicalize will expand . and relative grokdir */
@@ -351,7 +349,6 @@ FORM *read_form(
 				break;
 			fp = try_path(LIB "/grokdir", &path);
 		} while(0);
-		zfree(cwd);
 	} else {
 		path = resolve_tilde(path, "gf");
 		fp = fopen(path, "r");

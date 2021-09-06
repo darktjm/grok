@@ -1377,8 +1377,8 @@ static void create_item_widgets(
 #endif
 		}
 		/* add dummies/headers for inv as well */
-		FKeySelector *fks = add_fkey_row(carditem->w0, card, nitem, !editable,
-						 l, mw, 0, item, fcard);
+		add_fkey_row(carditem->w0, card, nitem, !editable, l, mw, 0,
+			     item, fcard);
 		if (item.type == IT_INV_FKEY) {
 			mw->removeRow(0);
 			break;

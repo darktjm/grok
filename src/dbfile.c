@@ -243,11 +243,13 @@ DBASE *read_dbase(
 				if(force) {
 					const FORM *f;
 					for(f = form_list; f; f = f->next)
-						if(!strcmp(f->dbpath, dbase->path))
+						if(f->dbase &&
+						   !strcmp(f->dbase->path, dbase->path))
 							break;
 					if(f)
 						for( ; f; f = f->next)
-							if(!strcmp(f->dbpath, dbase->path))
+							if(f->dbase &&
+							   !strcmp(f->dbase->path, dbase->path))
 								break;
 					if(!f) {
 						dbase->modified = true;
