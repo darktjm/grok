@@ -426,12 +426,12 @@ void print_info_line()
 	if (!mainwindow)
 		return;
 	card = mainwindow->card;
-	if (!card || !card->dbase || !card->form || !card->form->name) {
+	if (!card || !card->form || !card->form->dbase || !card->form->name) {
 		strcpy(buf, "No database");
 		print_button(w_mtime, "");
 	} else {
 		*buf = 0;
-		dbase = card->dbase;
+		dbase = card->form->dbase;
 		if (card->form->syncable && card->row >= 0
 					 && card->row < dbase->nrows) {
 			time_t t = dbase->row[card->row]->mtime;
@@ -562,11 +562,8 @@ static void make_dbase_pulldown(void)
 				loaded = true;
 				if(mainwindow->card && mainwindow->card->form == form)
 					shown = true;
-				for(DBASE *dbase = dbase_list; dbase; dbase = dbase->next)
-					if(dbase->form == form) {
-						mod = dbase->modified;
-						break;
-					}
+				if(form->dbase)
+					mod = form->dbase->modified;
 				break;
 			}
 		QString n(db[i].name+1);
@@ -651,17 +648,17 @@ void remake_section_pulldown()
 	long		n;
 
 	sectpulldown->clear();
-	if (!card || !card->dbase || card->form->proc) {
+	if (!card || !card->form || !card->form->dbase || card->form->proc) {
 		sectpulldown->setEnabled(false);
 		return;
 	}
-	maxn = card->dbase->havesects ? card->dbase->nsects : 0;
+	maxn = card->form->dbase->havesects ? card->form->dbase->nsects : 0;
 	if (maxn > MAXSC - 2)
 		maxn = MAXSC - 2;
 	if(maxn)
 		sectpulldown->addAction("All", [=](){section_pulldown(0);});
 	for (n=0; n < maxn; n++) {
-		QString s(section_name(card->dbase, n));
+		QString s(section_name(card->form->dbase, n));
 		s.replace('&', "&&");
 		sectpulldown->addAction(s, [=](){section_pulldown(n + 1);});
 	}
@@ -758,10 +755,11 @@ void remake_section_popup(
 	if (newsects)
 		remake_popup();
 
-	if (!card	|| !card->dbase
+	if (!card	|| !card->form
+	    		|| !card->form->dbase
 			||  card->row < 0
-			||  card->row >= card->dbase->nrows
-			|| !card->dbase->havesects) {
+			||  card->row >= card->form->dbase->nrows
+			|| !card->form->dbase->havesects) {
 		if (w_sect->isVisible()) {
 			w_sect->setEnabled(false);
 			// I've no idea what this is doing here:
@@ -770,10 +768,10 @@ void remake_section_popup(
 		return;
 	}
 	if (w_sect->isVisible()) {
-		printf("%d\n", card->dbase->row[card->row]->section);
+		printf("%d\n", card->form->dbase->row[card->row]->section);
 		w_sect->setEnabled(true);
 		w_sect->setCurrentIndex(
-			card->dbase->row[card->row]->section);
+			card->form->dbase->row[card->row]->section);
 		// I've no idea what this is doing here
 		w_del->setEnabled(true);
 	}
@@ -787,12 +785,12 @@ static void remake_popup(void)
 
 	w_sect->clear();
 	w_sect->hide();
-	n = card->dbase->nsects;
+	n = card->form->dbase->nsects;
 	if (n < 2)
 		return;
 
 	for (i=0; i < n; i++) {
-		QString str(section_name(card->dbase, i));
+		QString str(section_name(card->form->dbase, i));
 		str.replace('&', "&&");
 		w_sect->addItem(str);
 		// my use of a QComboBox makes marking individual items
@@ -830,7 +828,7 @@ void remake_sort_pulldown(void)
 		sag = 0;
 	}
 
-	if (!card || !card->form || !card->dbase)
+	if (!card || !card->form || !card->form->dbase)
 		return;
 
 	QAction *rs = sortpulldown->addAction("Reverse sort",
@@ -887,7 +885,6 @@ void switch_form(
 	if(mainwindow)
 		mainwindow->setUpdatesEnabled(false);
 	if (card) {
-		DBASE		*odbase = card->dbase;
 		FORM		*oform = card->form;
 		card_readback_texts(card, -1);
 		destroy_card_menu(card);
@@ -895,7 +892,7 @@ void switch_form(
 			prev_form = mystrdup(oform->name);
 		free_card(card);
 		form_delete(oform);
-		dbase_delete(odbase);
+		dbase_prune();
 		card = 0;
 	}
 	if (!BLANK(formname)) {
@@ -908,19 +905,18 @@ void switch_form(
 		if (!form) {
 			form = form_create();
 			form->name = strdup(formname);
-			form->dbase = strdup(formname);
+			form->dbname = strdup(formname);
 		}
 		if (!dbase)
 			dbase = dbase_create(form);
 		form->dbpath = dbase->path;
 
-		card = create_card_menu(form, dbase, w_card, !mainwindow,
+		card = create_card_menu(form, w_card, !mainwindow,
 					rest_item, rest_val);
 		if(!card)
 			fatal("No memory for initial form");
 		card->form  = form;
 		card->prev_form = prev_form;
-		card->dbase = dbase;
 		card->row   = 0;
 		card->last_query = -1;
 		card->col_sorted_by = 0;
@@ -1056,12 +1052,12 @@ static void file_pulldown(
 		break;
 
 	  case FM_SAVE:						/* save */
-		if (card && card->form && card->dbase) {
+		if (card && card->form && card->form->dbase) {
 			if (card->form->rdonly)
 				create_error_popup(mainwindow, 0,
 				   "Database is marked read-only in the form");
 			else {
-				(void)write_dbase(card->dbase, true);
+				(void)write_dbase(card->form, true);
 				/* formerly in write_dbase() */
 				print_info_line();
 			}
@@ -1076,9 +1072,9 @@ static void file_pulldown(
 		break;
 
 	 case FM_SAVEALL:					/* save all */
-		for (DBASE *db = dbase_list; db; db = db->next)
-			if (db->modified)
-				write_dbase(db, true);
+		for (const FORM *f = form_list; f; f = f->next)
+			if (f->dbase && f->dbase->modified)
+				write_dbase(f, true);
 		/* formerly in write_dbase() */
 		print_info_line();
 		break;
@@ -1139,12 +1135,13 @@ static void section_pulldown(
 	int				item)
 {
 	CARD				*card = mainwindow->card;
+	DBASE				*dbase = card->form->dbase;
 	card_readback_texts(card, -1);
-	if (item == card->dbase->nsects+1 || item == MAXSC-1 ||
-					!card->dbase->havesects)
+	if (item == dbase->nsects+1 || item == MAXSC-1 ||
+					!dbase->havesects)
 		create_newsect_popup(card);
 	else {
-		card->dbase->currsect = defsection = item-1;
+		dbase->currsect = defsection = item-1;
 		if (pref.autoquery)
 			do_query(card->form->autoquery);
 		else
@@ -1153,7 +1150,7 @@ static void section_pulldown(
 		create_summary_menu(card);
 
 		card->row = card->query ? card->query[0]
-						  : card->dbase->nrows;
+						  : dbase->nrows;
 		fillout_card(card, false);
 	}
 }
@@ -1164,8 +1161,9 @@ static void query_pulldown(
 	bool		set)
 {
 	CARD		*card = mainwindow->card;
+	const DBASE	*dbase = card && card->form ? card->form->dbase : 0;
 	print_info_line();
-	if (!card || !card->dbase || !card->dbase->nrows)
+	if (!card || !dbase || !dbase->nrows)
 		return;
 	card_readback_texts(card, -1);
 	if (item == QM_AUTO) {
@@ -1179,7 +1177,7 @@ static void query_pulldown(
 	create_summary_menu(card);
 
 	card->row = card->query ? card->query[0]
-					  : card->dbase->nrows;
+					  : dbase->nrows;
 	fillout_card(card, false);
 	remake_query_pulldown();
 }
@@ -1190,6 +1188,7 @@ static void sort_pulldown(
 	bool		set)
 {
 	CARD		*card = mainwindow->card;
+	const DBASE	*dbase = card->form->dbase;
 	if (item < 0)
 		pref.revsort = set;
 	else
@@ -1199,7 +1198,7 @@ static void sort_pulldown(
 	dbase_sort(card, pref.sortcol, pref.revsort);
 	create_summary_menu(card);
 	card->row = card->query ? card->query[0]
-					  : card->dbase->nrows;
+					  : dbase->nrows;
 	fillout_card(card, false);
 	remake_sort_pulldown();
 }
@@ -1255,15 +1254,16 @@ void search_cards(
 	CARD		*card,
 	char		*string)
 {
+	const DBASE	*dbase = card && card->form ? card->form->dbase : 0;
 	if (!string || !*string)
 		return;
 	print_info_line();
 	card_readback_texts(card, -1);
-	if (!card || !card->dbase || !card->dbase->nrows)
+	if (!card || !dbase || !dbase->nrows)
 		return;
 	query_any(mode, card, string);
 	create_summary_menu(card);
-	card->row = card->nquery ? card->query[0] : card->dbase->nrows;
+	card->row = card->nquery ? card->query[0] : dbase->nrows;
 	fillout_card(card, false);
 }
 
@@ -1353,14 +1353,15 @@ void append_search_string(
 static void letter_callback(
 	int				letter)
 {
-	CARD				*card = mainwindow->card;
-	if (!card || !card->dbase || !card->dbase->nrows)
+	CARD		*card = mainwindow->card;
+	const DBASE	*dbase = card && card->form ? card->form->dbase : 0;
+	if (!card || !dbase || !dbase->nrows)
 		return;
 	card_readback_texts(card, -1);
 	query_letter(card, letter);
 	create_summary_menu(card);
 	card->row = card->query ? card->query[0]
-					  : card->dbase->nrows;
+					  : dbase->nrows;
 	fillout_card(card, false);
 }
 
@@ -1374,7 +1375,8 @@ static void letter_callback(
 static void pos_callback(
 	int				inc)
 {
-	CARD				*card = mainwindow->card;
+	CARD		*card = mainwindow->card;
+	const DBASE	*dbase = card && card->form ? card->form->dbase : 0;
 	card_readback_texts(card, -1);
 	if (card->qcurr + inc >= 0 &&
 	    card->qcurr + inc <  card->nquery) {
@@ -1385,7 +1387,7 @@ static void pos_callback(
 		print_info_line();
 
 	} else if (card->nquery == 0 && card->row + inc >= 0
-				     && card->row + inc <  card->dbase->nrows){
+				     && card->row + inc <  dbase->nrows){
 		card->row += inc;
 		fillout_card(card, false);
 		print_info_line();
@@ -1403,7 +1405,7 @@ static void add_card(
 {
 	CARD		*card = mainwindow->card;
 	ITEM		*item;
-	DBASE		*dbase = card->dbase;
+	DBASE		*dbase = card->form->dbase;
 	int		i, s, save_sect = dbase->currsect;
 	int		oldrow = card->row;
 
@@ -1440,7 +1442,7 @@ static void add_card(
 					  evaluate(card, item->idefault));
 		}
 	if ((card->qcurr = card->nquery)) {
-		grow(0, "No memory for query", int, card->query, card->dbase->nrows, NULL);
+		grow(0, "No memory for query", int, card->query, dbase->nrows, NULL);
 		card->query[card->nquery++] = card->row;
 	}
 	dbase_sort(card, pref.sortcol, pref.revsort);
@@ -1495,23 +1497,24 @@ static void del_callback(void)
 	CARD				*card = mainwindow->card;
 	int				*p, *q;
 	int				i, s;
+	DBASE				*dbase = card->form->dbase;
 
-	if (card->dbase->nrows == 0 || card->row >= card->dbase->nrows)
+	if (dbase->nrows == 0 || card->row >= dbase->nrows)
 		return;
-	s = card->dbase->row[card->row]->section;
-	if (card->dbase->sect[s].rdonly) {
+	s = dbase->row[card->row]->section;
+	if (dbase->sect[s].rdonly) {
 		create_error_popup(mainwindow, 0,
 				"section file\n\"%s\" is read-only",
-				card->dbase->sect[s].path);
+				dbase->sect[s].path);
 		return;
 	}
 
 	if (!del_confirm(mainwindow, mainwindow->card))
 		return;
 
-	dbase_delrow(card->row, card->dbase);
-	if (card->row >= card->dbase->nrows)
-		card->row = card->dbase->nrows - 1;
+	dbase_delrow(card->row, dbase);
+	if (card->row >= dbase->nrows)
+		card->row = dbase->nrows - 1;
 	p = q = &card->query[0];
 	for (i=0; i < card->nquery; i++, p++) {
 		*q = *p - (*p > card->row);
@@ -1519,7 +1522,7 @@ static void del_callback(void)
 	}
 	card->nquery -= p - q;
 	p = q = &card->sorted[0];
-	for (i=0; i < card->dbase->nrows + 1; i++, p++) {
+	for (i=0; i < dbase->nrows + 1; i++, p++) {
 		*q = *p - (*p > card->row);
 		q += *p != card->row;
 	}
@@ -1567,7 +1570,7 @@ static void del_references(int how, FORM *fform, FORM *form, DBASE *dbase,
 		return;
 
 	/* create a card to lock the form & dbase into memory for now */
-	CARD *card = create_card_menu(fform, fdbase);
+	CARD *card = create_card_menu(fform);
 	/* pass 1:  direct references */
 	int onref = *nref;
 	for(int i = 0; i < fform->nitems; i++) {
@@ -1676,7 +1679,7 @@ static QString refs_msg(refcount *ref, int nref, int n, int level = 0)
 static bool del_confirm(QWidget *parent, const CARD *card)
 {
 	FORM *form = card->form;
-	DBASE *dbase = card->dbase;
+	DBASE *dbase = form->dbase;
 	int i;
 
 	if(!form->nchild)
@@ -1739,7 +1742,7 @@ static bool del_confirm(QWidget *parent, const CARD *card)
 			refcount &ref = refs[i];
 			for(int j = ref.nrow - 1; j >= 0; j--) {
 				int row = ref.row[j];
-				dbase_delrow(row, ref.card->dbase);
+				dbase_delrow(row, ref.card->form->dbase);
 				for(int k = 0; k < i; k++) {
 					refcount &oref = refs[k];
 					if(!strcmp(ref.form, oref.form))
@@ -1775,10 +1778,11 @@ static void sect_callback(
 	int				item)
 {
 	CARD				*card = mainwindow->card;
-	SECTION				*sect = card->dbase->sect;
+	DBASE				*dbase = card->form->dbase;
+	SECTION				*sect = dbase->sect;
 	int				olds, news;
 
-	olds = card->dbase->row[card->row]->section;
+	olds = dbase->row[card->row]->section;
 	news = item;
 	if (sect[olds].rdonly)
 		create_error_popup(mainwindow, 0,
@@ -1791,8 +1795,8 @@ static void sect_callback(
 		sect[news].nrows++;
 		sect[olds].modified = true;
 		sect[news].modified = true;
-		card->dbase->row[card->row]->section = defsection = news;
-		card->dbase->modified = true;
+		dbase->row[card->row]->section = defsection = news;
+		dbase->modified = true;
 		print_info_line();
 	}
 	remake_section_popup(false);
@@ -1806,7 +1810,7 @@ static bool multi_save_revert(
 	QGridLayout *form;
 	QString dlg_label;
 	QLabel *top_line;
-	DBASE *cur_dbase = is_quit || !mainwindow->card ? 0 : mainwindow->card->dbase;
+	DBASE *cur_dbase = is_quit || !mainwindow->card ? 0 : mainwindow->card->form->dbase;
 	QCheckBox **checkboxes = 0;
 	size_t nrows = 0, checkboxes_size;
 	QLabel *label;
@@ -1876,13 +1880,30 @@ static bool multi_save_revert(
 				checkboxes[nrows * 4 + 2] = new QCheckBox;
 				form->addWidget(checkboxes[nrows * 4 + 2], 3 + nrows, 2);
 			}
-			label = new QLabel(dbase->form->name);
-			label->setToolTip(QString::asprintf(
-				"Form: %s\nDatabase: %s%s",
-				dbase->form->path, dbase->path,
-				dbase->form->proc ? " (procedural)" : ""));
+			QString s("none"); // impossible
+			for(const FORM *f = form_list; f; f = f->next) {
+				if(f->dbase == dbase) {
+					s = f->name;
+					break;
+				}
+			}
+			label = new QLabel(s);
+			s.clear();
+			bool proc = false;
+			for(FORM *f = form_list; f; f = f->next) {
+				if(f->dbase != dbase)
+					continue;
+				checkboxes[nrows * 4 + 3] = reinterpret_cast<QCheckBox *>(f);
+				s += QString::asprintf("Form: %sn", f->path);
+				// technically, proc should be the same for all
+				proc |= f->proc;
+			}
+			s += "Database: ";
+			s += dbase->path;
+			if(proc)
+				s += " (procedural)";
+			label->setToolTip(s);
 			form->addWidget(label, 3 + nrows, 3);
-			checkboxes[nrows * 4 + 3] = reinterpret_cast<QCheckBox *>(dbase);
 			nrows++;
 		}
 		if(is_quit)
@@ -1917,15 +1938,16 @@ static bool multi_save_revert(
 		if(i < nrows)
 			continue;
 		for(i = 0; i < nrows; i++) {
-			dbase = reinterpret_cast<DBASE *>(checkboxes[i * 4 + 3]);
+			FORM *f = reinterpret_cast<FORM *>(checkboxes[i * 4 + 3]);
+			dbase = f->dbase;
 			if(checkboxes[i * 4]) {
 				if(checkboxes[i * 4]->isChecked()) {
-					write_dbase(dbase, true);
+					write_dbase(f, true);
 					if(dbase == cur_dbase)
 						/* formerly in write_dbase() */
 						print_info_line();
 				} else if(!is_quit && checkboxes[i * 4 + 1]->isChecked()) {
-					read_dbase(dbase->form, true);
+					read_dbase(f, true);
 					if(dbase == cur_dbase) {
 						create_summary_menu(mainwindow->card);
 						fillout_card(mainwindow->card, false);
@@ -1973,10 +1995,10 @@ static int cmp_badref(const void *_a, const void *_b)
 	}
 	if(a->item != b->item)
 		return a->item - b->item;
-	char *aval = dbase_get(a->dbase, a->row, a->form->items[a->item]->column);
+	char *aval = dbase_get(a->form->dbase, a->row, a->form->items[a->item]->column);
 	if(IFL(a->form->items[a->item]->,FKEY_MULTI))
 		aval = unesc_elt_at(a->form, aval, a->keyno);
-	char *bval = dbase_get(b->dbase, b->row, b->form->items[b->item]->column);
+	char *bval = dbase_get(b->form->dbase, b->row, b->form->items[b->item]->column);
 	if(IFL(b->form->items[b->item]->,FKEY_MULTI))
 		bval = unesc_elt_at(b->form, bval, b->keyno);
 	int c = strcmp(STR(aval), STR(bval));
@@ -1999,7 +2021,7 @@ static void check_references(void)
 	CARD *card = mainwindow->card;
 	int nbadref = 0;
 	badref *badrefs = 0;
-	check_db_references(card->form, card->dbase, &badrefs, &nbadref);
+	check_db_references(card->form, &badrefs, &nbadref);
 	if(!nbadref) {
 		QMessageBox *dialog = new QMessageBox(QMessageBox::Information,
 						      "Reference Check",
@@ -2048,7 +2070,7 @@ static void check_references(void)
 				 *         occurence of this card if more than
 				 *         one badref applies to it */
 				ITEM *item = badrefs[i].form->items[badrefs[i].item];
-				char *data = dbase_get(badrefs[i].dbase,
+				char *data = dbase_get(badrefs[i].form->dbase,
 						       badrefs[i].row,
 						       item->column);
 				if(IFL(item->,FKEY_MULTI))
@@ -2065,7 +2087,6 @@ static void check_references(void)
 				if(IFL(item->,FKEY_MULTI))
 					zfree(data);
 				card.form = badrefs[i].form;
-				card.dbase = const_cast<DBASE *>(badrefs[i].dbase);
 				make_summary_line(&sbuf, &sbuf_len, &card,
 						  badrefs[i].row);
 				form->addWidget(new QLabel(sbuf), r++, 0, 1, 3);
@@ -2073,8 +2094,7 @@ static void check_references(void)
 				cb->setChecked(true);
 				form->addWidget(new QLabel("Set to:"), r, 1);
 				QGridLayout *l = new QGridLayout;
-				CARD *fcard = create_card_menu((FORM *)badrefs[i].fform,
-							       (DBASE *)badrefs[i].fdbase);
+				CARD *fcard = create_card_menu((FORM *)badrefs[i].fform);
 				fcard->fkey_next = &card;
 				fcard->qcurr = badrefs[i].item;
 				form->addLayout(l, r, 2);
@@ -2104,7 +2124,7 @@ static void check_references(void)
 				char *pdata = 0;
 				while(i < nbadref && badrefs[i].reason == BR_DUP) {
 					const ITEM *item = badrefs[i].form->items[badrefs[i].item];
-					char *data = dbase_get(badrefs[i].dbase,
+					char *data = dbase_get(badrefs[i].form->dbase,
 							       badrefs[i].row,
 							       item->column);
 					if(IFL(item->,FKEY_MULTI))
@@ -2124,7 +2144,6 @@ static void check_references(void)
 						form->addWidget(new QLabel(QString(badrefs[i].form->name) + ':'));
 					pitem = item;
 					card.form = badrefs[i].form;
-					card.dbase = const_cast<DBASE *>(badrefs[i].dbase);
 					make_summary_line(&sbuf, &sbuf_len, &card,
 							  badrefs[i].row);
 					form->addWidget(new QLabel(sbuf), r++, 0, 1, 3);
@@ -2134,11 +2153,11 @@ static void check_references(void)
 				}
 				i--;
 				zfree(pdata);
-				pdata = dbase_get(badrefs[i].dbase,
+				pdata = dbase_get(badrefs[i].form->dbase,
 						  badrefs[i].row,
 						  pitem->column);
 				for(int start = 0;; start++) {
-					start = fkey_lookup(badrefs[i].fdbase,
+					start = fkey_lookup(badrefs[i].fform->dbase,
 							    badrefs[i].form,
 							    pitem, pdata,
 							    badrefs[i].keyno,
@@ -2150,10 +2169,8 @@ static void check_references(void)
 					form->addWidget(b, r, 0);
 					set_button_cb(b, (new ItemEd(dlg,
 								     badrefs[i].fform,
-								     badrefs[i].fdbase,
 								     start))->exec());
 					card.form = const_cast<FORM *>(badrefs[i].fform);
-					card.dbase = const_cast<DBASE *>(badrefs[i].fdbase);
 					make_summary_line(&sbuf, &sbuf_len, &card, start);
 					form->addWidget(new QLabel(sbuf), r, 1, 1, 2);
 					r++;
@@ -2162,7 +2179,6 @@ static void check_references(void)
 			    }
 			    case BR_BADKEYS:
 				card.form = const_cast<FORM *>(badrefs[i].form);
-				card.dbase = const_cast<DBASE *>(badrefs[i].dbase);
 				make_summary_line(&sbuf, &sbuf_len, &card, badrefs[i].row);
 				form->addWidget(new QLabel(
 					qsprintf("Form '%s', row %d (%s), field '%s' has a badly formatted multi-key value.  This has been corrected; save the database to apply.",
@@ -2269,12 +2285,12 @@ static void check_references(void)
 					int row = fkey_group_val((FKeySelector *)fks);
 					const ITEM *item = badrefs[i].form->items[badrefs[i].item];
 					char *val = row < 0 ? 0 :
-						    fkey_of(badrefs[i].fdbase,
+						    fkey_of(badrefs[i].fform->dbase,
 							    row, item);
 					/* FIXME:  invalidate card somehow */
 					/*         and update mainwin like store() */
 					if(IFL(item->,FKEY_MULTI)) {
-						char *oval = dbase_get(badrefs[i].dbase, badrefs[i].row, item->column);
+						char *oval = dbase_get(badrefs[i].form->dbase, badrefs[i].row, item->column);
 						char desc[3], &sep = desc[1], &esc = desc[0];
 						get_form_arraysep(badrefs[i].form, &sep, &esc);
 						desc[2] = 0;
@@ -2303,14 +2319,14 @@ static void check_references(void)
 							    sep, esc)) {
 							zfree(val);
 							for(int j = i; j < nbadref; j++)
-								if(badrefs[i].dbase == badrefs[j].dbase &&
+								if(badrefs[i].form->dbase == badrefs[j].form->dbase &&
 								   badrefs[i].row == badrefs[j].row &&
 								   badrefs[i].item == badrefs[j].item &&
 								   badrefs[j].reason == BR_MISSING &&
 								   badrefs[j].keyno > badrefs[i].keyno)
 									badrefs[j].keyno--;
 							/* altering oval directly modifies dbase */
-							dbase_put(badrefs[i].dbase, badrefs[i].row, item->column, oval, true);
+							dbase_put(badrefs[i].form->dbase, badrefs[i].row, item->column, oval, true);
 							break;
 						}
 						int olen = strlen(oval);
@@ -2323,18 +2339,18 @@ static void check_references(void)
 						if(oval[aft])
 							nval[vlen + beg++] = sep;
 						memcpy(nval + beg + vlen, oval + aft, olen - aft + 1);
-						dbase_put(badrefs[i].dbase, badrefs[i].row, item->column, nval);
+						dbase_put(badrefs[i].form->dbase, badrefs[i].row, item->column, nval);
 						free(nval);
 					} else
-						dbase_put(badrefs[i].dbase, badrefs[i].row, item->column, val);
+						dbase_put(badrefs[i].form->dbase, badrefs[i].row, item->column, val);
 					zfree(val);
 				}
 				getcb(cb2);
 				if(cb->isChecked()) {
 					dbase_delrow(badrefs[i].row,
-						     const_cast<DBASE *>(badrefs[i].dbase));
+						     const_cast<DBASE *>(badrefs[i].form->dbase));
 					for(int j = i + 1; j < nbadref; j++)
-						if(badrefs[i].dbase == badrefs[j].dbase &&
+						if(badrefs[i].form->dbase == badrefs[j].form->dbase &&
 						   (badrefs[j].reason == BR_MISSING ||
 						    badrefs[j].reason == BR_DUP) &&
 						  badrefs[j].row > badrefs[i].row)

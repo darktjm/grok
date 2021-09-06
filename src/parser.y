@@ -86,9 +86,9 @@ static EVAR *var_ptr(CARD *card, int v) {
     static EVAR global_vars[26] = {};
     if(v < 26) {
 	static EVAR dummy = {};
-	if(!card || !card->dbase) /* should never happen */
+	if(!card || !card->form || !card->form->dbase) /* should never happen */
 	    return &dummy;
-	return &card->dbase->var[v];
+	return &card->form->dbase->var[v];
     }
     return &global_vars[v-26];
 }
@@ -518,11 +518,11 @@ string	: STRING			{ $$ = $1; }
 	| PREVFORM			{ yystrdup($$, g->card->prev_form); }
 	/* sections are deprecated, so don't support fkey prefix */
 	/* @db can always be used to get it anyway */
-	| SECTION_ card			{ if(!g->card || !g->card->dbase)
+	| SECTION_ card			{ if(!g->card || !g->card->form->dbase)
 						$$ = 0;
 					  else
 						yystrdup($$, section_name(
-						    g->card->dbase,
+						    g->card->form->dbase,
 						    f_section(g, $2)));}
 	| FORM_				{ if(!g->card || !g->card->form
 						     || !g->card->form->name)
@@ -531,37 +531,37 @@ string	: STRING			{ $$ = $1; }
 						yystrdup($$, resolve_tilde
 						(g->card->form->name, "gf"));}
 	| DBASE_			{ if(!g->card || !g->card->form
-						     || !g->card->form->dbase)
+						      || !g->card->form->dbname)
 						$$ = 0;
 					  else
 						yystrdup($$, resolve_tilde
-							(g->card->form->dbase,
+							(g->card->form->dbname,
 							 g->card->form->proc ?
 								0 : "db"));}
-	| ID %prec 's'			{ if(!g->card || !g->card->dbase || g->card->row < 0)
+	| ID %prec 's'			{ if(!g->card || !g->card->form->dbase || g->card->row < 0)
 						$$ = 0;
 					  else {
-						ROW *r = g->card->dbase->row[g->card->row];
+						ROW *r = g->card->form->dbase->row[g->card->row];
 						$$ = f_str2(g, r->ctime, r->ctimex); }}
-	| field ID			{ if(!$1.card || !$1.card->dbase || $1.row < 0)
+	| field ID			{ if(!$1.card || !$1.card->form->dbase || $1.row < 0)
 						$$ = 0;
 					  else {
-						ROW *r = $1.card->dbase->row[$1.row];
+						ROW *r = $1.card->form->dbase->row[$1.row];
 						$$ = f_str2(g, r->ctime, r->ctimex); }}
-	| ID '[' number ']'		{ if(!g->card || !g->card->dbase || $3 < 0 || $3 >= g->card->dbase->nrows)
+	| ID '[' number ']'		{ if(!g->card || !g->card->form->dbase || $3 < 0 || $3 >= g->card->form->dbase->nrows)
 						$$ = 0;
 					  else {
-						ROW *r = g->card->dbase->row[(int)$3];
+						ROW *r = g->card->form->dbase->row[(int)$3];
 						$$ = f_str2(g, r->ctime, r->ctimex); }}
-	| timestamp card		{ if(!g->card || !g->card->dbase || $2 < 0)
+	| timestamp card		{ if(!g->card || !g->card->form->dbase || $2 < 0)
 						$$ = 0;
 					  else {
-						ROW *r = g->card->dbase->row[(int)$2];
+						ROW *r = g->card->form->dbase->row[(int)$2];
 						yystrdup($$, mkdatetimestring($1 ? r->ctime : r->mtime)); }}
-	| field timestamp		{ if(!$1.card || !$1.card->dbase || $1.row < 0)
+	| field timestamp		{ if(!$1.card || !$1.card->form->dbase || $1.row < 0)
 						$$ = 0;
 					  else {
-						ROW *r = $1.card->dbase->row[$1.row];
+						ROW *r = $1.card->form->dbase->row[$1.row];
 						yystrdup($$, mkdatetimestring($2 ? r->ctime : r->mtime));}}
 	| SWITCH '(' string ',' string ')'
 					{ char *name = $3, *expr = $5;
@@ -616,7 +616,7 @@ timestamp : MTIME {$$ = 0;} | CTIME {$$ = 1;} ;
 
 card	: %prec 's'			{ $$ = g->card ? g->card->row : -1; }
 	| '[' number ']'		{ $$ = $2; }
-	| LBRBR string RBRBR		{ $$ = row_from_id($2, g->card->dbase); }
+	| LBRBR string RBRBR		{ $$ = row_from_id($2, g->card->form->dbase); }
 	;
 
 field	: FIELD card			{ $$ = $1; $$.row = $2; }
@@ -705,26 +705,26 @@ numarg	: NUMBER			{ $$ = $1; }
 	| numarg '?' number ':' numarg	{ $$ = $1 ?  $3 : $5; }
 	| THIS				{ $$ = g->card && g->card->row > 0 ?
 					       g->card->row : 0; }
-	| LAST				{ $$ = g->card && g->card->dbase ?
-					       g->card->dbase->nrows - 1 : -1; }
+	| LAST				{ $$ = g->card && g->card->form->dbase ?
+					       g->card->form->dbase->nrows - 1 : -1; }
 	| field THIS			{ $$ = $1.row; }
-	| field LAST			{ DBASE *db = $1.card->dbase; $$ = db ?
+	| field LAST			{ DBASE *db = $1.card->form->dbase; $$ = db ?
 						db->nrows - 1 : -1; }
-	| THIS LBRBR string RBRBR	{ $$ = row_from_id($3, g->card->dbase); }
-	| timestamp card		{ if(!g->card || !g->card->dbase || g->card->row < 0)
+	| THIS LBRBR string RBRBR	{ $$ = row_from_id($3, g->card->form->dbase); }
+	| timestamp card		{ if(!g->card || !g->card->form->dbase || g->card->row < 0)
 						$$ = 0;
 					  else {
-						ROW *r = g->card->dbase->row[(int)$2];
+						ROW *r = g->card->form->dbase->row[(int)$2];
 						$$ = $1 ? r->ctime : r->mtime; }}
-	| field timestamp			{ if(!$1.card || !$1.card->dbase || $1.row < 0)
+	| field timestamp			{ if(!$1.card || !$1.card->form->dbase || $1.row < 0)
 						$$ = 0;
 					  else {
-						ROW *r = $1.card->dbase->row[$1.row];
+						ROW *r = $1.card->form->dbase->row[$1.row];
 						$$ = $2 ? r->ctime : r->mtime;}}
-	| DISP				{ $$ = g->card && g->card->dbase
+	| DISP				{ $$ = g->card && g->card->form->dbase
 						      && g->card->disprow >= 0
 						      && g->card->disprow <
-							 g->card->dbase->nrows ?
+							 g->card->form->dbase->nrows ?
 					       g->card->disprow : -1; }
 	| REFERENCED card		{ $$ = f_referenced(g, $2); }
 	| AVG   '(' FIELD ')'		{ $$ = f_avg(g, $3.column); }

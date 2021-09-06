@@ -683,10 +683,10 @@ static const char *eval_command(
 			*word = 0;
 			if(!*db_name || !((form = read_form(db_name, false, 0))))
 				return "Can't find database";
-			if(!(dbase = read_dbase(form)))
-				dbase = dbase_create(form);
+			if(!read_dbase(form))
+				dbase_create(form);
 			form->dbpath = dbase->path;
-			other_db = create_card_menu(form, dbase);
+			other_db = create_card_menu(form);
 			other_db->prev_form = zstrdup(card->form->name);
 			other_db->last_query = -1;
 			*word = c;
@@ -694,7 +694,7 @@ static const char *eval_command(
 		CARD *ncard = other_db ? other_db : card;
 		/* sorting this db requires a new card to avoid resorting old */
 		if (!other_db && (*word == '+' || *word == '-')) {
-			other_db = create_card_menu(card->form, card->dbase);
+			other_db = create_card_menu(card->form);
 			other_db->prev_form = zstrdup(card->prev_form);
 			other_db->last_query = -1;
 			ncard = other_db;
@@ -959,10 +959,9 @@ static void free_other_db(CARD *card)
 {
 	if(card) {
 		FORM *form = card->form;
-		DBASE *dbase = card->dbase;
 		free_card(card);
 		form_delete(form);
-		dbase_delete(dbase);
+		dbase_prune();
 	}
 }
 

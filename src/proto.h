@@ -25,7 +25,6 @@ void free_fkey_card(
 	CARD		*card);		/* card to destroy */
 CARD *create_card_menu(
 	FORM		*form,		/* form that controls layout */
-	DBASE		*dbase,		/* database for callbacks, or 0 */
 	QWidget		*wform = 0,	/* form widget to install into, or 0 */
 	bool		no_gui = true,	/* true to just init card */
 	int		rest_item = -1,	/* parent restrict GUI item */
@@ -36,8 +35,7 @@ void build_card_menu(
 class ItemEd : public QDialog {
     public:
 	ItemEd(QWidget *parent,		/* parent for modal dialog */
-	       const FORM *form,	/* form of card to edit */
-	       const DBASE *dbase,	/* database of card to edit */
+	       const FORM *form,	/* form/dbase of card to edit */
 	       int row,			/* row in dbase of card to edit */
 	       bool init = false,	/* true if row needs initialization */
 	       int rest_item = -1);	/* parent restrict mode; val from db */
@@ -116,8 +114,7 @@ DBASE *dbase_create(
 	const FORM	*form);		/* how to read/write dbase */
 bool check_dbase_form(
 	const FORM	*form);
-void dbase_delete(
-	DBASE		*dbase);	/* dbase to maybe delete */
+void dbase_prune();
 void dbase_clear(
 	DBASE		*dbase);	/* dbase to clear data from */
 bool dbase_addrow(
@@ -170,8 +167,7 @@ int copy_fkey(				/* returns <0 on lookup failure */
 	int		*keys);		/* array of length keylen_of; filled in
 					   with item->fkey indices */
 void check_db_references(
-	FORM		*form, /* not modified here, but stored for modification by fixes */
-	DBASE		*db,
+	FORM		*form, /* read_dbase() called on this, at least */
 	badref		**badrefs,
 	int		*nbadref,
 	const FORM	*inv = 0,
@@ -274,10 +270,10 @@ bool find_unesc_elt(
 const char *db_path(
 	const FORM	*form);
 bool write_dbase(
-	DBASE		*dbase,		/* form and items to write */
+	const FORM	*form,		/* form and items to write */
 	bool		force);		/* write even if not modified*/
-DBASE *read_dbase(
-	const FORM	*form,		/* col delim, proc info, etc. */
+DBASE *read_dbase( /* return value also stored in form->dbase */
+	FORM		*form,		/* col delim, proc info, etc. */
 	bool		force = false);	/* revert if already loaded */
 
 /*---------------------------------------- editwin.c ------------*/
@@ -323,7 +319,7 @@ extern GrokMainWindow	*mainwindow;	/* popup menus hang off main window */
 /*---------------------------------------- formfile.c ------------*/
 
 bool write_form(
-	FORM		*form);		/* form and items to write */
+	FORM	*form);			/* form and items to write */
 FORM *read_form(
 	const char	*path,		/* file to read list from */
 	bool		force = false,	/* overrwrite loaded forms */
@@ -454,7 +450,7 @@ void create_error_popup(
 	const char	*fmt, ...);
 bool create_save_popup(
 	QWidget		*widget,	/* window that caused this */
-	DBASE		*dbase,		/* database to save */
+	const FORM	*form,		/* database to save */
 	const char	*help,		/* help text tag for popup */
 	const char	*fmt, ...);	/* message */
 #define create_query_popup(w,...) create_save_popup(w, NULL, __VA_ARGS__)
@@ -583,7 +579,7 @@ QWidget *create_summary_widget(void);	/* just create the list widget */
 void create_summary_menu(
 	CARD		*card);		/* card with query results */
 /* get_summary_cols() fills (*res)[] with sorted list of summary columns */
-/* nres is alloced size of res, and return value is # of filled entries */
+/* return value is # of filled entries */
 /* menu is non-NULL for multi-column fields */
 struct sum_item {
 	ITEM		*item;
@@ -593,7 +589,6 @@ struct sum_item {
 };
 int get_summary_cols(
 	struct sum_item	**res,
-	size_t		*nres,
 	const CARD	*card);
 void free_summary_cols(
 	struct sum_item	*cols,
@@ -730,6 +725,12 @@ void *abort_malloc(
 	memset(tz_pp_, 0, (n)*sizeof(t)); \
 } while(0)
 
+/* like realpath(), but:
+ *  - expands symlinks even if target doesn't exist
+ *  - guarantees no duplicate /
+ *  - if dir_only, final path element stripped and not followed even if symlink
+ *  - returns pointer to static buffer -- not reentrant
+ */
 const char *canonicalize(
 	const char	*path,
 	bool		dir_only);

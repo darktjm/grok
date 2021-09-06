@@ -60,7 +60,7 @@ double f_sum(				/* sum */
 	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = g->card->dbase;
+	DBASE		*dbase = g->card->form->dbase;
 	double		sum;
 	int		row;
 
@@ -76,7 +76,7 @@ double f_avg(				/* average */
 	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = g->card->dbase;
+	DBASE		*dbase = g->card->form->dbase;
 	double		sum = f_sum(g, column);
 	return(dbase->nrows ? sum / dbase->nrows : 0);
 }
@@ -86,7 +86,7 @@ double f_dev(				/* standard deviation */
 	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = g->card->dbase;
+	DBASE		*dbase = g->card->form->dbase;
 	double		sum, avg, val;
 	int		row;
 
@@ -105,7 +105,7 @@ double f_min(				/* minimum */
 	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = g->card->dbase;
+	DBASE		*dbase = g->card->form->dbase;
 	double		min, val;
 	int		row;
 
@@ -125,7 +125,7 @@ double f_max(				/* maximum */
 	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = g->card->dbase;
+	DBASE		*dbase = g->card->form->dbase;
 	double		max, val;
 	int		row;
 
@@ -150,7 +150,7 @@ double f_qsum(				/* sum */
 	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = g->card->dbase;
+	DBASE		*dbase = g->card->form->dbase;
 	double		sum = 0;
 	int		row;
 
@@ -171,7 +171,7 @@ double f_qavg(				/* average */
 	double		sum = f_qsum(g, column);
 	int		count;
 
-	count = g->card->query ? g->card->nquery : g->card->dbase->nrows;
+	count = g->card->query ? g->card->nquery : g->card->form->dbase->nrows;
 	return(count ? sum / count : 0);
 }
 
@@ -186,7 +186,7 @@ double f_qdev(				/* standard deviation */
 
 	if (!g->card->query)
 		return(f_dev(g, column));
-	dbase = g->card->dbase;
+	dbase = g->card->form->dbase;
 	if (!dbase || column < 0)
 		return(0);
 	if (!g->card->nquery)
@@ -204,7 +204,7 @@ double f_qmin(				/* minimum */
 	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = g->card->dbase;
+	DBASE		*dbase = g->card->form->dbase;
 	double		min, val;
 	int		row;
 
@@ -228,7 +228,7 @@ double f_qmax(				/* maximum */
 	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = g->card->dbase;
+	DBASE		*dbase = g->card->form->dbase;
 	double		max, val;
 	int		row;
 
@@ -257,7 +257,7 @@ double f_ssum(				/* sum */
 	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = g->card->dbase;
+	DBASE		*dbase = g->card->form->dbase;
 	int		sect;
 	double		sum;
 	int		row;
@@ -277,7 +277,7 @@ double f_savg(				/* average */
 	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = g->card->dbase;
+	DBASE		*dbase = g->card->form->dbase;
 	int		sect;
 	double		sum;
 	int		row, num=0;
@@ -299,7 +299,7 @@ double f_sdev(				/* standard deviation */
 	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = g->card->dbase;
+	DBASE		*dbase = g->card->form->dbase;
 	int		sect;
 	double		sum, avg, val;
 	int		row, num=0;
@@ -323,7 +323,7 @@ double f_smin(				/* minimum */
 	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = g->card->dbase;
+	DBASE		*dbase = g->card->form->dbase;
 	int		sect;
 	double		min = 0, val;
 	int		row;
@@ -351,7 +351,7 @@ double f_smax(				/* maximum */
 	PG,
 	int		column)		/* number of column to average */
 {
-	DBASE		*dbase = g->card->dbase;
+	DBASE		*dbase = g->card->form->dbase;
 	int		sect;
 	double		max = 0, val;
 	int		row;
@@ -383,7 +383,7 @@ char *f_field(
 	PG,
 	fkey_field	field)
 {
-	const char *v = dbase_get(field.card->dbase, field.row, field.column);
+	const char *v = dbase_get(field.card->form->dbase, field.row, field.column);
 	char *res;
 	char buf[20];
 	if(BLANK(v))
@@ -420,7 +420,7 @@ char *f_expand(
 	PG,
 	fkey_field	field)
 {
-	char		*value = dbase_get(field.card->dbase, field.row, field.column), *ret;
+	char		*value = dbase_get(field.card->form->dbase, field.row, field.column), *ret;
 	int		i;
 
 	if (!value)
@@ -521,7 +521,7 @@ char *f_assign(
 		if (item->type == IT_TIME && item->column == field.column)
 			v = format_time_data(atol(data), item->timefmt);
 	}
-	dbase_put(field.card->dbase, field.row, field.column, v);
+	dbase_put(field.card->form->dbase, field.row, field.column, v);
 	return(data);
 }
 
@@ -536,13 +536,13 @@ int f_section(
 {
 	ROW		*row;		/* row to get from */
 
-	if (g->card && g->card->dbase
+	if (g->card && g->card->form->dbase
 		   && nrow >= 0
-		   && nrow < g->card->dbase->nrows
-		   && (row = g->card->dbase->row[nrow]))
+		   && nrow < g->card->form->dbase->nrows
+		   && (row = g->card->form->dbase->row[nrow]))
 		return(row->section);
-	else if (g->card && g->card->dbase && !g->card->dbase->nrows)
-		return(g->card->dbase->currsect);
+	else if (g->card && g->card->form->dbase && !g->card->form->dbase->nrows)
+		return(g->card->form->dbase->currsect);
 	return(0);
 }
 
@@ -1486,7 +1486,7 @@ CARD *f_db_start(
 	if(!dbase)
 		dbase = dbase_create(form);
 	form->dbpath = dbase->path;
-	g->card = create_card_menu(form, dbase);
+	g->card = create_card_menu(form);
 	g->card->prev_form = zstrdup(ocard->form->name);
 	g->card->last_query = -1;
 	/* searching may be by expr, so save state */
@@ -1552,11 +1552,11 @@ void f_db_end(
 	CARD		*card)
 {
 	FORM *form = g->card->form;
-	DBASE *dbase = g->card->dbase;
+	DBASE *dbase = g->card->form->dbase;
 
 	free_card(g->card);
 	form_delete(form);
-	dbase_delete(dbase);
+	dbase_prune();
 	g->card = card;
 }
 
@@ -1592,12 +1592,12 @@ void free_db_sort(
 	}
 }
 
-static void add_deref(const char *key, const FORM *form, ITEM *item,
+static void add_deref(const char *key, FORM *form, ITEM *item,
 		      char *&ret, size_t *retalloc, int &retlen,
 		      const char *fsep, const char *rsep,
 		      int name_prefix_off, int nplen)
 {
-	const FORM *fform = 0;
+	FORM *fform = 0;
 	DBASE *dbase = 0;
 	if (key) {
 		resolve_fkey_fields(item);
@@ -1689,12 +1689,12 @@ char *f_deref(
 	char *fsep,
 	char *rsep)
 {
-	const char	*value = dbase_get(field.card->dbase, field.row, field.column);
+	const char	*value = dbase_get(field.card->form->dbase, field.row, field.column);
 	char		*ret = 0;
 	int		retlen = 0;
 	size_t		retalloc = 0;
 	int		i;
-	const FORM	*form = field.card->form;
+	FORM		*form = field.card->form;
 
 	if (!value)
 		return(0);
@@ -1722,7 +1722,7 @@ char *f_dereff(
 	int		retlen = 0;
 	size_t		retalloc = 0;
 	int		i;
-	const FORM	*form = field.card->form;
+	FORM		*form = field.card->form;
 	char		sep, esc;
 
 	get_form_arraysep(form, &sep, &esc);
@@ -1760,7 +1760,7 @@ char *f_dereff(
 }
 
 /* true if a known referrer refers to this row */
-static bool check_referenced(const FORM *fform, const FORM *form, const DBASE *dbase, int row)
+static bool check_referenced(FORM *fform, const FORM *form, const DBASE *dbase, int row)
 {
 	DBASE *fdbase = read_dbase(fform);
 	if(!fdbase)
@@ -1780,7 +1780,6 @@ static bool check_referenced(const FORM *fform, const FORM *form, const DBASE *d
 		if(ret)
 			break;
 	}
-	dbase_delete(fdbase);
 	return ret;
 }
 
@@ -1788,17 +1787,17 @@ bool f_referenced(
 	PG,
 	int row)
 {
-	if (!g->card || !g->card->form || !g->card->dbase || row < 0 ||
-	    row >= g->card->dbase->nrows)
+	if (!g->card || !g->card->form || !g->card->form->dbase || row < 0 ||
+	    row >= g->card->form->dbase->nrows)
 		return false;
-	const FORM *form = g->card->form;
+	FORM *form = g->card->form;
 	for(int i = 0; i < form->nchild; i++) {
 		FORM *fform = form->childform[i];
 		if(!fform)
 			fform = form->childform[i] = read_form(form->childname[i]);
 		if(!fform)
 			continue;
-		bool ret = check_referenced(fform, form, g->card->dbase, row);
+		bool ret = check_referenced(fform, form, g->card->form->dbase, row);
 		if(ret)
 			return true;
 	}

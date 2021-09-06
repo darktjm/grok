@@ -99,7 +99,7 @@ void create_error_popup(QWidget *widget, int error, const char *fmt, ...)
 
 bool create_save_popup(
 	QWidget		*widget,	/* window that caused this */
-	DBASE		*dbase,		/* database to save */
+	const FORM	*form,		/* database to save */
 	const char	*help,		/* help text tag for popup */
 	const char	*fmt, ...)	/* message */
 {
@@ -107,7 +107,7 @@ bool create_save_popup(
 	QMessageBox::StandardButtons buttons = QMessageBox::Ok | QMessageBox::Cancel;
 	QMessageBox::StandardButton def = QMessageBox::Cancel;
 
-	if(dbase)
+	if(form)
 		buttons |= (def = QMessageBox::Save);
 
 	va_start(parm, fmt);
@@ -126,7 +126,7 @@ bool create_save_popup(
 		    case QMessageBox::Ok:
 			return true;
 		    case QMessageBox::Save:
-			return write_dbase(dbase, false);
+			return write_dbase(form, false);
 		    case QMessageBox::Help:
 			// this will be immediately pushed to the back
 			// when question() runs again.  <sigh>
@@ -167,7 +167,7 @@ void create_dbase_info_popup(
 	if (!card)
 		return;
 	form  = card->form;
-	dbase = card->dbase;
+	dbase = form ? form->dbase : 0;
 	msg = qsprintf(info_message,
 		form && form->name	? form->name	      : "(none)",
 		form && form->path	? form->path	      : "(none)",
@@ -175,7 +175,7 @@ void create_dbase_info_popup(
 		form && form->autoquery >= 0
 					? form->query[form->autoquery].name
 					: "(none)",
-		form  && form->dbase	? form->dbase	      : "(none)",
+		form  && form->dbname	? form->dbname	      : "(none)",
 		(dbase && dbase->rdonly) ||
 		(form  && form->rdonly)	? " (read-only)"      : "",
 		form  && form->proc	? " (procedural)"     : "",

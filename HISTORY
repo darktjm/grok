@@ -339,7 +339,7 @@ preferences (although the Qt GUI's print settings are).  If you relied
 on a long-winded command being in preferences to save you some typing,
 just convert that into a shorter-named shell script.
 
-Version 2.4 (git tag grok-2.4, SVN 598), released 31.08.21
+Version 2.4 (git tag grok-2.4, SVN 599), released 31.08.21
  * Switched from Qt's qmake to the more generic cmake.  This corrects
    a few problems with the documentation.  Builds now depend on cmake
    and bison (byacc used to work, but not any more).
@@ -470,3 +470,10 @@ referenced will generate syntax errors.
 
 Prior to 2.4, reference and referenced fields will be treated as plain
 inputs, and may be blank or otherwise broken.
+
+Version 2.4.1 (in progress)
+ * Renamed Debug button in form editor to Check (it's for debugging, but
+   what it does is checking).
+ * Corrected several CARD leaks of reference fields, which also caused
+   permanent memory locks on the affected databases (bug in 2.4)
+ * Allow multiple forms to access the same database data again (bug in 2.4)

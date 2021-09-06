@@ -138,7 +138,7 @@ static bool fkey_restrict(const CARD *card, int row)
 	if(card->rest_item < 0)
 		return true;
 	const ITEM *item = card->form->items[card->rest_item];
-	const char *val = dbase_get(card->dbase, row, item->column);
+	const char *val = dbase_get(card->form->dbase, row, item->column);
 	if(BLANK(val))
 		return false;
 	if(!IFL(item->,FKEY_MULTI))
@@ -162,9 +162,9 @@ void query_all(
 
 	if (!alloc_query(card, 0, false))
 		return;
-	for (r=n=0; r < card->dbase->nrows; r++) {
+	for (r=n=0; r < card->form->dbase->nrows; r++) {
 		int sr = card->sorted ? card->sorted[r] : r;
-		if (SECT_OK(card->dbase, sr) && fkey_restrict(card, sr))
+		if (SECT_OK(card->form->dbase, sr) && fkey_restrict(card, sr))
 			card->query[n++] = sr;
 	}
 	card->nquery = n;
@@ -184,15 +184,16 @@ void query_search(
 {
 	char		*mask;		/* for skipping unselected cards */
 	const char	*search;	/* lower-case search string */
+	DBASE		*dbase = card->form->dbase;
 
 	if (!alloc_query(card, &mask, false))
 		return;
 	search = strlower(string);
 	if (mode == SM_SEARCH && pref.incremental)
 		mode = SM_NARROW;
-	for (int row=0; row < card->dbase->nrows; row++) {
+	for (int row=0; row < dbase->nrows; row++) {
 		card->row = card->sorted ? card->sorted[row] : row;
-		if (!SECT_OK(card->dbase, card->row) ||
+		if (!SECT_OK(dbase, card->row) ||
 		    !fkey_restrict(card, card->row))
 			continue;
 		switch(mode) {
@@ -242,6 +243,7 @@ void query_letter(
 	int		r;		/* row counter */
 	char		*data;		/* database string to test */
 	char		*mask;		/* for skipping unselected cards */
+	DBASE		*dbase = card->form->dbase;
 
 	if (letter == 27) {
 		query_all(card);
@@ -250,13 +252,13 @@ void query_letter(
 	if (!alloc_query(card, &mask, true))
 		return;
 	letter = letter == 26 ? 0 : letter+'A';
-	if (card->col_sorted_by >= card->dbase->maxcolumns-1)
+	if (card->col_sorted_by >= dbase->maxcolumns-1)
 		card->col_sorted_by = 0;
-	for (r=0; r < card->dbase->nrows; r++) {
+	for (r=0; r < dbase->nrows; r++) {
 		int sr = card->sorted ? card->sorted[r] : r;
-		if (SECT_OK(card->dbase, sr) && fkey_restrict(card, sr) &&
+		if (SECT_OK(dbase, sr) && fkey_restrict(card, sr) &&
 		    (!mask || mask[sr])) {
-			data = dbase_get(card->dbase, sr, card->col_sorted_by);
+			data = dbase_get(dbase, sr, card->col_sorted_by);
 			while (data && SKIP(*data))
 				data++;
 			if ((!data || !*data || strchr("0123456789_", *data))
@@ -295,14 +297,15 @@ void query_eval(
 {
 	char		*mask;		/* for skipping unselected cards */
 	int		match;		/* to detect/skip errors */
+	DBASE		*dbase = card->form->dbase;
 
 	if (!alloc_query(card, &mask, false))
 		return;
 	if (mode == SM_SEARCH && pref.incremental)
 		mode = SM_NARROW;
-	for (int row=0; row < card->dbase->nrows; row++) {
+	for (int row=0; row < dbase->nrows; row++) {
 		card->row = card->sorted ? card->sorted[row] : row;
-		if (!SECT_OK(card->dbase, card->row) ||
+		if (!SECT_OK(dbase, card->row) ||
 		    !fkey_restrict(card, card->row))
 			continue;
 		switch(mode) {
@@ -352,40 +355,41 @@ static bool alloc_query(
 	char		**mask,		/* where to store pointer to string */
 	bool		is_letter)	/* if true, mask is static */
 {
+	DBASE		*dbase = card->form->dbase;
 	if (mask) {
 		int r;
 		*mask = 0;
-		/* FIXME: this should do no more if !card->dbase->nrows */
+		/* FIXME: this should do no more if !dbase->nrows */
 		/* FIXME: should delete any time database has been modified */
-		if (!is_letter || card->lm_size != card->dbase->nrows) {
+		if (!is_letter || card->lm_size != dbase->nrows) {
 			zfree(card->letter_mask);
 			card->letter_mask = 0;
 		}
 		/* what's the point of using abort_malloc here? */
 		if (card->query && (!is_letter || !card->letter_mask) &&
-		    !(*mask = (char *)malloc(card->dbase->nrows))) {
+		    !(*mask = (char *)malloc(dbase->nrows))) {
 			create_error_popup(mainwindow, errno,
 					   "No memory for query result summary");
 			return(false);
 		}
 		if (is_letter && card->letter_mask) {
 			if (*mask)
-				memcpy(*mask, card->letter_mask, card->dbase->nrows);
+				memcpy(*mask, card->letter_mask, dbase->nrows);
 		} else if (*mask) {
-			(void)memset(*mask, 0, card->dbase->nrows);
+			(void)memset(*mask, 0, dbase->nrows);
 			for (r=0; r < card->nquery; r++)
 				(*mask)[card->query[r]] = 1;
 			if (is_letter) {
-				card->letter_mask = alloc(0, "result summary", char, card->dbase->nrows);
-				memcpy(card->letter_mask, *mask, card->dbase->nrows);
-				card->lm_size = card->dbase->nrows;
+				card->letter_mask = alloc(0, "result summary", char, dbase->nrows);
+				memcpy(card->letter_mask, *mask, dbase->nrows);
+				card->lm_size = dbase->nrows;
 			}
 		}
 	}
 	query_none(card);
-	if (!card->dbase->nrows)
+	if (!dbase->nrows)
 		return(false);
-	if (!(card->query = (int*)malloc(card->dbase->nrows * sizeof(int*)))) {
+	if (!(card->query = (int*)malloc(dbase->nrows * sizeof(int*)))) {
 		create_error_popup(mainwindow, errno,
 					"No memory for query result summary");
 		if(mask && *mask) {
@@ -404,7 +408,7 @@ static bool alloc_query(
  * called recursively for foreign key items.
  */
 static bool search_matches_item(
-	const FORM	*form,		/* form item is from */
+	FORM		*form,		/* form item is from */
 	const DBASE	*dbase,		/* database item is from */
 	int		row,		/* row of database */
 	ITEM		*item,		/* item to search; writable for fkey */
@@ -420,7 +424,7 @@ static bool search_matches_item(
 	if (item->type != IT_FKEY)
 		return lc_in(data, search);
 	resolve_fkey_fields(item);
-	const FORM *fform = item->fkey_form;
+	FORM *fform = item->fkey_form;
 	if(!fform)
 		return lc_in(data, search);
 	int nvis = 0;
@@ -460,7 +464,7 @@ static bool search_matches_card(
 	int		i;		/* item counter */
 
 	for (i=0; i < card->form->nitems; i++)
-		if(search_matches_item(card->form, card->dbase, card->row,
+		if(search_matches_item(card->form, card->form->dbase, card->row,
 				       card->form->items[i], search))
 			return(true);
 	return(false);

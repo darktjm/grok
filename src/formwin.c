@@ -393,7 +393,7 @@ static void resize_key_table(QTableWidget *tw)
 enum edact {
 	EA_FORMNM = 1, EA_DBNAME, EA_FRO, EA_HASTS, EA_ISPROC, EA_EDPROC,
 	EA_DBDELIM, EA_ARDELIM, EA_ARESC, EA_SUMHT, EA_FCMT,
-	EA_QUERY, EA_REFBY, EA_FHELP, EA_DEBUG, EA_PREVW, EA_HELP, EA_CANCEL,
+	EA_QUERY, EA_REFBY, EA_FHELP, EA_CHECK, EA_PREVW, EA_HELP, EA_CANCEL,
 	EA_DONE, EA_ADDWID, EA_LAST_FWIDE = EA_ADDWID, EA_DELWID,
 	EA_TYPE, EA_FLSRCH, EA_FLRO, EA_FLNSRT, EA_DEFSRT, EA_FLMUL,
 	EA_FKHDR, /* EA_FKSRCH, */ EA_FKMUL,
@@ -458,7 +458,7 @@ static struct _template {
 	{ ALL, 'B', EA_QUERY,	"Queries",		"fe_query",	},
 	{ ALL, 'B', EA_REFBY,	"Referers",		"fe_ref",	},
 	{ ALL, 'B', EA_FHELP,	"Def Help",		"fe_defhelp",	},
-	{ ALL, 'B', EA_DEBUG,	"Debug",		"fe_debug",	},
+	{ ALL, 'B', EA_CHECK,	"Check",		"fe_check",	},
 	{ ALL, 'B', EA_PREVW,	"Preview",		"fe_preview",	},
 	{ ALL, 'B', EA_HELP,	NULL,			"edit",		0, dbbb(Help)},
 	{ ALL, 'B', EA_CANCEL,	NULL,			"fe_cancel",	0, dbbb(Cancel)},
@@ -1213,7 +1213,7 @@ static void fillout_formedit_widget(
 	filling_item = item;
 	switch(tp->code) {
 	  case EA_FORMNM: print_text_button_s(w, form->name);		break;
-	  case EA_DBNAME: print_text_button_s(w, form->dbase);		break;
+	  case EA_DBNAME: print_text_button_s(w, form->dbname);		break;
 	  case EA_FCMT: print_text_button_s(w, form->comment);		break;
 	  case EA_DBDELIM: print_text_button_s(w, to_octal(form->cdelim));	break;
 	  case EA_FRO: set_toggle(w, form->rdonly);			break;
@@ -1376,7 +1376,7 @@ static void fillout_formedit_widget(
 	  case EA_QUERY:
 	  case EA_REFBY:
 	  case EA_FHELP:
-	  case EA_DEBUG:
+	  case EA_CHECK:
 	  case EA_PREVW:
 	  case EA_HELP:
 	  case EA_CANCEL:
@@ -1660,19 +1660,19 @@ static int readback_item(
 
 	switch(tp->code) {
 	  case EA_FORMNM: (void)read_text_button_noblanks(w, &form->name);
-		      if (form->name && !form->dbase) {
-				form->dbase = mystrdup(form->name);
+		      if (form->name && !form->dbname) {
+				form->dbname = mystrdup(form->name);
 				fillout_formedit_widget_by_code(EA_DBNAME);
 		      }
 		      break;
 
-	  case EA_DBNAME: (void)read_text_button_noblanks(w, &form->dbase);	break;
+	  case EA_DBNAME: (void)read_text_button_noblanks(w, &form->dbname);	break;
 	  case EA_FCMT: (void)read_text_button(w, &form->comment);	break;
 	  case EA_DBDELIM: form->cdelim=to_ascii(read_text_button(w,0),':');	break;
 	  case EA_FRO: form->rdonly     ^= true;				break;
 	  case EA_HASTS: form->syncable   ^= true;				break;
 	  case EA_ISPROC: form->proc       ^= true; sensitize_formedit();	break;
-	  case EA_EDPROC: form_edit_script(form, w, form->dbase);		break;
+	  case EA_EDPROC: form_edit_script(form, w, form->dbname);		break;
 
 	  case EA_ARDELIM: form->asep=to_ascii(read_text_button(w,0),'|');	break;
 	  case EA_ARESC: form->aesc=to_ascii(read_text_button(w,0),'\\');	break;
@@ -1707,7 +1707,7 @@ static int readback_item(
 	  case EA_REFBY: create_refby_window(form);
 		      break;
 
-	  case EA_DEBUG: if (!verify_form(form, &i, shell) && i < form->nitems) {
+	  case EA_CHECK: if (!verify_form(form, &i, shell) && i < form->nitems) {
 				item_deselect(form);
 				canvas->curr_item = i;
 				IFS(form->items[i]->,SELECTED);
@@ -1745,26 +1745,23 @@ static int readback_item(
 			      QString msg;
 			      if(check_loaded_forms(msg, form)) {
 				      const char *formpath = resolve_tilde(form->path, "gf");
-				      for(DBASE **prev = &dbase_list; *prev; prev = &(*prev)->next)
-					      if(!strcmp((*prev)->form->path, formpath)) {
-						      DBASE *dbase = *prev;
-						      if(dbase->modified &&
-							 !create_save_popup(mainwindow,
-									    dbase,
+				      for(FORM *f = form_list; f; f = f->next)
+					      if(f->dbase && !strcmp(f->path, formpath)) {
+						      if(f->dbase->modified &&
+							 !create_save_popup(mainwindow, f,
 									    "Form configuration changes require reloading database %s\n"
 									    "Discard changes and reload?",
 									    formpath))
 							      return(0);
 						      if(mainwindow->card &&
-							 mainwindow->card->dbase == dbase) {
+							 mainwindow->card->form->dbase == f->dbase)
 							      switch_form(mainwindow->card, 0);
-							      /* switch_form may free dbase */
-							      for(prev = &dbase_list; *prev; prev = &(*prev)->next)
-								      if(*prev == dbase)
-									      break;
-							      if(!*prev)
+						      DBASE **prev, *dbase = f->dbase;;
+						      for(prev = &dbase_list; *prev; prev = &(*prev)->next)
+							      if(*prev == f->dbase)
 								      break;
-						      }
+						      if(!*prev)
+							      break;
 						      *prev = dbase->next;
 						      dbase_clear(dbase);
 						      free(dbase);
@@ -1781,6 +1778,7 @@ static int readback_item(
 		      /* now force a reload of all loaded forms with same path */
 		      /* "delete" so it's only retained if referenced */
 		      form_delete(read_form(form->path, true));
+		      dbase_prune();
 		      /* FIXME: not form->path, but form->dir/<name> */
 		      /* On the other hand, I don't save name at all */
 		      /* but using form->name as previously is right out */

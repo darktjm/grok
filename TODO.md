@@ -40,121 +40,8 @@ completely break in 3.0:
 Features in Progress
 --------------------
 
-- fkey issues:
-  - search restriction text field does nothing.  should be a search
-    expression applied to the parent database to restrict
-    what parents are selectable (although it never removes the
-    current value, if any).  Clicking the label link adds this
-    search expression to the other table by default as well.  For multi
-    and inv tables, this also filters what's displayed.
-
-    But it really isn't necessary for fkey fields, as initial string
-    search is supported by Qt combobox widgets, and you shouldn't have
-    a huge db, anyway.
-    
-    It also really isn't necessary for inv_fkey fields, as parent
-    restricted mode allows you to search among the listing.
-    
-    Thus, I will not implement this for 2.4.
-
-  - only summary testing is of single-level single-field fkey; I'll
-    fix issues if they are reported (not likely since I'm probably the
-    only user).
-
-  - some data validity checks' suggested fixes untested; I'll fix issues
-    if they are reported (not likely since I'm probably the only user).
-
-  - little testing of fkey_multi or multi-field keys; I'll fix issues if
-    they are reported (not likely since I'm probably the only user).
-
-  - make_summary_line() leaks CARDs
-
-  - no auto-delete of refered-to row if reference changed or removed
-    (cascade delete).  May never implement this, as it might become
-    annoying to ask user every time.  For now, (!referenced) will return
-    true if a row is an "orphan" in need of deletion.
-
-  - no auto-adjust of key field names if changed in foreign db (cascade
-    key field definition).  Since I don't generally do that sort of
-    thing on form updates yet anyway, I'll defer this.
-
-  - no auto-adjust/clear/delete of key values in other databases if
-    key changes (cascade key field modification)  Since I don't
-    generally do that sort of thing on form updates yet anyway, I'll
-    defer this. 
-
-  - no support for inv_fkey in auto-templates, summary, expressions,
-    search, sort.  Probably won't fix before 2.4.
-
-  - changing db of fkey field spews errors on stderr.  Probably won't
-    fix before 2.4
-
-  - no way to display virtual fields (Print, Referers, Chart, etc)
-    Probably won't fix before 2.4
-
-  - No directly editable table for inv_fkey or fkey_multi; may never do
-    this.  Definitely doesn't block 2.4
-
-  - No sorting really for tables.  Should probably try to sort by
-    foreign table's default sort order, or by first displayed field.
-    Actually, multi-fkey sorted by key set order.
-    Probably won't fix before 2.4.
-
-  - clearing title field of purchase in dlc always clears other 2
-    Harmless; maybe intentional.  Probably won't fix before 2.4.
-
-  - I probably ought to disallow single fkey references to display multi
-    fkey references, or make such a reference auto-convert the widget to
-    a multi-reference widget.  Probably won't fix before 2.4.
-
-  - Evaluate possibility of making FKEY_MULTI bidirectional:  every
-    pointer exists in both tables.  Probably not before 2.4.
-
-  - Allow importing templates from other databases (and this database)
-    using \\{IMPORT *db* *template* *search*}.  Maybe an optional
-    first parameter is a variable to load template result into for
-    further text mangling, or auto-mangling with a set of regex
-    parameters and their associated replacements.  Once again, some
-    sort of limits need to be placed on the arguments so that IMPORT
-    can parse them.  May not do before 2.4.
-
- db menu fixes:
-
-  - All loaded databases should be in the menu regardless of
-    whether or not they normally would be.  Probably won't fix before 2.4.
-
-  - The star in the title bar should also reflect all databases,
-    not just the currently displayed one.  Probaably won't fix before 2.4.
-
-  - Modified flag in db menu needs updating as soon as db is modifed
-    (print_info_line() material, at least)  Probably won't fix before 2.4.
-
-  - As soon as a db/form is unloaded, it should be unbolded/removed from
-    menu.  Probably won't fix before 2.4.
-
-  - As soon as a db/form is loaded via non-interactive means, it should
-    be bolded/added to menu  Probably won't fix before 2.4.
-
-- Support multiple views; i.e. multiple main windows.  So far, it's
-  possible to have multiple card structures, each of which supports its
-  own sort order and query.  For now, don't worry too much about the
-  same row being edited in multiple windows at once, although a change
-  should probably at least force a refresh in all other windows.
-
-  Perhaps as a later feature, support use of tabs instead of separate
-  windows.  I don't really care for MDI, so I don't think I'll do that.
-
-  Also, in the style of emacs, retain search and sort criteria of
-  previous view on dbase switch.  Currently, I discard the card, and
-  only retain the dbase & form if the dbase is modified or cached.
-  
-  Mabye not before 2.4, since popping up a cardwin meets some of the
-  needs.
-
 Bugs
 ----
-
-- Modification by just viewing?
 
 - Click on list with card update changes selection.  This is due to
   re-sort sometimes, but other times who knows?
@@ -204,9 +91,30 @@ Bugs
   because QApplication silently dies if it's run before the fork.
 
 - Sometimes form editor crashes when writing form def, causing it to
-  be wiped out
+  be wiped out -- I should write to temporary file and then move on success
 
 - Error during FOREACH loop on export double frees query results
+
+- [Verify] fkey card structures must be non-graphical, or a form
+  reload might realloc() and invalidate pointers
+
+- Fkey forms' path should be relative to referring form's path
+
+- Only fkey-in-summary testing is of single-level single-field fkey
+
+- Some fkey data validity checks' suggested fixes untested
+
+- Little testing of fkey_multi or multi-field keys
+
+- Changing db of fkey field spews errors on stderr.
+
+- Modified flag in db menu needs updating as soon as db is modifed
+  (print_info_line() material, at least)
+
+- As soon as a db/form is unloaded, it should be unbolded/removed from menu.
+
+- As soon as a db/form is loaded via non-interactive means, it should
+  be bolded/added to menu
 
 Code Improvements
 -----------------
@@ -333,6 +241,30 @@ Minor UI Improvements
 
   - Support drag-move for reordering.
 
+- fkey search restriction text field: a search expression applied to
+  the parent database to restrict what parents are selectable (although
+  it never removes the current value, if any).  Clicking the label link
+  adds this search expression to the other table by default as well.
+  For multi and inv tables, this also filters what's displayed.
+
+  But it really isn't necessary for fkey fields, as initial string
+  search is supported by Qt combobox widgets, and you shouldn't have
+  a huge db, anyway.
+
+  It also really isn't necessary for inv_fkey fields, as parent
+  restricted mode allows you to search among the listing.
+
+- auto-delete of refered-to row if reference changed or removed
+  (cascade delete).  May never implement this, as it might become
+  annoying to ask user every time.  For now, (!referenced) will return
+  true if a row is an "orphan" in need of deletion.
+
+- auto-adjust of key field names if changed in foreign db (cascade
+  key field definition).
+
+- auto-adjust/clear/delete of key values in other databases if
+  key changes (cascade key field modification)
+
 - Actually look into the plan interface.  At the very least reduce its
   footprint on the form editor my making the radio group a menu.
   Maybe even make it a one-liner (i.e., menu & plan_if on one line).
@@ -345,6 +277,14 @@ Minor UI Improvements
   some widgets change to a different form if read-only, so they need to
   be switched between forms.  In fact, the form it uses is determined at
   card window creation time, so readonly is very non-dynamic.
+
+- Directly editable table for inv_fkey or fkey_multi
+
+- All loaded databases should be in the menu regardless of whether or not
+  they normally would be.
+
+- The star in the title bar should also reflect all databases, not just
+  the currently displayed one.
 
 Important UI improvements
 -------------------------
@@ -384,9 +324,9 @@ Important UI improvements
   file described above.  Also, in the new @db stuff, if the sort field
   starts with ( or { interpret as a string/numeric expression.
 
-- Add list of field names to expression grammar help text, similar to
-  fields text in query editor.  Or, just make that a separate
-  universal popup.  Or, add it to Database Info.
+- No sorting really for tables.  Should probably try to sort by
+  foreign table's default sort order, or by first displayed field.
+  Actually, multi-fkey sorted by key set order.
 
 - Use QUiLoader for the main GUI.  Give every action and major widget
   a name, and map that to the user-supplied .ui file. That's
@@ -533,12 +473,35 @@ Important UI improvements
   annoying to have to always move the form to the side to find the
   canvas, and then to move that to the side so they don't overlap.
 
+- Support multiple views; i.e. multiple main windows.  So far, it's
+  possible to have multiple card structures, each of which supports its
+  own sort order and query.  For now, don't worry too much about the
+  same row being edited in multiple windows at once, although a change
+  should probably at least force a refresh in all other windows.
+
+  Perhaps as a later feature, support use of tabs instead of separate
+  windows.  I don't really care for MDI, so I don't think I'll do that.
+
+  Also, in the style of emacs, retain search and sort criteria of
+  previous view on dbase switch.  Currently, I discard the card, and
+  only retain the dbase & form if the dbase is modified or cached.
+  
+  Popping up a cardwin meets some of the needs.
+
 Infrastructure Improvements
 ---------------------------
 
-- Add support for multiple flags in a single condition.  For example,
+- Add support for multiple template flags in a single condition.  For example,
   using operators |& and parentheses [] (() and {} are already used for
   full expressions).
+
+- Allow importing templates from other databases (and this database)
+  using \\{IMPORT *db* *template* *search*}.  Maybe an optional
+  first parameter is a variable to load template result into for
+  further text mangling, or auto-mangling with a set of regex
+  parameters and their associated replacements.  Once again, some
+  sort of limits need to be placed on the arguments so that IMPORT
+  can parse them.
 
 - Change disk storage of dates to number of seconds since epoch.  Main
   issues I can see are that external tools may depend on the format
@@ -618,7 +581,10 @@ Infrastructure Improvements
 
 - Make Print widget's name refer to the label text, rather than a
   database column.  Support Print widgets in summary, expressions,
-  auto-template full listings, search, sort.
+  auto-template full listings, search, sort, fkey-visible.
+
+- support for inv_fkey in auto-templates, summary, expressions,
+  search, sort, fkey-visible.
 
 - Support UTF-8.  I don't like the idea of using QChar everywhere, and
   I definitely don't like the idea of converting to/from QByteArrays,

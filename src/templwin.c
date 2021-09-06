@@ -302,8 +302,9 @@ static void set_export_card(CARD *card)
 {
 	const int *oquery;
 	tzero(CARD, &shell->export_card, 1);
-	if(!card || !card->dbase)
+	if(!card || !card->form || !card->form->dbase)
 		return;
+	const DBASE *dbase = card->form->dbase;
 	shell->export_card = *card;
 	card = &shell->export_card;
 	switch(pref.pselect) {
@@ -320,24 +321,24 @@ static void set_export_card(CARD *card)
 		break;
 	    case 'e': {
 		int n;
-		for(int i = n = 0; i < card->dbase->nrows; i++)
-			if(SECT_OK(card->dbase, i))
+		for(int i = n = 0; i < dbase->nrows; i++)
+			if(SECT_OK(dbase, i))
 				n++;
 		card->nquery = n;
 		card->query = alloc(0, "query", int, card->nquery);
 		if(card->nquery)
-			for(int i = n = 0; i < card->dbase->nrows; i++) {
+			for(int i = n = 0; i < dbase->nrows; i++) {
 				int r = card->sorted ? card->sorted[i] : i;
-				if(SECT_OK(card->dbase, r))
+				if(SECT_OK(dbase, r))
 					card->query[n++] = r;
 			}
 		break;
 	    }
 	    case 'A':
-		card->nquery = card->dbase->nrows;
+		card->nquery = dbase->nrows;
 		card->query = alloc(0, "query", int, card->nquery);
 		if(card->nquery)
-			for(int i = 0; i < card->dbase->nrows; i++) {
+			for(int i = 0; i < dbase->nrows; i++) {
 				int r = card->sorted ? card->sorted[i] : i;
 				card->query[i] = r;
 			}

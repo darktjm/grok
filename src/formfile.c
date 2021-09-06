@@ -70,7 +70,7 @@ bool write_form(
     do { if(val1 chk1 || val2 chk2) fprintf(fp, prop "%.*lg %.*lg\n", DBL_DIG + 1, val1, DBL_DIG + 1, val2); } while(0)
 	fputs("grok\n", fp);
 	write_str("name       ", form->name);
-	write_str("dbase      ", form->dbase);
+	write_str("dbase      ", form->dbname);
 	write_str("comment    ", form->comment);
 	write_str("cdelim     ", to_octal(form->cdelim)); /* always written */
 	if ((form->asep && form->asep != '|') ||
@@ -256,7 +256,7 @@ static FILE *try_path(const char *path, const char **fname)
 	len = strlen(path) + strlen(*fname) + 1;
 	grow(0, "form path", char, buf, len + 4, &buflen);
 	sprintf(buf, "%s/%s", path, *fname);
-	if(len > 3 && strcmp(buf + len - 3, ".gf"))
+	if(len < 3 || strcmp(buf + len - 3, ".gf"))
 		strcpy(buf + len, ".gf");
 	if((fp = fopen(buf, "r"))) {
 		*fname = buf;
@@ -342,18 +342,10 @@ FORM *read_form(
 			const char *env = getenv("GROK_FORM"), *ret;
 			if(env && (fp = try_path(env, &path)))
 				break;
-			cwd = alloc(0, "cwd", char, (cwdsz = 80));
-			while(!(ret = getcwd(cwd, cwdsz))) {
-				if(errno != ENAMETOOLONG)
-					fatal("cwd is too long");
-				fgrow(0, "cwd", char, cwd, (cwdsz *= 2), NULL);
-			}
-			if((fp = try_path(cwd, &path)))
+			/* canonicalize will expand . and relative grokdir */
+			if((fp = try_path(".", &path)))
 				break;
-			if(strlen(cwd) + 9 > cwdsz)
-				grow(0, "cwd", char, cwd, cwdsz + 9, NULL);
-			strcat(cwd, "/grokdir");
-			if((fp = try_path(cwd, &path)))
+			if((fp = try_path("grokdir", &path)))
 				break;
 			if((fp = try_path(resolve_tilde(GROKDIR, NULL), &path)))
 				break;
@@ -382,11 +374,14 @@ FORM *read_form(
 			if(!strcmp(form->path, p)) {
 				fclose(fp);
 				if(strcmp(form->dir, dir)) {
+					/* same form symlinked to a different dir */
 					for(FORM *f = form->next; f; f = f->next)
-						if(!strcmp(form->path, p) &&
-						   !strcmp(form->dir, dir)) {
+						if(!strcmp(f->path, p) &&
+						   !strcmp(f->dir, dir)) {
+							/* or maybe not */
 							free(p);
 							free(dir);
+							f->deleted = false;
 							return f;
 						}
 					form = form_clone(form);
@@ -436,7 +431,7 @@ FORM *read_form(
 			else if (!strcmp(key, "name"))
 					STORE(form->name, p);
 			else if (!strcmp(key, "dbase"))
-					STORE(form->dbase, p);
+					STORE(form->dbname, p);
 			else if (!strcmp(key, "comment"))
 					STORE(form->comment, p);
 			else if (!strcmp(key, "rdonly"))
@@ -687,11 +682,12 @@ FORM *read_form(
 		form_list = form;
 		return form;
 	}
+	/* for forced loads, replace all versions of this path in form list */
 	/* first pass: replace forms and collect possible dbase replacements */
 	/* replacments will be stored here.  This will sort of screw up the */
 	/* lru order of dbase_list, but I don't care */
 	DBASE *repl_dbase = 0;
-	for(FORM **prev = &form_list; *prev; prev = &(*prev)->next)
+	for(FORM **prev = &form_list; *prev; )
 		if(!strcmp((*prev)->path, form->path)) {
 			FORM *nform, *oform = *prev;
 			if(!strcmp((*prev)->dir, form->dir)) {
@@ -704,15 +700,16 @@ FORM *read_form(
 				nform->next = oform->next;
 				verify_form(nform, 0, 0); /* create symtab */
 				*prev = nform;
+				prev = &(*prev)->next;
 				oform->path = oform->dir = NULL;
 			}
 			const char *path = db_path(nform);
 			for(DBASE **dbp = &dbase_list; *dbp; )
-				if((*dbp)->form == oform) {
-					(*dbp)->form = nform;
+				if(*dbp == oform->dbase) {
 					if(!strcmp(path, (*dbp)->path) &&
 					   oform->proc == nform->proc &&
 					   (!oform->proc || !strcmp(oform->name, nform->name))) {
+						nform->dbase = oform->dbase;
 						dbp = &(*dbp)->next;
 						continue;
 					}
@@ -729,25 +726,46 @@ FORM *read_form(
 					card_readback_texts(card, -1);
 					card->form = nform;
 				}
+			oform->dbase = 0;
 			form_delete(oform);
 			if(!*prev)
 				break;
-		}
+		} else
+			prev = &(*prev)->next;
 	form->next = form_list;
 	form_list = form;
-	/* 2nd pass: update databases if form->dbase/proc/name changed */
+	/* 2nd pass: update databases if form->dbname/proc/name changed */
 	while(repl_dbase) {
 		DBASE *odbase = repl_dbase;
-		DBASE *dbase = read_dbase(odbase->form);
-		for(CARD *card = card_list; card; card = card->next)
-			if(card->dbase == odbase)
-				card->dbase = dbase;
 		repl_dbase = odbase->next;
-		dbase_clear(odbase);
-		free(odbase);
+		bool gone = true;
+		for(FORM **prev = &form_list; prev; ) {
+			FORM *f = *prev;
+			if(f->dbase != odbase) {
+				prev = &(*prev)->next;
+				continue;
+			}
+			/* no point in re-reading cache placeholders */
+			if(f->deleted) {
+				*prev = f->next;
+				f->dbase = 0;
+				form_delete(f);
+				continue;
+			}
+			read_dbase(f);
+			/* in case you actually have 2 forms w/ same dbase */
+			gone = false;
+			prev = &(*prev)->next;
+		}
+		if(!gone) {
+			dbase_clear(odbase);
+			free(odbase);
+		}
 	}
 	/* 3rd pass: reload windows using affected forms */
 	for(CARD *card = card_list; card; card = card->next)
+		/* FIXME: verify fkeys never get caught here: fkey_next, fksel->fcard */
+		/*  fkey_next would be easy enough to check/fix here, but not fcard */
 		if(card->wform && !strcmp(card->form->path, form->path)) {
 			if(card->nitems != form->nitems) {
 				CARD *ncard = card;
@@ -755,7 +773,6 @@ FORM *read_form(
 				if(card != ncard) {
 					if(mainwindow->card == card)
 						mainwindow->card = ncard;
-					/* FIXME: adjust FKey ptrs to cards as well */
 					for(CARD **pc = &card_list; *pc; pc = &(*pc)->next)
 						if(*pc == card) {
 							*pc = ncard;
@@ -770,6 +787,7 @@ FORM *read_form(
 			build_card_menu(card, wform);
 			fillout_card(card, false);
 		}
+	dbase_prune();
 	return form;
 }
 

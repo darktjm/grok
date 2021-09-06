@@ -178,7 +178,7 @@ void f_foreach(
 	char	*cond,
 	char	*expr)
 {
-	DBASE		*dbase	    = g->card->dbase;
+	DBASE		*dbase	    = g->card->form->dbase;
 	int		saved_row   = g->card->row;
 	int		row;
 
@@ -389,21 +389,22 @@ int Xparserlex(YYSTYPE *lvalp, PG)
 				row = g->card->row;
 			if (fit.card) {
 				resolve_fkey_fields(fit.item);
-				c = create_card_menu((form = fit.item->fkey_form),
-						     read_dbase(fit.item->fkey_form));
+				read_dbase(form = fit.item->fkey_form);
+				c = create_card_menu(form);
 				c->fkey_next = fit.card;
 				row = fit.card->row;
 			}
 			ITEM **item = form->items;
 			lvalp->fval.card = c;
 			if (fit.card) {
-				DBASE *db = fit.card->dbase;
+				const FORM *f = fit.card->form;
+				DBASE *db = f->dbase;
 				if (row < 0 || row >= db->nrows)
 					lvalp->fval.row = fit.card->qcurr = fit.card->row = -1;
 				else {
-					DBASE *fdb = c->dbase;
+					DBASE *fdb = c->form->dbase;
 					g->card->qcurr = lvalp->fval.row =
-						fkey_lookup(fdb, db->form, fit.item,
+						fkey_lookup(fdb, f, fit.item,
 							    dbase_get(db, row,
 								      fit.item->column));
 				}

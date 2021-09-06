@@ -41,7 +41,6 @@ DBASE *dbase_create(
 
 	/* since even this code assumes success, errors are fatal */
 	dbase = zalloc(0, "database", DBASE, 1);
-	dbase->form = form;
 	dbase->path = mystrdup(db_path(form));
 	return(dbase);
 }
@@ -56,14 +55,7 @@ void dbase_clear(
 {
 	int		r, c;		/* data counter */
 	ROW		*row;		/* row to delete */
-	const FORM	*form = dbase->form;
 
-	dbase->form = NULL;
-	for(FORM *f = form_list; f; f = f->next)
-		if(f == form) {
-			form_delete(f);
-			break;
-		}
 	for (r=0; r < dbase->nsects; r++)
 		zfree(dbase->sect[r].path);
 	zfree(dbase->sect);
@@ -78,38 +70,41 @@ void dbase_clear(
 	zfree(dbase->path);
 	for(r=0; r < 26; r++)
 		zfree(dbase->var[r].string);
+	for(FORM *f = form_list; f; )
+		if(f->dbase == dbase) {
+			FORM *of = f;
+			f = f->next;
+			of->dbase = 0;
+			form_delete(of);
+		} else
+			f = f->next;
 }
 
 
 /* The public interface only deletes unreferenced databases */
 /* It might even delete more than one, not necessarily passed-in one */
-void dbase_delete(
-	DBASE		*dbase)		/* dbase to delete */
+void dbase_prune()
 {
 	CARD		*card;
+	FORM		*form;
 	DBASE		**prev;
 	int		n;
 
-	/* If the database has no path, it's not in the list, so delete */
-	if(dbase && !dbase->path) {
-		dbase_clear(dbase);
-		free(dbase);
-	}
-	/* but prune databases anyway */
-	for(n = 0, prev = &dbase_list; *prev; prev = &(*prev)->next)
+	for(n = 0, prev = &dbase_list; *prev; ) {
 		if(!(*prev)->modified) {
-			for (card = card_list; card; card = card->next)
-				if (card->dbase == *prev)
+			for (form = form_list; form; form = form->next)
+				if (form->dbase == *prev && !form->deleted)
 					break;
-			if(!card && ++n > pref.db_keep) {
+			if(!form && ++n > pref.db_keep) {
 				DBASE *dbase = *prev;
 				*prev = dbase->next;
 				dbase_clear(dbase);
 				free(dbase);
-				if(!*prev)
-					return;
+				continue;
 			}
 		}
+		prev = &(*prev)->next;
+	}
 }
 
 
@@ -367,8 +362,8 @@ void dbase_sort(
 
 	if (!card)
 		return;
-	dbase = card->dbase;
 	form  = card->form;
+	dbase = form ? form->dbase : 0;
 	if (!dbase || !form || dbase->nrows < 2)
 		return;
 
@@ -946,10 +941,11 @@ int find_referrer(
 /* fills in badrefs/nbadref with problem descriptors */
 /* inv/invdb are for recursion, to check that foreign db's refs to this db
  * are valid as well */
-void check_db_references(FORM *form, DBASE *db, badref **badrefs,
+void check_db_references(FORM *form, badref **badrefs,
 			 int *nbadref, const FORM *inv, DBASE *invdb)
 {
 	int i, j, r, k;
+	DBASE *db = read_dbase(form);
 
 	for(i = 0; i < form->nitems; i++) {
 		ITEM *item = form->items[i];
@@ -965,9 +961,7 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 				badref br;
 				br.form = form;
 				br.item = i;
-				br.fform = fform;
-				br.dbase = db;
-				br.fdbase = 0;
+				br.fform = 0;
 				br.row = br.keyno = -1;
 				br.reason = BR_NO_FORM;
 				grow(0, "bad refs", badref,
@@ -983,8 +977,6 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 				br.form = form;
 				br.item = i;
 				br.fform = fform;
-				br.dbase = db;
-				br.fdbase = 0;
 				br.row = -1;
 				br.keyno = j;
 				br.reason = BR_NO_REFITEM;
@@ -1006,8 +998,6 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 					br.form = form;
 					br.item = i;
 					br.fform = fform;
-					br.dbase = db;
-					br.fdbase = fdb;
 					br.row = br.keyno = -1;
 					br.reason = BR_NO_INVREF;
 					grow(0, "bad refs", badref,
@@ -1033,8 +1023,6 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 						br.form = form;
 						br.item = i;
 						br.fform = fform;
-						br.dbase = db;
-						br.fdbase = fdb;
 						br.row = r;
 						br.keyno = -1;
 						br.reason = BR_BADKEYS;
@@ -1062,8 +1050,6 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 						br.form = form;
 						br.item = i;
 						br.fform = fform;
-						br.dbase = db;
-						br.fdbase = fdb;
 						br.row = r;
 						br.keyno = k;
 						br.reason = fr < 0 ? BR_MISSING : BR_DUP;
@@ -1076,8 +1062,7 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 		} else if(!inv && item->type == IT_INV_FKEY)
 			/* verify_form ensures foreign key field is FKEY */
 			/* otherwise, I'd have to check for BR_NO_FREF here */
-			check_db_references(fform, read_dbase(fform), badrefs,
-					    nbadref, form, db);
+			check_db_references(fform, badrefs, nbadref, form, db);
 	}
 	if(inv)
 		return;
@@ -1089,8 +1074,6 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 			br.form = form;
 			br.item = i;
 			br.fform = fform;
-			br.dbase = 0;
-			br.fdbase = 0;
 			br.row = br.keyno = -1;
 			br.reason = BR_NO_CFORM;
 			grow(0, "bad refs", badref,
@@ -1112,15 +1095,12 @@ void check_db_references(FORM *form, DBASE *db, badref **badrefs,
 			br.form = form;
 			br.item = i;
 			br.fform = fform;
-			br.dbase = 0;
-			br.fdbase = 0;
 			br.row = br.keyno = -1;
 			br.reason = BR_NO_FREF;
 			grow(0, "bad refs", badref,
 			     *badrefs, *nbadref + 1, 0);
 			(*badrefs)[(*nbadref)++] = br;
 		} else
-			check_db_references(fform, read_dbase(fform), badrefs,
-					    nbadref, form, db);
+			check_db_references(fform, badrefs, nbadref, form, db);
 	}
 }

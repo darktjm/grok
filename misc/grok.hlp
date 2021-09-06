@@ -996,7 +996,7 @@
 	in the main window. The Done button saves the form and exits the form
 	editor. Before saving, the form will be checked; a window with error
 	messages will appear and the form editor will refuse to save if the
-	form contains errors. The form can also be checked with the Debug
+	form contains errors. The form can also be checked with the Check
 	button; no window will appear if no errors are found. The Cancel button
 	will discard the edited form and exit the form editor without saving.
 
@@ -1154,8 +1154,8 @@
 	This text describes the current form, and how to use the fields and
 	buttons. This help text will be displayed when the user presses the
 	Help button in the lower right corner of the main window.
-%% fe_debug
-	DEBUG
+%% fe_check
+	CHECK
 
 	Check the form for inconsistencies, and display an error and warning
 	popup if problems are found. No popup will appear if the form is free

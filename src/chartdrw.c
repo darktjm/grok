@@ -60,7 +60,7 @@ void draw_chart(
 	ITEM		*item;		/* chart item to draw */
 	GrokChart	*gc;
 
-	if (!card || !card->form || !card->dbase || !card->dbase->nrows)
+	if (!card || !card->form || !card->form->dbase || !card->form->dbase->nrows)
 		return;
 	item = card->form->items[nitem];
 	if (!item->ch_ncomp)
@@ -88,14 +88,14 @@ void GrokChart::paintEvent(QPaintEvent *)
 	/*
 	 * step 1: calculate positions and colors of all bars
 	 */
-	item->ch_nbars = item->ch_ncomp * card->dbase->nrows;
+	item->ch_nbars = item->ch_ncomp * card->form->dbase->nrows;
 	zfree(item->ch_bar);
 	item->ch_bar = alloc(0, "bar chart", BAR, item->ch_nbars);
 
 	xmin = ymin =  1e30;
 	xmax = ymax = -1e30;
 	bar = item->ch_bar;
-	for (r=0; r < card->dbase->nrows; r++) {
+	for (r=0; r < card->form->dbase->nrows; r++) {
 		sr = card->sorted ? card->sorted[r] : r;
 		card->row = sr;
 		for (c=0; c < item->ch_ncomp; c++, bar++) {
@@ -128,7 +128,7 @@ void GrokChart::paintEvent(QPaintEvent *)
 						  : 0;
 					break;
 				  case CC_DRAG:
-					res = dbase_get(card->dbase, sr,
+					res = dbase_get(card->form->dbase, sr,
 							chart->value[i].field);
 					bar->value[i] =
 						res ? atof(res)
@@ -199,7 +199,7 @@ void GrokChart::paintEvent(QPaintEvent *)
 	 * step 3: draw bars
 	 */
 	bar = item->ch_bar;
-	for (r=0; r < card->dbase->nrows; r++) {
+	for (r=0; r < card->form->dbase->nrows; r++) {
 		sr = card->sorted ? card->sorted[r] : r;
 		card->row = sr;
 		for (c=0; c < item->ch_ncomp; c++, bar++) {
@@ -287,15 +287,15 @@ int GrokChart::pick_chart(
 	BAR		*bar;		/* current bar */
 	int		r, c;		/* row (card) and comp (bar) counters*/
 
-	if (!card || !card->form || !card->dbase || !card->dbase->nrows)
+	if (!card || !card->form || !card->form->dbase || !card->form->dbase->nrows)
 		return(-1);
 	item = card->form->items[nitem];
 	if (!item->ch_ncomp)
 		return(-1);
 
 	ypick = item->ys - ypick;
-	bar = item->ch_bar + card->dbase->nrows * item->ch_ncomp -1;
-	for (r=card->dbase->nrows-1; r >= 0; r--) {
+	bar = item->ch_bar + card->form->dbase->nrows * item->ch_ncomp -1;
+	for (r=card->form->dbase->nrows-1; r >= 0; r--) {
 		for (c=item->ch_ncomp-1; c >= 0; c--, bar--) {
 			int x  = XPIX(snap(bar->value[0], item->ch_xsnap));
 			int xs = XPIX(snap(bar->value[0] +
@@ -348,7 +348,7 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 		    this == mainwindow->card->items[nitem].w1)
 			break;
 	if (nitem >= mainwindow->card->nitems	||		/* illegal */
-	    mainwindow->card->dbase == 0	||		/* preview dummy card*/
+	    mainwindow->card->form->dbase == 0	||		/* preview dummy card*/
 	    mainwindow->card->row < 0) {			/* card still empty */
 		event->ignore();
 		return;
@@ -360,7 +360,7 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 		down_x = event->x();
 		down_y = event->y();
 		row    = pick_chart(mainwindow->card, nitem, &comp, down_x, down_y);
-		if (row >= 0 && row < mainwindow->card->dbase->nrows) {
+		if (row >= 0 && row < mainwindow->card->form->dbase->nrows) {
 			card_readback_texts(mainwindow->card, -1);
 			mainwindow->card->row = row;
 			for (i=0; i < mainwindow->card->nquery; i++)
@@ -371,10 +371,10 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 			fillout_card(mainwindow->card, false);
 			scroll_summary(mainwindow->card);
 			chart = &item->ch_comp[comp];
-			p = dbase_get(mainwindow->card->dbase, row,
+			p = dbase_get(mainwindow->card->form->dbase, row,
 						chart->value[CC_X].field);
 			x_val = p ? atof(p) : 0;
-			p = dbase_get(mainwindow->card->dbase, row,
+			p = dbase_get(mainwindow->card->form->dbase, row,
 						chart->value[CC_Y].field);
 			y_val = p ? atof(p) : 0;
 		}
@@ -413,7 +413,7 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 		f = x_val + x * (xmax-xmin) / xval->mul / item->xs;
 		f = snap(f, item->ch_xsnap);
 		sprintf(buf, "%.12lg", f);
-		dbase_put(mainwindow->card->dbase, row, xval->field, buf);
+		dbase_put(mainwindow->card->form->dbase, row, xval->field, buf);
 		redraw = true;
 	}
 	if (yval->mode == CC_DRAG && yval->mul != 0) {
@@ -421,7 +421,7 @@ void GrokChart::chart_action_callback(QMouseEvent *event, int press)
 		f = y_val + y * (ymax-ymin) / yval->mul / item->ys;
 		f = snap(f, item->ch_ysnap);
 		sprintf(buf, "%.12lg", f);
-		dbase_put(mainwindow->card->dbase, row, yval->field, buf);
+		dbase_put(mainwindow->card->form->dbase, row, yval->field, buf);
 		redraw = true;
 	}
 	if (redraw)

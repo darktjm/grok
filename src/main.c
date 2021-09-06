@@ -127,7 +127,7 @@ int main(
 			usage();
 		read_preferences();
 		switch_form(card, formname);
-		if (!card ||!card->dbase ||!card->dbase->nrows){
+		if (!card || !card->form || !card->form->dbase ||!card->form->dbase->nrows){
 			fprintf(stderr, "%s: %s: no data\n",progname,formname);
 			exit(0);
 		}
@@ -157,7 +157,7 @@ int main(
 			usage();
 		read_preferences();
 		switch_form(card, formname);
-		if (!card ||!card->dbase ||!card->dbase->nrows)
+		if (!card || !card->form || !card->form->dbase ||!card->form->dbase->nrows)
 			exit(0);
 		query_any(SM_SEARCH, card, query ?
 					query : card->form->planquery);
@@ -172,7 +172,7 @@ int main(
 			usage();
 		read_preferences();
 		switch_form(card, formname);
-		if (!card ||!card->dbase ||!card->dbase->nrows){
+		if (!card || !card->form || !card->form->dbase ||!card->form->dbase->nrows){
 			fprintf(stderr, "%s: %s: no data\n",progname,formname);
 			exit(0);
 		}
@@ -265,7 +265,7 @@ int main(
 		query_any(SM_SEARCH, card, query);
 		create_summary_menu(card);
 		card->row = card->query ? card->query[0]
-						  : card->dbase->nrows;
+						  : card->form->dbase->nrows;
 		fillout_card(card, false);
 	}
 	mainwindow->show();

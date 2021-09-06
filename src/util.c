@@ -670,6 +670,9 @@ void *abort_malloc(
  * guarantee behavior I desire, such as removal of duplicate slashes, even
  * though GNU libc's realpath does remove them. */
 /* On the other hand, this is probably completely broken for mingw */
+/* Note that this is no guarantee that two files with different canonical
+ * paths aren't the same file.  Hard links are not taken into account, and
+ * there are other ways files can be aliased (e.g. mirroring filesystems) */
 /* FIXME: this should be non-fatal; return NULL on errors */
 /* then again, maybe some memory errors should be fatal. */
 const char *canonicalize(const char *path, bool dir_only)
@@ -703,7 +706,7 @@ const char *canonicalize(const char *path, bool dir_only)
 		strcpy(full_path + cwd_len + 1, STR(path));
 	} else {
 		grow(0, "canonicalize", char, full_path, strlen(path) + 1, &fpsize);
-		strcpy(full_path, STR(path));
+		strcpy(full_path, path);
 	}
 	if(dir_only)
 		*strrchr(full_path, '/') = 0;

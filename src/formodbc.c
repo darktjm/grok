@@ -59,7 +59,7 @@
 #define grok_form_def ( \
     ( id,		INTEGER, 64, (fid,,) ), \
     ( name,		(VARCHAR, 128, "NOT NULL UNIQUE"), sn ), \
-    ( dbase,		(VARCHAR, 128, "NOT NULL"), sn ), \
+    ( dbname,		(VARCHAR, 128, "NOT NULL"), sn ), \
     ( comment,		(VARCHAR, 1024), s ), \
     ( cdelim,		(CHAR, 1), c, (cdelim, || 1) ), \
     ( adelim,		(CHAR, 1), c, (asep, && f->asep != '|') ), \

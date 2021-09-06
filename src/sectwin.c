@@ -49,7 +49,7 @@ void create_newsect_popup(CARD *card)
 	QWidget			*w, *wt;
 
 	destroy_newsect_popup();
-	if (!card || !card->dbase)
+	if (!card || !card->form || !card->form->dbase)
 		return;
 
 	// The proper way to ignore delete is to override QWindow::closeEvent()
@@ -70,7 +70,7 @@ void create_newsect_popup(CARD *card)
 	form->addWidget(w_name);
 	set_text_cb(w_name, add_callback(card));
 
-	wt = new QLabel(!card->dbase->havesects && card->dbase->nrows
+	wt = new QLabel(!card->form->dbase->havesects && card->form->dbase->nrows
 			? "All cards will be put into the new section."
 			: "The new section will be empty.");
 	form->addWidget(wt);
@@ -112,7 +112,7 @@ static void add_callback(CARD *card)
 	char		*oldp = NULL, *newp = NULL, *dir = NULL;
 	bool		nofile = false;
 
-	if (!card || !(dbase = card->dbase)) {
+	if (!card || !card->form || !(dbase = card->form->dbase)) {
 		destroy_newsect_popup();
 		return;
 	}
@@ -130,7 +130,7 @@ static void add_callback(CARD *card)
 				"A section with this name already exists.");
 			return;
 		}
-	path = resolve_tilde(card->form->dbase, 0);
+	path = resolve_tilde(card->form->dbname, 0);
 	oldp = alloc(0, "sect file name", char, strlen(path) + 5);
 	sprintf(oldp, "%s.old", path);
 	dir = alloc(0, "sect file name", char, strlen(path) + 4);

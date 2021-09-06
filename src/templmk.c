@@ -160,14 +160,13 @@ const char *mktemplate_html(
 {
 	struct sum_item *itemorder;	/* order of items in summary */
 	int		nitems;		/* number of items in summary */
-	size_t		nalloc;		/* number of allocated items */
 	int		i, j, m;	/* item counter */
 	const ITEM	*item;		/* current item */
 	const MENU	*menu;		/* current menu selection */
 	char		*name;		/* current field name */
 	const ITEM	*primary_i = NULL;	/* item that is hyperlinked */
 
-	if (!card || !card->dbase || !card->form)
+	if (!card || !card->form || !card->form->dbase)
 		return("no database");
 							/*--- header ---*/
 	fprintf(fp,
@@ -181,9 +180,7 @@ const char *mktemplate_html(
 	fputs("\\{IF +d}\n", fp);
 	fprintf(fp, "<H2>Summary:</H2>\n<TABLE BORDER=0 CELLSPACING=3 "
 		"CELLPADDING=4 BGCOLOR=#e0e0e0>\n<TR>");
-	nalloc = card->form->nitems;
-	itemorder = alloc(0, "summary", struct sum_item, nalloc);
-	nitems = get_summary_cols(&itemorder, &nalloc, const_cast<CARD *>(card));
+	nitems = get_summary_cols(&itemorder, const_cast<CARD *>(card));
 	for (i=0; i < nitems; i++) {
 		item = itemorder[i].item;
 		menu = itemorder[i].menu;
@@ -341,7 +338,6 @@ static const char *mktemplate_text(
 {
 	struct sum_item *itemorder;	/* order of items in summary */
 	int		nitems;		/* number of items in summary */
-	size_t		nalloc;		/* number of allocated items */
 	int		i, j, m;	/* item counter */
 	const ITEM	*item;		/* current item */
 	const MENU	*menu;		/* current menu selection */
@@ -352,7 +348,7 @@ static const char *mktemplate_text(
 	int		len, label_len = 0;
 	int		sumwidth;
 
-	if (!card || !card->dbase || !card->form)
+	if (!card || !card->form || !card->form->dbase)
 		return("no database");
 							/*--- header ---*/
 	fputs("\\{IF +d}\n", fp);
@@ -403,9 +399,7 @@ static const char *mktemplate_text(
 
 	len = 0;
 	/* but recompute everything sumwin did to display the data */
-	nalloc = card->form->nitems;
-	itemorder = alloc(0, "summary", struct sum_item, nalloc);
-	nitems = get_summary_cols(&itemorder, &nalloc, const_cast<CARD *>(card));
+	nitems = get_summary_cols(&itemorder, const_cast<CARD *>(card));
 	fputs("\n\\{FOREACH}\n", fp);
 	if (card->form->sumheight > 0) {
 		char asep, aesc;
@@ -735,7 +729,6 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 {
 	struct sum_item *itemorder;	/* order of items in summary */
 	int		nitems;		/* number of items in summary */
-	size_t		nalloc;		/* number of allocated items */
 	int		i, j;		/* item counter */
 	ITEM		*item;		/* current item */
 	const MENU	*menu;		/* current menu selection */
@@ -743,7 +736,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 	const FORM	*form;
 	bool		didcol;
 
-	if (!card || !card->dbase || !card->form)
+	if (!card || !card->form || !card->form->dbase)
 		return("no database");
 	form = card->form;
 	fprintf(fp, "-- grok form/database %s exported \\{date}\n", form->name);
@@ -908,9 +901,7 @@ const char *mktemplate_sql(const CARD *card, FILE *fp)
 	fprintf(fp,
 		"\\{IF +d}\n"
 		"CREATE VIEW %s_sum AS SELECT\n", form->name);
-	nalloc = card->form->nitems;
-	itemorder = alloc(0, "summary", struct sum_item, nalloc);
-	nitems = get_summary_cols(&itemorder, &nalloc, card);
+	nitems = get_summary_cols(&itemorder, card);
 	bool has_groupby = any_fkey_multi(form, itemorder, nitems);
 	for(i = 0; i < nitems; i++) {
 		item = itemorder[i].item;

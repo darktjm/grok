@@ -16,13 +16,19 @@
  * between form and database allows multiple representations of the same
  * data, and also allows procedural databases that are not tied to a form.
  *
+ * Or so the original author claims.  In reality, all dbase structures are
+ * tied to a form, so I moved the dbase pointer into form.  While it is
+ * possible for different form definitions to reference the same dbase, it
+ * is not possible for a form to reference different dbases, and multiple
+ * representations of the same data needs more work (to avoid conflicting
+ * interpretations, at the very least).
+ *
  * Note that if card->nquery > 0, query[card->qcurr] == card->row must be
  * true; ie. the line highlighted in the summary list must be the card
  * displayed in the card menu. This makes deleting cards a bit difficult.
  */
 
 typedef struct form FORM;
-typedef struct dbase DBASE;
 struct carditem {
    QWidget   *w0;		/* primary input widget, 0 if invisible_if */
    QWidget   *w1;		/* secondary widget (card form, label etc) */
@@ -33,7 +39,6 @@ struct card {
 	CARD	    *fkey_next;	/* foreign key related links */
 	FORM	    *form;	/* form struct that controls this card */
 	char	    *prev_form;	/* previous form name */
-	DBASE	    *dbase;	/* database that callbacks use to store data */
 	int	    rest_item;	/* parent restrict mode: item # to restrict */
 	char	    *rest_val;	/* non-0: value to restrict rest_item to */
 				/****** summary window ***********************/
@@ -91,20 +96,18 @@ typedef struct evar {
 	bool	numeric;
 } EVAR;
 
+typedef struct dbase DBASE;
 struct dbase {
 	DBASE	    *next;	/* link for all loaded databases */
 	char	    *path;	/* File/dir; also unique key in dbase_list */
-	const FORM  *form;	/* form this was loaded with */
 	bool	    rdonly;	/* no write permission for any section */
 	bool	    modified;	/* true if any section was modified */
 	int	    maxcolumns;	/* # of columns in widest row */
 	int	    nrows;	/* # of valid rows in database */
 	size_t	    size;	/* # of rows allocated */
 	short	    nsects;	/* # of files loaded */
-	/* FIXME: move currsect to card */
-	/* it's basically a per-window GUI thing */
-	short	    currsect;	/* current section, -1=all, 0..nsects-1=one */
 	SECTION	    *sect;	/* describes all section files 0..nsects-1 */
+	short	    currsect;	/* current section, -1=all, 0..nsects-1=one */
 	bool	    havesects;	/* db is a directory, >1 sections possible */
 	ROW	    **row;	/* array of <nrows> rows */
 	long	    ctimex_next;/* just in case two cards have same ctime */
@@ -243,7 +246,6 @@ enum badref_reason {
 };
 struct badref {
     FORM *form, *fform;  /* writable for fixes */
-    DBASE *dbase, *fdbase;
     int item, row, keyno;
     enum badref_reason reason;
 };
@@ -398,13 +400,15 @@ struct form {
 	char	*path;		/* complete path name form was read from */
 	char	*dir;		/* directory form was in, fully resolved */
 	char	*name;		/* filename of form (usually) */
-	char	*dbase;		/* referenced database filename */
+	char	*dbname;	/* referenced database filename */
 	const char  *dbpath;	/* database path if known/loaded */
+	DBASE	*dbase;		/* loaded database */
 	char	*comment;	/* user-defined comment */
 	char	*help;		/* help text */
 	unsigned char cdelim;	/* column delimiter in database file */
 	unsigned char asep, aesc;  /* string array delimiter and how to escape it */
 	int	sumheight;	/* max height of summary line - 1 */
+	bool	deleted;	/* kept in memory only as cache */
 	bool	rdonly;		/* don't allow writing to database */
 	bool	proc;		/* procedural */
 	bool	syncable;	/* keep timestamp files */
