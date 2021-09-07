@@ -1756,15 +1756,7 @@ static int readback_item(
 						      if(mainwindow->card &&
 							 mainwindow->card->form->dbase == f->dbase)
 							      switch_form(mainwindow->card, 0);
-						      DBASE **prev, *dbase = f->dbase;;
-						      for(prev = &dbase_list; *prev; prev = &(*prev)->next)
-							      if(*prev == f->dbase)
-								      break;
-						      if(!*prev)
-							      break;
-						      *prev = dbase->next;
-						      dbase_clear(dbase);
-						      free(dbase);
+						      dbase_free(f->dbase);
 						      break;
 					      }
 			      }

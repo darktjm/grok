@@ -115,8 +115,8 @@ DBASE *dbase_create(
 bool check_dbase_form(
 	const FORM	*form);
 void dbase_prune();
-void dbase_clear(
-	DBASE		*dbase);	/* dbase to clear data from */
+void dbase_free(
+	DBASE		*dbase);	/* dbase to delete */
 bool dbase_addrow(
 	int		*rowp,		/* ptr to returned row number */
 	DBASE		*dbase);	/* database to add row to */
@@ -144,7 +144,6 @@ int row_with_ctime(
 	long		ctimex);	/* ctime uniquifier */
 int fkey_lookup( /* ret -2 for oob, -1 for not found */
 	const DBASE	*dbase,		/* database to search */
-	const FORM	*form,		/* fkey origin */
 	const ITEM	*item,		/* fkey definition */
 	const char	*val,		/* reference value */
 	int		keyno = 0,	/* multi array elt (<0 = already extracted) */
@@ -420,7 +419,8 @@ void create_mainwindow(void);
 void resize_mainwindow(void);
 void print_info_line(void);
 void find_and_select(char *string);
-void remake_dbase_pulldown(void);
+void remake_dbase_pulldown(void); // scan fs for dbs and make menu
+void make_dbase_pulldown(void); // just make menu
 void add_dbase_list(QStringList &l);
 void remake_section_pulldown(void);
 void remake_section_popup(

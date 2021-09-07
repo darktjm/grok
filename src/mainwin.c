@@ -461,9 +461,12 @@ void print_info_line()
 		}
 		if (s >= 0 ? dbase->sect[s].rdonly : dbase->rdonly)
 			strcat(buf, " (read only)");
-		mainwindow->setWindowModified(dbase->modified);
 		if (s >= 0 ? dbase->sect[s].modified : dbase->modified)
 			strcat(buf, " (modified)");
+		for(dbase = dbase_list; dbase; dbase = dbase->next)
+			if(dbase->modified)
+				break;
+		mainwindow->setWindowModified(!!dbase);
 	}
 	print_button(w_info, buf);
 }
@@ -536,7 +539,7 @@ static int append_to_dbase_list(
 }
 
 
-static void make_dbase_pulldown(void)
+void make_dbase_pulldown(void)
 {
 	int		i;
 	static QActionGroup *ag = 0;
@@ -1584,8 +1587,8 @@ static void del_references(int how, FORM *fform, FORM *form, DBASE *dbase,
 		/* if there's another record w/ same key, let it take over */
 		int start = -1;
 		do {
-			start = fkey_lookup(dbase, fform, fform->items[i],
-					    key, -1, start + 1);
+			start = fkey_lookup(dbase, fform->items[i], key, -1,
+					    start + 1);
 		} while(start == row);
 		/* FIXME: don't just skip; ask/tell user first */
 		if(start >= 0) {
@@ -1810,6 +1813,7 @@ static bool multi_save_revert(
 	QString dlg_label;
 	QLabel *top_line;
 	DBASE *cur_dbase = is_quit || !mainwindow->card ? 0 : mainwindow->card->form->dbase;
+	enum { SRCB_SAVE, SRCB_REVERT, SRCB_PURGE, SRCB_DBASE, NUM_SRCB };
 	QCheckBox **checkboxes = 0;
 	size_t nrows = 0, checkboxes_size;
 	QLabel *label;
@@ -1861,23 +1865,23 @@ static bool multi_save_revert(
 			if(dbase == cur_dbase && !dbase->modified)
 				continue;
 			zgrow(0, "save dialog", QCheckBox *, checkboxes,
-			      nrows * 4, nrows * 4 + 4, &checkboxes_size);
+			      nrows * NUM_SRCB, (nrows + 1) * NUM_SRCB, &checkboxes_size);
 			if(!m) {
 				QCheckBox *s = new QCheckBox, *r = new QCheckBox;
-				checkboxes[nrows * 4] = s;
+				checkboxes[nrows * NUM_SRCB + SRCB_SAVE] = s;
 				s->setChecked(dbase != cur_dbase);
 				set_button_cb(s, if(c) r->setChecked(false),
 					      bool c);
 				form->addWidget(s, 3 + nrows, 0);
-				checkboxes[nrows * 4 + 1] = r;
+				checkboxes[nrows * NUM_SRCB + SRCB_REVERT] = r;
 				r->setChecked(dbase == cur_dbase);
 				set_button_cb(r, if(c) s->setChecked(false),
 					      bool c);
 				form->addWidget(r, 3 + nrows, 1);
 			}
 			if(!is_quit) {
-				checkboxes[nrows * 4 + 2] = new QCheckBox;
-				form->addWidget(checkboxes[nrows * 4 + 2], 3 + nrows, 2);
+				checkboxes[nrows * NUM_SRCB + SRCB_PURGE] = new QCheckBox;
+				form->addWidget(checkboxes[nrows * NUM_SRCB + SRCB_PURGE], 3 + nrows, 2);
 			}
 			QString s("none"); // impossible
 			for(const FORM *f = form_list; f; f = f->next) {
@@ -1892,8 +1896,8 @@ static bool multi_save_revert(
 			for(FORM *f = form_list; f; f = f->next) {
 				if(f->dbase != dbase)
 					continue;
-				checkboxes[nrows * 4 + 3] = reinterpret_cast<QCheckBox *>(f);
-				s += QString::asprintf("Form: %sn", f->path);
+				checkboxes[nrows * NUM_SRCB + SRCB_DBASE] = reinterpret_cast<QCheckBox *>(f);
+				s += QString::asprintf("Form: %s\n", f->path);
 				// technically, proc should be the same for all
 				proc |= f->proc;
 			}
@@ -1925,10 +1929,10 @@ static bool multi_save_revert(
 		if(!ret)
 			break;
 		for(i = 0; i < nrows; i++)
-			if(checkboxes[i * 4] &&
-			   !checkboxes[i * 4]->isChecked() &&
-			   !checkboxes[i * 4 + 1]->isChecked() &&
-			   (is_quit || checkboxes[i * 4 + 2]->isChecked())) {
+			if(checkboxes[i * NUM_SRCB + SRCB_SAVE] &&
+			   !checkboxes[i * NUM_SRCB + SRCB_SAVE]->isChecked() &&
+			   !checkboxes[i * NUM_SRCB + SRCB_REVERT]->isChecked() &&
+			   (is_quit || checkboxes[i * NUM_SRCB + SRCB_PURGE]->isChecked())) {
 				if(!is_quit)
 					top_line->setText(dlg_label +
 							  QString("  You cannot purge a database without first saving or reverting it."));
@@ -1936,34 +1940,28 @@ static bool multi_save_revert(
 			}
 		if(i < nrows)
 			continue;
+		bool print_info = false;
 		for(i = 0; i < nrows; i++) {
-			FORM *f = reinterpret_cast<FORM *>(checkboxes[i * 4 + 3]);
+			FORM *f = reinterpret_cast<FORM *>(checkboxes[i * NUM_SRCB + SRCB_DBASE]);
 			dbase = f->dbase;
-			if(checkboxes[i * 4]) {
-				if(checkboxes[i * 4]->isChecked()) {
+			if(checkboxes[i * NUM_SRCB + SRCB_SAVE]) {
+				if(checkboxes[i * NUM_SRCB + SRCB_SAVE]->isChecked()) {
 					write_dbase(f, true);
-					if(dbase == cur_dbase)
-						/* formerly in write_dbase() */
-						print_info_line();
-				} else if(!is_quit && checkboxes[i * 4 + 1]->isChecked()) {
+					print_info = true;
+				} else if(!is_quit && checkboxes[i * NUM_SRCB + SRCB_REVERT]->isChecked()) {
 					read_dbase(f, true);
 					if(dbase == cur_dbase) {
 						create_summary_menu(mainwindow->card);
 						fillout_card(mainwindow->card, false);
-						print_info_line();
 					}
+					print_info = true;
 				}
 			}
-			if(!is_quit && checkboxes[i * 4 + 2]->isChecked()) {
-				for(DBASE **prev = &dbase_list; *prev; prev = &(*prev)->next)
-					if(*prev == dbase) {
-						*prev = dbase->next;
-						break;
-					}
-				dbase_clear(dbase);
-				free(dbase);
-			}
+			if(!is_quit && checkboxes[i * NUM_SRCB + SRCB_PURGE]->isChecked())
+				dbase_free(dbase);
 		}
+		if(print_info && !is_quit)
+			print_info_line();
 		break;
 	}
 	free(checkboxes);
@@ -2157,7 +2155,6 @@ static void check_references(void)
 						  pitem->column);
 				for(int start = 0;; start++) {
 					start = fkey_lookup(badrefs[i].fform->dbase,
-							    badrefs[i].form,
 							    pitem, pdata,
 							    badrefs[i].keyno,
 							    start);

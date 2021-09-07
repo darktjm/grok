@@ -104,6 +104,7 @@ struct pref pref;
 
 void card_readback_texts(UNUSED CARD *card, UNUSED int which) {}
 void remake_dbase_pulldown() {}
+void make_dbase_pulldown() {}
 void fillout_formedit_widget_proc() {}
 void redraw_canvas_item(UNUSED ITEM *item) {}
 void destroy_card_menu(UNUSED CARD *card) {}

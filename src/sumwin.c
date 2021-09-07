@@ -291,7 +291,7 @@ static int get_fkey_field(const CARD *fcard, int r)
 	const char *key = dbase_get(fcard->fkey_next->form->dbase, r, fitem->column);
 	/* FIXME:  Somehow generate multiple rows if keyno can be > 0 */
 	resolve_fkey_fields(fitem);
-	return fkey_lookup(fcard->form->dbase, fcard->fkey_next->form, fitem, key);
+	return fkey_lookup(fcard->form->dbase, fitem, key);
 }
 
 char *summary_display(const char *&data, CARD *card, int row, const ITEM *item,

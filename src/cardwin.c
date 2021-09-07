@@ -623,7 +623,7 @@ struct FKeySelector : public CardComboBox {
 			keyno = 0; /* no way to handle multi here */
 		}
 		resolve_fkey_fields(oc->form->items[fc->qcurr]);
-		return fkey_lookup(fc->form->dbase, oc->form, oc->form->items[fc->qcurr],
+		return fkey_lookup(fc->form->dbase, oc->form->items[fc->qcurr],
 				   key, keyno);
 	}
 	void clear_group(FKeySelector *end = 0) {
@@ -2306,7 +2306,7 @@ static void ifkey_display(QTableWidget *tw, int tr, int &tc, ITEM *item,
 			if (dit->fkey_form) {
 				DBASE *db = read_dbase(dit->fkey_form);
 				/* FIXME:  FKEY_MULTI? */
-				int nr = fkey_lookup(db, card->form, dit, data);
+				int nr = fkey_lookup(db, dit, data);
 				int otc = tc;
 				CARD *fcard = create_card_menu(dit->fkey_form);
 				ifkey_display(tw, tr, tc, dit, fcard, nr, mr);

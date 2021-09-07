@@ -404,7 +404,7 @@ int Xparserlex(YYSTYPE *lvalp, PG)
 				else {
 					DBASE *fdb = c->form->dbase;
 					g->card->qcurr = lvalp->fval.row =
-						fkey_lookup(fdb, f, fit.item,
+						fkey_lookup(fdb, fit.item,
 							    dbase_get(db, row,
 								      fit.item->column));
 				}

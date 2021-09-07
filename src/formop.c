@@ -199,6 +199,7 @@ void form_delete(
 	if (form->fields)
 		delete form->fields;
 	free(form);
+	make_dbase_pulldown();
 }
 
 /*

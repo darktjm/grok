@@ -217,75 +217,65 @@ DBASE *read_dbase(
 	FORM			*form,		/* contains column delimiter */
 	bool			force)		/* revert if already loaded */
 {
-	DBASE			*dbase;
+	DBASE			*dbase, *odbase = form->dbase;
 	int			nread = 0;	/* # of successful reads */
-	DBASE			*forced;
 	const char		*path = db_path(form);
 
-	if(!force && form->dbase && !strcmp(form->dbase->path, path))
-		return form->dbase;
-	form->dbase = NULL;
-	for(dbase = dbase_list; dbase; dbase = dbase->next) {
-		const FORM *f = 0;
-		if(!strcmp(dbase->path, path))
-			for(f = form_list; f; f = f->next)
-				if(f->dbase == dbase &&
-				   f->proc == form->proc &&
-				   (!f->proc || !strcmp(form->name, f->name)))
-					break;
-		if(!f)
-			continue;
-		if(form->cdelim != f->cdelim ||
-		   form->syncable != f->syncable ||
-		   strcmp(form->proc ? form->name : "",
-			  f->proc ? f->name : "")) {
-				bool reject = true;
-				if(force) {
-					const FORM *f;
-					for(f = form_list; f; f = f->next)
-						if(f->dbase &&
-						   !strcmp(f->dbase->path, dbase->path))
-							break;
-					if(f)
-						for( ; f; f = f->next)
-							if(f->dbase &&
-							   !strcmp(f->dbase->path, dbase->path))
-								break;
-					if(!f) {
-						dbase->modified = true;
-						reject = false;
-					}
-				}
-				if(reject)
-					/* FIXME:  reject more gracefully */
-					/* If possible, purge database instead */
-					fatal("Database loaded with incompatible definitions");
+	if(!force) {
+		/* fastest shortcut:  already loaded into form */
+		if(odbase && !strcmp(odbase->path, path))
+			return odbase;
+		/* 2nd fastest shortcut:  already loaded into another form */
+		for(dbase = dbase_list; dbase; ) {
+			if(dbase == odbase || strcmp(dbase->path, path)) {
+				dbase = dbase->next;
+				continue;
 			}
-			DBASE *next;
-			/* if you want to reload an unmodified db */
-			/* you'll have to switch and then purge */
-			if(!force || !dbase->modified)
+			const FORM *f;
+			for(f = form_list; f; f = f->next)
+				if(f->dbase == dbase)
+					break;
+			if(!f || /* should never happen */
+			   (f->proc == form->proc &&
+			    (!f->proc || !strcmp(form->name, f->name)) &&
+			    form->cdelim == f->cdelim &&
+			    form->syncable == f->syncable))
 				return (form->dbase = dbase);
-			next = dbase->next;
-			dbase_clear(dbase);
-			tzero(DBASE, dbase, 1);
-			dbase->next = next;
-			dbase->path = mystrdup(path);
-			break;
+			/* now it's a conflicting load, which must be purged */
+			/* or rejected */
+			/* since it's not possible for other forms w/ this
+			 * dbase to not conflict, all must be deleted for purge */
+			for(; f; f = f->next)
+				if(f->dbase == dbase && !f->deleted)
+					break;
+			if(f)
+				/* FIXME:  reject more gracefully */
+				fatal("Database loaded with incompatible definitions");
+			DBASE *db = dbase->next;
+			dbase_free(dbase);
+			dbase = db;
 		}
-	forced = dbase;
-	if (!dbase)
-		dbase = dbase_create(form);
+	}
+	/* no shortcuts: actually load form */
+	dbase = dbase_create(form);
 	form->dbase = dbase;
+	bool was_mod = force && odbase && odbase->modified;
+	if(force && odbase) {
+		for(FORM *f = form_list; f; f = f->next)
+			if(f->dbase == odbase)
+				f->dbase = dbase;
+		dbase_free(odbase);
+	}
 	if (!access(dbase->path, F_OK))
 		nread += read_dir_or_file(form, dbase->path);
 	/* formerly done after load in dbase_switch(), */
 	/* but should be everwhere */
 	dbase->modified = false;
-	if (!forced) {
-		dbase->next = dbase_list;
-		dbase_list = dbase;
-	}
+	dbase->next = dbase_list;
+	dbase_list = dbase;
+	make_dbase_pulldown();
+	if(was_mod)
+		print_info_line();
 	return dbase;
 }
 

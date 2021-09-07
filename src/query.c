@@ -408,10 +408,8 @@ static bool alloc_query(
  * called recursively for foreign key items.
  */
 static bool search_matches_item(
-	FORM		*form,		/* form item is from */
-	const DBASE	*dbase,		/* database item is from */
-	int		row,		/* row of database */
 	ITEM		*item,		/* item to search; writable for fkey */
+	int		row,		/* row of database */
 	const char	*search)	/* lowercased string to search for */
 {
 	char		*data;		/* database string to test */
@@ -419,7 +417,7 @@ static bool search_matches_item(
 	/* FIXME: support PRINT, INV_FKEY */
 	if (!IN_DBASE(item->type) || !IFL(item->,SEARCH))
 		return(false);
-	if (!(data = dbase_get(dbase, row, item->column)))
+	if (!(data = dbase_get(item->form->dbase, row, item->column)))
 		return(false);
 	if (item->type != IT_FKEY)
 		return lc_in(data, search);
@@ -437,16 +435,14 @@ static bool search_matches_item(
 		return(false);
 	DBASE *fdb = read_dbase(fform);
 	for (int k = 0; ; k++) {
-		row = fkey_lookup(fdb, form, item, data, k);
+		row = fkey_lookup(fdb, item, data, k);
 		if(row == -2)
 			return(false);
 		if(row < 0)
 			continue;
 		for (int i = 0; i < item->nfkey; i++)
 			if(item->fkey[i].display &&
-			   search_matches_item(fform, fdb, row,
-					       item->fkey[i].item,
-					       search))
+			   search_matches_item(item->fkey[i].item, row, search))
 				return(true);
 	}
 }
@@ -464,8 +460,7 @@ static bool search_matches_card(
 	int		i;		/* item counter */
 
 	for (i=0; i < card->form->nitems; i++)
-		if(search_matches_item(card->form, card->form->dbase, card->row,
-				       card->form->items[i], search))
+		if(search_matches_item(card->form->items[i], card->row, search))
 			return(true);
 	return(false);
 }

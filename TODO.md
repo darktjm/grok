@@ -100,21 +100,11 @@ Bugs
 
 - Fkey forms' path should be relative to referring form's path
 
-- Only fkey-in-summary testing is of single-level single-field fkey
-
 - Some fkey data validity checks' suggested fixes untested
 
 - Little testing of fkey_multi or multi-field keys
 
 - Changing db of fkey field spews errors on stderr.
-
-- Modified flag in db menu needs updating as soon as db is modifed
-  (print_info_line() material, at least)
-
-- As soon as a db/form is unloaded, it should be unbolded/removed from menu.
-
-- As soon as a db/form is loaded via non-interactive means, it should
-  be bolded/added to menu
 
 Code Improvements
 -----------------
@@ -281,9 +271,6 @@ Minor UI Improvements
 - All loaded databases should be in the menu regardless of whether or not
   they normally would be.
 
-- The star in the title bar should also reflect all databases, not just
-  the currently displayed one.
-
 Important UI improvements
 -------------------------
 
@@ -322,7 +309,7 @@ Important UI improvements
   file described above.  Also, in the new @db stuff, if the sort field
   starts with ( or { interpret as a string/numeric expression.
 
-- No sorting really for tables.  Should probably try to sort by
+- No sorting really for fkey tables.  Should probably try to sort by
   foreign table's default sort order, or by first displayed field.
   Actually, multi-fkey sorted by key set order.
 
@@ -520,7 +507,7 @@ Infrastructure Improvements
     However, I can see the need being rare enough that procedural
     databases could perform the merge for you.
 
-  - Large RDMSes have a "partitioning" feature, but that is for
+  - Large RDBMSes have a "partitioning" feature, but that is for
     storing parts on different disks (not useful for small personal
     databases) and improved search/sort performance when dealing with
     data only in a limited number of partitions (not implemented in
@@ -645,7 +632,7 @@ Infrastructure Improvements
     offer to move the data around.  All such changes should be
     offered at once, so that swapping data around works as
     intended.  Also, all unassigned columns should pop up in the
-    "Debug" warning popup.  Maybe add an "ignore" item type to
+    "Check" warning popup.  Maybe add an "ignore" item type to
     avoid such warnings.  An 'ignore" item type can be simulated
     right now using an invisible input field, but prior versions
     seemed to have wiped out such fields (or at least disabled
@@ -660,8 +647,7 @@ Infrastructure Improvements
 
     - Conversion to a choice or flag field should, at "Done"
       time, verify database has correct values.  Same with any
-      edit of codes.  Same with planned menu, radio, multi,
-      flags fields.
+      edit of codes.  Same with menu, radio, multi, flags fields.
 
   - Changing formulas should have some way of checking what
     variables they reference.  This is complicated by nested evals

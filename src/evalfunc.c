@@ -1590,7 +1590,7 @@ void free_db_sort(
 	}
 }
 
-static void add_deref(const char *key, FORM *form, ITEM *item,
+static void add_deref(const char *key, ITEM *item,
 		      char *&ret, size_t *retalloc, int &retlen,
 		      const char *fsep, const char *rsep,
 		      int name_prefix_off, int nplen)
@@ -1606,7 +1606,7 @@ static void add_deref(const char *key, FORM *form, ITEM *item,
 	for (int keyno = 0; ; keyno++) {
 		int r = 0;
 		if (key) {
-			r = fkey_lookup(dbase, form, item, key, keyno);
+			r = fkey_lookup(dbase, item, key, keyno);
 			if (r == -2)
 				break;
 			if (keyno > 0 && *rsep) {
@@ -1640,7 +1640,7 @@ static void add_deref(const char *key, FORM *form, ITEM *item,
 			if(fit)
 				value = dbase_get(dbase, r, fit->column);
 			if (fit && fit->type == IT_FKEY)
-				add_deref(value, fform, fit,
+				add_deref(value, fit,
 					  ret, retalloc, retlen,
 					  fsep, rsep, name_prefix_off, nplen);
 			else if (key) {
@@ -1700,7 +1700,7 @@ char *f_deref(
 		ITEM *item = form->items[i];
 		if (item->column != field.column || item->type != IT_FKEY)
 			continue;
-		add_deref(value, form, item, ret, &retalloc, retlen,
+		add_deref(value, item, ret, &retalloc, retlen,
 			  fsep ? fsep : " ", rsep ? rsep : "\n", 0, 0);
 		zfree(fsep);
 		zfree(rsep);
@@ -1729,7 +1729,7 @@ char *f_dereff(
 		if (!IN_DBASE(item->type))
 			continue;
 		if (item->type == IT_FKEY && item->column == field.column) {
-			add_deref(0, form, item, ret, &retalloc, retlen,
+			add_deref(0, item, ret, &retalloc, retlen,
 				  &sep, &esc, 0, 0);
 			return ret;
 		}

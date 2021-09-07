@@ -50,12 +50,17 @@ DBASE *dbase_create(
  * destroy a dbase struct and all its data.
  */
 
-void dbase_clear(
+void dbase_free(
 	DBASE		*dbase)		/* dbase to delete */
 {
 	int		r, c;		/* data counter */
 	ROW		*row;		/* row to delete */
 
+	for(DBASE **prev = &dbase_list; *prev; prev = &(*prev)->next)
+		if(*prev == dbase) {
+			*prev = dbase->next;
+			break;
+		}
 	for (r=0; r < dbase->nsects; r++)
 		zfree(dbase->sect[r].path);
 	zfree(dbase->sect);
@@ -78,6 +83,7 @@ void dbase_clear(
 			form_delete(of);
 		} else
 			f = f->next;
+	free(dbase);
 }
 
 
@@ -95,10 +101,7 @@ void dbase_prune()
 				if (form->dbase == *prev && !form->deleted)
 					break;
 			if(!form && ++n > pref.db_keep) {
-				DBASE *dbase = *prev;
-				*prev = dbase->next;
-				dbase_clear(dbase);
-				free(dbase);
+				dbase_free(*prev);
 				continue;
 			}
 		}
@@ -140,6 +143,7 @@ bool dbase_addrow(
 	ROW		 *row;		/* new database row */
 	SECTION		 *sect;			/* current insert section */
 	int		 newsect = 0;
+	bool		 wasmod = dbase->modified;
 
 	dbase_to_top(dbase);
 	newsect = dbase->nsects<2 || dbase->currsect<0 ? 0 : dbase->currsect;
@@ -164,6 +168,8 @@ bool dbase_addrow(
 	sect->modified  = true;
 	sect->nrows++;
 	*rowp = dbase->nrows++;
+	if(!wasmod)
+		make_dbase_pulldown();
 	print_info_line();
 	return(true);
 }
@@ -182,6 +188,7 @@ void dbase_delrow(
 {
 	int		 i;		/* copy counter */
 	ROW		 *row;		/* new database row */
+	bool		 wasmod = dbase->modified;
 
 	if (!dbase || nrow >= dbase->nrows)
 		return;
@@ -198,6 +205,8 @@ void dbase_delrow(
 	free(row);
 	for (i=nrow; i < dbase->nrows; i++)
 		dbase->row[i] = dbase->row[i+1];
+	if(!wasmod)
+		make_dbase_pulldown();
 	print_info_line();
 }
 
@@ -250,6 +259,7 @@ bool dbase_put(
 {
 	ROW		*row;		/* row to put into */
 	char		*p;
+	bool		wasmod = dbase->modified;
 
 	if (!dbase || nrow < 0
 		   || nrow >= dbase->nrows
@@ -279,6 +289,10 @@ bool dbase_put(
 	}
 	row->mtime = time(0);
 	dbase->modified = dbase->sect[row->section].modified = true;
+	if(!wasmod) {
+		make_dbase_pulldown();
+		print_info_line();
+	}
 	return(true);
 }
 
@@ -783,7 +797,6 @@ int copy_fkey(const ITEM *item, int *keys)
 
 int fkey_lookup( /* ret -2 for oob, -1 for not found */
 	const DBASE	*dbase,		/* database to search */
-	const FORM	*form,		/* fkey origin */
 	const ITEM	*item,		/* fkey definition */
 	const char	*val,		/* reference value */
 	int		keyno,		/* multi array elt (<0 = already extracted) */
@@ -800,7 +813,7 @@ int fkey_lookup( /* ret -2 for oob, -1 for not found */
 	char *vbuf = 0;
 
 	if (IFL(item->,FKEY_MULTI) && keyno >= 0) {
-		val = vbuf = unesc_elt_at(form, val, keyno);
+		val = vbuf = unesc_elt_at(item->form, val, keyno);
 		/* no blank keys */
 		if (!vbuf)
 			return -2;
@@ -826,7 +839,7 @@ int fkey_lookup( /* ret -2 for oob, -1 for not found */
 		vals = (char **)&val;
 	else {
 		int vlen;
-		vals = split_array(form, val, &vlen);
+		vals = split_array(item->form, val, &vlen);
 		if(vlen != keylen) {
 			/* invalid data */
 			for(n = 0; n < vlen; n++)
@@ -1039,12 +1052,12 @@ void check_db_references(FORM *form, badref **badrefs,
 					/* this implicitly checks array len
 					 * for multi-field keys, so no
 					 * separate error for that */
-					int fr = fkey_lookup(fdb, form, item, data, k);
+					int fr = fkey_lookup(fdb, item, data, k);
 					if(fr == -2)
 						break;
 					if(fr == -1 ||
 					   /* and only once */
-					   fkey_lookup(fdb, form, item, data, k, fr + 1) >= 0) {
+					   fkey_lookup(fdb, item, data, k, fr + 1) >= 0) {
 						badref br;
 						br.form = form;
 						br.item = i;

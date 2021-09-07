@@ -471,9 +471,11 @@ referenced will generate syntax errors.
 Prior to 2.4, reference and referenced fields will be treated as plain
 inputs, and may be blank or otherwise broken.
 
-Version 2.4.1 (in progress)
+Version 2.4.1 (git tag grok-2.4.1, SVN 602)
  * Renamed Debug button in form editor to Check (it's for debugging, but
    what it does is checking).
  * Corrected several CARD leaks of reference fields, which also caused
-   permanent memory locks on the affected databases (bug in 2.4)
- * Allow multiple forms to access the same database data again (bug in 2.4)
+   permanent memory locks on the affected databases (broken in 2.4)
+ * Allow multiple forms to access the same database data again (broken in 2.4)
+ * Modified flag and bold-for-load indicator in Database menu is more accurate
+ * Title modified flag reflects all databases, not just currently displayed one

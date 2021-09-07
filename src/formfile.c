@@ -754,10 +754,8 @@ FORM *read_form(
 			gone = false;
 			prev = &(*prev)->next;
 		}
-		if(!gone) {
-			dbase_clear(odbase);
-			free(odbase);
-		}
+		if(!gone)
+			dbase_free(odbase);
 	}
 	/* 3rd pass: reload windows using affected forms */
 	for(CARD *card = card_list; card; card = card->next)
