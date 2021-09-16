@@ -35,14 +35,12 @@ DBASE *dbase_list;
  */
 
 DBASE *dbase_create(
-	const FORM	*form)
+	FORM	*form)
 {
-	DBASE		*dbase;		/* new dbase */
-
 	/* since even this code assumes success, errors are fatal */
-	dbase = zalloc(0, "database", DBASE, 1);
-	dbase->path = mystrdup(db_path(form));
-	return(dbase);
+	form->dbase = zalloc(0, "database", DBASE, 1);
+	form->dbase->path = mystrdup(db_path(form));
+	return(form->dbase);
 }
 
 

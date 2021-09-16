@@ -111,7 +111,7 @@ time_t parse_time_data(
 /*---------------------------------------- dbase.c ------------*/
 
 DBASE *dbase_create(
-	const FORM	*form);		/* how to read/write dbase */
+	FORM		*form);		/* how to read/write dbase */
 bool check_dbase_form(
 	const FORM	*form);
 void dbase_prune();

@@ -84,6 +84,9 @@ ItemEd::ItemEd(QWidget *parent, const FORM *form, int row,
 ItemEd::~ItemEd()
 {
 	card_readback_texts(card, -1);
+	for(CARD *c = card_list; c; c = c->next)
+		if(c->fkey_next == card)
+			c->fkey_next = c; // flag: don't traverse when freeing
 	free_card(card);
 }
 
@@ -116,6 +119,8 @@ void free_fkey_card(
 	CARD *next;
 	while ((next = card->fkey_next)) {
 		free_card(card);
+		if(card == next) // flag set by ~ItemEd: don't traverse further
+			break;
 		card = next;
 	}
 }

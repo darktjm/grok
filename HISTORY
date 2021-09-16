@@ -479,3 +479,8 @@ Version 2.4.1 (git tag grok-2.4.1, SVN 602)
  * Allow multiple forms to access the same database data again (broken in 2.4)
  * Modified flag and bold-for-load indicator in Database menu is more accurate
  * Title modified flag reflects all databases, not just currently displayed one
+
+Version 2.4.2 (git tag grok-2.4.2, SVN 604)
+ * Fixed crash when finished with popup record edit (broken in 2.4.1)
+ * Fixed crash when database file not found (broken in 2.4)
+ * Fixed update of modified flag after multi-save (broken in 2.4)

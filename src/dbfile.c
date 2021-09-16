@@ -186,9 +186,12 @@ static bool write_file(
 		}
 	} else
 		fclose(fp);
+	bool was_mod = dbase->modified || (sect && sect->modified);
 	if (sect)
 		sect->modified = false;
 	dbase->modified = false;
+	if (was_mod)
+		make_dbase_pulldown();
 	sect->mtime = time(0);
 	return(true);
 }
