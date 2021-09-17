@@ -544,6 +544,8 @@ void make_dbase_pulldown(void)
 	int		i;
 	static QActionGroup *ag = 0;
 
+	if(!dbpulldown)
+		return;
 	dbpulldown->clear();
 	if(!ag)
 		ag = new QActionGroup(dbpulldown);
