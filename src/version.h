@@ -2,4 +2,4 @@
  * version string for grok
  */
 
-#define GROK_VERSION "V2.4.3"
+#define GROK_VERSION "V2.4.4"

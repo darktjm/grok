@@ -376,6 +376,7 @@ bool verify_form(
 		zfree(form->childform);
 		form->childname = 0;
 		form->childform = 0;
+		form->nchild = 0;
 	}
 	for(int i = 0; i < form->nreferer; i++)
 		add_child(form, form->referer[i]);

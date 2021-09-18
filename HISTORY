@@ -487,3 +487,6 @@ Version 2.4.2 (git tag grok-2.4.2, SVN 604)
 
 Version 2.4.3 (git tag grok-2.4.3, SVN 605)
  * Fixed crash when exporting from command line (broken in 2.4.2)
+
+Version 2.4.4 (git tag grok-2.4.4, SVN 606)
+ * Fixed crash on editing form with referers (broken in 2.4)
