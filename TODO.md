@@ -40,6 +40,100 @@ completely break in 3.0:
 Features in Progress
 --------------------
 
+- File widget:  stores a file name.  Right click pops up file requester.
+  Displays ... button on right unless suppressed (flag or dispmode?).
+  Value is read-only outside of requester (unless ... was suppressed?).
+  Double-click goes to media player?
+  
+  - form field: ffilter = filter pattern (shell patterns) (mime? mime list?)
+
+  - form field: fdir = default dir; fdirtype: initial/root/only;
+    stores only relative path for root/only.  Support PATH-like?
+
+  - form field: fdispmode = fname(/fnameonly)/display/ctrl; last 2 are
+    media inset.  Either auto-detect media type or only support
+    audio/video(+audio)/image.  displayctrl are bound by using the same
+    col#+name.  ctrl = bskip rew play/pause fwd fskip.  Playlist?
+    Either multi-file array or playlist file.
+
+- Add a password widget, possibly just as a flag for Input widgets.
+  It's only really useful if the underlying storage encrypts, so
+  maybe also support a per-form encryption method, using openssl
+  (EVP) or the like.  Not sure how to get the passphrase, though.
+  Prompting every time might be annoying, and there is some sort of
+  "standard" session keyring that the web browsers use.  Maybe
+  qtkeyring, since I'm using qt anyway?  Password fields should
+  never be stored unencrypted in memory, and be obscured (both value
+  and length) in the GUI. Perhaps have a "show" checkbox to show the
+  value (or use a label link like I did for fkey fields), after
+  giving the encryption password again and also hiding it again
+  after a configurable timeout.  The encrypted value would be stored
+  as base64-encoded string to avoid grok's inability to deal with 0s.
+  
+  Note that if I'm going to add per-field encyrption anyway, I might
+  also consider full-file encyrption (or per-row encryption, to allow
+  seeking in the file).  The app isn't really designed securely enough
+  for that, though.
+
+- Remove the chart widget, and replace it with a generic inset widget.
+  Static charts can be made using external programs like R.  Making
+  them interactive might be difficult, though.  I mean, the only
+  reason I have for wanting a chart is to display the distribution
+  of games of different types, which is an aggregate number
+  corresponding to nothing (except maybe a search string).  The
+  other way to go would be to use QChartView and support whatever
+  Qt supports without much thought. The more I support, the more
+  per-item config options must be present. I think that maybe charts
+  should be popups, either static or via QChartView in some way,
+  rather than forcing them onto the static region of the card.
+
+  - At the very least, document the current chart operation a
+    little better.  The HTML docs don't even cover the chart's
+    item configuration.
+
+- Labeled frames.  These would also always be pushed to the back in
+  the canvas unless explicitly selected, and the interior within the
+  form editor is transparent as well.  Come to think of it, there
+  are no horizontal separator lines, labeled or not, either.
+
+- Tabs.  These do more damage to the ability to see the entire
+  record's information at a glance than anything above.  However,
+  they can be useful.  You can simulate tabs right now using buttons
+  that switch to other databases, but it would be nice to make it
+  easier.  A few possibilities:
+
+  - Part of the form editor: add a "tab" widget, which works as a
+    tabbed window in the canvas as well.  Widgets added or moved
+    to within the bounds of the tab window are added to the
+    currently selected tab.
+
+    - Alternately, take advantage of invisible_if's now dynamic
+      behavior.  Just add a "hide now" button next to
+      invisible_if that hides this item and any item with the
+      exact same hide expression in the canvas. That way, you
+      can design overlapping widgets without interference (and,
+      unfortunately, without guidance).  Alternatevely, add a
+      tearable menu of all invisible_if expressions for fast
+      switching between "tabs"
+
+  - As a special form of the foreign key feature: one-to-one
+    relationships.  Each tab corresponds to a child database, and
+    within is displayed the full edit form of the child database,
+    with parent key reference fields removed.  When a new parent
+    record is created, all one-to-one child records are created at
+    the same time.  This can be enforced by making the foreign key
+    field itself "unique".
+
+  - Tabs for the top part to provide alternate summaries, such as
+    graphs and template execution results.  Then again, template
+    execution into a pipe would take care of most of my use cases
+    for this.
+
+  The second form is sort of how you do it with buttons, except that
+  you have to make the main table a "tab" as well, sort of. In other
+  words, while visiting children, the parent form's fields are
+  read-only.
+
 Bugs
 ----
 
@@ -710,10 +804,9 @@ Infrastructure Improvements
   I guess R doesn't have native dbus support so I'd have to write it
   myself or use some other shim.  I suppose I could also look into GNU
   plot and Octave, or even, gasp, OpenOffice and Gnumeric.  The latter
-  probably also support the glitzy 3d pie charts that R discourages (I
-  remember writing one at the same job where I created form.cgi in
-  support of switching to R from SAS, but that was a losing battle,
-  anyway).
+  probably also support the glitzy 3d pie charts that R discourages
+  (but I guess plotrix now officially supports them, so I don't have to
+  once again try to write my own).
 
 - Make generic exporters for common data interchange formats, like CSV
   and json and <shudder>XML.
@@ -871,100 +964,6 @@ Card Improvements
   non-blank/unuqueness checks instead of adding more configuration
   options.  Maybe have a way to execute the validator against all
   existing data.
-
-Major Card Features
--------------------
-
-- Labeled frames.  These would also always be pushed to the back in
-  the canvas unless explicitly selected, and the interior within the
-  form editor is transparent as well.  Come to think of it, there
-  are no horizontal separator lines, labeled or not, either.
-
-- Tabs.  These do more damage to the ability to see the entire
-  record's information at a glance than anything above.  However,
-  they can be useful.  You can simulate tabs right now using buttons
-  that switch to other databases, but it would be nice to make it
-  easier.  A few possibilities:
-
-  - Part of the form editor: add a "tab" widget, which works as a
-    tabbed window in the canvas as well.  Widgets added or moved
-    to within the bounds of the tab window are added to the
-    currently selected tab.
-
-    - Alternately, take advantage of invisible_if's now dynamic
-      behavior.  Just add a "hide now" button next to
-      invisible_if that hides this item and any item with the
-      exact same hide expression in the canvas. That way, you
-      can design overlapping widgets without interference (and,
-      unfortunately, without guidance).  Alternatevely, add a
-      tearable menu of all invisible_if expressions for fast
-      switching between "tabs"
-
-  - As a special form of the foreign key feature: one-to-one
-    relationships.  Each tab corresponds to a child database, and
-    within is displayed the full edit form of the child database,
-    with parent key reference fields removed.  When a new parent
-    record is created, all one-to-one child records are created at
-    the same time.  This can be enforced by making the foreign key
-    field itself "unique".
-
-  - Tabs for the top part to provide alternate summaries, such as
-    graphs and template execution results.  Then again, template
-    execution into a pipe would take care of most of my use cases
-    for this.
-
-  The second form is sort of how you do it with buttons, except that
-  you have to make the main table a "tab" as well, sort of. In other
-  words, while visiting children, the parent form's fields are
-  read-only.
-
-- Add a password widget, possibly just as a flag for Input widgets.
-  It's only really useful if the underlying storage encrypts, so
-  maybe also support a per-form encryption method, using openssl
-  (EVP) or the like.  Not sure how to get the passphrase, though.
-  Prompting every time might be annoying, and there is some sort of
-  "standard" session keyring that the web browsers use.  Maybe
-  qtkeyring, since I'm using qt anyway?  Password fields should
-  never be stored unencrypted in memory, and be obscured (both value
-  and length) in the GUI. Perhaps have a "show" checkbox to show the
-  value (or use a label link like I did for fkey fields), after
-  giving the encryption password again and also hiding it again
-  after a configurable timeout.  The encrypted value would be stored
-  as base64-encoded string to avoid grok's inability to deal with 0s.
-  
-  Note that if I'm going to add per-field encyrption anyway, I might
-  also consider full-file encyrption (or per-row encryption, to allow
-  seeking in the file).  The app isn't really designed securely enough
-  for that, though.
-
-- Add a media inset widget of some kind.  If we were on X, we could
-  just make it a captured application.  I'll look into what Qt has
-  to offer in that respect.  At the very least I would like a generic
-  viewer for images and movies, and maybe just a play button for
-  audio.  I don't want to store the binary data, though, especially
-  since grok has problems with \0 in files right now.  Instead, just
-  store a file name and either autodetect the file type or make the
-  file type part of the field definition, as well.  This feature was
-  also in the todo sample database, but it's not as though every other
-  such application doesn't have one, as well (well, yeah, every other
-  means just Fiasco and GCStar to me right now, as form.cgi was a
-  serious application for a serious database, with no media frivolity).
-
-- Remove the chart widget, and replace it with a generic inset widget.
-  Static charts can be made using external programs like R.  Making
-  them interactive might be difficult, though.  I mean, the only
-  reason I have for wanting a chart is to display the distribution
-  of games of different types, which is an aggregate number
-  corresponding to nothing (except maybe a search string).  The
-  other way to go would be to use QChartView and support whatever
-  Qt supports without much thought. The more I support, the more
-  per-item config options must be present. I think that maybe charts
-  should be popups, either static or via QChartView in some way,
-  rather than forcing them onto the static region of the card.
-
-  - At the very least, document the current chart operation a
-    little better.  The HTML docs don't even cover the chart's
-    item configuration.
 
 Major Feature:  SQL Support
 ---------------------------

@@ -114,7 +114,7 @@ Built-in:
    # specifying FKSupport=true in the connection string/DSN spec
    mariadb|mysql "SET sql_mode='ansi'"
    # should also give no_backslash_escapes, but the ODBC driver itself
-   # requires the baackslash escape misfeature.
+   # requires the backslash escape misfeature.
 
 CONCAT_AGGR - Aggregate function to concatenate non-NULL values of %1$s,
               separated by a comma.  Must support distinct.
