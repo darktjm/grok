@@ -1707,26 +1707,12 @@ static int readback_item(
 	  case EA_REFBY: create_refby_window(form);
 		      break;
 
-	  case EA_CHECK: if (!verify_form(form, &i, shell) && i < form->nitems) {
-				item_deselect(form);
-				canvas->curr_item = i;
-				IFS(form->items[i]->,SELECTED);
-				redraw_canvas_item(form->items[i]);
-				fillout_formedit();
-				sensitize_formedit();
-		      } else {
-				fillout_formedit();
-				sensitize_formedit();
-		      }
-		      break;
-
-	  case EA_PREVW: create_card_menu(form, 0, 0, false);
-		      break;
-
 	  case EA_HELP: help_callback(shell, "edit");
 	 	      return(0);
 
-	  case EA_DONE: readback_formedit();
+	  case EA_DONE:
+	  case EA_PREVW:
+	  case EA_CHECK: readback_formedit();
 		      if (!verify_form(form, &i, shell)) {
 				if (i < form->nitems) {
 					item_deselect(form);
@@ -1738,10 +1724,19 @@ static int readback_item(
 				} else {
 					item_deselect(form);
 					fillout_formedit();
+					sensitize_formedit();
 				}
 				return(0);
 		      }
-		      {
+	              if(tp->code == EA_CHECK)
+				break;
+	    	      if(tp->code == EA_PREVW) {
+				create_card_menu(form_clone(form), 0, 0, false);
+				break;
+		      }
+
+	    /* EA_DONE */
+	 		{
 			      QString msg;
 			      if(check_loaded_forms(msg, form)) {
 				      const char *formpath = resolve_tilde(form->path, "gf");
