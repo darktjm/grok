@@ -1101,7 +1101,7 @@ Stuff that will probably never fly
   which is a cohesive document rather than disjoint fragments;
   integrating user documentation is a separate issue which I
   partially address with my literate programming tools, also
-  available from my bitbucket account.)
+  available from my github account.)
 
   I should at least reformat all of the code according to my own
   indentation standards, instead of following the existing code

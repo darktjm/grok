@@ -132,10 +132,10 @@ version 1.5.4
   * form definition files no longer store blank values if default is blank
 
 -----  All releases below this line are by Thomas J. Moore,
------  https://bitbucket.org/darktjm/grok/
+-----  https://github.com/darktjm/grok/
 -----  "git tag <reltag>" can be downloaded as
------      https://bitbucket.org/darktjm/grok/get/<reltag>.tar.bz2
------  however, bitbucket doesn't give the archive or directory a good name
+-----      https://github.com/darktjm/grok/archive/refs/tags/<reltag>.tar.gz
+-----  however, github adds grok- to the archive name
 
 version 1.5.1 (git tag xmbase_grok-1.5.1, SVN 494), released 26.10.18
 

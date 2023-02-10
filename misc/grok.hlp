@@ -72,11 +72,11 @@
 
 	If you have problems you can't resolve, or if you have suggestions
 	for new features, or porting instructions for new platforms, post
-	them at https://bitbucket.org/darktjm/grok/issues/.  You will need
-	to create a (free) Bitbucket account before doing so, as I will
+	them at https://github.com/darktjm/grok/issues/.  You will need
+	to create a (free) github account before doing so, as I will
 	likely ignore anonymous requests (because there is no way to
 	contact anonymous requestors for more information).  I will also
-	review git pull requests, but I don't actually use git/bitbucket
+	review git pull requests, but I don't actually use git/github
 	for source code control, and will likely lose some metadata if I
 	merge them.
 

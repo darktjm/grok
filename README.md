@@ -32,25 +32,25 @@ databases, the contents of that directory are presented in grok
 in addition to the ones from ~/.grok. This is meant to allow experimenting
 with grok without having to copy files to one's home directory.
 
-Send bug reports to <https://bitbucket.org/darktjm/grok/issues>.  I will
+Send bug reports to <https://github.com/darktjm/grok/issues>.  I will
 likely ignore bug reports from anonymous users, since it's impossible
-to reply to them, so you may need to create an Atlassian/bitbucket
+to reply to them, so you may need to create a github
 account before reporting.  Don't forget to include the version number
 as printed by "grok -v".  If you have new applications (forms) that
 would be of general interest, I'd appreciate to get a copy for
 inclusion in the next release.  I will also review git pull requests,
-but I don't actually use git/bitbucket for source code control, and
+but I don't actually use git/github for source code control, and
 will likely lose some metadata if I merge them.  You can also bug
 thomas@bitrot.de if you like, but he is not responsible for any
 changes that I made.
 
 You can see the tags (releases) on the download page:
 
-> <https://bitbucket.org/darktjm/grok/downloads/?tab=tags>
+> <https://github.com/darktjm/grok/tags>
 
-You can see my development in progress on my bitbucket page:
+You can see my development in progress on my github page:
 
-> <https://bitbucket.org/darktjm/grok>
+> <https://github.com/darktjm/grok>
 
 You may also wish to check out some of the other files included in
 this project, such as my notes on the QT port (QT-README.md), my
@@ -99,7 +99,7 @@ The first checkin of this project is an exact copy of this archive.  I
 initially made changes to address issues I noticed while using grok
 with my own database, and released those changes as "1.5.1":
 
-> <https://bitbucket.org/darktjm/grok/get/xmbase_grok-1.5.1.tar.bz2>
+> <https://github.com/darktjm/grok/archive/refs/tags/xmbase_grok-1.5.1.tar.gz>
 
 That corresponds to the git tag `xmbase_grok-1.5.1`, and is the last
 version I released using Motif.  It builds at least on Linux using
@@ -151,7 +151,7 @@ your cat dies this is entirely your problem.
 
 Additional changes were made by Thomas J. Moore.  All changes by that
 author, as represented by the SCM changes at
-<https://bitbucket.org/darktjm/grok/> are granted to the public
+<https://github.com/darktjm/grok/> are granted to the public
 domain.
 
 Addendum:

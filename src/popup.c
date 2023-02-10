@@ -39,11 +39,11 @@ static const char about_message[] =
 	"Author: Thomas Driemeyer &lt;thomas@bitrot.de&gt;\n"
 /*	"Homepage: <a href=\"http://www.bitrot.de/grok.html\">http://www.bitrot.de/grok.html</a>\n" */
 	"Qt port, fixes, and enhancements by\nThomas J. Moore &lt;darktjm@gmail.com&gt;\n"
-	"<a href=\"https://bitbucket.org/darktjm/grok\">https://bitbucket.org/darktjm/grok</a>\n"
+	"<a href=\"https://github.com/darktjm/grok\">https://github.com/darktjm/grok</a>\n"
 	"Check for latest version at:\n"
-	"<a href=\"https://bitbucket.org/darktjm/grok/downloads/?tab=tags\">https://bitbucket.org/darktjm/grok/downloads/?tab=tags</a>\n"
+	"<a href=\"https://github.com/darktjm/grok/tags\">https://github.com/darktjm/grok/tags</a>\n"
 	"Report issues with this version at:\n"
-	"<a href=\"https://bitbucket.org/darktjm/grok/issues\">https://bitbucket.org/darktjm/grok/issues</a>\n<"
+	"<a href=\"https://github.com/darktjm/grok/issues\">https://github.com/darktjm/grok/issues</a>\n<"
 	"/div>";
 
 void create_about_popup(void)
